@@ -1,6 +1,6 @@
 minka
 ===================
-####  Distributing application processes with a balanced sharding strategy
+####  Distributing application duties with a balanced sharding strategy
 
 What happens when you're exhausting some resource and need to split the heavy processing load into several machines ? 
 * How do you do when you need to scale that UoW (Unit of Work, virtually any process) ?
@@ -17,6 +17,7 @@ What happens when you're exhausting some resource and need to split the heavy pr
 OK you're doing an ad-hoc non-repeatable distributed processing solution..
 
  * Even better:
+  	- what if you need to keep only data distributed not processes ?
 	- what if your processing workflow's stages are implemented on different platforms and languages ?
 	- what if you need taskforce load balancing ?
 	- what if you need to scale with fail-over, high availability ?
@@ -25,7 +26,7 @@ OK you're doing an ad-hoc non-repeatable distributed processing solution..
 
 Minka allows you scale up your application by distributing the UoW of your system to shards among the cluster, having both Minka and your application, bundled together within the JVM, or separated.
 
-It only requires to implement a contract taking responsibility of receiving, executing and relasing tasks when Minka commands it.
+It only requires to implement a contract taking responsibility of receiving, executing and relasing tasks when Minka commands it. What is a duty ?, the fine-grain unit of work of anything you define, data, process, task, whatever.
 
 You define:
 * what a Task is, how it is weighted, what type of balance strategy you need
