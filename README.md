@@ -23,11 +23,14 @@ OK you're doing an ad-hoc non-repeatable distributed processing solution..
 	- what if you need complete flexibility in your applicatio cluster ?
 	- you better have a specific solution absorving all this problems !!
 
-Minka allows you to centralize and distribute your application's processes as mere tasks that can be passed on to shards among the cluster, having both Minka and your application, bundled together within the JVM, or separated.
+Minka allows you scale up your application by distributing the UoW of your system to shards among the cluster, having both Minka and your application, bundled together within the JVM, or separated.
 
-It only requires to implement a contract taking responsibility of receiving, executing and relasing tasks 
-commanded by Minka
+It only requires to implement a contract taking responsibility of receiving, executing and relasing tasks when Minka commands it.
 
-You define what a Task is, what its payload is (format, packaged binaries, strings, files, whatever)
-How these tasks enter and exit the cluster, to fit your specific lifecycles
-Minka will get it from the intake endpoint, to the right place where your application can actually process it.
+You define:
+* what a Task is, how it is weighted, what type of balance strategy you need
+* what its payload is (format, packaged binaries, strings, files, whatever)
+* How these tasks enter and exit the cluster, to fit your specific lifecycles
+
+Minka will get it from the intake endpoint, to the right machine where your application can actually process it.
+Your application stays isolated from balance or distributing matters. You process, Minka stays balancing and distributing load.
