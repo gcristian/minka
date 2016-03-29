@@ -1,0 +1,97 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.tilt.minka.domain;
+
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+
+import com.google.common.collect.Lists;
+
+import io.tilt.minka.api.Duty;
+
+/**
+ * An effectively assigned, running and continuously confirmed 
+ * set of {@linkplain ShardDuty} in a given {@linkplain Shard}
+ *  
+ * @author Cristian Gonzalez
+ * @since Dec 13, 2015
+ *
+ */
+public class Partition {
+
+    private final NetworkShardID id;
+    private Set<ShardDuty> duties;
+    
+    public static Partition partitionForFollower(final NetworkShardID shardId) {
+        return new Partition(shardId);
+    }
+    
+    public Partition(final NetworkShardID shardId) {
+        this.id = shardId;
+        initDuties();
+    }
+    
+    /**
+     * @return  the sum of all weights present in these duties
+     */
+    public long getWeight() {
+        long weight = 0;
+        for (final ShardDuty duty: duties) {
+            weight += duty.getDuty().getWeight().getLoad();
+        }
+        return weight;
+    }
+    
+    private void initDuties() {
+        this.duties = new TreeSet<>();
+    }
+    
+    public NetworkShardID getId() {
+        return id;
+    }
+    
+    public void clean() {
+        initDuties();
+    }
+    
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder();
+        final List<ShardDuty> sorted = Lists.newArrayList(duties);
+        if (!sorted.isEmpty()) {
+            sorted.sort(sorted.get(0));
+        }
+        sorted.forEach(i->sb.append(i.getDuty().getId()).append(", "));
+        return sb.toString();
+    }
+    
+    public ShardDuty forDuty(final Duty<?> t) {
+        for (ShardDuty shardDuty: duties) {
+            if (shardDuty.getDuty().getId().equals(t.getId())) {
+                return shardDuty;
+            }
+        }
+        return null;
+    }
+    
+    public Set<ShardDuty> getDuties() {
+        return duties;
+    }
+    
+    
+}
