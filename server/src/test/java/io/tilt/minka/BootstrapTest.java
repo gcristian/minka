@@ -1,7 +1,7 @@
 /**
  *  Copyright (c) 2011-2015 Zauber S.A.  -- All rights reserved
  */
-package io.tilt.minka.minka;
+package io.tilt.minka;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -13,7 +13,7 @@ import io.tilt.minka.api.PartitionService;
 import io.tilt.minka.business.Bootstrap;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(locations = {"classpath:com/flowics/minka/config/context-minka-test-spring.xml"})
+@ContextConfiguration(locations = {"classpath:io/tilt/minka/config/context-minka-test-spring.xml"})
 public class BootstrapTest {
 
     @Autowired

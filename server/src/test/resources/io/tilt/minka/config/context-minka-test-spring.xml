@@ -9,7 +9,7 @@
        http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task-3.0.xsd">
 
     
-    <import resource="classpath:com/flowics/minka/config/context-minka-spring.xml"/>
+    <import resource="classpath:io/tilt/minka/config/context-minka-spring.xml"/>
     
     <bean id="partitionDelegate" class="io.tilt.minka.Delegado"/>
     <bean name="partitionMaster" class="io.tilt.minka.Delegado"/>

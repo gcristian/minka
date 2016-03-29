@@ -2,6 +2,6 @@
 if [ -z "$1" ]; then
 	echo "./minka [ broker's port ]"
 else
-	mvn -o -DXms256M -DXmx256M test -Dtest=BootstrapTest -Dmins=1440 -DbrokerServerPort=$1
+	mvn -o -DXms256M -DXmx256M test -pl server -Dtest=BootstrapTest -Dmins=1440 -DbrokerServerPort=$1
 fi
 

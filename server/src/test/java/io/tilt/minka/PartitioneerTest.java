@@ -2,7 +2,7 @@
  * Copyright (c) 2011-2015 Zauber S.A. -- All rights reserved
  */
 
-package io.tilt.minka.minka;
+package io.tilt.minka;
 
 import java.util.ArrayList;
 import java.util.List;
