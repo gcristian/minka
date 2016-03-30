@@ -1,7 +1,8 @@
 # **What is Minka ?**
-### Minka is a scaler tool for applications, providing a highly-available and fault-tolerant  service of distribution and balancing of application’s workload.
 
-#### Applying the sharding pattern to divide-and-conquer application's resources, it allows user-defined unit of works to be: grouped, distributed, transported, and assigned into shards.
+### A tool to scale applications, providing a highly-available and fault-tolerant  service of distribution and balancing of application’s workload.
+
+##### Applying the sharding pattern to divide-and-conquer application's resources, it allows user-defined unit of works to be: grouped, distributed, transported, and assigned into shards.
 
 ### Common concepts
 
@@ -35,8 +36,15 @@ It's a simple design focused on simple achievements.
 - two configurable HTTP ports, serving client requests and talking to other cluster shards,
 - Java 8
 
-Currently it’s a library running within the same application’s JVM, so it requires Java 8. 
+Currently it’s a library running within the same application’s JVM.
 In next releases it will turn to a rest java standalone application, enabling support to other languages and platforms.
+
+##### Check out the classes and interfases to integrate minka:
+ - the most of important of all: the [Partition Delegate](https://github.com/gcristian/minka/blob/master/server/src/main/java/io/tilt/minka/api/PartitionDelegate.java)
+ - the distributed unit of work to be your [Duty](https://github.com/gcristian/minka/blob/master/server/src/main/java/io/tilt/minka/api/PlainDuty.java)
+ - the point of integration to run CRUD operations over duties: the [Partition Service](https://github.com/gcristian/minka/blob/master/server/src/main/java/io/tilt/minka/api/PartitionService.java)
+
+---
 
 ### Typical path 
 
@@ -73,3 +81,11 @@ You cannot, should not
 - Run MapReduce, use Hadoop for that !
 
 Minka does not necessary fit a big-data environment, it's more to distribution and balancing like ZK is to coordination, a tool, not a platform.
+
+## Where it was born:
+
+- in [Flowics]() we're a company for social media amplification, for which there's an ETL-like staging of info., before we can provide it to the frontend UI. The need arise to satisfy the distribution and balance of fetchers from multiple sources, that need to be coordinated, as an elastic always available service.
+ 
+I'm Cristian Gonzalez, I've been coding more time than the time I had not :) 
+
+You can reach me at gcristian@gmail, and at: [Linkedin](https://www.linkedin.com/in/gcristian)
