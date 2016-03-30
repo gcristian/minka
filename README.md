@@ -45,16 +45,29 @@ In next releases it will turn to a rest java standalone application, enabling su
  - the point of integration to run CRUD operations over duties: the [Partition Service](https://github.com/gcristian/minka/blob/master/server/src/main/java/io/tilt/minka/api/PartitionService.java)
 
 ##### How to test it
- - first you need to install and Apache Zookeeper
-  - sudo apt-get install zookeeper (should work for Ubuntu 14.04+)
+ - first you need to install and Apache Zookeeper, this should work for Ubuntu 14.04+
   - by default Minka expected its default address/port = localhost:2181, let it there
+```
+sudo apt-get install zookeeper
+```
  - from the root minka folder compile the system:
-  - mvn compile
- - then from different linux terminals execute some: (on different ports, take care of your memory):
-  - ./test [any free port, 9000,9001,9002 for instance]
+```
+mvn compile
+```
+ - then execute these lines from different linux terminals: (2 or 3, take care of your memory):
+```
+./test 9000
+./test 9001
+./test 9002
+```
  - they will all run a follower role, and candidate for a leader role.
  - there's also a demo Partition Delegate which will only print the duties that has been assigned to keep
- - all leader and follower roles behaviour is being logged at /tmp/minka-leader.log, and ..-follower.log
+ - all leader and follower roles behaviour is being logged at
+```
+/tmp/minka-leader.log
+/tmp/minka-follower.log
+/tmp/minka-other.log
+```
 
 ---
 
