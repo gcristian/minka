@@ -1,38 +1,75 @@
-minka
-===================
-####  Distributing application duties with a balanced sharding strategy
+# **What is Minka ?**
+### Minka is a scaler tool for applications, providing a highly-available and fault-tolerant  service of distribution and balancing of application’s workload.
 
-What happens when you're exhausting some resource and need to split the heavy processing load into several machines ? 
-* How do you do when you need to scale that UoW (Unit of Work, virtually any process) ?
-	- may be you start writing/reading tasks into/from some distributed highly available storage like any modern RDBMS
-	- sooner or later you'll need to coordinate those processes
-	- then you'll change the storage for some form of Queue...
-	- but then you'll be limited for "realtime" consumption of events
-	- what if you always have the same tasks that you need to be running all day long ?
-	- what if your input data causes very different processing loads, and end-up having very unbalanced nodes, 	or big bottlenecks when heavy tasks appear with the corresponding downtime
-	- then your producer must know about that and execute some sort of sensus on your application's work load
-	- and may be you'll end up having some sort of weighted processing queues for different requirements, 
-	- so then you're needing again some kind of RDBMS/Queue with lot of flags and preconditions
-	
-OK you're doing an ad-hoc non-repeatable distributed processing solution..
+#### Applying the sharding pattern to divide-and-conquer application's resources, it allows user-defined unit of works to be: grouped, distributed, transported, and assigned into shards.
 
- * Even better:
-  	- what if you need to keep only data distributed not processes ?
-	- what if your processing workflow's stages are implemented on different platforms and languages ?
-	- what if you need taskforce load balancing ?
-	- what if you need to scale with fail-over, high availability ?
-	- what if you need complete flexibility in your applicatio cluster ?
-	- you better have a specific solution absorving all this problems !!
+### Common concepts
 
-Minka allows you to scale up your application data or tasks by distributing the UoW of your system to shards among the cluster, having both Minka and your application, bundled together within the JVM, or separated.
+**Duties** are anything able to fine-grain within an application, like tasks, data, processes, you define it.
+They can pan from a static only-once to a dynamic idempotent nature, so will their lifecycles be managed.
+The minimal granularity of a processing function whom resources you need to make available by distribution.
 
-It only requires to implement a contract taking responsibility of receiving, executing and relasing tasks when Minka commands it. What is a duty ?, the fine-grain unit of work of anything you define, data, process, task, whatever.
+ - You define what they mean, how to group them into pallets
+ - You define how they’re weighted, and what balancing strategy they need
+ - You define how and when they enter and exit the cluster, fitting your lifecycle
 
-You define:
-* what a duty is, a task, data, 
-* how it is weighted, what type of balance strategy you need
-* what its payload is (format, packaged binaries, strings, files, whatever)
-* How they enter and exit the cluster, to fit your specific lifecycles
+**Shards** are the instances of an application needing to divide-and-conquer their input to scale usage of resources. They will be hosting both the user application and a shard of Minka. Internally a Minka shard consists of a follower process, and a leader candidate process, elected or in position to be.
 
-Minka will get it from the intake endpoint, to the right machine where your application can actually process it.
-Your application stays isolated from balance or distributing matters. You code the process, Minka stays balancing and distributing load.
+**Delegates** are the integration with Minka, subjected to a basic contract: it must take, release, and report their assigned duties, whenever it's commanded to.
+
+Everything set, Minka gets user duties from the intake endpoint to their corresponding application's delegate, in the right machine where it’s running, keeping the cluster balanced, and all duties assigned as long as there is at least one shard to do it.
+
+### Features
+- Distributed because the shards communicate thru HTTP ports, they can be anywhere as long as they can keep connected.
+ - All actions over duties will be re-routed thru the leader and sent to the follower Shard 
+- Highly available and fault tolerant because it runs roles of leader (coordinators) and followers (application managers) that react this way:
+  - In case of server shutdown, hang-up, or leader in-communication or leader fail, their held duties will be automatically re-distributed to alive shards,
+  - and the out of sync shard will also release all held duties, in order to avoid concurrency while waiting to communicate with the leader.
+  - In case the failing server is also the leader of the ensemble, other shards will result elected.
+- Agnostic because minka doesn’t take part into the behaviour or platform of the application's delegate.
+
+It's a simple design focused on simple achievements.
+
+### Implementation and requirements
+- an Apache Zookeeper ensemble,
+- two configurable HTTP ports, serving client requests and talking to other cluster shards,
+- Java 8
+
+Currently it’s a library running within the same application’s JVM, so it requires Java 8. 
+In next releases it will turn to a rest java standalone application, enabling support to other languages and platforms.
+
+### Typical path 
+
+What happens when you're exhausting some resource and need to split the heavy processing load into several machines ?
+
+ - may be you start writing tasks into some DB from where you’ll be taking tasks from.
+ - and sooner or later you'll need to coordinate those poller processes
+ - then you'll change the storage for some sort of queue…
+  - So you'll be limited for "realtime" consumption of events
+ - what if you always have the same tasks that you need to be running all day long ?
+ - what if you don’t have tasks, but only data to be distributed ?
+ - what if your input data causes very different processing loads ?
+  - You’ll end-up having very unbalanced nodes, 
+  - or big bottlenecks when heavy tasks appear with the corresponding downtime
+ -  So your producer must prevent it by knowing some sort of sensus on your application's workload
+ - Which may lead to have weighted processing queues for different requirements, 
+ - so then you're needing again some kind of RDBMS/Queue with lot of flags and preconditions
+
+OK you're doing an ad-hoc distributed processing solution, lot of complexity will keep arising from the first innocent initiative to solve the problem. And the What if’s could get funnier:
+
+ - WIF you need to keep only data distributed not processes ?
+ - WIF your processing stages are implemented on different platforms or languages ?
+ - WIF you need to scale that with some guarantees of availability and failure tolerance ?
+ - WIF you need complete flexibility in your application cluster ?
+
+**You better be prepared :)**
+
+## What it is not Minka
+
+You cannot, should not
+
+- Build Elasticsearch within Minka, but you could write similar interactions at a less stressing level.
+- Balance web-application requests like you would with nGinx
+- Run MapReduce, use Hadoop for that !
+
+Minka does not necessary fit a big-data environment, it's more to distribution and balancing like ZK is to coordination, a tool, not a platform.
