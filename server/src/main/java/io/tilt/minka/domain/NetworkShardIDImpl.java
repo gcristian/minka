@@ -62,20 +62,20 @@ public class NetworkShardIDImpl implements NetworkShardID {
 	}
 
     private void testPort() {
-        logger.info("{}: Testing host {} port {}", getClass().getSimpleName(), sourceHost, port);
         ServerSocket socket = null; 
         try {
             socket = new ServerSocket(port);
+            logger.info("{}: Testing host {} port {} OK", getClass().getSimpleName(), sourceHost, port);            
         } catch (IOException e) {
-            throw new IllegalArgumentException("port cannot be opened: " + port, e);
+            throw new IllegalArgumentException("Testing port cannot be opened: " + port, e);
         } finally {
             if (socket!=null && !socket.isBound()) {
-                throw new IllegalArgumentException("port cannot be opened: " + port);
+                throw new IllegalArgumentException("Testing port cannot be opened: " + port);
             } else if (socket!=null) {
                 try {
                     socket.close();
                 } catch (IOException e) {
-                    throw new IllegalArgumentException("port cannot be tested: " + port);
+                    throw new IllegalArgumentException("Testing port cannot be tested: " + port);
                 }
             }
         }

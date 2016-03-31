@@ -93,8 +93,8 @@ public class SocketClient {
         } else {
             long elapsed = System.currentTimeMillis() - lastUsage;
             if (elapsed > this.clientExpiration) {
-                logger.warn("{}: expired ! {} old (for max is: {})", getClass().getSimpleName(), elapsed, 
-                        this.clientExpiration);
+                logger.warn("{}: ({}) expired ! {} old (for max is: {})", getClass().getSimpleName(), loggingName, 
+                        elapsed, this.clientExpiration);
                 return true;
             } else {
                 return false;
