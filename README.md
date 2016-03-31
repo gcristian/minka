@@ -1,22 +1,22 @@
 # **What is Minka ?**
 
-### A tool to scale applications, providing a highly-available and fault-tolerant  service of distribution and balancing of application’s workload.
+### A tool to scale up applications, providing a highly-available and fault-tolerant service of distribution and balancing of processing workload.
 
 ##### Applying the sharding pattern to divide-and-conquer application's resources, it allows user-defined unit of works to be: grouped, distributed, transported, and assigned into shards.
 
-### Common concepts
+### Concepts of the model
 
-**Duties** are anything able to fine-grain within an application, like tasks, data, processes, you define it.
-They can pan from a static only-once to a dynamic idempotent nature, so will their lifecycles be managed.
-The minimal granularity of a processing function whom resources you need to make available by distribution.
+**Duties** represent anything you can fine-grain within an application, like tasks, data, processes.
+They can pan from a static only-once execution to a dynamic idempotent nature, their lifecycles may freely vary.
+The minimal granularity of a processing function whose resources you need to make available by distribution.
+You define...
+ - what they mean, how to group them into pallets
+ - how they’re weighted, and what balancing strategy they need
+ - how and when they enter and exit the cluster, fitting your lifecycle
 
- - You define what they mean, how to group them into pallets
- - You define how they’re weighted, and what balancing strategy they need
- - You define how and when they enter and exit the cluster, fitting your lifecycle
+**Shards** are the instances of your application running along with Minka, needing to divide-and-conquer their input to scale usage of resources. Internally a Minka shard consists of a follower process, and a leader candidate process, elected or in position to be.
 
-**Shards** are the instances of an application needing to divide-and-conquer their input to scale usage of resources. They will be hosting both the user application and a shard of Minka. Internally a Minka shard consists of a follower process, and a leader candidate process, elected or in position to be.
-
-**Delegates** are the integration with Minka, subjected to a basic contract: it must take, release, and report their assigned duties, whenever it's commanded to.
+**Delegates** are the client's implementations to receive duties from Minka, subjected to a basic contract: it must take, release, and report their assigned duties, whenever it's commanded to, this's mandatory for Minka to work
 
 Everything set, Minka gets user duties from the intake endpoint to their corresponding application's delegate, in the right machine where it’s running, keeping the cluster balanced, and all duties assigned as long as there is at least one shard to do it.
 
@@ -46,11 +46,11 @@ In next releases it will turn to a rest java standalone application, enabling su
 
 ##### How to test it
  - first you need to install and Apache Zookeeper, this should work for Ubuntu 14.04+
-  - by default Minka expected its default address/port = localhost:2181, let it there
+ - by default Minka expects ZK default address/port = localhost:2181, let it there
 ```
 sudo apt-get install zookeeper
 ```
- - from the root minka folder compile the system:
+ - from the root minka folder compile the system using maven:
 ```
 mvn compile
 ```
@@ -69,9 +69,70 @@ mvn compile
 /tmp/minka-other.log
 ```
 
+### so what happens ?
+
+- Minka starts with a demo instance of a PartitionDelegate that
+ - returns the master list of duties when asked (at leader election)
+ - saves assigned duties into a memory map,
+ - and prints them if any assignation change occurs 
+ - the demo Duty is simply a String ID value from "1" to "20"
+
+![bootup](https://k61.kn3.net/57A5CC710.png)
+
+- then each minka process
+	- listens in a different HTTP port (9000,9001,9002), and connects to Zookeeper (2181)
+	- starts a follower role that's waiting the aparition of a leader 
+	- starts a leader candidate, but only one process won the election
+	- every follower acknowleged the leader and started sending heartbeats
+	- each heartbeat has a list of duties that the demo client is running
+
+![folloers](https://k61.kn3.net/213E4AB77.png)
+
+- and the elected leader
+	- will ask the PartitionDelegate for the master duties 
+	- will distribute them among the followers
+	- will keep receiving heartbeats, maintaining a ranking of behaviour
+	- will go on checking follower behaviour, duty balance, and prepared to react on any change
+
+![](https://k60.kn3.net/7D15B90C3.png)
+
+
+### Cool, but what if....
+
+- the leader falls ?
+	- another process will took the role immediately
+- the follower falls ?
+ - the leader will redistribute its duties keeping balance
+- the follower flaps between a healthy and a sick state ?
+ - according parametried values, it will be shutdown or be tolerated
+- no leader is elected ? 
+ - all followers will release duties, all leader candidates will retry their postulation
+- communication is broken ?
+ - all followers will release duties, leader's follower role will catch all duties
+- communication flaps between healthly and sick ?
+ - depending config, it will be tolerated or stop and keep retrying
+- zookeeper falls ?
+ - all followers will release duties, the leader will stop, both roles will retry connection forever
+- when the leader, communication, or zookeeper comes back ?
+ - everything will "turn to normality"
+- I correctly shutdown a machine ?
+	- the follower will say bye to the leader, and it wont take a sick verification time for their duties to be redistributed
+	- the leader will pass on its data to the next leader elected on a different machine
+
+The system is built with strong efforts on resilience, so it wont give up easily to work the right way.
+
+## Markitecture
+
+##### this occurrs when you run: ./test 9000 & ./test 9001
+
+![diagram](https://github.com/gcristian/minka/blob/master/doc/minka-markitecture.png?raw=true)
+
+> in this case duties are provided by the application itself, this's all occurring on the same machine, 
+
+
 ---
 
-### Typical path 
+### How do we all really start coding this ?
 
 What happens when you're exhausting some resource and need to split the heavy processing load into several machines ?
 
