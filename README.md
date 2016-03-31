@@ -20,6 +20,10 @@ You define...
 
 Everything set, Minka gets user duties from the intake endpoint to their corresponding application's delegate, in the right machine where it’s running, keeping the cluster balanced, and all duties assigned as long as there is at least one shard to do it.
 
+![diagram](https://k60.kn3.net/A930AF8D2.png)
+> in this case duties are provided by the application itself, this's all occurring on the same machine, 
+
+
 ### Features
 - Distributed because the shards communicate thru HTTP ports, they can be anywhere as long as they can keep connected.
  - All actions over duties will be re-routed thru the leader and sent to the follower Shard 
@@ -120,15 +124,6 @@ mvn compile
 	- the leader will pass on its data to the next leader elected on a different machine
 
 The system is built with strong efforts on resilience, so it wont give up easily to work the right way.
-
-## Markitecture
-
-##### this occurrs when you run: ./test 9000 & ./test 9001
-
-![diagram](https://github.com/gcristian/minka/blob/master/doc/minka-markitecture.png?raw=true)
-
-> in this case duties are provided by the application itself, this's all occurring on the same machine, 
-
 
 ---
 
