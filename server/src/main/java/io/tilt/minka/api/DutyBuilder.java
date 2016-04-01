@@ -32,11 +32,13 @@ import io.tilt.minka.domain.Workload;
  * 
  * @param <T>
  */
-public class PlainDuty<T> implements Duty<T>, Serializable {
+//@SuppressWarnings({ "unchecked", "rawtypes" })
+public class DutyBuilder<T> implements Duty<T>, Serializable {
     
     private static final long serialVersionUID = 4976043821619752116L;
     
     private final String id;
+    private final String palletId;
     private final long load;
     private final long maxLoad;
     private final T value;
@@ -48,9 +50,9 @@ public class PlainDuty<T> implements Duty<T>, Serializable {
      * @param id    must be a unique ID within your domain
      * @param load  the work load associated to this duty at execution time
      * @return
-     */
-    public static PlainDuty<String> build(final String id, final long load) {
-        return new PlainDuty<String>(String.class, id, id, load, load);
+     */    
+    public static <T> DutyBuilder<T> build(Class<T> clas, final String id, final String palletId, final long load) {
+        return new DutyBuilder<T>(clas, null, id, load, load, palletId);
     }
     
     /**
@@ -59,8 +61,8 @@ public class PlainDuty<T> implements Duty<T>, Serializable {
      * @param id    must be a unique ID within your domain
      * @return
      */
-    public static PlainDuty<String> build(final String id) {
-        return new PlainDuty<String>(String.class, id, id, 1l, 1l);
+    public static <T>DutyBuilder<T> build(Class<T> clas, final String id, final String palletId) {
+        return new DutyBuilder<T>(clas, null, id, 1l, 1l, palletId);
     }
     
     /** 
@@ -71,8 +73,8 @@ public class PlainDuty<T> implements Duty<T>, Serializable {
      * @param maxLoad       the maximum work load (limit) that your domains recognizes for a duty
      * @return
      */
-    public static PlainDuty<String> build(final String id, final long load, final long maxLoad) {
-        return new PlainDuty<String>(String.class, id, id, load, maxLoad);
+    public static DutyBuilder<String> build(final String id, final long load, final long maxLoad, final String palletId) {
+        return new DutyBuilder<String>(String.class, id, id, load, maxLoad, palletId);
     }
     
     /**
@@ -84,12 +86,13 @@ public class PlainDuty<T> implements Duty<T>, Serializable {
      * @param load          the work load associated to this duty at execution time
      * @return
      */
-    public static <T> PlainDuty<T> build(
-            final Class<T> type, 
+    public static <T> DutyBuilder<T> build(
+            Class<T> type, 
             final T value, 
-            final String id, 
+            final String id,
+            final String palletId,
             final long load) {
-        return new PlainDuty<T>(type, value, id, load, load);
+        return new DutyBuilder<T>(type, value, id, load, load, palletId);
     }
     
     /**
@@ -102,34 +105,36 @@ public class PlainDuty<T> implements Duty<T>, Serializable {
      * @param maxLoad       the maximum work load (limit) that your domains recognizes for a duty
      * @return
      */
-    public static <T> PlainDuty<T> build(
+    public static <T> DutyBuilder<T> build(
             final Class<T> type, 
             final T value, 
             final String id, 
+            final String palletId,
             final long load, 
             final long maxLoad) {
-        return new PlainDuty<T>(type, value, id, load, maxLoad);
+        return new DutyBuilder<T>(type, value, id, load, maxLoad, palletId);
     }
     
-    private PlainDuty(final Class<T> type, final T value, final String id, final long load, final long maxLoad) {
-        Validate.notNull(type, "You must specify param's class or use overload builder");
-        Validate.notNull(value, "You must specify param or use overload builder");
+    private DutyBuilder(final Class<T> class1, final T id2, final String id, 
+            final long load, final long maxLoad, final String palletId) {
+        Validate.notNull(class1, "You must specify param's class or use overload builder");
+        Validate.notNull(id2, "You must specify param or use overload builder");
         Validate.notNull(id, "A non null ID is required");
         Validate.isTrue(load>0, "A number greater than 0 expected for workload representing the duty");
         Validate.notNull(maxLoad, "A number greater than 0 expected for the maximum workload (limit) in your domain");
         this.id = id;
+        this.palletId = palletId;
         this.load = load;
-        this.value = value;
-        this.type = type;
+        this.value = id2;
+        this.type = class1;
         this.maxLoad = maxLoad;
     }
 
-    @SuppressWarnings("rawtypes")
     @Override
     public boolean equals(Object obj) {
-        if (obj!=null && obj instanceof PlainDuty) {
-            PlainDuty plain = (PlainDuty)obj;
-            return getId().equals(plain.getId());
+        if (obj!=null && obj instanceof Entity) {
+            Entity<T> entity = (Entity)obj;
+            return getId().equals(entity.getId());
         } else {
             return false;
         }
@@ -175,4 +180,13 @@ public class PlainDuty<T> implements Duty<T>, Serializable {
         return id;
     }
 
+    @Override
+    public String getPalletId() {
+        return palletId;
+    }
+
+    @Override
+    public int compare(String o1, String o2) {
+        return o1.compareTo(o2);
+    }
 }

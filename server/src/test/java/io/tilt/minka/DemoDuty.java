@@ -20,14 +20,17 @@ public class DemoDuty implements Duty<DemoDuty>, Serializable {
     private final Long id;
     private static final AtomicLong sequence = new AtomicLong();
     private final long load;
+    private final String palletId;
     
-    public DemoDuty() {
+    public DemoDuty(String palletId) {
         this.id = sequence.incrementAndGet();
+        this.palletId = palletId;
         this.load = (long)(new Random().nextInt(MAX_LOAD_DEMO));
     }
     
-    public DemoDuty(long id) {
+    public DemoDuty(long id, String palletId) {
         this.id = id;
+        this.palletId = palletId;
         this.load = (long)(new Random().nextInt(MAX_LOAD_DEMO));
     }
     
@@ -75,6 +78,16 @@ public class DemoDuty implements Duty<DemoDuty>, Serializable {
     @Override
     public Workload getWeight() {
         return new Workload(load, (long)MAX_LOAD_DEMO);
+    }
+
+    @Override
+    public int compare(String o1, String o2) {
+        return o1.compareTo(o2);
+    }
+
+    @Override
+    public String getPalletId() {
+        return palletId;
     }
     
 }

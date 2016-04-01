@@ -31,18 +31,18 @@ import io.tilt.minka.business.follower.Follower;
 import io.tilt.minka.business.impl.ZookeeperLeaderShardContainer;
 import io.tilt.minka.business.leader.ClientMediator;
 import io.tilt.minka.business.leader.Leader;
-import io.tilt.minka.domain.DutyEvent;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardCommand;
-import io.tilt.minka.domain.ShardDuty;
+import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.domain.ShardState;
 import io.tilt.minka.domain.Workload;
-import io.tilt.minka.domain.ShardDuty.State;
+import io.tilt.minka.domain.ShardEntity.State;
 
 /**
  * Client's point of integration.
- * Facility to CRUD {@linkplain ShardDuty} and SysAdmin a {@linkplain Shard} 
+ * Facility to CRUD {@linkplain ShardEntity} and SysAdmin a {@linkplain Shard} 
  * 
  * So a {@link Leader} service whoever it is, will receive the event and distribute it
  * to a selected {@link Follower} according their {@link ShardState} and {@link Workload}
@@ -57,6 +57,8 @@ import io.tilt.minka.domain.ShardDuty.State;
 public class PartitionService {
 
 	private static final Logger logger = LoggerFactory.getLogger(PartitionService.class);
+	
+	private static PartitionService instance;
 	
 	public enum Command {
 	    /**
@@ -117,6 +119,11 @@ public class PartitionService {
 	    this.clientMediator = mediator;
 	    this.shardId = shardId;
 	    this.leaderShardContainer = leaderShardContainer;
+	    instance = this;
+	}
+	
+	public static PartitionService getInstance() {
+	    return PartitionService.instance;
 	}
 	
 	/**
@@ -134,7 +141,11 @@ public class PartitionService {
 	 * @param duty	    a duty sharded or to be sharded in the cluster
 	 */
 	public boolean remove(final String service, final Duty<?> duty) {
-        return send(service, duty, DutyEvent.DELETE, null);
+        return send(service, duty, EntityEvent.DELETE, null);
+    }
+	
+	public boolean remove(final String service, final Pallet<?> pallet) {
+        return false; //send(service, pallet, DutyEvent.DELETE, null);
     }
 	
 	/**
@@ -150,7 +161,7 @@ public class PartitionService {
 	 * @return
 	 */
 	public boolean finalized(final String service, final Duty<?> duty) {
-        return send(service, duty, DutyEvent.FINALIZED, null);
+        return send(service, duty, EntityEvent.FINALIZED, null);
     }
 	
 	/**
@@ -165,7 +176,7 @@ public class PartitionService {
      * @param duty      a duty sharded or to be sharded in the cluster
 	 */
 	public boolean add(final String service, final Duty<?> duty) {
-        return send(service, duty, DutyEvent.CREATE, null);
+        return send(service, duty, EntityEvent.CREATE, null);
     }
 	
 	/**
@@ -174,7 +185,7 @@ public class PartitionService {
      * @param duty      a duty sharded or to be sharded in the cluster
 	 */
 	public boolean update(final String service, final Duty<?> duty) {
-        return send(service, duty, DutyEvent.UPDATE, null);
+        return send(service, duty, EntityEvent.UPDATE, null);
     }
 	
 	/**
@@ -187,20 +198,20 @@ public class PartitionService {
 	        final Duty<?> duty, 
 	        final Serializable userPayload) {
 	    
-        return send(service, duty, DutyEvent.UPDATE, userPayload);
+        return send(service, duty, EntityEvent.UPDATE, userPayload);
     }
-    
+
 	private boolean send(
 	        final String service, 
 	        final Duty<?> raw, 
-	        final DutyEvent event, 
+	        final EntityEvent event, 
 	        final Serializable userPayload) {
 	    
 		Validate.notNull(service, "a service name is required to send the entity");
 		Validate.notNull(raw, "an entity is required");
 		
 		boolean sent = true;
-		final ShardDuty duty = ShardDuty.create(raw);
+		final ShardEntity duty = ShardEntity.create(raw);
 		duty.registerEvent(event, State.PREPARED);
 		if (userPayload !=null) {
 		    duty.setUserPayload(userPayload);

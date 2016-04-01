@@ -16,7 +16,10 @@
  */
 package io.tilt.minka.api;
 
-import io.tilt.minka.domain.Workload;
+import java.util.Comparator;
+import java.util.List;
+
+import com.google.common.collect.Lists;
 
 /**
  * An abstract entity that the host application uses to represent anything able to balance and distribute.  
@@ -33,17 +36,34 @@ import io.tilt.minka.domain.Workload;
  * 
  * @param <T>
  */
-public interface Duty<T> extends Entity<T> {	
-	/**
-	 * Required to maintain a fairly load balancing  
-	 * @return
-	 */
-	Workload getWeight();
+public interface Entity<T> extends Comparable<String>, Comparator<String> {
+	
+    Class<T> getClassType();
+    
+    /**
+     * Duties have a payload as Pallets do.
+     * 
+     * Pallets may have their own payload, to be accesible and shared by their conforming duties.  
+     * They will be carried to shards only the first time they appear in the shard's life-cycle. 
+     * Unless they change thru {@linkplain PartitionService}, ending up {@linkplain PartitionDelegate} being called.
+     *  
+     * @return  any data that can be transported thru TCP-IP
+     */
+	T get();
 		
 	/**
-	 * The pallet ID to which this duty must be grouped into.
+	 * Type erasure bans the chance to call a useful equals() on the impl.
 	 * @return
 	 */
-	String getPalletId();
-	
+	String getId();
+		
+	/**
+	 * Duties have specific attributes.
+	 * Also Pallets have attributes to apply to all duties containing the pallet
+	 * @return
+	 */
+	default List<DutyAttribute> getAttributes() {
+	    return Lists.newArrayList();
+	}
+
 }

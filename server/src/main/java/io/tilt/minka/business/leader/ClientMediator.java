@@ -34,11 +34,11 @@ import io.tilt.minka.business.Coordinator;
 import io.tilt.minka.business.Coordinator.PriorityLock;
 import io.tilt.minka.business.Coordinator.SynchronizedFactory;
 import io.tilt.minka.business.impl.ServiceImpl;
-import io.tilt.minka.domain.DutyEvent;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.NetworkShardID;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardCommand;
-import io.tilt.minka.domain.ShardDuty;
+import io.tilt.minka.domain.ShardEntity;
 
 /**
  * Drives events generated thru the {@linkplain PartitionService} by the client
@@ -103,7 +103,7 @@ public class ClientMediator extends ServiceImpl implements Consumer<Serializable
 	
 	private void listenUserEvents() {
 	    eventBroker.subscribeEvent(eventBroker.buildToTarget(config, Channel.CLIENT_TO_LEADER, shardId), 
-		        ShardDuty.class, this, 0, config.getQueueUserRetentionLapseMs());
+		        ShardEntity.class, this, 0, config.getQueueUserRetentionLapseMs());
 	    eventBroker.subscribeEvent(eventBroker.buildToTarget(config, Channel.CLIENT_TO_LEADER, shardId),  
 		        ShardCommand.class, this, 0, config.getQueueUserRetentionLapseMs());
 	}
@@ -117,14 +117,14 @@ public class ClientMediator extends ServiceImpl implements Consumer<Serializable
 	@Override
 	public void stop() {
 		logger.info("{}: Stopping", getClass().getSimpleName());
-		eventBroker.unsubscribeEvent(eventBroker.build(config, Channel.CLIENT_TO_LEADER), ShardDuty.class, this);
+		eventBroker.unsubscribeEvent(eventBroker.build(config, Channel.CLIENT_TO_LEADER), ShardEntity.class, this);
 	}
 
 	@Override
 	public void accept(Serializable event) {
 		if (inService()) {
-			if (event instanceof ShardDuty) {
-			    final ShardDuty duty = (ShardDuty)event;
+			if (event instanceof ShardEntity) {
+			    final ShardEntity duty = (ShardEntity)event;
 			    mediateOnDuty(duty);
 			} else if (event instanceof ShardCommand) {
 				clusterOperation((ShardCommand)event);
@@ -135,8 +135,8 @@ public class ClientMediator extends ServiceImpl implements Consumer<Serializable
 		}
 	}
 
-    public void mediateOnDuty(final ShardDuty duty) {
-        if (duty.is(DutyEvent.UPDATE)) {
+    public void mediateOnDuty(final ShardEntity duty) {
+        if (duty.is(EntityEvent.UPDATE)) {
             // TODO chekear las cuestiones de disponibilidad de esto
             final Shard location = partitionTable.getDutyLocation(duty);
             if (location != null && location.getState().isAlive()) {
@@ -153,6 +153,5 @@ public class ClientMediator extends ServiceImpl implements Consumer<Serializable
             auditor.registerCrudThruCheck(duty);
         }
     }
-
 	
 }

@@ -23,6 +23,10 @@ import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.api.Pallet.Storage;
+import io.tilt.minka.business.leader.distributor.Balancer.BalanceStrategy;
+import io.tilt.minka.business.leader.distributor.Balancer.FairWorkloadBalancerPreSort;
+import io.tilt.minka.business.leader.distributor.Balancer.SpillBalancerStrategy;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.utils.Defaulter;
 
@@ -180,49 +184,13 @@ public class Config extends Properties {
     private int balancerEvenSizeMaxDutiesDeltaBetweenShards;
 
 
-    public enum BalanceStrategy {
-        /* all nodes same amount of entities */
-        EVEN_SIZE,
-        /* duties clustering according weights */
-        FAIR_LOAD,
-        /* fill each node until spill then fill another node */
-        SPILL_OVER;
-    }
 
     private static final String DISTRIBUTOR_BALANCER_STRATEGY_DEFAULT = "FAIR_LOAD";
     private BalanceStrategy distributorBalancerStrategy;
-
-    public enum FairBalancerPreSort {
-        /**
-         * Use Creation date order, i.e. natural order.
-         * Use this to keep the migration of duties among shards: to a bare minimum.
-         * Duty workload weight is considered but natural order restricts the re-accomodation much more.
-         * Useful when the master list of duties has few changes, and low migration is required. 
-         */
-        DATE,
-        /**
-         * Use Workload order.
-         * Use this to maximize the clustering algorithm's effectiveness.
-         * In presence of frequent variation of workloads, duties will tend to migrate more. 
-         */
-        WORKLOAD;
-    }
     
     private static final String BALANCER_FAIR_LOAD_PRESORT_DEFAULT = "WORKLOAD";
-    private FairBalancerPreSort balancerFairLoadPresort;
-    
-    public enum SpillBalancerStrategy {
-        /**
-         * Use the Max value to compare the sum of all running duties's weights 
-         * and restrict new additions over a full shard 
-         */ 
-        WORKLOAD,
-        /**
-         * Use the Max value as max number of duties to fit in one shard 
-         */
-        SIZE
-    }
-    
+    private FairWorkloadBalancerPreSort balancerFairLoadPresort;
+        
     private static final String BALANCER_SPILL_OVER_STRATEGY_DEFAULT = "WORKLOAD";
     private SpillBalancerStrategy balancerSpillOverStrategy;
     
@@ -265,8 +233,8 @@ public class Config extends Properties {
     private int clusterHealthStabilityDelayPeriods;
     
     /* whether using PartitionMaster or PartitionDelegate */
-    private final static String MINKA_STORAGE_DUTIES_DEFAULT = "false";
-    private boolean minkaStorageDuties;
+    private final static String DUTY_STORAGE_DEFAULT = "CLIENT_DEFINED";
+    private Storage dutyStorage;
     
 	public Config(Properties p) {
 	    if (p == null) {
@@ -416,8 +384,8 @@ public class Config extends Properties {
         return this.bootstrapPublishLeaderCandidature;
     }
 
-    public boolean minkaStorageDuties() {
-        return this.minkaStorageDuties;
+    public Storage getDutyStorage() {
+        return this.dutyStorage;
     }
 
     public double getShepherdHeartbeatMaxBiggestDistanceFactor() {
@@ -448,7 +416,7 @@ public class Config extends Properties {
         return this.distributorReallocationMaxRetries;
     }
     
-    public FairBalancerPreSort getBalancerFairLoadPresort() {
+    public FairWorkloadBalancerPreSort getBalancerFairLoadPresort() {
         return this.balancerFairLoadPresort;
     }
     

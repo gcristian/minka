@@ -42,7 +42,7 @@ import io.tilt.minka.business.impl.ServiceImpl;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.Partition;
 import io.tilt.minka.domain.ShardCommand;
-import io.tilt.minka.domain.ShardDuty;
+import io.tilt.minka.domain.ShardEntity;
 
 @SuppressWarnings("rawtypes")
 public class LeaderConsumer extends ServiceImpl implements Service, Consumer<Serializable> {
@@ -87,7 +87,7 @@ public class LeaderConsumer extends ServiceImpl implements Service, Consumer<Ser
         final long retentionLapse = Math.max(config.getQueueInboxRetentionLapseMs()*1000, START_PAST_LAPSE_MS);
         final long sinceNow = System.currentTimeMillis();
         eventBroker.subscribeEvent(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()), 
-                ShardDuty.class, this, sinceNow, retentionLapse);
+                ShardEntity.class, this, sinceNow, retentionLapse);
         eventBroker.subscribeEvent(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()), 
                 Clearance.class, this, sinceNow, retentionLapse);
         eventBroker.subscribeEvent(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()), 
@@ -115,20 +115,20 @@ public class LeaderConsumer extends ServiceImpl implements Service, Consumer<Ser
         if (event instanceof ShardCommand) {
             logger.info("{}: ({}) Receiving: {}", getClass().getSimpleName(), config.getResolvedShardId(), event);
             partitionManager.handleClusterOperation((ShardCommand)event);
-        } else if (event instanceof ShardDuty) {
+        } else if (event instanceof ShardEntity) {
             logger.info("{}: ({}) Receiving: {}", getClass().getSimpleName(), config.getResolvedShardId(), event);
             Synchronized handler = SynchronizedFactory.build(
-                    Action.INSTRUCT_DELEGATE, PriorityLock.MEDIUM_BLOCKING,  ()->handleDuty((ShardDuty)event));
+                    Action.INSTRUCT_DELEGATE, PriorityLock.MEDIUM_BLOCKING,  ()->handleDuty((ShardEntity)event));
             coordinator.run(handler);
         } else if (event instanceof ArrayList) {
             logger.info("{}: ({}) Receiving: {}", getClass().getSimpleName(), config.getResolvedShardId(), event);
-            final List<ShardDuty> list = (ArrayList<ShardDuty>)event;
+            final List<ShardEntity> list = (ArrayList<ShardEntity>)event;
             final Synchronized handler = SynchronizedFactory.build(Action.INSTRUCT_DELEGATE, 
                     PriorityLock.MEDIUM_BLOCKING, ()-> {
-                if (list.stream().collect(Collectors.groupingBy(ShardDuty::getDutyEvent)).size()>1) {
+                if (list.stream().collect(Collectors.groupingBy(ShardEntity::getDutyEvent)).size()>1) {
                     list.forEach(d->handleDuty(d));
                 } else {
-                    handleDuty(list.toArray(new ShardDuty[list.size()]));
+                    handleDuty(list.toArray(new ShardEntity[list.size()]));
                 }
             });
             coordinator.run(handler);
@@ -152,7 +152,7 @@ public class LeaderConsumer extends ServiceImpl implements Service, Consumer<Ser
         }
     }
 
-    private void handleDuty(final ShardDuty ...duties) {
+    private void handleDuty(final ShardEntity ...duties) {
         try {
             switch (duties[0].getDutyEvent()) {
                 case ASSIGN:
@@ -160,7 +160,7 @@ public class LeaderConsumer extends ServiceImpl implements Service, Consumer<Ser
                     break;
                 case UNASSIGN:
                     partitionManager.unassign(Lists.newArrayList(duties));
-                    for (ShardDuty duty: duties) {
+                    for (ShardEntity duty: duties) {
                         partition.getDuties().remove(duty);
                     }
                     break;

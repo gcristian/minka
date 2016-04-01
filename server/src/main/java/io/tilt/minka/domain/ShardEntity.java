@@ -16,7 +16,7 @@
  */
 package io.tilt.minka.domain;
 
-import static io.tilt.minka.domain.ShardDuty.State.PREPARED;
+import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
 
 import java.io.Serializable;
 import java.util.Collection;
@@ -29,6 +29,8 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.Entity;
+import io.tilt.minka.api.Pallet;
 
 /**
  * Representation of a {@linkplain Duty} selected for an action in a {@linkplain Shard}  
@@ -36,22 +38,28 @@ import io.tilt.minka.api.Duty;
  * @author Cristian Gonzalez
  * @since Nov 5, 2015
  */
-public class ShardDuty implements Comparable<ShardDuty>, Comparator<ShardDuty>, Serializable {
+public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEntity>, Serializable {
 
     private static final long serialVersionUID = 4519763920222729635L;
 
-    private final Duty<?> duty;
-    
-	private DutyEvent dutyEvent;
+    private final Entity<?> entity;    
+    private final Type type;
+	private EntityEvent event;
 	private State state;
 	private StuckCause stuckCause;
 	private Serializable userPayload;
 	
-	private Map<DutyEvent, DateTime> partitionDates;
+	private Map<EntityEvent, DateTime> partitionDates;
 	private Map<State, DateTime> stateDates;
 	private boolean checkForChange;
 	
-	/**
+	public enum Type {
+	    DUTY,
+	    PALLET
+	}
+	
+
+    /**
      * states while the duty travels along the wire and the action is confirmed
      * because it takes time, and inconsistencies will happen
      */
@@ -80,29 +88,29 @@ public class ShardDuty implements Comparable<ShardDuty>, Comparator<ShardDuty>, 
         UNSUITABLE,
     }
     
-    public static ShardDuty copy(final ShardDuty duty) {
-        ShardDuty t = new ShardDuty(duty.getDuty());
-        t.setStateDates(duty.getStateDates());
-        t.setPartitionDates(duty.getPartitionDates());
-        t.setUserPayload(duty.getUserPayload());
-        t.setState(duty.getState());
-        t.setPartitionEvent(duty.getDutyEvent());
+    public static ShardEntity copy(final ShardEntity entity) {
+        ShardEntity t = new ShardEntity(entity.getEntity(), entity.getType());
+        t.setStateDates(entity.getStateDates());
+        t.setPartitionDates(entity.getPartitionDates());
+        t.setUserPayload(entity.getUserPayload());
+        t.setState(entity.getState());
+        t.setPartitionEvent(entity.getDutyEvent());
         return t;
     }
     
-    private void setPartitionEvent(DutyEvent dutyEvent) {
-        this.dutyEvent = dutyEvent;
+    private void setPartitionEvent(EntityEvent dutyEvent) {
+        this.event = dutyEvent;
     }
 
     private void setState(State state) {
         this.state = state;
     }
 
-    private Map<DutyEvent, DateTime> getPartitionDates() {
+    private Map<EntityEvent, DateTime> getPartitionDates() {
         return this.partitionDates;
     }
 
-    private void setPartitionDates(Map<DutyEvent, DateTime> partitionDates) {
+    private void setPartitionDates(Map<EntityEvent, DateTime> partitionDates) {
         this.partitionDates = partitionDates;
     }
 
@@ -114,31 +122,50 @@ public class ShardDuty implements Comparable<ShardDuty>, Comparator<ShardDuty>, 
         this.stateDates = stateDates;
     }
 
-    public static ShardDuty create(final Duty<?> duty) {
-        return new ShardDuty(duty);
+    public static ShardEntity create(final Duty<?> duty) {
+        return new ShardEntity(duty, Type.DUTY);
+    }
+    
+    public static ShardEntity create(final Pallet<?> pallet) {
+        return new ShardEntity(pallet, Type.DUTY);
     }
 
 	/* reserved for the cluster */
-	private ShardDuty(final Duty<?> duty) {
-	    this.duty = duty;
-		dutyEvent = DutyEvent.CREATE;
-		state = PREPARED;
-		partitionDates = new HashMap<>();
-		stateDates = new HashMap<>();		
+	private ShardEntity(final Entity<?> entity, Type type) {
+	    this.entity = entity;
+	    this.event = EntityEvent.CREATE;
+		this.type = type;
+		this.state = PREPARED;
+		this.partitionDates = new HashMap<>();
+		this.stateDates = new HashMap<>();		
 		final DateTime now = new DateTime(DateTimeZone.UTC);
-		partitionDates.put(dutyEvent, now);
-		stateDates.put(state, now);
+		this.partitionDates.put(event, now);
+		this.stateDates.put(state, now);
 	}
 	
-	public Duty<?> getDuty() {
-        return this.duty;
+	public Pallet<?> getPallet() {
+        if (this.entity instanceof Pallet<?>) {
+            return (Pallet<?>)this.entity;
+        }
+        throw new IllegalArgumentException("This entity doesnt hold a Pallet !");
     }
     
-	public void registerEvent(final DutyEvent event, final State state) {
+	public Entity<?> getEntity() {
+	    return this.entity;
+	            
+	}
+	public Duty<?> getDuty() {
+	    if (this.entity instanceof Duty<?>) {
+	        return (Duty<?>)this.entity;
+	    }
+	    throw new IllegalArgumentException("This entity doesnt hold a Duty !");
+    }
+    
+	public void registerEvent(final EntityEvent event, final State state) {
 	    this.state = state;
-        this.dutyEvent = event;
+        this.event = event;
 	    
-        partitionDates.put(dutyEvent, new DateTime());
+        partitionDates.put(event, new DateTime());
         stateDates.put(state, new DateTime());
 	}
     
@@ -151,16 +178,16 @@ public class ShardDuty implements Comparable<ShardDuty>, Comparator<ShardDuty>, 
         return stateDates.get(state);
     }
     
-    public DateTime getEventDateForPartition(final DutyEvent event) {
+    public DateTime getEventDateForPartition(final EntityEvent event) {
         return partitionDates.get(event);
     }
 
-    public boolean is(DutyEvent e) {
-        return this.dutyEvent == e;
+    public boolean is(EntityEvent e) {
+        return this.event == e;
     }
     
-	public DutyEvent getDutyEvent() {
-		return this.dutyEvent;
+	public EntityEvent getDutyEvent() {
+		return this.event;
 	}
 	
 	public void setUserPayload(final Serializable userPayload) {
@@ -171,19 +198,19 @@ public class ShardDuty implements Comparable<ShardDuty>, Comparator<ShardDuty>, 
         return this.userPayload;
     }
 	
-	public static String toStringIds(Collection<ShardDuty> duties) {
+	public static String toStringIds(Collection<ShardEntity> duties) {
 	    final StringBuilder sb = new StringBuilder();
-	    duties.forEach(i->sb.append(i.getDuty().getId()).append(", "));
+	    duties.forEach(i->sb.append(i.getEntity().getId()).append(", "));
 	    return sb.toString();
 	}
 	
-	public static String toStringBrief(Collection<ShardDuty> duties) {
+	public static String toStringBrief(Collection<ShardEntity> duties) {
         final StringBuilder sb = new StringBuilder();
         duties.forEach(i->sb.append(i.toBrief()).append(", "));
         return sb.toString();
     }
 	
-	public static String toString(Collection<ShardDuty> duties) {
+	public static String toString(Collection<ShardEntity> duties) {
         final StringBuilder sb = new StringBuilder();
         duties.forEach(i->sb.append(i.toString()).append(", "));
         return sb.toString();
@@ -191,19 +218,21 @@ public class ShardDuty implements Comparable<ShardDuty>, Comparator<ShardDuty>, 
 	
 	@Override
 	public String toString() {
-	    return new StringBuilder()
-            .append("Duty: ").append(getDuty().getId())
-            .append(" (").append(getDuty().getClassType().getSimpleName())
+	    StringBuilder sb = new StringBuilder();
+            sb.append(type==Type.DUTY ? "Duty: " : "Pallet").append(getEntity().getId())
+            .append(" (").append(getEntity().getClassType().getSimpleName())
             .append(": ").append(getDutyEvent())
-            .append(", ").append(getState())
-            .append(", w:").append(getDuty().getWeight().getLoad())
-            .append(")")
-	        .toString();
+            .append(", ").append(getState());
+            if (type==Type.DUTY) {
+                sb.append(", w:").append(((Duty)getEntity()).getWeight().getLoad());
+            }
+            sb.append(")");
+	        return sb.toString();
 	}
 
     @Override
-	public int compareTo(ShardDuty o) {		
-		return this.getDuty().getId().compareTo(o.getDuty().getId());
+	public int compareTo(ShardEntity o) {		
+		return this.getEntity().getId().compareTo(o.getEntity().getId());
 	}
 
 
@@ -213,29 +242,29 @@ public class ShardDuty implements Comparable<ShardDuty>, Comparator<ShardDuty>, 
 
 	public String toBrief() {
         return new StringBuilder()
-                .append("Duty ID: ").append(getDuty().getId())
-                .append(" Type: ").append(getDuty().getClassType().getSimpleName())
+                .append("Duty ID: ").append(getEntity().getId())
+                .append(" Type: ").append(getEntity().getClassType().getSimpleName())
                 .toString();
 	}
     
     public int hashCode() {
         return new HashCodeBuilder()
-            .append(getDuty().getId())
+            .append(getEntity().getId())
             .toHashCode();
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (obj !=null && obj instanceof ShardDuty && getDuty()!=null) {
-            ShardDuty st = (ShardDuty)obj;
-            return getDuty().getId().equals(st.getDuty().getId());
+        if (obj !=null && obj instanceof ShardEntity && getEntity()!=null) {
+            ShardEntity st = (ShardEntity)obj;
+            return getEntity().getId().equals(st.getEntity().getId());
         } else {
             return false;
         }
     }
 
     @Override
-    public int compare(ShardDuty o1, ShardDuty o2) {
+    public int compare(ShardEntity o1, ShardEntity o2) {
         return o1.compareTo(o2);
     }
 
@@ -246,5 +275,10 @@ public class ShardDuty implements Comparable<ShardDuty>, Comparator<ShardDuty>, 
     public void setStuckCause(StuckCause stuckCause) {
         this.stuckCause = stuckCause;
     }
+
     
+    public Type getType() {
+        return this.type;
+    }
+
 }

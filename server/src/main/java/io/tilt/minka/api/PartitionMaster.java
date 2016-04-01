@@ -23,7 +23,7 @@ import java.util.Set;
  * Client's point of integration with Minka.
  * 
  * Starting the {@linkplain Bootstrap} with this delegate will avoid Minka from 
- * maintaining storage for {@linkplain ShardDuty}
+ * maintaining storage for {@linkplain ShardEntity}
  * 
  * Minka will depend entirely on this to obtain the initial duties to distribute  
  * 
@@ -48,5 +48,8 @@ public interface PartitionMaster<E> extends PartitionDelegate<E> {
 	 * @return	a master (complete) list of duties from the storage
 	 */
 	Set<Duty<E>> reportTotal();
+	
+	Set<Pallet<E>> loadPallets();
+	
 	
 }

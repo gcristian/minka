@@ -21,7 +21,7 @@ package io.tilt.minka.domain;
  * Later this value will hop from one to another as a cycle or recycle
  * depending on the State value. 
  */
-public enum DutyEvent {
+public enum EntityEvent {
     /* user creates a duty from PartitionService */
     CREATE(true),
     /* leader assigns to a Shard */
@@ -36,13 +36,13 @@ public enum DutyEvent {
     FINALIZED(true);
     
     boolean crud;
-    DutyEvent(boolean crud) {
+    EntityEvent(boolean crud) {
         this.crud = crud;
     }
     public boolean isCrud() {
         return crud;
     }
-    public boolean is(DutyEvent pe) {
+    public boolean is(EntityEvent pe) {
         return this==pe;
     }
 }

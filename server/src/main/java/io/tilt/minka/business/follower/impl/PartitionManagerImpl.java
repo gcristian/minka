@@ -36,7 +36,7 @@ import io.tilt.minka.business.Semaphore.Action;
 import io.tilt.minka.business.follower.PartitionManager;
 import io.tilt.minka.domain.Partition;
 import io.tilt.minka.domain.ShardCommand;
-import io.tilt.minka.domain.ShardDuty;
+import io.tilt.minka.domain.ShardEntity;
 
 public class PartitionManagerImpl implements PartitionManager {
 
@@ -77,8 +77,8 @@ public class PartitionManagerImpl implements PartitionManager {
     }
     
     // TODO refactory
-    public Void finalized(final Collection<ShardDuty> duties) {
-        for (ShardDuty duty: duties) {
+    public Void finalized(final Collection<ShardEntity> duties) {
+        for (ShardEntity duty: duties) {
             if (partition.getDuties().contains(duty)) {
                 logger.info("{}: ({}) Removing finalized Duty from Partition: {}", 
                     getClass().getSimpleName(), partition.getId(), duty.toBrief());
@@ -93,18 +93,18 @@ public class PartitionManagerImpl implements PartitionManager {
 
     @SuppressWarnings("unchecked")
     // TODO refactory
-    public Void update(final Collection<ShardDuty> duties) {
-        for (ShardDuty duty: duties) {
+    public Void update(final Collection<ShardEntity> duties) {
+        for (ShardEntity duty: duties) {
             if (partition.getDuties().contains(duty)) {
                 if (duty.getUserPayload() == null) {
                     logger.info("{}: ({}) Instructing PartitionDelegate to UPDATE : {}", 
                             getClass().getSimpleName(), partition.getId(), duty.toBrief());
-                    partitionDelegate.update(Sets.newHashSet(duty.getDuty()));
+                    partitionDelegate.update(Sets.newHashSet(duty.getEntity()));
                 } else {
                     logger.info("{}: ({}) Instructing PartitionDelegate to RECEIVE: {} with Payload type {}", 
                             getClass().getSimpleName(), partition.getId(), duty.toBrief(), 
                             duty.getUserPayload().getClass().getName());
-                    partitionDelegate.receive(Sets.newHashSet(duty.getDuty()), duty.getUserPayload());
+                    partitionDelegate.receive(Sets.newHashSet(duty.getEntity()), duty.getUserPayload());
                 }
             } else {
                 logger.error("{}: ({}) Unable to UPDATE a never taken Duty !: {}", 
@@ -116,9 +116,9 @@ public class PartitionManagerImpl implements PartitionManager {
     }
 
     @SuppressWarnings("unchecked")
-    public Void unassign(final Collection<ShardDuty> duties) {
+    public Void unassign(final Collection<ShardEntity> duties) {
         logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE : {}", 
-                getClass().getSimpleName(), partition.getId(), ShardDuty.toStringBrief(duties));
+                getClass().getSimpleName(), partition.getId(), ShardEntity.toStringBrief(duties));
         partitionDelegate.release(toSet(duties, duty-> {
             if (!partition.getDuties().contains(duty)) {
                 logger.error("{}: ({}) Unable to RELEASE a never taken Duty !: {}", 
@@ -135,12 +135,12 @@ public class PartitionManagerImpl implements PartitionManager {
     }
     
     @SuppressWarnings("unchecked")
-    public Void assign(final Collection<ShardDuty> duties) {
+    public Void assign(final Collection<ShardEntity> duties) {
         /*
         if (coordinator.acquire(IdentifiedAction.build(RESERVE_DUTY, duty.getDuty().getId())) == GRANTED) {
         */
             logger.info("{}: ({}) Instructing PartitionDelegate to TAKE: {}", 
-                    getClass().getSimpleName(), partition.getId(), ShardDuty.toStringBrief(duties));
+                    getClass().getSimpleName(), partition.getId(), ShardEntity.toStringBrief(duties));
             partitionDelegate.take(toSet(duties, null));
             partition.getDuties().addAll(duties);
           /*  
@@ -153,9 +153,9 @@ public class PartitionManagerImpl implements PartitionManager {
             return null;
     }
 
-    private Set<Duty<?>> toSet(final Collection<ShardDuty> duties, Predicate<ShardDuty> filter) {
+    private Set<Duty<?>> toSet(final Collection<ShardEntity> duties, Predicate<ShardEntity> filter) {
         Set<Duty<?>> set = Sets.newHashSet();
-        for (ShardDuty dudty: duties) {
+        for (ShardEntity dudty: duties) {
             if (filter == null || filter.test(dudty)) {
                 set.add(dudty.getDuty());
             }

@@ -40,7 +40,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 
     private static final long serialVersionUID = 4828220405145911529L;
     
-	private List<ShardDuty> duties;
+	private List<ShardEntity> duties;
 	private final NetworkShardID shardId;
 	private final DateTime creation;
 	private DateTime reception;
@@ -51,14 +51,14 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	private ShardState stateChange;
 	
 	public static Heartbeat create(
-	        final List<ShardDuty> entities, 
+	        final List<ShardEntity> entities, 
 	        final boolean warning, 
 	        final NetworkShardID id, long sequenceId) {
 	        return new Heartbeat(entities, warning, id, sequenceId);
 	}
 	
 	private Heartbeat(
-	        final List<ShardDuty> duties, 
+	        final List<ShardEntity> duties, 
             final boolean warning, 
             final NetworkShardID id, 
             final long sequenceId) {
@@ -70,9 +70,9 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	}
 	
 	public static Heartbeat copy(final Heartbeat hb) {
-	    final List<ShardDuty> cloned = new ArrayList<>();
-	    for (ShardDuty d :hb.getDuties()) {
-	        cloned.add(ShardDuty.copy(d));
+	    final List<ShardEntity> cloned = new ArrayList<>();
+	    for (ShardEntity d :hb.getDuties()) {
+	        cloned.add(ShardEntity.copy(d));
 	    }
 	    return new Heartbeat(cloned, hb.hasWarning(), hb.shardId, hb.sequenceId);
 	}
@@ -109,7 +109,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		this.stateChange = stateChange;
 	}
 
-	public List<ShardDuty> getDuties() {
+	public List<ShardEntity> getDuties() {
 		return this.duties;
 	}
 
@@ -136,9 +136,9 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	        if (hb.getDuties().size()!=getDuties().size()) {
 	            return false;
 	        } else {
-	            for (ShardDuty duty: getDuties()) {
+	            for (ShardEntity duty: getDuties()) {
 	                boolean found = false;
-	                for (ShardDuty other: hb.getDuties()) {
+	                for (ShardEntity other: hb.getDuties()) {
 	                    found|=duty.equals(other) && duty.getState()==other.getState() && 
 	                            duty.getDutyEvent()==other.getDutyEvent();
 	                    if (found) {

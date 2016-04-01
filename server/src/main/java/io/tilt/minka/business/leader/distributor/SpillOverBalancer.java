@@ -32,14 +32,13 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Config.SpillBalancerStrategy;
 import io.tilt.minka.business.leader.PartitionTable;
-import io.tilt.minka.domain.DutyEvent;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardDuty;
+import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardEntity.State;
+import io.tilt.minka.domain.ShardEntity.StuckCause;
 import io.tilt.minka.domain.Workload;
-import io.tilt.minka.domain.ShardDuty.State;
-import io.tilt.minka.domain.ShardDuty.StuckCause;
 import io.tilt.minka.utils.CircularCollection;
 
 /**
@@ -62,9 +61,9 @@ public class SpillOverBalancer extends AbstractBalancer {
             final PartitionTable table, 
             final Reallocation realloc, 
             final List<Shard> onlineShards,
-            final Set<ShardDuty> dangling, 
-            final Set<ShardDuty> creations, 
-            final Set<ShardDuty> deletions,
+            final Set<ShardEntity> dangling, 
+            final Set<ShardEntity> creations, 
+            final Set<ShardEntity> deletions,
             final int accounted) {
         
         final long maxValue = getConfig().getBalancerSpillOverMaxValue();
@@ -80,14 +79,14 @@ public class SpillOverBalancer extends AbstractBalancer {
                     getClass().getSimpleName(), getConfig().getBalancerSpillOverStrategy(), maxValue);
             boolean loadStrat = getConfig().getBalancerSpillOverStrategy() == SpillBalancerStrategy.WORKLOAD;
             final Map<Shard, AtomicLong> spaceByReceptor = new HashMap<>();
-            final SetMultimap<Shard, ShardDuty> trans = collectTransceivers(table, loadStrat, spaceByReceptor, maxValue);
+            final SetMultimap<Shard, ShardEntity> trans = collectTransceivers(table, loadStrat, spaceByReceptor, maxValue);
             if (spaceByReceptor.isEmpty() && !trans.isEmpty()) {
                 logger.warn("{}: Couldnt find receptors to spill over to", getClass().getSimpleName());
             } else {
                 logger.info("{}: Shard with space for allocating Duties: {}", 
                         getClass().getSimpleName(), spaceByReceptor);
-                final List<ShardDuty> unfitting = new ArrayList<>(); 
-                final List<ShardDuty> dutiesForBalance = new ArrayList<>();
+                final List<ShardEntity> unfitting = new ArrayList<>(); 
+                final List<ShardEntity> dutiesForBalance = new ArrayList<>();
                 dutiesForBalance.addAll(creations); // priority for new comers
                 dutiesForBalance.addAll(dangling);
                 if (loadStrat) {
@@ -97,7 +96,7 @@ public class SpillOverBalancer extends AbstractBalancer {
                 registerNewcomers(realloc, loadStrat, spaceByReceptor, unfitting, dutiesForBalance);
                 // then move those surplussing
                 registerMigrations(realloc, loadStrat, spaceByReceptor, unfitting, trans, maxValue);
-                for (ShardDuty unfit: unfitting) {
+                for (ShardEntity unfit: unfitting) {
                     logger.error("{}: Add Shards !! No receptor has space for Duty: {}", 
                             getClass().getSimpleName(), unfit);
                 }
@@ -110,18 +109,18 @@ public class SpillOverBalancer extends AbstractBalancer {
             final Reallocation realloc, 
             final boolean loadStrat,
             final Map<Shard, AtomicLong> spaceByReceptor, 
-            final List<ShardDuty> unfitting,
-            final List<ShardDuty> dutiesForBalance) {
+            final List<ShardEntity> unfitting,
+            final List<ShardEntity> dutiesForBalance) {
         
-        for (final ShardDuty newcomer: dutiesForBalance) {
+        for (final ShardEntity newcomer: dutiesForBalance) {
             final Shard receptor = makeSpaceIntoReceptors(loadStrat, newcomer, spaceByReceptor);
             if (receptor!=null) {
-                newcomer.registerEvent(DutyEvent.ASSIGN, State.PREPARED);
+                newcomer.registerEvent(EntityEvent.ASSIGN, State.PREPARED);
                 realloc.addChange(receptor, newcomer);
                 logger.info("{}: Assigning to Shard: {} (space left: {}), Duty: {}", getClass().getSimpleName(), 
                         receptor.getShardID(), spaceByReceptor.get(receptor), newcomer.toBrief());
             } else {
-                newcomer.registerEvent(DutyEvent.ASSIGN, State.STUCK);
+                newcomer.registerEvent(EntityEvent.ASSIGN, State.STUCK);
                 newcomer.setStuckCause(StuckCause.UNSUITABLE);
                 realloc.getProblems().put(null, newcomer);
                 unfitting.add(newcomer);
@@ -133,21 +132,21 @@ public class SpillOverBalancer extends AbstractBalancer {
             final Reallocation realloc, 
             final boolean loadStrat,
             final Map<Shard, AtomicLong> spaceByReceptor,
-            final List<ShardDuty> unfitting, 
-            final SetMultimap<Shard, ShardDuty> trans, 
+            final List<ShardEntity> unfitting, 
+            final SetMultimap<Shard, ShardEntity> trans, 
             final long maxValue) {
         
         for (final Shard emisor: trans.keys()) {
-            final Set<ShardDuty> emitting = trans.get(emisor);
-            for (final ShardDuty emitted: emitting) {
+            final Set<ShardEntity> emitting = trans.get(emisor);
+            for (final ShardEntity emitted: emitting) {
                 final Shard receptor = makeSpaceIntoReceptors(loadStrat, emitted, spaceByReceptor);
                 if (receptor==null) {
-                    emitted.registerEvent(DutyEvent.ASSIGN, State.STUCK);
+                    emitted.registerEvent(EntityEvent.ASSIGN, State.STUCK);
                     emitted.setStuckCause(StuckCause.UNSUITABLE);
                     realloc.getProblems().put(null, emitted);
                     unfitting.add(emitted);
                 } else {
-                    final ShardDuty copy = addMigrationChange(realloc, receptor, emisor, emitted);
+                    final ShardEntity copy = addMigrationChange(realloc, receptor, emisor, emitted);
                     logger.info("{}: Migrating from: {} to {}: Duty: {}", getClass().getSimpleName(), emisor, 
                             receptor, copy);
                 }
@@ -157,7 +156,7 @@ public class SpillOverBalancer extends AbstractBalancer {
 
     private Shard makeSpaceIntoReceptors(
             final boolean loadStrat,
-            final ShardDuty duty,
+            final ShardEntity duty,
             final Map<Shard, AtomicLong> spaceByReceptor) {
         
         for (final Shard receptor: spaceByReceptor.keySet()) {
@@ -177,16 +176,16 @@ public class SpillOverBalancer extends AbstractBalancer {
     }
     
     /* elect duties from emisors and compute receiving size at receptors */
-    private SetMultimap<Shard, ShardDuty> collectTransceivers(
+    private SetMultimap<Shard, ShardEntity> collectTransceivers(
             final PartitionTable table,
             boolean loadStrat,
             final Map<Shard, AtomicLong> spaceByReceptor, 
             final long maxValue) {
         
-        final SetMultimap<Shard, ShardDuty> transmitting = HashMultimap.create();
+        final SetMultimap<Shard, ShardEntity> transmitting = HashMultimap.create();
         for (final Shard shard: table.getAllImmutable()) {
-            final Set<ShardDuty> dutiesByShard = table.getDutiesByShard(shard);
-            final List<ShardDuty> checkingDuties = new ArrayList<>(dutiesByShard);
+            final Set<ShardEntity> dutiesByShard = table.getDutiesByShard(shard);
+            final List<ShardEntity> checkingDuties = new ArrayList<>(dutiesByShard);
             if (loadStrat) {
                 // order it so we can obtain sequentially granulated reductions of the transmitting shard
                 Collections.sort(checkingDuties, Workload.getComparator() );
@@ -203,7 +202,7 @@ public class SpillOverBalancer extends AbstractBalancer {
                     }
                 } else if (loadStrat) {
                     long liftAccumulated = 0;
-                    for (final ShardDuty takeMe: dutiesByShard) {
+                    for (final ShardEntity takeMe: dutiesByShard) {
                         long load = takeMe.getDuty().getWeight().getLoad();
                         if ((liftAccumulated += load) <= totalWeight - maxValue) {
                             transmitting.put(shard, takeMe);
@@ -227,10 +226,10 @@ public class SpillOverBalancer extends AbstractBalancer {
         
         for (final Shard shard: table.getAllImmutable()) {
             if (shard != receptorShard) {
-                Set<ShardDuty> dutiesByShard = table.getDutiesByShard(shard);
+                Set<ShardEntity> dutiesByShard = table.getDutiesByShard(shard);
                 if (!dutiesByShard.isEmpty()) {
-                    for (final ShardDuty duty: dutiesByShard) {
-                        final ShardDuty copy = addMigrationChange(realloc, receptorShard, shard, duty);
+                    for (final ShardEntity duty: dutiesByShard) {
+                        final ShardEntity copy = addMigrationChange(realloc, receptorShard, shard, duty);
                         logger.info("{}: Hoarding from Shard: {} to Shard: {}, Duty: {}", 
                                 getClass().getSimpleName(), shard, receptorShard, copy);
                     }
@@ -240,23 +239,23 @@ public class SpillOverBalancer extends AbstractBalancer {
     }
 
     /* return new added */
-    private ShardDuty addMigrationChange(
+    private ShardEntity addMigrationChange(
             final Reallocation realloc, 
             final Shard receptorShard, 
             final Shard emisorShard,
-            final ShardDuty duty) {
+            final ShardEntity duty) {
         
-        duty.registerEvent(DutyEvent.ASSIGN, State.PREPARED);
+        duty.registerEvent(EntityEvent.ASSIGN, State.PREPARED);
         realloc.addChange(receptorShard, duty);
-        ShardDuty copy = ShardDuty.copy(duty);
-        copy.registerEvent(DutyEvent.UNASSIGN, State.PREPARED);
+        ShardEntity copy = ShardEntity.copy(duty);
+        copy.registerEvent(EntityEvent.UNASSIGN, State.PREPARED);
         realloc.addChange(emisorShard, copy);
         return copy;
     }
 
     private Shard getAnyReceptorShard(final PartitionTable table, final List<Shard> onlineShards) {        
         for (Shard online: onlineShards) {
-            Set<ShardDuty> dutiesByShard = table.getDutiesByShard(online);
+            Set<ShardEntity> dutiesByShard = table.getDutiesByShard(online);
             if (!dutiesByShard.isEmpty()) {
                 return online;
             }

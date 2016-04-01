@@ -23,14 +23,14 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.domain.DutyEvent;
+import io.tilt.minka.domain.EntityEvent;
 
 /**
  * Client's point of integration with Minka.
  * Minka will be heavily calling this methods to control shards.
  * 
  * Starting the {@linkplain Bootstrap} with this delegate will make Minka to maintain its own 
- * storage for {@linkplain ShardDuty}
+ * storage for {@linkplain ShardEntity}
  * 
  * Client is compelled to call {@linkplain PartitionService.add/remove} to enter and remove duties to the shards
  *    
@@ -85,7 +85,7 @@ public interface PartitionDelegate<E> {
 
 	/**
 	 * Notify the Leader shard of an event over these duties.
-	 * Hook facility for the User to know about {@linkplain ShardDuty} CRUD from other {@linkplain Shard}.
+	 * Hook facility for the User to know about {@linkplain ShardEntity} CRUD from other {@linkplain Shard}.
 	 * 
 	 * i.e. shards are workers, they dont know if an assignation is from a recent CRUD event,
 	 * or if the duty belonged to a recent fallen shard.
@@ -93,7 +93,7 @@ public interface PartitionDelegate<E> {
 	 *  
 	 * @param duties
 	 */
-	default void notify(List<Duty<E>> duties, DutyEvent event) {
+	default void notify(List<Duty<E>> duties, EntityEvent event) {
 	    logger.error("{}: this PartitionDelegate has not implemented the duty notification event", 
                 getClass().getSimpleName());
 	}

@@ -19,7 +19,7 @@ package io.tilt.minka.business.follower;
 import java.util.Collection;
 
 import io.tilt.minka.domain.ShardCommand;
-import io.tilt.minka.domain.ShardDuty;
+import io.tilt.minka.domain.ShardEntity;
 
 /**
  * Pretty obvious mission 
@@ -32,13 +32,13 @@ public interface PartitionManager {
     Void releaseAllCausePolicies();
     Void releaseAll();
 		
-    Void finalized(final Collection<ShardDuty> duty);
+    Void finalized(final Collection<ShardEntity> duty);
 
-    Void update(final Collection<ShardDuty> duty);
+    Void update(final Collection<ShardEntity> duty);
 
-    Void unassign(final Collection<ShardDuty> duty);
+    Void unassign(final Collection<ShardEntity> duty);
     
-    Void assign(final Collection<ShardDuty> duty);
+    Void assign(final Collection<ShardEntity> duty);
 
     Void handleClusterOperation(final ShardCommand op);
 

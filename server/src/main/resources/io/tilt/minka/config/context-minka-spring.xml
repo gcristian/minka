@@ -112,7 +112,7 @@
     
     <bean id="partitionTable" class="io.tilt.minka.business.leader.PartitionTable"/>
     
-    <util:map id="balancersMap" key-type="io.tilt.minka.api.Config.BalanceStrategy" 
+    <util:map id="balancersMap" key-type="io.tilt.minka.business.leader.distributor.Balancer.BalanceStrategy" 
         value-type="io.tilt.minka.business.leader.distributor.Balancer">
         <entry key="EVEN_SIZE">
             <!-- Estrategia para distribuir entidades en forma pareja: iguales cantidades -->

@@ -21,7 +21,7 @@ import java.util.List;
 
 import org.apache.commons.lang.Validate;
 
-import io.tilt.minka.domain.ShardDuty;
+import io.tilt.minka.domain.ShardEntity;
 
 /**
  * Balanced Partition problem: Given a sorted list of Weights, creates a fair distribution of duties
@@ -38,11 +38,11 @@ import io.tilt.minka.domain.ShardDuty;
  */
 public class ClassicalPartitionSolver implements ClusterPartitioneer {
     
-    public List<List<ShardDuty>> balance(final int shards, final List<ShardDuty> weightedDuties) {
+    public List<List<ShardEntity>> balance(final int shards, final List<ShardEntity> weightedDuties) {
         Validate.isTrue(shards>1);
         Validate.noNullElements(weightedDuties);
         final int[] indexes = buildIndexes(weightedDuties, shards);
-        final List<List<ShardDuty>> distro = new ArrayList<>();
+        final List<List<ShardEntity>> distro = new ArrayList<>();
         int fromIdx = 0;
         for (int idx : indexes) {
             distro.add(discoverFormedGroups(weightedDuties, fromIdx, idx));
@@ -55,15 +55,15 @@ public class ClassicalPartitionSolver implements ClusterPartitioneer {
         return distro;
     }
 
-    private List<ShardDuty> discoverFormedGroups(final List<ShardDuty> duties, int fromIdx, int idx) {
-        final List<ShardDuty> group= new ArrayList<>();
+    private List<ShardEntity> discoverFormedGroups(final List<ShardEntity> duties, int fromIdx, int idx) {
+        final List<ShardEntity> group= new ArrayList<>();
         for (int i = fromIdx; i < idx; i++) {
             group.add(duties.get(i));
         }
         return group;
     }
 
-    private int[] buildIndexes(final List<ShardDuty> sortedDuties, final int partitions) {
+    private int[] buildIndexes(final List<ShardEntity> sortedDuties, final int partitions) {
         final int size = sortedDuties.size();
         Validate.isTrue(partitions > 0 && size>= partitions);
 
@@ -89,7 +89,7 @@ public class ClassicalPartitionSolver implements ClusterPartitioneer {
         return dividers;
     }
 
-    private int accessWeight(final List<ShardDuty> sortedDuties, final int i) {
+    private int accessWeight(final List<ShardEntity> sortedDuties, final int i) {
         try {
             return sortedDuties.get(i).getDuty().getWeight().getLoad().intValue();
         } catch (Exception e) {

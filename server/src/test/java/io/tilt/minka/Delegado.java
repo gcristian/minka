@@ -6,6 +6,7 @@ package io.tilt.minka;
 
 import java.io.Serializable;
 import java.util.HashSet;
+import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -13,6 +14,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.Pallet;
+import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.api.PartitionMaster;
 import io.tilt.minka.api.PartitionService;
 import jersey.repackaged.com.google.common.collect.Sets;
@@ -23,18 +26,26 @@ public class Delegado implements PartitionMaster<DemoDuty>, Serializable {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     
     private Set<Duty<DemoDuty>> allOriginalDuties = new HashSet<>();
+    private Set<Pallet<String>> allOriginalPallets = new HashSet<>();
     private Set<Duty<DemoDuty>> runningDuties = Sets.newHashSet();
     
 	private static int TOTAL_TASKS = 20;
+	private static int TOTAL_PALLETS = 5;
 	private PartitionService partitionService;
 	private String id="{NN}";
 	 
 	public Delegado() {
         super();   
-        allOriginalDuties = new HashSet<>();
-        for (int i=0;i<TOTAL_TASKS;i++) {
-            allOriginalDuties.add(new DemoDuty(i));
+        allOriginalPallets = new HashSet<>();
+        for (int i=0;i<TOTAL_PALLETS;i++) {
+            allOriginalPallets.add(PalletBuilder.build(String.valueOf(i), String.class));
         }
+        allOriginalDuties = new HashSet<>();
+        Random rnd = new Random();
+        for (int i=0;i<TOTAL_TASKS;i++) {
+            allOriginalDuties.add(new DemoDuty(i, String.valueOf(rnd.nextInt(TOTAL_PALLETS))));
+        }
+        
     }
 
 	
@@ -86,7 +97,7 @@ public class Delegado implements PartitionMaster<DemoDuty>, Serializable {
 	        lastPrint = now;
 	        lastSize = runningDuties.size();
 	        logger.info("{} running: {}{} ({})", id, this.runningDuties.size(), 
-	                partitionService.isCurrentLeader()? "*":"", toStringIds(runningDuties));
+	                partitionService!=null ? partitionService.isCurrentLeader()? "*":"":"", toStringIds(runningDuties));
 	    }
 		return this.runningDuties;
 	}
@@ -115,5 +126,11 @@ public class Delegado implements PartitionMaster<DemoDuty>, Serializable {
     public boolean isReady() {
         logger.info("delegado is ready");
         return true;
+    }
+
+    @Override
+    public Set<Pallet<DemoDuty>> loadPallets() {
+        // TODO Auto-generated method stub
+        return null;
     }
 }

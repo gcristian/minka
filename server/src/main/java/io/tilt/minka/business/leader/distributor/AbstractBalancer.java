@@ -16,7 +16,7 @@
  */
 package io.tilt.minka.business.leader.distributor;
 
-import static io.tilt.minka.domain.ShardDuty.State.PREPARED;
+import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
 import static io.tilt.minka.domain.ShardState.ONLINE;
 
 import java.util.ArrayList;
@@ -28,10 +28,10 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.business.leader.PartitionTable;
-import io.tilt.minka.domain.DutyEvent;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardDuty;
-import io.tilt.minka.domain.ShardDuty.State;
+import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardEntity.State;
 import io.tilt.minka.utils.CircularCollection;
 
 /**
@@ -62,20 +62,20 @@ public abstract class AbstractBalancer implements Balancer {
      * @param accounted     summarization of already running and stable duties 
      */
     protected abstract void balance(final PartitionTable table, final Reallocation realloc,
-            final List<Shard> onlineShards, final Set<ShardDuty> dangling, final Set<ShardDuty> creations,
-            final Set<ShardDuty> deletions, final int accounted);
+            final List<Shard> onlineShards, final Set<ShardEntity> dangling, final Set<ShardEntity> creations,
+            final Set<ShardEntity> deletions, final int accounted);
 
     @Override
     public final Reallocation evaluate(final PartitionTable table, final Reallocation previousChange) {
         final Reallocation realloc = new Reallocation();
         final List<Shard> onlineShards = table.getShardsByState(ONLINE);
         // recently fallen shards
-        final Set<ShardDuty> dangling = table.getDutiesDangling();
+        final Set<ShardEntity> dangling = table.getDutiesDangling();
         registerMissing(table, realloc, table.getDutiesMissing());
         // add previous fallen and never confirmed migrations
         dangling.addAll(restoreUnfinishedBusiness(previousChange));
-        final Set<ShardDuty> creations = table.getDutiesCrudByFilters(DutyEvent.CREATE, PREPARED);
-        final Set<ShardDuty> deletions = table.getDutiesCrudByFilters(DutyEvent.DELETE, PREPARED);
+        final Set<ShardEntity> creations = table.getDutiesCrudByFilters(EntityEvent.CREATE, PREPARED);
+        final Set<ShardEntity> deletions = table.getDutiesCrudByFilters(EntityEvent.DELETE, PREPARED);
         final int accounted = table.getAccountConfirmed();
         // 1st step: delete all
         registerDeletions(table, realloc, deletions);
@@ -83,18 +83,18 @@ public abstract class AbstractBalancer implements Balancer {
         return realloc;
     }
 
-    private void registerMissing(final PartitionTable table, final Reallocation realloc, final Set<ShardDuty> missing) {
-        for (final ShardDuty missed : missing) {
+    private void registerMissing(final PartitionTable table, final Reallocation realloc, final Set<ShardEntity> missing) {
+        for (final ShardEntity missed : missing) {
             final Shard lazy = table.getDutyLocation(missed);
             logger.info("{}: Registering from {}Shard: {}, a dangling Duty: {}",
                     getClass().getSimpleName(), lazy==null?"fallen ":"", lazy, missed);            
             if (lazy!=null) {
                 // missing duties are a confirmation per-se from the very shards,
                 // so the ptable gets fixed right away without a realloc.
-                missed.registerEvent(DutyEvent.DELETE, State.CONFIRMED);
+                missed.registerEvent(EntityEvent.DELETE, State.CONFIRMED);
                 table.confirmDutyAboutShard(missed, lazy);
             }
-            missed.registerEvent(DutyEvent.CREATE, State.PREPARED);
+            missed.registerEvent(EntityEvent.CREATE, State.PREPARED);
             table.addCrudDuty(missed);
         }
         if (!missing.isEmpty()) {
@@ -106,8 +106,8 @@ public abstract class AbstractBalancer implements Balancer {
     }
 
     /* check waiting duties never confirmed (for fallen shards as previous target candidates) */
-    protected List<ShardDuty> restoreUnfinishedBusiness(final Reallocation previousChange) {
-        List<ShardDuty> unfinishedWaiting = new ArrayList<>();
+    protected List<ShardEntity> restoreUnfinishedBusiness(final Reallocation previousChange) {
+        List<ShardEntity> unfinishedWaiting = new ArrayList<>();
         if (previousChange != null && !previousChange.isEmpty() && !previousChange.hasCurrentStepFinished()
                 && !previousChange.hasFinished()) {
             previousChange.getGroupedIssues().keys()
@@ -130,13 +130,13 @@ public abstract class AbstractBalancer implements Balancer {
     /**
      * put new duties into receptive shards willing to add
      */
-    protected void registerCreations(final Set<ShardDuty> duties, final Reallocation realloc,
+    protected void registerCreations(final Set<ShardEntity> duties, final Reallocation realloc,
             CircularCollection<Shard> receptiveCircle) {
 
-        for (ShardDuty duty : duties) {
+        for (ShardEntity duty : duties) {
             Shard target = receptiveCircle.next();
             realloc.addChange(target, duty);
-            duty.registerEvent(DutyEvent.ASSIGN, State.PREPARED);
+            duty.registerEvent(EntityEvent.ASSIGN, State.PREPARED);
             logger.info("{}: Assigning to shard: {}, duty: {}", getClass().getSimpleName(),
                     target.getShardID(), duty.toBrief());
         }
@@ -144,11 +144,11 @@ public abstract class AbstractBalancer implements Balancer {
 
     /* by user deleted */
     private void registerDeletions(final PartitionTable table, final Reallocation realloc,
-            final Set<ShardDuty> deletions) {
+            final Set<ShardEntity> deletions) {
 
-        for (final ShardDuty deletion : deletions) {
+        for (final ShardEntity deletion : deletions) {
             Shard shard = table.getDutyLocation(deletion);
-            deletion.registerEvent(DutyEvent.UNASSIGN, State.PREPARED);
+            deletion.registerEvent(EntityEvent.UNASSIGN, State.PREPARED);
             realloc.addChange(shard, deletion);
             logger.info("{}: Deleting from: {}, Duty: {}", getClass().getSimpleName(), shard.getShardID(),
                     deletion.toBrief());

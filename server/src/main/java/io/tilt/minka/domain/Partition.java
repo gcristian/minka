@@ -26,7 +26,7 @@ import io.tilt.minka.api.Duty;
 
 /**
  * An effectively assigned, running and continuously confirmed 
- * set of {@linkplain ShardDuty} in a given {@linkplain Shard}
+ * set of {@linkplain ShardEntity} in a given {@linkplain Shard}
  *  
  * @author Cristian Gonzalez
  * @since Dec 13, 2015
@@ -35,7 +35,7 @@ import io.tilt.minka.api.Duty;
 public class Partition {
 
     private final NetworkShardID id;
-    private Set<ShardDuty> duties;
+    private Set<ShardEntity> duties;
     
     public static Partition partitionForFollower(final NetworkShardID shardId) {
         return new Partition(shardId);
@@ -51,7 +51,7 @@ public class Partition {
      */
     public long getWeight() {
         long weight = 0;
-        for (final ShardDuty duty: duties) {
+        for (final ShardEntity duty: duties) {
             weight += duty.getDuty().getWeight().getLoad();
         }
         return weight;
@@ -72,7 +72,7 @@ public class Partition {
     @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder();
-        final List<ShardDuty> sorted = Lists.newArrayList(duties);
+        final List<ShardEntity> sorted = Lists.newArrayList(duties);
         if (!sorted.isEmpty()) {
             sorted.sort(sorted.get(0));
         }
@@ -80,8 +80,8 @@ public class Partition {
         return sb.toString();
     }
     
-    public ShardDuty forDuty(final Duty<?> t) {
-        for (ShardDuty shardDuty: duties) {
+    public ShardEntity forDuty(final Duty<?> t) {
+        for (ShardEntity shardDuty: duties) {
             if (shardDuty.getDuty().getId().equals(t.getId())) {
                 return shardDuty;
             }
@@ -89,7 +89,7 @@ public class Partition {
         return null;
     }
     
-    public Set<ShardDuty> getDuties() {
+    public Set<ShardEntity> getDuties() {
         return duties;
     }
     

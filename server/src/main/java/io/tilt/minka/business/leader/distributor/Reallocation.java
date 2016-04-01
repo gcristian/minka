@@ -32,10 +32,10 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
 
 import io.tilt.minka.business.leader.PartitionTable;
-import io.tilt.minka.domain.DutyEvent;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardDuty;
-import io.tilt.minka.domain.ShardDuty.State;
+import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardEntity.State;
 
 /**
  * A distribution change in progress, created by the {@linkplain Balancer}.
@@ -54,10 +54,10 @@ public class Reallocation implements Comparable<Reallocation> {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
     
-    private SetMultimap<Shard, ShardDuty> problems;
-    private List<SetMultimap<Shard, ShardDuty>> issues;
-    private SetMultimap<Shard, ShardDuty> currentGroup;
-    private Iterator<SetMultimap<Shard, ShardDuty>> it;
+    private SetMultimap<Shard, ShardEntity> problems;
+    private List<SetMultimap<Shard, ShardEntity>> issues;
+    private SetMultimap<Shard, ShardEntity> currentGroup;
+    private Iterator<SetMultimap<Shard, ShardEntity>> it;
     private final long id;
     private final DateTime creation;
     private int retryCounter;
@@ -88,8 +88,8 @@ public class Reallocation implements Comparable<Reallocation> {
         this.issues = new ArrayList<>(MAX_STEPS);
     }
     
-    private SetMultimap<Shard, ShardDuty> init(int idx) {
-        SetMultimap<Shard, ShardDuty> dutyGroup = issues.size() > idx ? issues.get(idx) : null; 
+    private SetMultimap<Shard, ShardEntity> init(int idx) {
+        SetMultimap<Shard, ShardEntity> dutyGroup = issues.size() > idx ? issues.get(idx) : null; 
         if (dutyGroup == null) {
             for (int i = issues.size(); issues.size() < idx; i++) {
                 issues.add(i, HashMultimap.create());
@@ -99,10 +99,10 @@ public class Reallocation implements Comparable<Reallocation> {
         return dutyGroup;
     }
     
-    public void addChange(final Shard shard, final ShardDuty duty) {
-        if (duty.getDutyEvent().is(DutyEvent.CREATE) || duty.getDutyEvent().is(DutyEvent.ASSIGN)) {
+    public void addChange(final Shard shard, final ShardEntity duty) {
+        if (duty.getDutyEvent().is(EntityEvent.CREATE) || duty.getDutyEvent().is(EntityEvent.ASSIGN)) {
             init(STEP_ASSIGN).put(shard, duty);
-        } else if (duty.getDutyEvent().is(DutyEvent.DELETE) || duty.getDutyEvent().is(DutyEvent.UNASSIGN)) {
+        } else if (duty.getDutyEvent().is(EntityEvent.DELETE) || duty.getDutyEvent().is(EntityEvent.UNASSIGN)) {
             init(STEP_UNASSIGN).put(shard, duty);
         }
     }
@@ -125,14 +125,14 @@ public class Reallocation implements Comparable<Reallocation> {
     }
     
     public boolean hasCurrentStepFinished() {
-        final Set<ShardDuty> sortedLog = new TreeSet<>();
+        final Set<ShardEntity> sortedLog = new TreeSet<>();
         for (final Shard shard: currentGroup.keySet()) {
-            for (final ShardDuty duty: currentGroup.get(shard)) {
+            for (final ShardEntity duty: currentGroup.get(shard)) {
                 if (duty.getState()!=State.CONFIRMED) {
                     // TODO get Partition TAble and check if Shard has long fell offline
                     sortedLog.add(duty);
                     logger.info("{}: waiting Shard: {} for at least Duties: {}", getClass().getSimpleName(), shard, 
-                            ShardDuty.toStringIds(sortedLog));
+                            ShardEntity.toStringIds(sortedLog));
                     return false;
                 }
             }
@@ -144,7 +144,7 @@ public class Reallocation implements Comparable<Reallocation> {
         return this.creation;
     }
 
-    public SetMultimap<Shard, ShardDuty> getGroupedIssues() {
+    public SetMultimap<Shard, ShardEntity> getGroupedIssues() {
         return currentGroup;
     }
 
@@ -152,11 +152,11 @@ public class Reallocation implements Comparable<Reallocation> {
         return this.id;
     }
 
-    public SetMultimap<Shard, ShardDuty> getProblems() {
+    public SetMultimap<Shard, ShardEntity> getProblems() {
         return this.problems;
     }
 
-    public void setProblems(SetMultimap<Shard, ShardDuty> problems) {
+    public void setProblems(SetMultimap<Shard, ShardEntity> problems) {
         this.problems = problems;
     }
 

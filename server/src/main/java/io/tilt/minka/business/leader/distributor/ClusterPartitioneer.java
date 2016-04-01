@@ -21,7 +21,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.domain.ShardDuty;
+import io.tilt.minka.domain.ShardEntity;
 
 /**
  * Generate cluster of Duties grouped by some strategical criteria 
@@ -34,16 +34,16 @@ public interface ClusterPartitioneer {
     final static Logger logger = LoggerFactory.getLogger(ClusterPartitioneer.class);
     
     /* you were supossed to bring balance to the force !! */
-    List<List<ShardDuty>> balance(final int shards, final List<ShardDuty> weightedDuties);
+    List<List<ShardEntity>> balance(final int shards, final List<ShardEntity> weightedDuties);
 
     /* logger */
-    default void logDistributionResult(List<List<ShardDuty>> distro) {
+    default void logDistributionResult(List<List<ShardEntity>> distro) {
         int i =0;
-        for (List<ShardDuty> group: distro) {
-            for (ShardDuty duty: group) {
+        for (List<ShardEntity> group: distro) {
+            for (ShardEntity duty: group) {
                 if (logger.isDebugEnabled()) {
                     logger.debug("{}: Duty: {} Weighting: {} in Group: {} ", getClass().getSimpleName(), 
-                        duty.getDuty().getId(), duty.getDuty().getWeight().getLoad(), i);
+                        duty.getEntity().getId(), duty.getDuty().getWeight().getLoad(), i);
                 }
             }
             i++;

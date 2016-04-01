@@ -16,7 +16,7 @@
  */
 package io.tilt.minka.business.leader.distributor;
 
-import static io.tilt.minka.domain.ShardDuty.State.PREPARED;
+import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,9 +31,9 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.business.leader.PartitionTable;
-import io.tilt.minka.domain.DutyEvent;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardDuty;
+import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.utils.CircularCollection;
 
 /**
@@ -59,9 +59,9 @@ public class EvenSizeBalancer extends AbstractBalancer {
             final PartitionTable table, 
             final Reallocation pres, 
             final List<Shard> onlineShards,
-            final Set<ShardDuty> dangling, 
-            final Set<ShardDuty> creations, 
-            final Set<ShardDuty> deletions,
+            final Set<ShardEntity> dangling, 
+            final Set<ShardEntity> creations, 
+            final Set<ShardEntity> deletions,
             final int accounted) {
         
         // get a fair distribution
@@ -84,8 +84,8 @@ public class EvenSizeBalancer extends AbstractBalancer {
             final CircularCollection<Shard> receptiveCircle = new CircularCollection<>(receptors);
             registerMigrations(table, pres, emisors, deltas, receptiveCircle);
             // copy them because they both go to different shards with different events
-            final List<ShardDuty> danglingAsCreations = new ArrayList<>();
-            dangling.forEach(i->danglingAsCreations.add(ShardDuty.copy(i)));
+            final List<ShardEntity> danglingAsCreations = new ArrayList<>();
+            dangling.forEach(i->danglingAsCreations.add(ShardEntity.copy(i)));
             creations.addAll(danglingAsCreations);
             registerCreations(creations, pres, receptiveCircle);
         } else {
@@ -103,16 +103,16 @@ public class EvenSizeBalancer extends AbstractBalancer {
             CircularCollection<Shard> receptiveCircle) {
         
         for (final Shard emisorShard: emisors) {
-            Set<ShardDuty> duties = table.getDutiesByShard(emisorShard);
+            Set<ShardEntity> duties = table.getDutiesByShard(emisorShard);
             int i = 0;
-            Iterator<ShardDuty> it  = duties.iterator();
+            Iterator<ShardEntity> it  = duties.iterator();
             while (it.hasNext() && i++ < Math.abs(deltas.get(emisorShard))) {
-                final ShardDuty unassigning = it.next();
-                unassigning.registerEvent(DutyEvent.UNASSIGN, PREPARED);
+                final ShardEntity unassigning = it.next();
+                unassigning.registerEvent(EntityEvent.UNASSIGN, PREPARED);
                 pres.addChange(emisorShard, unassigning);
                 final Shard receptorShard = receptiveCircle.next();
-                ShardDuty assigning = ShardDuty.copy(unassigning);
-                assigning.registerEvent(DutyEvent.ASSIGN, PREPARED);
+                ShardEntity assigning = ShardEntity.copy(unassigning);
+                assigning.registerEvent(EntityEvent.ASSIGN, PREPARED);
                 pres.addChange(receptorShard, assigning);
                 logger.info("{}: Migrating from: {} to: {}, Duty: {}", getClass().getSimpleName(), 
                         emisorShard.getShardID(), receptorShard.getShardID(), assigning.toString());
@@ -127,12 +127,12 @@ public class EvenSizeBalancer extends AbstractBalancer {
             final int fairDistribution, 
             final Set<Shard> receptors, 
             final Set<Shard> emisors, 
-            final Set<ShardDuty> deletions) {
+            final Set<ShardEntity> deletions) {
         
         final Map<Shard, Integer> deltas = new HashMap<>();
         final int maxDelta = getConfig().getBalancerEvenSizeMaxDutiesDeltaBetweenShards();
         for (final Shard shard: onlineShards) {
-            final Set<ShardDuty> shardedDuties = table.getDutiesByShard(shard);
+            final Set<ShardEntity> shardedDuties = table.getDutiesByShard(shard);
             // check if this shard contains the deleting duties 
             int sizeToRemove = (int)shardedDuties.stream().filter(i->deletions.contains(i)).count();
             final int assignedDuties = shardedDuties.size() - sizeToRemove;

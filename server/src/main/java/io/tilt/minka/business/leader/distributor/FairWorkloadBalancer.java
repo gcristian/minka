@@ -16,8 +16,7 @@
  */
 package io.tilt.minka.business.leader.distributor;
 
-import static io.tilt.minka.api.Config.FairBalancerPreSort.WORKLOAD;
-import static io.tilt.minka.domain.ShardDuty.State.PREPARED;
+import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
 import static io.tilt.minka.domain.ShardState.ONLINE;
 
 import java.util.ArrayList;
@@ -35,11 +34,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Config.FairBalancerPreSort;
 import io.tilt.minka.business.leader.PartitionTable;
-import io.tilt.minka.domain.DutyEvent;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardDuty;
+import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.Workload;
 
 /**
@@ -60,12 +58,12 @@ public class FairWorkloadBalancer extends AbstractBalancer {
         this.partitioneer = partitioneer;
     }
     
-    private Comparator<ShardDuty> getShardDutyCreationDateComparator() {
-        return new Comparator<ShardDuty>() {
+    private Comparator<ShardEntity> getShardDutyCreationDateComparator() {
+        return new Comparator<ShardEntity>() {
             @Override
-            public int compare(ShardDuty o1, ShardDuty o2) {
-                return o1.getEventDateForPartition(DutyEvent.CREATE).compareTo(
-                        o2.getEventDateForPartition(DutyEvent.CREATE));
+            public int compare(ShardEntity o1, ShardEntity o2) {
+                return o1.getEventDateForPartition(EntityEvent.CREATE).compareTo(
+                        o2.getEventDateForPartition(EntityEvent.CREATE));
             }
         };
     }
@@ -75,33 +73,34 @@ public class FairWorkloadBalancer extends AbstractBalancer {
             final PartitionTable table, 
             final Reallocation pres, 
             final List<Shard> onlineShards,
-            final Set<ShardDuty> dangling, 
-            final Set<ShardDuty> creations, 
-            final Set<ShardDuty> deletions,
+            final Set<ShardEntity> dangling, 
+            final Set<ShardEntity> creations, 
+            final Set<ShardEntity> deletions,
             final int accounted) {
         
         // add danglings as creations prior to migrationsw
-        final List<ShardDuty> danglingAsCreations = new ArrayList<>();
-        dangling.forEach(i->danglingAsCreations.add(ShardDuty.copy(i)));
+        final List<ShardEntity> danglingAsCreations = new ArrayList<>();
+        dangling.forEach(i->danglingAsCreations.add(ShardEntity.copy(i)));
         creations.addAll(danglingAsCreations);
         
         // order new ones and current ones in order to get a fair distro 
-        final FairBalancerPreSort presort = getConfig().getBalancerFairLoadPresort();
-        final Comparator comparator = presort == WORKLOAD ? Workload.getComparator() : getShardDutyCreationDateComparator();
-        final Set<ShardDuty> duties = new TreeSet<>(comparator); 
+        final FairWorkloadBalancerPreSort presort = getConfig().getBalancerFairLoadPresort();
+        final Comparator comparator = presort == FairWorkloadBalancerPreSort.WORKLOAD ? Workload.getComparator() : getShardDutyCreationDateComparator();
+        final Set<ShardEntity> duties = new TreeSet<>(comparator); 
         duties.addAll(creations);   // newcomers have ++priority than table
         duties.addAll(table.getDutiesAllByShardState(ONLINE));
-        final List<ShardDuty> dutiesSorted = new ArrayList<>(duties);
-        logBeforeBalance(dutiesSorted);
+        final List<ShardEntity> dutiesSorted = new ArrayList<>(duties);
+        logger.debug("{}: Before Balance: {} ({})", getClass().getSimpleName(), 
+                ShardEntity.toStringIds(dutiesSorted));
         
-        final List<List<ShardDuty>> clusters = formClusters(onlineShards, duties, dutiesSorted);
+        final List<List<ShardEntity>> clusters = formClusters(onlineShards, duties, dutiesSorted);
         if (!clusters.isEmpty()) {
             final Iterator<Shard> itShard = onlineShards.iterator();
-            final Iterator<List<ShardDuty>> itCluster = clusters.iterator();
+            final Iterator<List<ShardEntity>> itCluster = clusters.iterator();
             while (itShard.hasNext()) {
                 final boolean moreClusters = itCluster.hasNext();
                 final Shard shard = itShard.next();
-                final Set<ShardDuty> currents = table.getDutiesByShard(shard);
+                final Set<ShardEntity> currents = table.getDutiesByShard(shard);
                 registerMigrationsForShard(pres, 
                         moreClusters ? new TreeSet<>(itCluster.next()):null, 
                         shard, currents);
@@ -111,12 +110,12 @@ public class FairWorkloadBalancer extends AbstractBalancer {
         }
     }
 
-    private List<List<ShardDuty>> formClusters(
+    private List<List<ShardEntity>> formClusters(
             final List<Shard> onlineShards, 
-            final Set<ShardDuty> duties,
-            final List<ShardDuty> dutiesSorted) {
+            final Set<ShardEntity> duties,
+            final List<ShardEntity> dutiesSorted) {
         
-        List<List<ShardDuty>> clusters = null;
+        List<List<ShardEntity>> clusters = null;
         // sort the shards by first time seen so duties are spread into a stable shard arrange
         //Collections.reverseOrder();
         Collections.sort(onlineShards, Collections.reverseOrder(onlineShards.get(0)));
@@ -133,7 +132,7 @@ public class FairWorkloadBalancer extends AbstractBalancer {
                     getClass().getSimpleName(), onlineShards.size(), dutiesSorted.size());
             // then simply prepare as many "clusters" as Duties, so they'll be assigned
             clusters = new ArrayList<>();
-            for (final ShardDuty duty: duties) {
+            for (final ShardEntity duty: duties) {
                 clusters.add(Arrays.asList(duty));
             }
         }
@@ -142,11 +141,11 @@ public class FairWorkloadBalancer extends AbstractBalancer {
 
     private void registerMigrationsForShard(
             final Reallocation realloc, 
-            final Set<ShardDuty> clusterSet, 
+            final Set<ShardEntity> clusterSet, 
             final Shard shard,
-            final Set<ShardDuty> currents) {
+            final Set<ShardEntity> currents) {
         
-        List<ShardDuty> unassigning = clusterSet !=null ? 
+        List<ShardEntity> unassigning = clusterSet !=null ? 
                     currents.stream().filter(i->!clusterSet.contains(i)).collect(Collectors.toList())
                     : new ArrayList<>(currents);
         
@@ -156,13 +155,13 @@ public class FairWorkloadBalancer extends AbstractBalancer {
         }
         
         StringBuilder log = new StringBuilder();
-        for (ShardDuty unassign: unassigning) {
+        for (ShardEntity unassign: unassigning) {
             // copy because in latter cycles this will be assigned
             // so they're traveling different places
-            final ShardDuty copy = ShardDuty.copy(unassign);
-            copy.registerEvent(DutyEvent.UNASSIGN, PREPARED);
+            final ShardEntity copy = ShardEntity.copy(unassign);
+            copy.registerEvent(EntityEvent.UNASSIGN, PREPARED);
             realloc.addChange(shard, copy);
-            log.append(copy.getDuty().getId()).append(", ");
+            log.append(copy.getEntity().getId()).append(", ");
         }
         if (log.length()>0) {
             logger.info("{}: DisAssigning to shard: {}, duties: {}", getClass().getSimpleName(), 
@@ -170,7 +169,7 @@ public class FairWorkloadBalancer extends AbstractBalancer {
         }
         
         if (clusterSet != null) {
-            final List<ShardDuty> assigning = clusterSet.stream()
+            final List<ShardEntity> assigning = clusterSet.stream()
                     .filter(i->!currents.contains(i)).collect(Collectors.toList());
             
             if (assigning.isEmpty() && logger.isDebugEnabled()) {
@@ -178,13 +177,13 @@ public class FairWorkloadBalancer extends AbstractBalancer {
                         getClass().getSimpleName(), shard);
             }
             log = new StringBuilder();
-            for (ShardDuty assign: assigning) {
+            for (ShardEntity assign: assigning) {
                 // copy because in latter cycles this will be assigned
                 // so they're traveling different places
-                final ShardDuty copy = ShardDuty.copy(assign);
-                copy.registerEvent(DutyEvent.ASSIGN, PREPARED);
+                final ShardEntity copy = ShardEntity.copy(assign);
+                copy.registerEvent(EntityEvent.ASSIGN, PREPARED);
                 realloc.addChange(shard, copy);
-                log.append(copy.getDuty().getId()).append(", ");
+                log.append(copy.getEntity().getId()).append(", ");
             }
             if (log.length()>0) {
                 logger.info("{}: Assigning to shard: {}, duty: {}", getClass().getSimpleName(), 
@@ -192,21 +191,14 @@ public class FairWorkloadBalancer extends AbstractBalancer {
             }
         }
     }
-    
-    private void logBeforeBalance(final List<ShardDuty> dutiesForBalance) {
-        if (logger.isDebugEnabled()) {
-            logger.debug("{}: Before Balance: {} ({})", getClass().getSimpleName(), 
-                    ShardDuty.toStringIds(dutiesForBalance));
-        }
-    }
 
-    private void logDebug(List<List<ShardDuty>> clusters) {
+    private void logDebug(List<List<ShardEntity>> clusters) {
         if (logger.isDebugEnabled()) {
             final AtomicInteger ai = new AtomicInteger();
-            for (final List<ShardDuty> cluster: clusters) {
+            for (final List<ShardEntity> cluster: clusters) {
                 int n = ai.incrementAndGet();
-                for (final ShardDuty sh: cluster) {
-                    logger.debug("{}: Cluster {} = {} ({})", getClass().getSimpleName(),  n, sh.getDuty().getId(), 
+                for (final ShardEntity sh: cluster) {
+                    logger.debug("{}: Cluster {} = {} ({})", getClass().getSimpleName(),  n, sh.getEntity().getId(), 
                             sh.getDuty().getWeight().getLoad());
                 }
             }

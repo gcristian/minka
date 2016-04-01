@@ -10,7 +10,7 @@ import java.util.Set;
 import org.junit.Assert;
 import org.junit.Test;
 
-import io.tilt.minka.domain.ShardDuty;
+import io.tilt.minka.domain.ShardEntity;
 
 public class ShardDutyTest {
     
@@ -27,14 +27,14 @@ public class ShardDutyTest {
         Assert.assertTrue(true);
 
         
-        Set<ShardDuty> set = new HashSet<>();
-        DemoDuty d2 = new DemoDuty();
-        set.add(ShardDuty.create(new DemoDuty()));
-        set.add(ShardDuty.create(d2));
-        set.add(ShardDuty.create(new DemoDuty()));
+        Set<ShardEntity> set = new HashSet<>();
+        DemoDuty d2 = new DemoDuty("p0");
+        set.add(ShardEntity.create(new DemoDuty("p0")));
+        set.add(ShardEntity.create(d2));
+        set.add(ShardEntity.create(new DemoDuty("p0")));
         assert(set.size() == 3);
         
-        Assert.assertTrue(set.contains(ShardDuty.create(d2)));
+        Assert.assertTrue(set.contains(ShardEntity.create(d2)));
     }
     
 }

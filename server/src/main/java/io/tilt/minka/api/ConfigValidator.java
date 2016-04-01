@@ -16,16 +16,18 @@
  */
 package io.tilt.minka.api;
 
+import io.tilt.minka.api.Pallet.Storage;
+
 public class ConfigValidator {
 
     /* TODO este metodo va a crecer mucho y requiere un monton de calculo */
     public void validate(Config config, PartitionDelegate delegate) {
-        if (delegate instanceof PartitionMaster && config.minkaStorageDuties()) {
+        if (delegate instanceof PartitionMaster && config.getDutyStorage()==Storage.MINKA_MANAGEMENT) {
             throw new RuntimeException("You must provide a PartitionDelegate instead of PartitionMaster" +
-                    " while having configuration parameter minkaStorageDuties = true");
-        } else if (!(delegate instanceof PartitionMaster) && !config.minkaStorageDuties()) {
+                    " while having configuration parameter Storage = MINKA_MANAGEMENT");
+        } else if (!(delegate instanceof PartitionMaster) && config.getDutyStorage()==Storage.CLIENT_DEFINED) {
             throw new RuntimeException("You must provide a PartitionMaster instead of PartitionDelegate" +
-                    " while having configuration parameter minkaStorageSduties = false");
+                    " while having configuration parameter Storage = CLIENT_DEFINED");
         }
     }
 

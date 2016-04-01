@@ -11,7 +11,7 @@ import org.junit.Test;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.business.leader.distributor.ClassicalPartitionSolver;
-import io.tilt.minka.domain.ShardDuty;
+import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.Workload;
 
 /**
@@ -47,6 +47,14 @@ public class PartitioneerTest {
             public String getId() {
                 return id;
             }
+            @Override
+            public int compare(String o1, String o2) {
+                return o1.compareTo(o2);
+            }
+            @Override
+            public String getPalletId() {
+                return "p0";
+            }
         };
     }
         
@@ -54,26 +62,26 @@ public class PartitioneerTest {
     public void testBalance() {
             
         final int shards = 4;
-        final List<ShardDuty> weightedDuties = new ArrayList<>();
-        weightedDuties.add(ShardDuty.create(buildDutyWithWeight(10l, "1")));
-        weightedDuties.add(ShardDuty.create(buildDutyWithWeight(100l, "2")));
-        weightedDuties.add(ShardDuty.create(buildDutyWithWeight(200l, "3")));
-        weightedDuties.add(ShardDuty.create(buildDutyWithWeight(500l, "4")));
-        weightedDuties.add(ShardDuty.create(buildDutyWithWeight(1000l, "5")));
-        weightedDuties.add(ShardDuty.create(buildDutyWithWeight(1500l, "6")));
-        weightedDuties.add(ShardDuty.create(buildDutyWithWeight(1500l, "7")));
+        final List<ShardEntity> weightedDuties = new ArrayList<>();
+        weightedDuties.add(ShardEntity.create(buildDutyWithWeight(10l, "1")));
+        weightedDuties.add(ShardEntity.create(buildDutyWithWeight(100l, "2")));
+        weightedDuties.add(ShardEntity.create(buildDutyWithWeight(200l, "3")));
+        weightedDuties.add(ShardEntity.create(buildDutyWithWeight(500l, "4")));
+        weightedDuties.add(ShardEntity.create(buildDutyWithWeight(1000l, "5")));
+        weightedDuties.add(ShardEntity.create(buildDutyWithWeight(1500l, "6")));
+        weightedDuties.add(ShardEntity.create(buildDutyWithWeight(1500l, "7")));
         
         final ClassicalPartitionSolver p = new ClassicalPartitionSolver();
-        List<List<ShardDuty>> distro = p.balance(shards, weightedDuties);
+        List<List<ShardEntity>> distro = p.balance(shards, weightedDuties);
         printDistributionResult(distro);
     }
 
-    private void printDistributionResult(List<List<ShardDuty>> distro) {
+    private void printDistributionResult(List<List<ShardEntity>> distro) {
         int i =0;
-        for (List<ShardDuty> group: distro) {
+        for (List<ShardEntity> group: distro) {
             int sum = 0;
-            for (ShardDuty duty: group) {
-                System.out.println("Group " + i + " with Duty: " + duty.getDuty().getId()+ " Weighting: " + 
+            for (ShardEntity duty: group) {
+                System.out.println("Group " + i + " with Duty: " + duty.getEntity().getId()+ " Weighting: " + 
                         duty.getDuty().getWeight().getLoad());
                 sum+=duty.getDuty().getWeight().getLoad().intValue();
             }

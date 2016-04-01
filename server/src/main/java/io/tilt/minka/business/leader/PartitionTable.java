@@ -33,14 +33,14 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Lists;
 
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.domain.DutyEvent;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.NetworkShardID;
 import io.tilt.minka.domain.Partition;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardDuty;
+import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.domain.ShardState;
-import io.tilt.minka.domain.ShardDuty.State;
+import io.tilt.minka.domain.ShardEntity.State;
 import jersey.repackaged.com.google.common.collect.Sets;
 
 /**
@@ -58,9 +58,9 @@ public class PartitionTable {
     private Map<Shard, Partition> partitionsByShard;
     
     /* only for saving client's additions */
-    private Set<ShardDuty> crud;
-    private Set<ShardDuty> missing;
-    private Set<ShardDuty> dangling;
+    private Set<ShardEntity> crud;
+    private Set<ShardEntity> missing;
+    private Set<ShardEntity> dangling;
     private ClusterHealth visibilityHealth;
     private ClusterHealth workingHealth;
     private ClusterCapacity capacity;
@@ -135,16 +135,16 @@ public class PartitionTable {
         this.capacity = capacity;
     }
     
-    public Set<ShardDuty> getDutiesDangling() {
+    public Set<ShardEntity> getDutiesDangling() {
         return this.dangling;
     }
 
-    private StringBuilder buildLogForDuties(final List<ShardDuty> sorted) {
+    private StringBuilder buildLogForDuties(final List<ShardEntity> sorted) {
         final StringBuilder sb = new StringBuilder();
         if (!sorted.isEmpty()) {
             sorted.sort(sorted.get(0));
         }
-        sorted.forEach(i->sb.append(i.getDuty().getId()).append(", "));
+        sorted.forEach(i->sb.append(i.getEntity().getId()).append(", "));
         return sb;
     }
     
@@ -161,7 +161,7 @@ public class PartitionTable {
         return this.crud.size();
     }
 
-    public void addCrudDuty(final ShardDuty duty) {
+    public void addCrudDuty(final ShardEntity duty) {
         if (duty.getDutyEvent().isCrud()) {
             crud.remove(duty);
             crud.add(duty);
@@ -174,15 +174,15 @@ public class PartitionTable {
         this.crud = new HashSet<>(); 
     }
     
-    public Set<ShardDuty> getDutiesCrud() {
+    public Set<ShardEntity> getDutiesCrud() {
         return this.crud;
     }
     
-    public Set<ShardDuty> getDutiesMissing() {
+    public Set<ShardEntity> getDutiesMissing() {
         return this.missing;
     }
     
-    public Set<ShardDuty> getDutiesCrudByFilters(final DutyEvent event, final State state) { 
+    public Set<ShardEntity> getDutiesCrudByFilters(final EntityEvent event, final State state) { 
         return getDutiesCrud().stream()
             .filter(i->i.getDutyEvent()==event && i.getState()==state)
             .collect(Collectors.toCollection(HashSet::new));
@@ -215,8 +215,8 @@ public class PartitionTable {
     }
 
     /** confirmation after reallocation phase */
-    public void confirmDutyAboutShard(final ShardDuty duty, final Shard where) {
-        if (duty.getDutyEvent().is(DutyEvent.ASSIGN) || duty.getDutyEvent().is(DutyEvent.CREATE)) {
+    public void confirmDutyAboutShard(final ShardEntity duty, final Shard where) {
+        if (duty.getDutyEvent().is(EntityEvent.ASSIGN) || duty.getDutyEvent().is(EntityEvent.CREATE)) {
             for (Shard sh : partitionsByShard.keySet()) {
                 if (!sh.equals(where) && partitionsByShard.get(sh).getDuties().contains(duty)) {
                     String msg = new StringBuilder().append("Shard ").append(where)
@@ -226,7 +226,7 @@ public class PartitionTable {
                 }
             }
             getPartition(where).getDuties().add(duty);
-        } else if (duty.getDutyEvent().is(DutyEvent.UNASSIGN) || duty.getDutyEvent().is(DutyEvent.DELETE)) {
+        } else if (duty.getDutyEvent().is(EntityEvent.UNASSIGN) || duty.getDutyEvent().is(EntityEvent.DELETE)) {
             if (!getPartition(where).getDuties().remove(duty)) {
                 throw new IllegalStateException("Absence failure. Confirmed deletion actually doesnt exist or it "
                         + "was already confirmed");
@@ -235,12 +235,12 @@ public class PartitionTable {
     }
         
     /** @return a copy of duties by shard: dont change duties ! */
-    public Set<ShardDuty> getDutiesByShard(final Shard shard) {
+    public Set<ShardEntity> getDutiesByShard(final Shard shard) {
         return Sets.newHashSet(getPartition(shard).getDuties());
     }
     
-    public Set<ShardDuty> getDutiesAllByShardState(final ShardState state) {
-        final Set<ShardDuty> allDuties = new HashSet<>();
+    public Set<ShardEntity> getDutiesAllByShardState(final ShardState state) {
+        final Set<ShardEntity> allDuties = new HashSet<>();
         for (Shard shard: partitionsByShard.keySet().stream()
                 .filter(s->s.getState() == state || state == null).collect(Collectors.toList())) {
             allDuties.addAll(partitionsByShard.get(shard).getDuties());
@@ -271,10 +271,10 @@ public class PartitionTable {
         return total;
     }
 
-    public Shard getDutyLocation(final ShardDuty se) {
+    public Shard getDutyLocation(final ShardEntity se) {
         for (final Shard shard: partitionsByShard.keySet()) {
             final Partition part = partitionsByShard.get(shard);
-            for (ShardDuty st: part.getDuties()) {
+            for (ShardEntity st: part.getDuties()) {
                 if (st.equals(se)) {
                     return shard;
                 }

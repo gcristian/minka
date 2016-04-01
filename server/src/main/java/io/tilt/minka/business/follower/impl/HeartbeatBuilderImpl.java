@@ -16,8 +16,8 @@
  */
 package io.tilt.minka.business.follower.impl;
 
-import static io.tilt.minka.domain.ShardDuty.State.CONFIRMED;
-import static io.tilt.minka.domain.ShardDuty.State.DANGLING;
+import static io.tilt.minka.domain.ShardEntity.State.CONFIRMED;
+import static io.tilt.minka.domain.ShardEntity.State.DANGLING;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -33,10 +33,10 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.PartitionDelegate;
 import io.tilt.minka.business.LeaderShardContainer;
 import io.tilt.minka.business.follower.HeartbeatBuilder;
-import io.tilt.minka.domain.DutyEvent;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Partition;
-import io.tilt.minka.domain.ShardDuty;
+import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.utils.LogUtils;
 
 /**
@@ -78,18 +78,18 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 			reportedDuties = new HashSet();
 		}
 		
-		final List<ShardDuty> shardingDuties = new ArrayList<>();
+		final List<ShardEntity> shardingDuties = new ArrayList<>();
 		boolean warning = false;
 		
 		// add reported: as confirmed if previously assigned, dangling otherwise. 
 		for (final Duty<?> duty: reportedDuties) {
-		    ShardDuty shardedDuty = partition.forDuty(duty);
+		    ShardEntity shardedDuty = partition.forDuty(duty);
 		    if (shardedDuty!=null) {
 		        shardedDuty.registerEvent(CONFIRMED);
 		    } else {
-		        shardedDuty = ShardDuty.create(duty);
+		        shardedDuty = ShardEntity.create(duty);
 		        // shardedDuty.registerEvent(PartitionEvent.ASSIGN, State.DANGLING);
-		        shardedDuty.registerEvent(DutyEvent.CREATE, DANGLING);
+		        shardedDuty.registerEvent(EntityEvent.CREATE, DANGLING);
 		        logger.error("{}: ({}) Reporting a Dangling Duty (by Addition): {}", getClass().getSimpleName(), 
 		                partition.getId(), shardedDuty);
 		        warning = true;
@@ -98,9 +98,9 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 		}
 		
 		// add non-reported: as dangling
-		for (final ShardDuty existing: partition.getDuties()) {
-		    if (!reportedDuties.contains(existing.getDuty())) {
-		        existing.registerEvent(DutyEvent.DELETE, DANGLING);
+		for (final ShardEntity existing: partition.getDuties()) {
+		    if (!reportedDuties.contains(existing.getEntity())) {
+		        existing.registerEvent(EntityEvent.DELETE, DANGLING);
 		        logger.error("{}: ({}) Reporting a Dangling Duty (by Erasure): {}", getClass().getSimpleName(), 
 		                partition.getId(),existing);
 		        shardingDuties.add(existing);
@@ -119,13 +119,13 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 		
     private void logDebugNicely(final Heartbeat hb) {
         final StringBuilder sb = new StringBuilder();
-        List<ShardDuty> sorted = hb.getDuties();
+        List<ShardEntity> sorted = hb.getDuties();
         if (!sorted.isEmpty()) {
             sorted.sort(sorted.get(0));
         }
         
         long totalWeight = 0;
-        for (ShardDuty i: hb.getDuties()) {
+        for (ShardEntity i: hb.getDuties()) {
             sb.append(i.getDuty().getId())
                 .append("(").append(i.getDuty().getWeight().getLoad()).append(")")
                 .append(", ");

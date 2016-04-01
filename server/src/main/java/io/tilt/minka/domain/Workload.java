@@ -23,12 +23,12 @@ import io.tilt.minka.business.leader.Leader;
 
 /**
  * A workload comparable value to be descending-order sorted at {@link Leader}
- * so it can balance {@link ShardDuty} assignments    
+ * so it can balance {@link ShardEntity} assignments    
  *  
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
  */
-public class Workload implements Comparable<Workload>, Comparator<ShardDuty>, Serializable {
+public class Workload implements Comparable<Workload>, Comparator<ShardEntity>, Serializable {
 
     private static final long serialVersionUID = 2191475545082914908L;
     private Long maxLoad;
@@ -44,7 +44,7 @@ public class Workload implements Comparable<Workload>, Comparator<ShardDuty>, Se
         this.maxLoad = maxLoad;
     }
 	
-	public static Comparator<ShardDuty> getComparator() {
+	public static Comparator<ShardEntity> getComparator() {
 	    return new Workload(0l);
 	}
 	
@@ -102,7 +102,7 @@ public class Workload implements Comparable<Workload>, Comparator<ShardDuty>, Se
 	}
 
     @Override
-    public int compare(final ShardDuty o1, final ShardDuty o2) {
+    public int compare(final ShardEntity o1, final ShardEntity o2) {
         return o1.getDuty().getWeight().compareTo(o2.getDuty().getWeight());
     }
 }
