@@ -1,6 +1,6 @@
 # **What is Minka ?**
 
-### A tool to scale up applications, providing a highly-available and fault-tolerant service of distribution and balancing of processing workload.
+### A tool to scale up applications, providing a highly-available and fault-tolerant service of distribution and balancing of processor workload.
 
 ##### Applying the sharding pattern to divide-and-conquer application's resources, it allows user-defined unit of works to be: grouped, distributed, transported, and assigned into shards.
 
@@ -20,17 +20,18 @@ You define...
 
 **Shards** are the instances of your application running along with Minka, needing to divide-and-conquer their input to scale usage of resources. Internally a Minka shard consists of a follower process, and a leader candidate process, elected or in position to be.
 
-**Delegates** are the client's implementations to receive duties from Minka, subjected to a basic contract: it must take, release, and report their assigned duties, whenever it's commanded to, this's mandatory for Minka to work
+**Delegates** are the client's implementations to receive duties from Minka, subjected to a basic contract: it must take, release, and report their assigned duties, whenever it's commanded to, this also leads to custom implementation of processes
 
-Everything set, Minka gets user duties from the intake endpoint to their corresponding application's delegate, in the right machine where it’s running, keeping the cluster balanced, and all duties assigned as long as there is at least one shard to do it.
+Everything set, Minka gets user duties from the intake endpoint to their corresponding machine where the application's delegate is running, keeping the cluster balanced, and all duties assigned as long as there is at least one shard to do it.
 
 ![diagram](https://k61.kn3.net/829B14F6B.png)
-> in this case duties are provided by the application itself, this's all occurring on the same machine, 
+> in this case duties are provided by the application's own storage.
 
 
 ### Features
-- Distributed because the shards communicate thru HTTP ports, they can be anywhere as long as they can keep connected.
- - All actions over duties will be re-routed thru the leader and sent to the follower Shard 
+- Distributed because the shards communicate thru HTTP ports
+ - duty payloads are transported to their assigned shard.
+ - All CRUD actions over duties will be re-routed thru the leader and sent to the follower Shard 
 - Highly available and fault tolerant because it runs roles of leader (coordinators) and followers (application managers) that react this way:
   - In case of server shutdown, hang-up, or leader in-communication or leader fail, their held duties will be automatically re-distributed to alive shards,
   - and the out of sync shard will also release all held duties, in order to avoid concurrency while waiting to communicate with the leader.
