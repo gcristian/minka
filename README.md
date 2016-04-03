@@ -4,6 +4,10 @@
 
 ##### Applying the sharding pattern to divide-and-conquer application's resources, it allows user-defined unit of works to be: grouped, distributed, transported, and assigned into shards.
 
+![brief intro about the simnplicity of the model and the becoming of a problem](https://k61.kn3.net/6C52CF27F.png)
+![even more](https://k60.kn3.net/E84EC6287.png)
+
+
 ### Concepts of the model
 
 **Duties** represent anything you can fine-grain within an application, like tasks, data, processes.
@@ -20,7 +24,7 @@ You define...
 
 Everything set, Minka gets user duties from the intake endpoint to their corresponding application's delegate, in the right machine where it’s running, keeping the cluster balanced, and all duties assigned as long as there is at least one shard to do it.
 
-![diagram](https://k60.kn3.net/A930AF8D2.png)
+![diagram](https://k61.kn3.net/829B14F6B.png)
 > in this case duties are provided by the application itself, this's all occurring on the same machine, 
 
 
@@ -40,8 +44,10 @@ It's a simple design focused on simple achievements.
 - two configurable HTTP ports, serving client requests and talking to other cluster shards,
 - Java 8
 
-Currently it’s a library running within the same application’s JVM.
-In next releases it will turn to a rest java standalone application, enabling support to other languages and platforms.
+> Currently it’s a library running within the same application’s JVM.
+> In next releases it will turn to a rest java standalone application, enabling support to other languages and platforms.
+
+![](https://k60.kn3.net/61CC3FC7F.png)
 
 ##### Check out the classes and interfases to integrate minka:
  - the most of important of all: the [Partition Delegate](https://github.com/gcristian/minka/blob/master/server/src/main/java/io/tilt/minka/api/PartitionDelegate.java)
