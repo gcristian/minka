@@ -47,10 +47,10 @@ It's a simple design focused on simple achievements.
 > Currently it’s a library running within the same application’s JVM.
 > In next releases it will turn to a rest java standalone application, enabling support to other languages and platforms.
 
-![](https://k60.kn3.net/61CC3FC7F.png)
+![](https://k61.kn3.net/0A01668D7.png)
 
 ##### Check out the classes and interfases to integrate minka:
- - the most of important of all: the [Partition Delegate](https://github.com/gcristian/minka/blob/master/server/src/main/java/io/tilt/minka/api/PartitionDelegate.java)
+ - the most important of all: the [Partition Delegate](https://github.com/gcristian/minka/blob/master/server/src/main/java/io/tilt/minka/api/PartitionDelegate.java)
  - the distributed unit of work to be your [Duty](https://github.com/gcristian/minka/blob/master/server/src/main/java/io/tilt/minka/api/PlainDuty.java)
  - the point of integration to run CRUD operations over duties: the [Partition Service](https://github.com/gcristian/minka/blob/master/server/src/main/java/io/tilt/minka/api/PartitionService.java)
 
@@ -153,7 +153,7 @@ What happens when you're exhausting some resource and need to split the heavy pr
 OK you're doing an ad-hoc distributed processing solution, lot of complexity will keep arising from the first innocent initiative to solve the problem. And the What if’s could get funnier:
 
  - WIF you need to keep only data distributed not processes ?
- - WIF your processing stages are implemented on different platforms or languages ?
+ - WIF your processing stages are implemented on different platforims or languages ?
  - WIF you need to scale that with some guarantees of availability and failure tolerance ?
  - WIF you need complete flexibility in your application cluster ?
 
@@ -161,11 +161,10 @@ OK you're doing an ad-hoc distributed processing solution, lot of complexity wil
 
 ## What it is not Minka
 
-You cannot, should not
-
-- Build Elasticsearch within Minka, but you could write similar interactions at a less stressing level.
-- Balance web-application requests like you would with nGinx
-- Run MapReduce, use Hadoop for that !
+- you cannot build something like ElasticSearch within Minka, but you could write similar interactions at a less stressing level.
+- you shouldnt balance web-application requests like you would with nGinx, nothing to do with that
+- run MapReduce jobs?, use Hadoop for that.
+- you read or you know there other tools like this already, yeah? may be, let me know I've needed them, they were to huge or too tiny.
 
 Minka does not necessary fit a big-data environment, it's more to distribution and balancing like ZK is to coordination, a tool, not a platform.
 
