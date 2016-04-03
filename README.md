@@ -10,7 +10,7 @@
 
 ### Concepts of the model
 
-**Duties** represent anything you can fine-grain within an application, like tasks, data, processes.
+**Duties** represent anything you can fine-grain within an application, like tasks, data, messages, files, async requests (not ready yet for realtime)
 They can pan from a static only-once execution to a dynamic idempotent nature, their lifecycles may freely vary.
 The minimal granularity of a processing function whose resources you need to make available by distribution.
 You define...
@@ -32,13 +32,13 @@ Everything set, Minka gets user duties from the intake endpoint to their corresp
 - Distributed because the shards communicate thru HTTP ports
  - duty payloads are transported to their assigned shard.
  - All CRUD actions over duties will be re-routed thru the leader and sent to the follower Shard 
-- Highly available and fault tolerant because it runs roles of leader (coordinators) and followers (application managers) that react this way:
+- Highly available and fault tolerant because every shard run roles of leader (coordinators) and follower (application managers) that react this way:
   - In case of server shutdown, hang-up, or leader in-communication or leader fail, their held duties will be automatically re-distributed to alive shards,
   - and the out of sync shard will also release all held duties, in order to avoid concurrency while waiting to communicate with the leader.
   - In case the failing server is also the leader of the ensemble, other shards will result elected.
 - Agnostic because minka doesn’t take part into the behaviour or platform of the application's delegate.
 
-It's a simple design focused on simple achievements.
+It's a simple design focused on simple achievements, with a strong resilient behaviour
 
 ### Implementation and requirements
 - an Apache Zookeeper ensemble,
@@ -57,7 +57,7 @@ It's a simple design focused on simple achievements.
 
 ##### How to test it
  - first you need to install and Apache Zookeeper, this should work for Ubuntu 14.04+
- - by default Minka expects ZK default address/port = localhost:2181, let it there
+ - by default Minka expects ZK default address:port = localhost:2181
 ```
 sudo apt-get install zookeeper
 ```
@@ -91,7 +91,7 @@ mvn compile
 ![bootup](https://k61.kn3.net/57A5CC710.png)
 
 - then each minka process
-	- listens in a different HTTP port (9000,9001,9002), and connects to Zookeeper (2181)
+	- listens in a different HTTP port (9000,9001), and connects to Zookeeper (2181)
 	- starts a follower role that's waiting the aparition of a leader 
 	- starts a leader candidate, but only one process won the election
 	- every follower acknowleged the leader and started sending heartbeats
@@ -111,7 +111,7 @@ mvn compile
 ### Cool, but what if....
 
 - the leader falls ?
-	- another process will took the role immediately
+	- another shard will take the role immediately
 - the follower falls ?
  - the leader will redistribute its duties keeping balance
 - the follower flaps between a healthy and a sick state ?
@@ -119,7 +119,7 @@ mvn compile
 - no leader is elected ? 
  - all followers will release duties, all leader candidates will retry their postulation
 - communication is broken ?
- - all followers will release duties, leader's follower role will catch all duties
+ - all blind followers will release duties, leader's follower role will catch all duties
 - communication flaps between healthly and sick ?
  - depending config, it will be tolerated or stop and keep retrying
 - zookeeper falls ?
@@ -132,7 +132,9 @@ mvn compile
 
 The system is built with strong efforts on resilience, so it wont give up easily to work the right way.
 
+
 ---
+
 
 ### How do we all really start coding this ?
 
@@ -151,7 +153,7 @@ What happens when you're exhausting some resource and need to split the heavy pr
  - Which may lead to have weighted processing queues for different requirements, 
  - so then you're needing again some kind of RDBMS/Queue with lot of flags and preconditions
 
-OK you're doing an ad-hoc distributed processing solution, lot of complexity will keep arising from the first innocent initiative to solve the problem. And the What if’s could get funnier:
+OK you're doing an ad-hoc distributed processing solution, lot of complexity will keep arising. And the What ifs could get funnier:
 
  - WIF you need to keep only data distributed not processes ?
  - WIF your processing stages are implemented on different platforims or languages ?
@@ -165,14 +167,14 @@ OK you're doing an ad-hoc distributed processing solution, lot of complexity wil
 - you cannot build something like ElasticSearch within Minka, but you could write similar interactions at a less stressing level.
 - you shouldnt balance web-application requests like you would with nGinx, nothing to do with that
 - run MapReduce jobs?, use Hadoop for that.
-- you read or you know there other tools like this already, yeah? may be, let me know I've needed them, they were to huge or too tiny.
+- you read or you know there other tools like this already, may be, the ones I evaluated were to huge and overkilling or too insufficient.
 
 Minka does not necessary fit a big-data environment, it's more to distribution and balancing like ZK is to coordination, a tool, not a platform.
 
 ## Where it was born:
 
-- in [Flowics]() we're a company for social media amplification, for which there's an ETL-like staging of info., before we can provide it to the frontend UI. The need arose to satisfy the distribution and balance of fetchers from multiple sources like Facebook, Instagram, Twitter, that required to be coordinated, as an elastic always available service.
+- in [Flowics]() we're a company for social media amplification, for which there's an ETL-like staging of data before it cames out as information and we can provide it to the frontend UI. The need arose to satisfy the distribution and balance of fetchers from multiple sources like Facebook, Instagram, Twitter, that required to be coordinated, as an elastic always available service.
  
 I'm Cristian Gonzalez, I've been coding more time than the time I had not :) 
 
-You can reach me at gcristian@gmail, and at: [Linkedin](https://www.linkedin.com/in/gcristian)
+You can reach me for any doubt, at gcristian@gmail, and at: [Linkedin](https://www.linkedin.com/in/gcristian)
