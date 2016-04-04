@@ -175,6 +175,6 @@ Minka does not necessary fit a big-data environment, it's more to distribution a
 
 - in [Flowics]() we're a company for social media amplification, for which there's an ETL-like staging of data before it cames out as information and we can provide it to the frontend UI. The need arose to satisfy the distribution and balance of fetchers from multiple sources like Facebook, Instagram, Twitter, that required to be coordinated, as an elastic always available service.
  
-I'm Cristian Gonzalez, I've been coding more time than the time I had not :) 
+I'm Cristian Gonzalez, I've been coding more time, than the time I've been not :) 
 
 You can reach me for any doubt, at gcristian@gmail, and at: [Linkedin](https://www.linkedin.com/in/gcristian)
