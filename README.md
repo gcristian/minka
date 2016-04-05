@@ -162,12 +162,16 @@ OK you're doing an ad-hoc distributed processing solution, lot of complexity wil
 
 **You better be prepared :)**
 
-## What it is not Minka
+## What Minka is not for:
 
-- you cannot build something like ElasticSearch within Minka, but you could write similar interactions at a less stressing level.
-- you shouldnt balance web-application requests like you would with nGinx, nothing to do with that
+- build something like ElasticSearch within Minka, althouth we can handle similar interactions at a less stressing level.
+- handle realtime streams consumption as you would with a queue or a stream , there're some [transporting issues ahead](https://github.com/gcristian/minka/issues/3) yet to be coded.
+- balance web-application requests like you would with nGinx, nothing to do with that
 - run MapReduce jobs?, use Hadoop for that.
-- you read or you know there other tools like this already, may be, the ones I evaluated were to huge and overkilling or too insufficient.
+
+## Comparison with other frameworks and platforms:
+
+- 
 
 Minka does not necessary fit a big-data environment, it's more to distribution and balancing like ZK is to coordination, a tool, not a platform.
 
