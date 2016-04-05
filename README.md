@@ -1,6 +1,6 @@
-# **What is Minka ?**
+# **Minka**
 
-### A tool to scale up applications, providing a highly-available and fault-tolerant service of distribution and balancing of processor workload.
+### A tool to scale up applications, providing a highly-available and fault-tolerant service of balanced distribution of entities.
 
 ##### Applying the sharding pattern to divide-and-conquer application's resources, it allows user-defined unit of works to be: grouped, distributed, transported, and assigned into shards.
 
