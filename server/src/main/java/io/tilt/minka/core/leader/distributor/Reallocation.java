@@ -1,20 +1,20 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * contributor license agreements. See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership. The ASF
+ * licenses this file to You under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-package io.tilt.minka.business.leader.distributor;
+package io.tilt.minka.core.leader.distributor;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
 
-import io.tilt.minka.business.leader.PartitionTable;
+import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
@@ -52,117 +52,117 @@ import io.tilt.minka.domain.ShardEntity.State;
  */
 public class Reallocation implements Comparable<Reallocation> {
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
-    
-    private SetMultimap<Shard, ShardEntity> problems;
-    private List<SetMultimap<Shard, ShardEntity>> issues;
-    private SetMultimap<Shard, ShardEntity> currentGroup;
-    private Iterator<SetMultimap<Shard, ShardEntity>> it;
-    private final long id;
-    private final DateTime creation;
-    private int retryCounter;
-    
-    private static final AtomicLong sequence = new AtomicLong();
-    
-    private final static int MAX_STEPS = 2;
-    private final static int STEP_UNASSIGN = 0;
-    private final static int STEP_ASSIGN = 1;
-    
-    public Reallocation() {
-        this.issues = new ArrayList<>(MAX_STEPS);
-        this.currentGroup = null;
-        this.id = sequence.incrementAndGet();
-        this.creation = new DateTime(DateTimeZone.UTC);
-        this.problems = HashMultimap.create();
-    }
-    
-    public void incrementRetry() {
-        retryCounter++;
-    }
-    
-    public int getRetryCount() {
-        return retryCounter;
-    }
- 
-    public void resetIssues() {
-        this.issues = new ArrayList<>(MAX_STEPS);
-    }
-    
-    private SetMultimap<Shard, ShardEntity> init(int idx) {
-        SetMultimap<Shard, ShardEntity> dutyGroup = issues.size() > idx ? issues.get(idx) : null; 
-        if (dutyGroup == null) {
-            for (int i = issues.size(); issues.size() < idx; i++) {
-                issues.add(i, HashMultimap.create());
-            }
-            issues.add(idx, dutyGroup = HashMultimap.create());
-        }
-        return dutyGroup;
-    }
-    
-    public void addChange(final Shard shard, final ShardEntity duty) {
-        if (duty.getDutyEvent().is(EntityEvent.CREATE) || duty.getDutyEvent().is(EntityEvent.ASSIGN)) {
-            init(STEP_ASSIGN).put(shard, duty);
-        } else if (duty.getDutyEvent().is(EntityEvent.DELETE) || duty.getDutyEvent().is(EntityEvent.UNASSIGN)) {
-            init(STEP_UNASSIGN).put(shard, duty);
-        }
-    }
-    
-    public boolean isEmpty() {
-        return issues.isEmpty();
-    }
-    
-    public boolean hasFinished() {
-        return it == null || !it.hasNext();
-    }
-    
-    public void nextStep() {
-        if (it==null) {
-            it = issues.iterator();
-        }
-        if (it.hasNext()) {
-            currentGroup = it.next();
-        }
-    }
-    
-    public boolean hasCurrentStepFinished() {
-        final Set<ShardEntity> sortedLog = new TreeSet<>();
-        for (final Shard shard: currentGroup.keySet()) {
-            for (final ShardEntity duty: currentGroup.get(shard)) {
-                if (duty.getState()!=State.CONFIRMED) {
-                    // TODO get Partition TAble and check if Shard has long fell offline
-                    sortedLog.add(duty);
-                    logger.info("{}: waiting Shard: {} for at least Duties: {}", getClass().getSimpleName(), shard, 
-                            ShardEntity.toStringIds(sortedLog));
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-    
-    public DateTime getCreation() {
-        return this.creation;
-    }
+		private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    public SetMultimap<Shard, ShardEntity> getGroupedIssues() {
-        return currentGroup;
-    }
+		private SetMultimap<Shard, ShardEntity> problems;
+		private List<SetMultimap<Shard, ShardEntity>> issues;
+		private SetMultimap<Shard, ShardEntity> currentGroup;
+		private Iterator<SetMultimap<Shard, ShardEntity>> it;
+		private final long id;
+		private final DateTime creation;
+		private int retryCounter;
 
-    public long getId() {
-        return this.id;
-    }
+		private static final AtomicLong sequence = new AtomicLong();
 
-    public SetMultimap<Shard, ShardEntity> getProblems() {
-        return this.problems;
-    }
+		private final static int MAX_STEPS = 2;
+		private final static int STEP_UNASSIGN = 0;
+		private final static int STEP_ASSIGN = 1;
 
-    public void setProblems(SetMultimap<Shard, ShardEntity> problems) {
-        this.problems = problems;
-    }
+		public Reallocation() {
+			this.issues = new ArrayList<>(MAX_STEPS);
+			this.currentGroup = null;
+			this.id = sequence.incrementAndGet();
+			this.creation = new DateTime(DateTimeZone.UTC);
+			this.problems = HashMultimap.create();
+		}
 
-    @Override
-    public int compareTo(Reallocation o) {
-        return o.getCreation().compareTo(getCreation());
-    }
+		public void incrementRetry() {
+			retryCounter++;
+		}
+
+		public int getRetryCount() {
+			return retryCounter;
+		}
+
+		public void resetIssues() {
+			this.issues = new ArrayList<>(MAX_STEPS);
+		}
+
+		private SetMultimap<Shard, ShardEntity> init(int idx) {
+			SetMultimap<Shard, ShardEntity> dutyGroup = issues.size() > idx ? issues.get(idx) : null;
+			if (dutyGroup == null) {
+				for (int i = issues.size(); issues.size() < idx; i++) {
+						issues.add(i, HashMultimap.create());
+				}
+				issues.add(idx, dutyGroup = HashMultimap.create());
+			}
+			return dutyGroup;
+		}
+
+		public void addChange(final Shard shard, final ShardEntity duty) {
+			if (duty.getDutyEvent().is(EntityEvent.CREATE) || duty.getDutyEvent().is(EntityEvent.ASSIGN)) {
+				init(STEP_ASSIGN).put(shard, duty);
+			} else if (duty.getDutyEvent().is(EntityEvent.DELETE) || duty.getDutyEvent().is(EntityEvent.UNASSIGN)) {
+				init(STEP_UNASSIGN).put(shard, duty);
+			}
+		}
+
+		public boolean isEmpty() {
+			return issues.isEmpty();
+		}
+
+		public boolean hasFinished() {
+			return it == null || !it.hasNext();
+		}
+
+		public void nextStep() {
+			if (it == null) {
+				it = issues.iterator();
+			}
+			if (it.hasNext()) {
+				currentGroup = it.next();
+			}
+		}
+
+		public boolean hasCurrentStepFinished() {
+			final Set<ShardEntity> sortedLog = new TreeSet<>();
+			for (final Shard shard : currentGroup.keySet()) {
+				for (final ShardEntity duty : currentGroup.get(shard)) {
+						if (duty.getState() != State.CONFIRMED) {
+							// TODO get Partition TAble and check if Shard has long fell offline
+							sortedLog.add(duty);
+							logger.info("{}: waiting Shard: {} for at least Duties: {}", getClass().getSimpleName(), shard,
+										ShardEntity.toStringIds(sortedLog));
+							return false;
+						}
+				}
+			}
+			return true;
+		}
+
+		public DateTime getCreation() {
+			return this.creation;
+		}
+
+		public SetMultimap<Shard, ShardEntity> getGroupedIssues() {
+			return currentGroup;
+		}
+
+		public long getId() {
+			return this.id;
+		}
+
+		public SetMultimap<Shard, ShardEntity> getProblems() {
+			return this.problems;
+		}
+
+		public void setProblems(SetMultimap<Shard, ShardEntity> problems) {
+			this.problems = problems;
+		}
+
+		@Override
+		public int compareTo(Reallocation o) {
+			return o.getCreation().compareTo(getCreation());
+		}
 
 }

@@ -1,20 +1,20 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * contributor license agreements. See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership. The ASF
+ * licenses this file to You under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-package io.tilt.minka.business.impl;
+package io.tilt.minka.core.impl;
 
 import java.util.function.Supplier;
 
@@ -26,30 +26,30 @@ import io.tilt.minka.spectator.Spectator;
 
 /* to share one connection with different children */
 public class SpectatorSupplier implements Supplier<Spectator> {
-    
-    private final Logger logger = LoggerFactory.getLogger(getClass());
-    public static String MINKA_SUBDOMAIN = "minka" ;
-    
-    private final Config config;
-    private Spectator spectator;
-    
-    public SpectatorSupplier(final Config config) {
-        this.config = config;
-    }
-    
-    /* stop using same instance and renew object */
-    public void renew() {
-        logger.info("{}: ({}) Resetting held reference", getClass().getSimpleName(), config.getResolvedShardId());
-        this.spectator = null;
-    }
-    
-    @Override
-    public synchronized Spectator get() {
-        if (spectator==null || !spectator.isConnected()) {
-            logger.info("{}: ({}) Supplying a new Spectator client because current is: {}", getClass().getSimpleName(), 
-                    config.getResolvedShardId(), spectator==null ? "Uinitialized" : "Disconnected");
-            spectator = new Spectator(config.getZookeeperHostPort(), config.getResolvedShardId().toString());
-        }
-        return spectator;
-    }
+
+		private final Logger logger = LoggerFactory.getLogger(getClass());
+		public static String MINKA_SUBDOMAIN = "minka";
+
+		private final Config config;
+		private Spectator spectator;
+
+		public SpectatorSupplier(final Config config) {
+			this.config = config;
+		}
+
+		/* stop using same instance and renew object */
+		public void renew() {
+			logger.info("{}: ({}) Resetting held reference", getClass().getSimpleName(), config.getResolvedShardId());
+			this.spectator = null;
+		}
+
+		@Override
+		public synchronized Spectator get() {
+			if (spectator == null || !spectator.isConnected()) {
+				logger.info("{}: ({}) Supplying a new Spectator client because current is: {}", getClass().getSimpleName(),
+							config.getResolvedShardId(), spectator == null ? "Uinitialized" : "Disconnected");
+				spectator = new Spectator(config.getZookeeperHostPort(), config.getResolvedShardId().toString());
+			}
+			return spectator;
+		}
 }

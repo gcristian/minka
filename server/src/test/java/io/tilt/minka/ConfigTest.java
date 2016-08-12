@@ -1,5 +1,5 @@
 /**
-TASKS * Copyright (c) 2011-2015 Zauber S.A. -- All rights reserved
+ * TASKS * Copyright (c) 2011-2015 Zauber S.A. -- All rights reserved
  */
 
 package io.tilt.minka;
@@ -10,12 +10,11 @@ import io.tilt.minka.api.Config;
 
 public class ConfigTest {
 
+		@Test
+		public void testConfig() {
 
-    @Test
-    public void testConfig() {
-        
-        new Config(null);
-        
-    }
-    
+			new Config(null);
+
+		}
+
 }

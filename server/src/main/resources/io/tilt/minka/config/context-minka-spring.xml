@@ -19,26 +19,34 @@
         <constructor-arg ref="minka-properties" />
     </bean>
     
+    <!--   <bean id="journal" class="io.tilt.minka.core.impl.JournalImpl"/> -->
+    
+    
     <!-- ID del shard: entregado A Leader/Follower solo informativamente  -->
     <bean id="shardId" class="io.tilt.minka.domain.NetworkShardIDImpl">
         <constructor-arg ref="config" />
     </bean>
 
     <!-- spectator extenders can be reused for building siblings -->
-    <bean id="spectatorSupplier" class="io.tilt.minka.business.impl.SpectatorSupplier">
+    <bean id="spectatorSupplier" class="io.tilt.minka.core.impl.SpectatorSupplier">
         <constructor-arg ref="config" />
     </bean>
     
+    <bean id="syncFactory" class="io.tilt.minka.core.impl.SynchronizedFactoryImpl"/>
+    <bean id="agentFactory" class="io.tilt.minka.core.impl.SynchronizedAgentFactoryImpl"/>
+    
     <!-- Semaforo para sincronizar orden y permisos de tareas -->
-    <bean id="coordinator" class="io.tilt.minka.business.impl.CoordinatorImpl">
+    <bean id="coordinator" class="io.tilt.minka.core.impl.SchedulerImpl">
         <constructor-arg ref="config" />
         <constructor-arg ref="spectatorSupplier" />
         <constructor-arg ref="shardId" />
+        <constructor-arg ref="syncFactory" />
+        <constructor-arg ref="agentFactory" />
     </bean>
         
     <!-- contenedor del lider cambiante -->
     <bean id="leaderShardContainer"
-        class="io.tilt.minka.business.impl.ZookeeperLeaderShardContainer">
+        class="io.tilt.minka.core.impl.ZookeeperLeaderShardContainer">
         <constructor-arg ref="config" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="spectatorSupplier" />
@@ -62,21 +70,21 @@
         <constructor-arg ref="shardId" />
     </bean>
     
-    <bean id="heartbeatBuilder" class="io.tilt.minka.business.follower.impl.HeartbeatBuilderImpl">
+    <bean id="heartbeatBuilder" class="io.tilt.minka.core.follower.impl.HeartbeatBuilderImpl">
         <constructor-arg ref="config" />
         <constructor-arg ref="partitionDelegate" />
         <constructor-arg ref="partition" />
         <constructor-arg ref="leaderShardContainer" />
     </bean>
     <!-- Emite heartbeats para el Lider -->
-    <bean id="heartpump" class="io.tilt.minka.business.follower.impl.HeartpumpImpl">
+    <bean id="heartpump" class="io.tilt.minka.core.follower.impl.HeartpumpImpl">
         <constructor-arg ref="config" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="partition" />
         <constructor-arg ref="leaderShardContainer" />
     </bean>
     
-    <bean id="partitionManager" class="io.tilt.minka.business.follower.impl.PartitionManagerImpl">        
+    <bean id="partitionManager" class="io.tilt.minka.core.follower.impl.PartitionManagerImpl">        
         <constructor-arg ref="partitionDelegate" />
         <constructor-arg ref="partition" />
         <constructor-arg ref="coordinator" />
@@ -84,7 +92,7 @@
     </bean>
     
     <!-- Maneja la particion a traves del delegado -->
-    <bean id="leaderConsumer" class="io.tilt.minka.business.follower.LeaderConsumer">
+    <bean id="leaderEventsHandler" class="io.tilt.minka.core.follower.LeaderEventsHandler">
         <constructor-arg ref="config" />
         <constructor-arg ref="partitionDelegate" />        
         <constructor-arg ref="partition" />
@@ -95,10 +103,10 @@
     </bean>
     
     <!-- simplemente bootstrapea los servicios -->
-    <bean id="follower" class="io.tilt.minka.business.follower.Follower">
+    <bean id="follower" class="io.tilt.minka.core.follower.Follower">
         <constructor-arg ref="config" />
         <constructor-arg ref="heartpump" />
-        <constructor-arg ref="leaderConsumer" />
+        <constructor-arg ref="leaderEventsHandler" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="coordinator" />
         <constructor-arg ref="heartbeatBuilder" />
@@ -110,39 +118,38 @@
       
     ===============================================================================================-->
     
-    <bean id="partitionTable" class="io.tilt.minka.business.leader.PartitionTable"/>
+    <bean id="partitionTable" class="io.tilt.minka.core.leader.PartitionTable"/>
     
-    <util:map id="balancersMap" key-type="io.tilt.minka.business.leader.distributor.Balancer.BalanceStrategy" 
-        value-type="io.tilt.minka.business.leader.distributor.Balancer">
+    <util:map id="balancersMap" key-type="io.tilt.minka.core.leader.distributor.Balancer.BalanceStrategy" 
+        value-type="io.tilt.minka.core.leader.distributor.Balancer">
         <entry key="EVEN_SIZE">
             <!-- Estrategia para distribuir entidades en forma pareja: iguales cantidades -->
-            <bean id="balancer" class="io.tilt.minka.business.leader.distributor.EvenSizeBalancer">
+            <bean id="balancer" class="io.tilt.minka.core.leader.distributor.EvenSizeBalancer">
                 <constructor-arg ref="config" />
             </bean>
         </entry>
         <entry key="FAIR_LOAD">
             <!-- Estrategia para distribuir entidades en forma justa: clustering por carga de trabajo -->
-            <bean id="balancer" class="io.tilt.minka.business.leader.distributor.FairWorkloadBalancer">
+            <bean id="balancer" class="io.tilt.minka.core.leader.distributor.FairWorkloadBalancer">
                 <constructor-arg ref="config" />
                 <constructor-arg>
-                    <bean id="partitionResolver" 
-                        class="io.tilt.minka.business.leader.distributor.ClassicalPartitionSolver"/>
+                    <bean class="io.tilt.minka.core.leader.distributor.WeightBasedClusterizer"/>
                 </constructor-arg>
             </bean>        
         </entry>
         <entry key="SPILL_OVER">
             <!-- Estrategia para distribuir entidades en por derrame: para disponibilidad -->
-            <bean id="balancer" class="io.tilt.minka.business.leader.distributor.SpillOverBalancer">
+            <bean id="balancer" class="io.tilt.minka.core.leader.distributor.SpillOverBalancer">
                 <constructor-arg ref="config" />
             </bean>        
         </entry>
     </util:map>
     
-    <bean id="dutyDao" class="io.tilt.minka.business.leader.DutyDao.SpectatorDutyDao">
+    <bean id="entityDao" class="io.tilt.minka.core.leader.EntityDao.FakeDao">
     </bean>
     
     <!-- Balancea las tareas -->
-    <bean id="distributor" class="io.tilt.minka.business.leader.distributor.Distributor">
+    <bean id="distributor" class="io.tilt.minka.core.leader.distributor.Distributor">
         <constructor-arg ref="config" />
         <constructor-arg ref="coordinator" />
         <constructor-arg ref="eventBroker" />
@@ -150,19 +157,19 @@
         <constructor-arg ref="auditor" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="balancersMap" />
-        <constructor-arg ref="dutyDao" />
+        <constructor-arg ref="entityDao" />
         <constructor-arg ref="partitionMaster" />
         <constructor-arg ref="leaderShardContainer" />
     </bean>
 
     <!-- acceso write-only a la tabla -->
-    <bean id="auditor" class="io.tilt.minka.business.leader.Auditor">
+    <bean id="auditor" class="io.tilt.minka.core.leader.Auditor">
         <constructor-arg ref="partitionTable" />
         <constructor-arg ref="coordinator" />
     </bean>
     
     <!-- Pastorea los followers -->
-    <bean id="shepherd" class="io.tilt.minka.business.leader.Shepherd">
+    <bean id="shepherd" class="io.tilt.minka.core.leader.Shepherd">
         <constructor-arg ref="config" />
         <constructor-arg ref="partitionTable" />
         <constructor-arg ref="auditor" />
@@ -173,7 +180,7 @@
     </bean>
 
     <!-- Pastorea los followers -->
-    <bean id="followerConsumer" class="io.tilt.minka.business.leader.FollowerConsumer">
+    <bean id="followerEventsHandler" class="io.tilt.minka.core.leader.FollowerEventsHandler">
         <constructor-arg ref="config" />
         <constructor-arg ref="partitionTable" />
         <constructor-arg ref="auditor" />
@@ -184,7 +191,7 @@
     
 
     <!-- Integracion entre el cliente y el Leader -->
-    <bean id="clientMediator" class="io.tilt.minka.business.leader.ClientMediator">
+    <bean id="clientEventsHandler" class="io.tilt.minka.core.leader.ClientEventsHandler">
         <constructor-arg ref="config" />
         <constructor-arg ref="partitionTable" />
         <constructor-arg ref="coordinator" />
@@ -194,14 +201,14 @@
     </bean>
     
     <!-- simplemente bootstrapea los servicios -->
-    <bean id="leader" class="io.tilt.minka.business.leader.Leader">
+    <bean id="leader" class="io.tilt.minka.core.leader.Leader">
         <constructor-arg ref="config" />        
         <constructor-arg>
             <list>
                 <ref bean="shepherd"/>
                 <ref bean="distributor"/>
-                <ref bean="followerConsumer"/>                
-                <ref bean="clientMediator"/>
+                <ref bean="followerEventsHandler"/>                
+                <ref bean="clientEventsHandler"/>
             </list>
         </constructor-arg>        
         <constructor-arg ref="coordinator" />
@@ -221,7 +228,7 @@
     <bean id="partitionService" class="io.tilt.minka.api.PartitionService">
         <constructor-arg ref="leader" />
         <constructor-arg ref="eventBroker" />
-        <constructor-arg ref="clientMediator" />
+        <constructor-arg ref="clientEventsHandler" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderShardContainer" />
     </bean>
@@ -229,7 +236,7 @@
     <bean id="configValidator" class="io.tilt.minka.api.ConfigValidator"/>
     
     <!-- inicia los servicios -->
-    <bean id="bootstrap" class="io.tilt.minka.business.Bootstrap" destroy-method="close">
+    <bean id="bootstrap" class="io.tilt.minka.core.Bootstrap" destroy-method="close">
         <constructor-arg ref="config" />
         <constructor-arg ref="configValidator" />
         <constructor-arg ref="spectatorSupplier" />
