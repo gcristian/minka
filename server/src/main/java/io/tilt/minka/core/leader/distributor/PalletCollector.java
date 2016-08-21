@@ -9,6 +9,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
@@ -31,9 +33,19 @@ public class PalletCollector {
 	protected PalletCollector(Set<ShardEntity> duties, Set<ShardEntity> palletSet) {
 		this();
 		Validate.notNull(duties);
-		Validate.notNull(palletSet);
+		Validate.notEmpty(palletSet);
 		palletSet.forEach(p -> this.palletById.put(p.getPallet().getId(), ShardEntity.create(p.getPallet())));
-		duties.forEach(e -> add(e, this.palletById.get(e.getDuty().getPalletId())));
+		for (ShardEntity se: duties) {
+			try {
+				if (logger.isDebugEnabled()) {
+					logger.info("{}: Loooking for pallet: {}: on duty: {}", getClass().getSimpleName(), 
+							se.getDuty().getPalletId(), se.getDuty());
+				}
+				add(se, this.palletById.get(se.getDuty().getPalletId()));				
+			} catch (Exception e) {
+				logger.error("Collecting pallets", e);
+			}
+		}
 	}
 
 	protected void add(ShardEntity entity, ShardEntity pallet) {
@@ -46,10 +58,7 @@ public class PalletCollector {
 		set.add(entity);
 	}
 
-	protected Iterator<Set<ShardEntity>> getIterator() {
-		if (this.pallets.isEmpty()) {
-			throw new IllegalAccessError("empty source !!");
-		}
+	protected Iterator<Set<ShardEntity>> getPalletsIterator() {
 		return this.pallets.values().iterator();
 	}
 
@@ -58,6 +67,10 @@ public class PalletCollector {
 	}
 
 	protected Set<ShardEntity> getDuties(ShardEntity pallet) {
-		return this.pallets.get(pallet);
+		Set<ShardEntity> p = this.pallets.get(pallet);
+		if (p==null) {
+			p = new HashSet<>();
+		}
+		return p;
 	}
 }

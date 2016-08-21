@@ -34,6 +34,7 @@ import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardState;
 import io.tilt.minka.utils.CircularCollection;
 
 /**
@@ -64,10 +65,11 @@ public class EvenSizeBalancer implements Balancer {
 				final List<Shard> onlineShards,
 				final Set<ShardEntity> creations, 
 				final Set<ShardEntity> deletions, 
-				final int accounted) {
+				int accounted) {
 
 			// get a fair distribution
-			final double sum = accounted + creations.size() - deletions.size(); // dangling.size() + 
+			accounted = table.getDutiesAllByShardState(pallet, ShardState.ONLINE).size();
+			final double sum =  accounted + creations.size() - deletions.size(); // dangling.size() + 
 			final int evenSize = (int) Math.ceil(sum / (double) onlineShards.size());
 			
 			logger.info( "{}: Even distribution for {} Shards: #{}  duties, for Creations: {}, Deletions: {}, Accounted: {} ",
@@ -106,11 +108,11 @@ public class EvenSizeBalancer implements Balancer {
 				Iterator<ShardEntity> it = duties.iterator();
 				while (it.hasNext() && i++ < Math.abs(deltas.get(emisorShard))) {
 						final ShardEntity unassigning = it.next();
-						unassigning.registerEvent(EntityEvent.UNASSIGN, PREPARED);
+						unassigning.registerEvent(EntityEvent.DETACH, PREPARED);
 						realloc.addChange(emisorShard, unassigning);
 						final Shard receptorShard = receptiveCircle.next();
 						ShardEntity assigning = ShardEntity.copy(unassigning);
-						assigning.registerEvent(EntityEvent.ASSIGN, PREPARED);
+						assigning.registerEvent(EntityEvent.ATTACH, PREPARED);
 						realloc.addChange(receptorShard, assigning);
 						logger.info("{}: Migrating from: {} to: {}, Duty: {}", getClass().getSimpleName(),
 								emisorShard.getShardID(), receptorShard.getShardID(), assigning.toString());
@@ -139,12 +141,12 @@ public class EvenSizeBalancer implements Balancer {
 				if (delta >= maxDelta) {
 						// use only the spilling out of maxDelta (not delta per-se)
 						deltas.put(shard, delta);
-						logger.info("{}: new Shard Emisor: {} is above threshold: {} with {} ", getClass().getSimpleName(),
+						logger.info("{}: found Emisor Shard: {} above threshold: {} with {} ", getClass().getSimpleName(),
 								shard.getShardID(), maxDelta, delta);
 						emisors.add(shard);
 				} else if (delta <= -(maxDelta)) {
 						deltas.put(shard, delta);
-						logger.info("{}: new Shard Receptor: {} is below threshold: {} with {}", getClass().getSimpleName(),
+						logger.info("{}: found Receptor Shard: {} below threshold: {} with {}", getClass().getSimpleName(),
 								shard.getShardID(), maxDelta, delta);
 						receptors.add(shard);
 				}

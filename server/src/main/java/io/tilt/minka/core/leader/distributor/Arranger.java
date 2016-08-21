@@ -27,6 +27,8 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.Sets;
+
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.distributor.Balancer.BalanceStrategy;
@@ -56,6 +58,7 @@ public class Arranger {
 				final Map<BalanceStrategy, Balancer> balancerMap, 
 				final PartitionTable table, 
 				final Reallocation previousChange) {
+			
 			final Reallocation realloc = new Reallocation();
 			final List<Shard> onlineShards = table.getShardsByState(ONLINE);
 			// recently fallen shards
@@ -67,26 +70,40 @@ public class Arranger {
 			final List<ShardEntity> danglingAsCreations = new ArrayList<>();
 			dangling.forEach(i -> danglingAsCreations.add(ShardEntity.copy(i)));
 			
-			final Set<ShardEntity> creations = table.getDutiesCrudByFilters(EntityEvent.CREATE, State.PREPARED);
-			creations.addAll(danglingAsCreations);
-			final Set<ShardEntity> deletions = table.getDutiesCrudByFilters(EntityEvent.DELETE, State.PREPARED);
+			final Set<ShardEntity> dutyCreations = table.getDutiesCrudWithFilters(EntityEvent.CREATE, State.PREPARED);
+			dutyCreations.addAll(danglingAsCreations);
+			final Set<ShardEntity> dutyDeletions = table.getDutiesCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
+
+			final Set<ShardEntity> palletCreations = table.getPalletsCrudWithFilters(EntityEvent.CREATE, State.PREPARED);
+			dutyCreations.addAll(danglingAsCreations);
+			final Set<ShardEntity> deletfions = table.getPalletsCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
+
+			
 			final int accounted = table.getAccountConfirmed();
 			// 1st step: delete all
-			registerDeletions(table, realloc, deletions); 
+			registerDeletions(table, realloc, dutyDeletions); 
 			// el unico q ponia las dangling en deletions era el EvenBalancer.. .(?) lo dejo stand-by
 			// despues todos agregaban las dangling como creations... se vino para aca.
 			// balance per pallet
-			final PalletCollector collector = new PalletCollector(creations, table.getPallets());
-			final Iterator<Set<ShardEntity>> it = collector.getIterator();
-			while (it.hasNext()) {
-				Set<ShardEntity> palletGroup = it.next();
-				final ShardEntity pallet = collector.getPallet(palletGroup.iterator().next().getDuty().getPalletId());
+			
+			final PalletCollector creationsCollector = new PalletCollector(dutyCreations, table.getPallets());
+			
+			final Set<ShardEntity> ents = Sets.newHashSet();
+			ents.addAll(dutyCreations);
+			ents.addAll(table.getDutiesAllByShardState(null, null));
+			final PalletCollector allCollector = new PalletCollector(ents, table.getPallets());
+			
+			final Iterator<Set<ShardEntity>> itPallet = allCollector.getPalletsIterator();			
+			while (itPallet.hasNext()) {
+				final ShardEntity pallet = allCollector.getPallet(itPallet.next().iterator().next().getDuty().getPalletId());
 				final Balancer balancer = balancerMap.get(pallet.getPallet().getBalanceStrategy());
-				final Set<ShardEntity> duties = collector.getDuties(pallet);
-				logger.info("{}: Calling balancer {} for Pallet: {} with Duties {}", getClass().getSimpleName(), 
-						balancer.getClass().getSimpleName(), pallet, ShardEntity.toStringIds(duties));
 				
-				balancer.balance(pallet.getPallet(), table, realloc, onlineShards, duties, deletions, accounted);
+				logger.info("{}: using {} on Pallet: {} with Duties: {}", getClass().getSimpleName(), 
+						balancer.getClass().getSimpleName(), pallet, ShardEntity.toStringIds(allCollector.getDuties(pallet)));
+				
+				final Set<ShardEntity> creations = creationsCollector.getDuties(pallet);
+				
+				balancer.balance(pallet.getPallet(), table, realloc, onlineShards, creations, dutyDeletions, accounted);
 			}
 			
 			
@@ -97,19 +114,19 @@ public class Arranger {
 				final Set<ShardEntity> missing) {
 			for (final ShardEntity missed : missing) {
 				final Shard lazy = table.getDutyLocation(missed);
-				logger.info("{}: Registering from {}Shard: {}, a dangling Duty: {}", Arranger.class,
+				logger.info("{}: Registering from {}Shard: {}, a dangling Duty: {}", Arranger.class.getSimpleName(),
 							lazy == null ? "fallen " : "", lazy, missed);
 				if (lazy != null) {
 						// missing duties are a confirmation per-se from the very shards,
 						// so the ptable gets fixed right away without a realloc.
-						missed.registerEvent(EntityEvent.DELETE, State.CONFIRMED);
+						missed.registerEvent(EntityEvent.REMOVE, State.CONFIRMED);
 						table.confirmDutyAboutShard(missed, lazy);
 				}
 				missed.registerEvent(EntityEvent.CREATE, State.PREPARED);
 				table.addCrudDuty(missed);
 			}
 			if (!missing.isEmpty()) {
-				logger.info("{}: Registered {} dangling duties from fallen Shard/s, {}", Arranger.class,
+				logger.info("{}: Registered {} dangling duties from fallen Shard/s, {}", Arranger.class.getSimpleName(),
 							missing.size(), missing);
 			}
 			// clear it or nobody will
@@ -152,8 +169,8 @@ public class Arranger {
 			for (ShardEntity duty : duties) {
 				Shard target = receptiveCircle.next();
 				realloc.addChange(target, duty);
-				duty.registerEvent(EntityEvent.ASSIGN, State.PREPARED);
-				logger.info("{}: Assigning to shard: {}, duty: {}", Arranger.class, target.getShardID(),
+				duty.registerEvent(EntityEvent.ATTACH, State.PREPARED);
+				logger.info("{}: Assigning to shard: {}, duty: {}", Arranger.class.getSimpleName(), target.getShardID(),
 							duty.toBrief());
 			}
 		}
@@ -164,7 +181,7 @@ public class Arranger {
 
 			for (final ShardEntity deletion : deletions) {
 				Shard shard = table.getDutyLocation(deletion);
-				deletion.registerEvent(EntityEvent.UNASSIGN, State.PREPARED);
+				deletion.registerEvent(EntityEvent.DETACH, State.PREPARED);
 				realloc.addChange(shard, deletion);
 				logger.info("{}: Deleting from: {}, Duty: {}", getClass().getSimpleName(), shard.getShardID(),
 							deletion.toBrief());
