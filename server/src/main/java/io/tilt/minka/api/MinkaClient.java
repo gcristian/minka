@@ -22,13 +22,13 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.core.LeaderShardContainer;
-import io.tilt.minka.core.Semaphore;
-import io.tilt.minka.core.Semaphore.Action;
 import io.tilt.minka.core.follower.Follower;
-import io.tilt.minka.core.impl.ZookeeperLeaderShardContainer;
 import io.tilt.minka.core.leader.ClientEventsHandler;
 import io.tilt.minka.core.leader.Leader;
+import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.Semaphore;
+import io.tilt.minka.core.task.Semaphore.Action;
+import io.tilt.minka.core.task.impl.ZookeeperLeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardCommand;
@@ -52,11 +52,11 @@ import io.tilt.minka.domain.Workload;
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
  */
-public class PartitionService {
+public class MinkaClient {
 
-	private static final Logger logger = LoggerFactory.getLogger(PartitionService.class);
+	private static final Logger logger = LoggerFactory.getLogger(MinkaClient.class);
 
-	private static PartitionService instance;
+	private static MinkaClient instance;
 
 	public enum Command {
 		/**
@@ -105,11 +105,12 @@ public class PartitionService {
 	private final EventBroker eventBroker;
 	private final ClientEventsHandler clientMediator;
 	private final ShardID shardId;
+	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
 
-	public PartitionService(final Leader leader, final EventBroker eventBroker, final ClientEventsHandler mediator, final ShardID shardId,
+	protected MinkaClient(final Config config, final Leader leader, final EventBroker eventBroker, final ClientEventsHandler mediator, final ShardID shardId,
 			final ZookeeperLeaderShardContainer leaderShardContainer) {
-
+		this.config = config;
 		this.leader = leader;
 		this.eventBroker = eventBroker;
 		this.clientMediator = mediator;
@@ -117,12 +118,16 @@ public class PartitionService {
 		this.leaderShardContainer = leaderShardContainer;
 		instance = this;
 	}
-
-	public static PartitionService getInstance() {
+	
+	/**
+	 * Minka service must be fully initialized before being able to obtain an operative client
+	 * @return	an instance of a client   
+	 */
+	public static MinkaClient getInstance() {
 		if (instance == null) {
-			throw new IllegalAccessError("not loaded yet in spring context");
+			throw new IllegalStateException("Minka service must be fully loaded first !");
 		}
-		return PartitionService.instance;
+		return MinkaClient.instance;
 	}
 
 	/**
@@ -139,12 +144,8 @@ public class PartitionService {
 	* @param service	a unique name within a ZK ensemble to identify the shards
 	* @param duty	    a duty sharded or to be sharded in the cluster
 	*/
-	public boolean remove(final String service, final Duty<?> duty) {
-		return send(service, duty, EntityEvent.DELETE, null);
-	}
-
-	public boolean remove(final String service, final Pallet<?> pallet) {
-		return false; //send(service, pallet, DutyEvent.DELETE, null);
+	public boolean remove(final Duty<?> duty) {
+		return send(duty, EntityEvent.REMOVE, null);
 	}
 
 	/**
@@ -155,12 +156,11 @@ public class PartitionService {
 	*     1) {@linkplain PartitionDelegate} must not report it taken 
 	*     2) {@linkplain PartitionMaster} must not report it present
 	*      
-	* @param service
 	* @param duty
 	* @return
 	*/
-	public boolean finalized(final String service, final Duty<?> duty) {
-		return send(service, duty, EntityEvent.FINALIZED, null);
+	public boolean finalized(final Duty<?> duty) {
+		return send(duty, EntityEvent.FINALIZED, null);
 	}
 
 	/**
@@ -174,17 +174,16 @@ public class PartitionService {
 	 * @param service   a unique name within a ZK ensemble to identify the shards
 	 * @param duty      a duty sharded or to be sharded in the cluster
 	*/
-	public boolean add(final String service, final Duty<?> duty) {
-		return send(service, duty, EntityEvent.CREATE, null);
+	public boolean add(final Duty<?> duty) {
+		return send(duty, EntityEvent.CREATE, null);
 	}
 
 	/**
 	* Notify Minka of an updated duty so it can notify {@linkplain PartitionDelegate} about it
-	 * @param service   a unique name within a ZK ensemble to identify the shards
 	 * @param duty      a duty sharded or to be sharded in the cluster
 	*/
-	public boolean update(final String service, final Duty<?> duty) {
-		return send(service, duty, EntityEvent.UPDATE, null);
+	public boolean update(final Duty<?> duty) {
+		return send(duty, EntityEvent.UPDATE, null);
 	}
 
 	/**
@@ -192,16 +191,12 @@ public class PartitionService {
 	* @see PartitionDelegate method receive()
 	 * @see {@linkplain update} but with a payload  
 	 */
-	public boolean notify(final String service, final Duty<?> duty, final EntityPayload userPayload) {
-
-		return send(service, duty, EntityEvent.UPDATE, userPayload);
+	public boolean notify(final Duty<?> duty, final EntityPayload userPayload) {
+		return send(duty, EntityEvent.UPDATE, userPayload);
 	}
 
-	private boolean send(final String service, final Duty<?> raw, final EntityEvent event, final EntityPayload userPayload) {
-
-		Validate.notNull(service, "a service name is required to send the entity");
+	private boolean send(final Duty<?> raw, final EntityEvent event, final EntityPayload userPayload) {
 		Validate.notNull(raw, "an entity is required");
-
 		boolean sent = true;
 		final ShardEntity duty = ShardEntity.create(raw);
 		duty.registerEvent(event, State.PREPARED);
@@ -213,14 +208,14 @@ public class PartitionService {
 			clientMediator.mediateOnDuty(duty);
 		} else {
 			logger.info("{}: Sending Duty: {} with Event: {} to leader in service", getClass().getSimpleName(), raw, event);
-			sent = eventBroker.postEvent(eventBroker.buildToTarget(service, Channel.CLIENT_TO_LEADER, leaderShardContainer.getLeaderShardId()),
-					duty);
+			sent = eventBroker.postEvent(eventBroker.buildToTarget(config.getServiceName(), 
+					Channel.CLIENT_TO_LEADER, leaderShardContainer.getLeaderShardId()), duty);
 		}
 		return sent;
 	}
 
 	public String getShardIdentity() {
-		return this.shardId.getStringID();
+		return this.shardId.getStringIdentity();
 	}
 
 	/**
