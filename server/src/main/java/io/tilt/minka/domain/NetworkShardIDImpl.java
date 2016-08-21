@@ -16,8 +16,7 @@
  */
 package io.tilt.minka.domain;
 
-import static io.tilt.minka.core.Journal.StoryBuilder.compose;
-
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -32,11 +31,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.core.Journal;
-import io.tilt.minka.core.Journal.Case;
-import io.tilt.minka.core.Journal.Fact;
-import io.tilt.minka.core.Journal.Result;
-import io.tilt.minka.core.Journal.StoryBuilder;
 import io.tilt.minka.core.follower.Follower;
 
 /**
@@ -47,53 +41,100 @@ import io.tilt.minka.core.follower.Follower;
  * @since Dec 3, 2015
  *
  */
-public class NetworkShardIDImpl implements NetworkShardID {
+public class NetworkShardIDImpl implements NetworkShardID, Closeable {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private static final long serialVersionUID = 3233785408081305735L;
 	private static final Random random = new Random();
 
+	private static final int PORT_SEARCHES_MAX = 100;
+	
 	private String id;
 	private final InetAddress sourceHost;
 	private int port;
+	private final int configuredPort;
 	private final DateTime creation;
+	private transient ServerSocket bookedSocket;
 	
 //	private Journal journal;
 
 	//public NetworkShardIDImpl(final Config config, final Journal journal) throws IOException {
-	public NetworkShardIDImpl(final Config config) throws IOException {
+	public NetworkShardIDImpl(final Config config) throws Exception {
 		this.creation = new DateTime(DateTimeZone.UTC);
-		this.port = Integer.parseInt(config.getBrokerServerHost().split(":")[1]);
+		this.configuredPort = Integer.parseInt(config.getBrokerServerHost().split(":")[1]);
+		this.port = configuredPort;
 		this.sourceHost = findLANAddress(config.getBrokerServerHost().split(":")[0], 
-				config.getFollowerUseNetworkInterfase());
+				config.getBrokerUseNetworkInterfase());
 		//this.journal = journal;
-		config.setResolvedShardId(this);
-		testPort();
+		config.setResolvedShardId(this);		
+		ensureOpenPort(config.getBrokerServerPortFallback());
 		buildId(config);
 	}
 
-	private void testPort() {
-		ServerSocket socket = null;
-		try {
-			socket = new ServerSocket(port);
-			logger.info("{}: Testing host {} port {} OK", getClass().getSimpleName(), sourceHost, port);
-			//journal.commit(StoryBuilder.compose(this.getClass(), Fact.shard_finding_address).with(Case.FINAL).build());
-		} catch (IOException e) {
-			//journal.commit(StoryBuilder.compose(this.getClass(), Fact.shard_finding_address).with(Case.ISSUED)
-				//	.with("").build());
-			throw new IllegalArgumentException("Testing port cannot be opened: " + port, e);
-		} finally {
-			if (socket != null && !socket.isBound()) {
-				throw new IllegalArgumentException("Testing port cannot be opened: " + port);
-			} else if (socket != null) {
-				try {
-					socket.close();
-				} catch (IOException e) {
-					throw new IllegalArgumentException("Testing port cannot be tested: " + port);
+	/*  with a best effort for helping multi-tenancy and noisy infra people */
+	private void ensureOpenPort(final boolean findAnyPort) throws Exception {
+		//journal.commit(StoryBuilder.compose(this.getClass(), Fact.shard_finding_address).with(Case.FINAL).build());
+		Exception cause = null;
+		for (int search=0;search < (findAnyPort ? PORT_SEARCHES_MAX : 1) ;this.port++, search++) {
+			logger.info("{}: {} port {}:{} (search no.{}/{}) ", getClass().getSimpleName(), search == 0 ? 
+				"Validating":"Falling back", sourceHost, this.port, search, PORT_SEARCHES_MAX);
+			try {
+				logger.info("{}: Booking port {}", getClass().getSimpleName(), this.port);
+				bookedSocket = bookAPort(this.port);
+				if (bookedSocket !=null) {
+					return;
+				}
+			} catch (Exception e) {
+				if (search == 0 && !!findAnyPort  || findAnyPort) {
+					cause = e;
 				}
 			}
 		}
+		this.port = configuredPort; // just going back
+		//journal.commit(StoryBuilder.compose(this.getClass(), Fact.shard_finding_address).with(Case.ISSUED)
+				//	.with("").build());
+		String fallbackFailed = "Fallbacks failed - try configuring a valid open port";
+		String configFailed = "To avoid boot-up failure enable configuration parameter: brokerServerPortFallback = true";
+		final Exception excp = new IllegalArgumentException(findAnyPort ? fallbackFailed: configFailed, cause);
+		logger.error("{}: No open port Available ! {}", getClass().getSimpleName(), excp);
+		throw excp;
+	}
+	
+	private ServerSocket bookAPort(final int testPort) {
+		ServerSocket socket = null;
+		try {
+			socket = new ServerSocket(testPort);
+			if (!socket.isBound()) {
+				return null;
+			}
+			logger.debug("{}: Testing host {} port {} OK", getClass().getSimpleName(), sourceHost, testPort);
+			return socket;
+		} catch (IOException e) {
+			throw new IllegalArgumentException("Testing port cannot be opened: " + testPort, e);
+		}
+	}
+	
+	@Override
+	public void leavePortReservation() {
+		try {
+			if (bookedSocket!=null && !bookedSocket.isClosed()) {
+				bookedSocket.close();
+			}
+		} catch (IOException e) {
+			throw new IllegalArgumentException("Testing port cannot be tested: ", e);
+		}
+	}
+	
+	private static final int MAX_SHARDID_NAME = 13;
+	@Override
+	/* trims ID up to a max length without excluding port */
+	public String getSynthetizedID() {
+		final int pos = getStringIdentity().indexOf(':');
+		String idd = getStringIdentity().substring(1, pos-1);
+		int len = idd.length();
+		return idd.substring(1, len > MAX_SHARDID_NAME ? len - MAX_SHARDID_NAME : len) +
+				getStringIdentity().substring(pos);
 	}
 
 	private void buildId(final Config config) {
@@ -101,7 +142,7 @@ public class NetworkShardIDImpl implements NetworkShardID {
 		if (sourceHost != null) {
 			if (!sourceHost.getHostName().isEmpty()) {
 				id = sourceHost.getHostName();
-				final String suffix = config.getFollowerShardIdSuffix();
+				final String suffix = config.getBrokerShardIdSuffix();
 				if (suffix != null && !suffix.isEmpty()) {
 					id += "-" + suffix;
 				}
@@ -174,14 +215,14 @@ public class NetworkShardIDImpl implements NetworkShardID {
 	}
 
 	public int hashCode() {
-		return new HashCodeBuilder().append(getStringID()).toHashCode();
+		return new HashCodeBuilder().append(getStringIdentity()).toHashCode();
 	}
 
 	@Override
 	public boolean equals(Object obj) {
 		if (obj != null && obj instanceof NetworkShardIDImpl) {
 			NetworkShardIDImpl other = (NetworkShardIDImpl) obj;
-			return other.getStringID().equals(getStringID());
+			return other.getStringIdentity().equals(getStringIdentity());
 		} else {
 			return false;
 		}
@@ -198,7 +239,13 @@ public class NetworkShardIDImpl implements NetworkShardID {
 	}
 
 	@Override
-	public String getStringID() {
+	public String getStringIdentity() {
 		return this.id;
 	}
+
+	@Override
+	public void close() throws IOException {
+		leavePortReservation();
+	}
+
 }

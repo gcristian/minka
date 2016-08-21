@@ -33,5 +33,7 @@ public interface NetworkShardID extends ShardID {
 		int getInetPort();
 
 		InetAddress getInetAddress();
+		
+		void leavePortReservation();
 
 }
