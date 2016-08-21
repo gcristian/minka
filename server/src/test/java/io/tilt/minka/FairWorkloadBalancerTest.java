@@ -23,7 +23,7 @@ import io.tilt.minka.domain.ShardEntity;
  * @author Cristian Gonzalez
  * @since Dec 29, 2015
  */
-public class PartitioneerTest {
+public class FairWorkloadBalancerTest {
 
 		public static Duty<String> buildDutyWithWeight(long weight, String idi) {
 			return DutyBuilder.build(String.class, idi, "p1", weight);
