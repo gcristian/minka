@@ -20,7 +20,7 @@ import org.apache.commons.lang.Validate;
 import org.joda.time.DateTime;
 
 import io.tilt.minka.api.EntityPayload;
-import io.tilt.minka.api.PartitionService.Command;
+import io.tilt.minka.api.MinkaClient.Command;
 
 /**
  * An operation to be executed at the cluster master

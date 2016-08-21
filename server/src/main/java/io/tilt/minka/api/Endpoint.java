@@ -38,11 +38,11 @@ import io.tilt.minka.domain.ShardCommand;
 @Singleton
 public class Endpoint {
 
-		private final PartitionService partitionService;
+		private final MinkaClient minkaClient;
 
 		@Inject
-		public Endpoint(@Named("partitionService") final PartitionService partitionService) {
-			this.partitionService = partitionService;
+		public Endpoint(@Named("minkaClient") final MinkaClient minkaClient) {
+			this.minkaClient = minkaClient;
 		}
 
 		@POST
@@ -50,7 +50,7 @@ public class Endpoint {
 		@Consumes(MediaType.APPLICATION_JSON)
 		public Response clusterCommand(@PathParam("service") String service, @PathParam("command") ShardCommand command) {
 
-			if (partitionService.execute(service, command)) {
+			if (minkaClient.execute(service, command)) {
 				return Response.accepted().build();
 			} else {
 				return Response.serverError().build();
@@ -70,7 +70,7 @@ public class Endpoint {
 		public Response shardCommand(@PathParam("service") String service,
 				@PathParam("shardId") NetworkShardIDImpl shardId, @PathParam("command") ShardCommand command) {
 
-			if (partitionService.execute(service, command)) {
+			if (minkaClient.execute(service, command)) {
 				return Response.accepted().build();
 			} else {
 				return Response.serverError().build();

@@ -59,10 +59,10 @@ public class PartitionTable {
 		private Map<Shard, Partition> partitionsByShard;
 
 		/* only for saving client's additions */
-		private Set<ShardEntity> pallets;
-		private Set<ShardEntity> crud;
-		private Set<ShardEntity> missing;
-		private Set<ShardEntity> dangling;
+		private Set<ShardEntity> palletCrud;
+		private Set<ShardEntity> dutyCrud;
+		private Set<ShardEntity> dutyMissings;
+		private Set<ShardEntity> dutyDangling;
 		private ClusterHealth visibilityHealth;
 		private ClusterHealth workingHealth;
 		private ClusterCapacity capacity;
@@ -99,10 +99,10 @@ public class PartitionTable {
 			this.shardsByID = new HashMap<>();
 			this.partitionsByShard = new HashMap<>();
 
-			this.pallets = new HashSet<>();
-			this.crud = new HashSet<>();
-			this.missing = new HashSet<>();
-			this.dangling = new HashSet<>();
+			this.palletCrud = new HashSet<>();
+			this.dutyCrud = new HashSet<>();
+			this.dutyMissings = new HashSet<>();
+			this.dutyDangling = new HashSet<>();
 
 			this.visibilityHealth = ClusterHealth.STABLE;
 			this.workingHealth = ClusterHealth.STABLE;
@@ -138,7 +138,7 @@ public class PartitionTable {
 		}
 
 		public Set<ShardEntity> getDutiesDangling() {
-			return this.dangling;
+			return this.dutyDangling;
 		}
 
 		private StringBuilder buildLogForDuties(final List<ShardEntity> sorted) {
@@ -153,43 +153,55 @@ public class PartitionTable {
 		@Override
 		public String toString() {
 			StringBuilder sb = new StringBuilder().append("Shards: ").append(shardsByID.size()).append(" Crud Duties: ")
-						.append(this.crud.size());
+						.append(this.dutyCrud.size());
 			//.append(" Change: ").append(change.getGroupedIssues().size());
 			return sb.toString();
 		}
 
 		public int accountCrudDuties() {
-			return this.crud.size();
+			return this.dutyCrud.size();
 		}
 
 		public void addCrudDuty(final ShardEntity duty) {
 			if (duty.getDutyEvent().isCrud()) {
-				crud.remove(duty);
-				crud.add(duty);
+				dutyCrud.remove(duty);
+				dutyCrud.add(duty);
 			} else {
 				throw new RuntimeException("bad idea");
 			}
 		}
 
 		public void removeCrudDuties() {
-			this.crud = new HashSet<>();
+			this.dutyCrud = new HashSet<>();
 		}
 
 		public Set<ShardEntity> getDutiesCrud() {
-			return this.crud;
+			return this.dutyCrud;
 		}
 
+		public Set<ShardEntity> getPalletsCrud() {
+			return this.palletCrud;
+		}
+		
 		public Set<ShardEntity> getDutiesMissing() {
-			return this.missing;
+			return this.dutyMissings;
 		}
 
-		public Set<ShardEntity> getDutiesCrudByFilters(final EntityEvent event, final State state) {
-			return getDutiesCrud().stream().filter(i -> i.getDutyEvent() == event && i.getState() == state)
-						.collect(Collectors.toCollection(HashSet::new));
+		public Set<ShardEntity> getDutiesCrudWithFilters(final EntityEvent event, final State state) {
+			return getEntityCrudWithFilter(ShardEntity.Type.DUTY, event, state);
+		}
+		public Set<ShardEntity> getPalletsCrudWithFilters(final EntityEvent event, final State state) {
+			return getEntityCrudWithFilter(ShardEntity.Type.PALLET, event, state);
+		}
+
+		private Set<ShardEntity> getEntityCrudWithFilter(final ShardEntity.Type type, final EntityEvent event, final State state) {
+			return (type == ShardEntity.Type.DUTY ? getDutiesCrud():getPalletsCrud()).stream()
+					.filter(i -> i.getDutyEvent() == event && i.getState() == state)
+					.collect(Collectors.toCollection(HashSet::new));
 		}
 
 		public Set<ShardEntity> getPallets() {
-			return this.pallets;
+			return this.palletCrud;
 		}
 
 		/**
@@ -218,7 +230,7 @@ public class PartitionTable {
 
 		/** confirmation after reallocation phase */
 		public void confirmDutyAboutShard(final ShardEntity duty, final Shard where) {
-			if (duty.getDutyEvent().is(EntityEvent.ASSIGN) || duty.getDutyEvent().is(EntityEvent.CREATE)) {
+			if (duty.getDutyEvent().is(EntityEvent.ATTACH) || duty.getDutyEvent().is(EntityEvent.CREATE)) {
 				for (Shard sh : partitionsByShard.keySet()) {
 						if (!sh.equals(where) && partitionsByShard.get(sh).getDuties().contains(duty)) {
 							String msg = new StringBuilder().append("Shard ").append(where).append(" tries to Report Duty: ")
@@ -227,7 +239,7 @@ public class PartitionTable {
 						}
 				}
 				getPartition(where).getDuties().add(duty);
-			} else if (duty.getDutyEvent().is(EntityEvent.UNASSIGN) || duty.getDutyEvent().is(EntityEvent.DELETE)) {
+			} else if (duty.getDutyEvent().is(EntityEvent.DETACH) || duty.getDutyEvent().is(EntityEvent.REMOVE)) {
 				if (!getPartition(where).getDuties().remove(duty)) {
 						throw new IllegalStateException(
 								"Absence failure. Confirmed deletion actually doesnt exist or it " + "was already confirmed");
@@ -313,8 +325,8 @@ public class PartitionTable {
 						if (partition == null) {
 							logger.info("{}: {} = Empty", getClass().getSimpleName(), shard);
 						} else {
-							if (logger.isDebugEnabled()) {
-								logger.debug("{}: Status for Shard: {} = Weight: {} with {} Duties: [ {}]",
+							if (logger.isInfoEnabled()) {
+								logger.info("{}: Status for Shard: {} = Weight: {} with {} Duties: [ {}]",
 											getClass().getSimpleName(), shard, partition.getWeight(), partition.getDuties().size(),
 											partition.toString());
 							} else {
@@ -325,18 +337,18 @@ public class PartitionTable {
 						}
 				}
 			}
-			if (!this.missing.isEmpty()) {
-				logger.warn("{}: {} Missing duties: [ {}]", getClass().getSimpleName(), missing.size(),
-							this.missing.toString());
+			if (!this.dutyMissings.isEmpty()) {
+				logger.warn("{}: {} Missing duties: [ {}]", getClass().getSimpleName(), dutyMissings.size(),
+							this.dutyMissings.toString());
 			}
-			if (!this.dangling.isEmpty()) {
-				logger.warn("{}: {} Dangling duties: [ {}]", getClass().getSimpleName(), dangling.size(),
-							this.dangling.toString());
+			if (!this.dutyDangling.isEmpty()) {
+				logger.warn("{}: {} Dangling duties: [ {}]", getClass().getSimpleName(), dutyDangling.size(),
+							this.dutyDangling.toString());
 			}
-			if (this.crud.isEmpty()) {
+			if (this.dutyCrud.isEmpty()) {
 				logger.info("{}: no CRUD duties", getClass().getSimpleName());
 			} else {
-				logger.info("{}: with {} CRUD duties: [ {}]", getClass().getSimpleName(), crud.size(),
+				logger.info("{}: with {} CRUD duties: [ {}]", getClass().getSimpleName(), dutyCrud.size(),
 							buildLogForDuties(Lists.newArrayList(getDutiesCrud())));
 			}
 			logger.info("{}: Health: {}", getClass().getSimpleName(), getWorkingHealth());

@@ -2,7 +2,7 @@
  *  Copyright (c) 2011-2015 Zauber S.A.  -- All rights reserved
  */
 
-package io.tilt.minka.core;
+package io.tilt.minka.core.task;
 
 import java.util.Date;
 import java.util.HashMap;

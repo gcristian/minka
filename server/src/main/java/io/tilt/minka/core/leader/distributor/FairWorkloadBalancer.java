@@ -80,7 +80,6 @@ public class FairWorkloadBalancer implements Balancer {
 		private final Clusterizer clusterizer;
 		
 		public FairWorkloadBalancer(final Config config, final Clusterizer partitioneer) {
-
 			this.clusterizer = partitioneer;
 		}
 
@@ -168,48 +167,51 @@ public class FairWorkloadBalancer implements Balancer {
 				final Shard shard, 
 				final Set<ShardEntity> currents) {
 
-			List<ShardEntity> unassigning = clusterSet != null
+			logger.debug("{}: cluster built {}", getClass().getSimpleName(), clusterSet);
+			logger.debug("{}: currents at shard {} ", getClass().getSimpleName(), currents);
+		
+			List<ShardEntity> detaching = clusterSet != null
 						? currents.stream().filter(i -> !clusterSet.contains(i)).collect(Collectors.toList())
 						: new ArrayList<>(currents);
 
-			if (unassigning.isEmpty() && logger.isDebugEnabled()) {
-				logger.debug("{}: Shard: {} has no UnAsignments (calculated are all already assigned)",
+			if (detaching.isEmpty() && logger.isDebugEnabled()) {
+				logger.debug("{}: Shard: {} has no Detachings (calculated are all already attached)",
 							getClass().getSimpleName(), shard);
 			}
 
 			StringBuilder log = new StringBuilder();
-			for (ShardEntity unassign : unassigning) {
+			for (ShardEntity detach : detaching) {
 				// copy because in latter cycles this will be assigned
 				// so they're traveling different places
-				final ShardEntity copy = ShardEntity.copy(unassign);
-				copy.registerEvent(EntityEvent.UNASSIGN, PREPARED);
+				final ShardEntity copy = ShardEntity.copy(detach);
+				copy.registerEvent(EntityEvent.DETACH, PREPARED);
 				realloc.addChange(shard, copy);
 				log.append(copy.getEntity().getId()).append(", ");
 			}
 			if (log.length() > 0) {
-				logger.info("{}: DisAssigning to shard: {}, duties: {}", getClass().getSimpleName(), shard.getShardID(),
+				logger.info("{}: Detaching to shard: {}, duties: {}", getClass().getSimpleName(), shard.getShardID(),
 							log.toString());
 			}
 
 			if (clusterSet != null) {
-				final List<ShardEntity> assigning = clusterSet.stream().filter(i -> !currents.contains(i))
+				final List<ShardEntity> attaching = clusterSet.stream().filter(i -> !currents.contains(i))
 							.collect(Collectors.toList());
 
-				if (assigning.isEmpty() && logger.isDebugEnabled()) {
-						logger.debug("{}: Shard: {} has no New Asignments (calculated are all already assigned)",
+				if (attaching.isEmpty() && logger.isDebugEnabled()) {
+						logger.debug("{}: Shard: {} has no New Attachments (calculated are all already attached)",
 								getClass().getSimpleName(), shard);
 				}
 				log = new StringBuilder();
-				for (ShardEntity assign : assigning) {
+				for (ShardEntity attach : attaching) {
 						// copy because in latter cycles this will be assigned
 						// so they're traveling different places
-						final ShardEntity copy = ShardEntity.copy(assign);
-						copy.registerEvent(EntityEvent.ASSIGN, PREPARED);
+						final ShardEntity copy = ShardEntity.copy(attach);
+						copy.registerEvent(EntityEvent.ATTACH, PREPARED);
 						realloc.addChange(shard, copy);
 						log.append(copy.getEntity().getId()).append(", ");
 				}
 				if (log.length() > 0) {
-						logger.info("{}: Assigning to shard: {}, duty: {}", getClass().getSimpleName(), shard.getShardID(),
+						logger.info("{}: Attaching to shard: {}, duty: {}", getClass().getSimpleName(), shard.getShardID(),
 								log.toString());
 				}
 			}

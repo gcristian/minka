@@ -65,8 +65,8 @@ public class Reallocation implements Comparable<Reallocation> {
 		private static final AtomicLong sequence = new AtomicLong();
 
 		private final static int MAX_STEPS = 2;
-		private final static int STEP_UNASSIGN = 0;
-		private final static int STEP_ASSIGN = 1;
+		private final static int STEP_DETACH = 0;
+		private final static int STEP_ATTACH = 1;
 
 		public Reallocation() {
 			this.issues = new ArrayList<>(MAX_STEPS);
@@ -100,10 +100,10 @@ public class Reallocation implements Comparable<Reallocation> {
 		}
 
 		public void addChange(final Shard shard, final ShardEntity duty) {
-			if (duty.getDutyEvent().is(EntityEvent.CREATE) || duty.getDutyEvent().is(EntityEvent.ASSIGN)) {
-				init(STEP_ASSIGN).put(shard, duty);
-			} else if (duty.getDutyEvent().is(EntityEvent.DELETE) || duty.getDutyEvent().is(EntityEvent.UNASSIGN)) {
-				init(STEP_UNASSIGN).put(shard, duty);
+			if (duty.getDutyEvent().is(EntityEvent.CREATE) || duty.getDutyEvent().is(EntityEvent.ATTACH)) {
+				init(STEP_ATTACH).put(shard, duty);
+			} else if (duty.getDutyEvent().is(EntityEvent.REMOVE) || duty.getDutyEvent().is(EntityEvent.DETACH)) {
+				init(STEP_DETACH).put(shard, duty);
 			}
 		}
 

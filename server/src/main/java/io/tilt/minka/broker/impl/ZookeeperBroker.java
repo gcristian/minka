@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.impl.SpectatorSupplier;
+import io.tilt.minka.core.task.impl.SpectatorSupplier;
 import io.tilt.minka.domain.NetworkShardID;
 import io.tilt.minka.spectator.MessageMetadata;
 import io.tilt.minka.spectator.Queues;
@@ -54,7 +54,7 @@ public class ZookeeperBroker extends AbstractBroker implements EventBroker, Cons
 
 		@Override
 		public BrokerChannel buildToTarget(String service, Channel channel, NetworkShardID shardId) {
-			return new PathableChannel(service, channel, shardId.getStringID());
+			return new PathableChannel(service, channel, shardId.getStringIdentity());
 		}
 
 		@Override

@@ -2,17 +2,17 @@
  *  Copyright (c) 2011-2015 Zauber S.A.  -- All rights reserved
  */
 
-package io.tilt.minka.core.impl;
+package io.tilt.minka.core.task.impl;
 
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.Validate;
 
-import io.tilt.minka.core.Scheduler.Agent;
-import io.tilt.minka.core.Scheduler.AgentFactory;
-import io.tilt.minka.core.Scheduler.Frequency;
-import io.tilt.minka.core.Scheduler.PriorityLock;
-import io.tilt.minka.core.Semaphore.Action;
+import io.tilt.minka.core.task.Scheduler.Agent;
+import io.tilt.minka.core.task.Scheduler.AgentFactory;
+import io.tilt.minka.core.task.Scheduler.Frequency;
+import io.tilt.minka.core.task.Scheduler.PriorityLock;
+import io.tilt.minka.core.task.Semaphore.Action;
 
 public class SynchronizedAgentFactoryImpl extends SynchronizedFactoryImpl
 	implements Agent, AgentFactory {

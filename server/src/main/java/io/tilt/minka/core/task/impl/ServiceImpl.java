@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.impl;
+package io.tilt.minka.core.task.impl;
 
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -23,7 +23,7 @@ import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.core.Service;
+import io.tilt.minka.core.task.Service;
 
 /**
  * Facility to avoid concurrency on services

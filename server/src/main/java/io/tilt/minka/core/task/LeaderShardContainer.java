@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core;
+package io.tilt.minka.core.task;
 
 import java.util.List;
 import java.util.function.Consumer;

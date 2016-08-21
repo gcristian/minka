@@ -14,25 +14,25 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core;
+package io.tilt.minka.core.task;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.ConfigValidator;
-import io.tilt.minka.api.PartitionDelegate;
-import io.tilt.minka.api.PartitionService;
+import io.tilt.minka.api.MinkaClient;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.Scheduler.Agent;
-import io.tilt.minka.core.Scheduler.Frequency;
-import io.tilt.minka.core.Scheduler.PriorityLock;
-import io.tilt.minka.core.Semaphore.Action;
 import io.tilt.minka.core.follower.Follower;
-import io.tilt.minka.core.impl.ServiceImpl;
-import io.tilt.minka.core.impl.SpectatorSupplier;
 import io.tilt.minka.core.leader.Leader;
+import io.tilt.minka.core.task.Scheduler.Agent;
+import io.tilt.minka.core.task.Scheduler.Frequency;
+import io.tilt.minka.core.task.Scheduler.PriorityLock;
+import io.tilt.minka.core.task.Semaphore.Action;
+import io.tilt.minka.core.task.impl.ServiceImpl;
+import io.tilt.minka.core.task.impl.SpectatorSupplier;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.spectator.Locks;
 import io.tilt.minka.spectator.ServerCandidate;
@@ -55,12 +55,12 @@ public class Bootstrap extends ServiceImpl {
 		private final Leader leader;
 		private final Follower follower;
 		@SuppressWarnings("rawtypes")
-		private final PartitionDelegate partitionDelegate;
+		private final DependencyPlaceholder dependencyPlaceholder;
 		private final Scheduler scheduler;
 		private final LeaderShardContainer leaderShardContainer;
 		private final ShardID shardId;
 		private final EventBroker eventBroker;
-		private final PartitionService partitionService;
+		private final MinkaClient minkaClient;
 
 		private final SpectatorSupplier spectatorSupplier;
 		private Locks locks;
@@ -78,23 +78,23 @@ public class Bootstrap extends ServiceImpl {
 		@SuppressWarnings("rawtypes")
 		public Bootstrap(final Config config, final ConfigValidator validator, final SpectatorSupplier spectatorSupplier,
 				final boolean autoStart, final Leader leader, final Follower follower,
-				final PartitionDelegate partitionDelegate, final Scheduler scheduler, 
+				final DependencyPlaceholder dependencyPlaceholder, final Scheduler scheduler, 
 				final LeaderShardContainer leaderShardContainer, final ShardID shardId, final EventBroker eventBroker,
-				final PartitionService partitionService) {
+				final MinkaClient minkaClient) {
 
 			Validate.notNull(config, "a unique service name is required (within the ZK ensemble)");
 			this.config = config;
 			this.validator = validator;
 			this.leader = leader;
 			this.follower = follower;
-			this.partitionDelegate = partitionDelegate;
+			this.dependencyPlaceholder = dependencyPlaceholder;
 			this.scheduler = scheduler;
 			this.spectatorSupplier = spectatorSupplier;
 			this.repostulationCounter = 0;
 			this.leaderShardContainer = leaderShardContainer;
 			this.shardId = shardId;
 			this.eventBroker = eventBroker;
-			this.partitionService = partitionService;
+			this.minkaClient = minkaClient;
 			this.bootLeadershipCandidate = scheduler.getAgentFactory().create(Action.BOOTSTRAP_LEADERSHIP_CANDIDATURE,
 						PriorityLock.HIGH_ISOLATED, Frequency.ONCE_DELAYED, () -> bootLeadershipCandidate())
 						.delayed(REPUBLISH_LEADER_CANDIDATE_AFTER_LOST_MS).build();
@@ -113,14 +113,14 @@ public class Bootstrap extends ServiceImpl {
 			//journal.commit(compose(this.getClass(), Fact.bootstrapper_start).with(Case.ISSUED).build());
 			logger.info(LogUtils.getGreetings(leader.getShardId(), config.getServiceName()));
 			// check configuration is valid and not unstable-prone
-			validator.validate(config, partitionDelegate);
+			validator.validate(config, dependencyPlaceholder.getMaster());
 			scheduler.start();
 			// all latter services will use it
 			leaderShardContainer.start();
 			// enable the principal service
 			eventBroker.start();
 			// let the client call us
-			partitionDelegate.setPartitionService(partitionService);
+			//partitionDelegate.setPartitionService(minkaClient);
 			locks = new Locks(spectatorSupplier.get());
 			// start the real thing
 			readyAwareBooting();
@@ -181,7 +181,7 @@ public class Bootstrap extends ServiceImpl {
 
 		// check if PartitionDelegate is ready and if it must: start follower and candidate leader
 		private void readyAwareBooting() {
-			if (partitionDelegate.isReady()) {
+			if (dependencyPlaceholder.getDelegate().isReady()) {
 				logger.info("{}: ({}) Starting...", getName(), shardId);
 				if (config.bootstrapLeaderShardAlsoFollows()) {
 						follower.init();
@@ -189,7 +189,7 @@ public class Bootstrap extends ServiceImpl {
 				bootLeadershipCandidate();
 			} else {
 				logger.warn("{}: ({}) PartitionDelegate returned not ready!. Bootstrap will retry endlessly. Check: {}",
-							getName(), shardId, partitionDelegate.getClass().getName());
+							getName(), shardId, dependencyPlaceholder.getDelegate().getClass().getName());
 				scheduler.schedule(readyAwareBooting);
 			}
 		}

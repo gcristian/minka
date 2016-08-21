@@ -23,7 +23,7 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.core.Bootstrap;
+import io.tilt.minka.core.task.Bootstrap;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
@@ -36,7 +36,7 @@ import io.tilt.minka.domain.ShardState;
  * Starting the {@linkplain Bootstrap} with this delegate will make Minka to maintain its own 
  * storage for {@linkplain ShardEntity}
  * 
- * Client is compelled to call {@linkplain PartitionService.add/remove} to enter and remove duties to the shards
+ * Client is compelled to call {@linkplain MinkaClient.add/remove} to enter and remove duties to the shards
  *    
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
@@ -157,7 +157,7 @@ public interface PartitionDelegate<E extends Serializable, P extends Serializabl
 						getClass().getSimpleName());
 		}
 
-		default void setPartitionService(final PartitionService service) {
+		default void setPartitionService(final MinkaClient service) {
 			logger.error("{}: this PartitionDelegate has not implemented the setPartitionDelegate(..) method",
 						getClass().getSimpleName());
 		}

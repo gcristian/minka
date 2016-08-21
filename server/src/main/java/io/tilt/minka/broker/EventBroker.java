@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.core.Service;
+import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.NetworkShardID;
 
 /**

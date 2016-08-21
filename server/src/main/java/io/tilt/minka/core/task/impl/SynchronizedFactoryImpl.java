@@ -2,17 +2,17 @@
  * Copyright (c) 2011-2015 Zauber S.A. -- All rights reserved
  */
 
-package io.tilt.minka.core.impl;
+package io.tilt.minka.core.task.impl;
 
 import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
-import io.tilt.minka.core.Scheduler;
-import io.tilt.minka.core.Scheduler.PriorityLock;
-import io.tilt.minka.core.Scheduler.Synchronized;
-import io.tilt.minka.core.Scheduler.SynchronizedFactory;
-import io.tilt.minka.core.Semaphore.Action;
+import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.core.task.Scheduler.PriorityLock;
+import io.tilt.minka.core.task.Scheduler.Synchronized;
+import io.tilt.minka.core.task.Scheduler.SynchronizedFactory;
+import io.tilt.minka.core.task.Semaphore.Action;
 
 public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactory {
 	private final Action action;

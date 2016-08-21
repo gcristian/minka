@@ -30,7 +30,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.impl.ServiceImpl;
+import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.NetworkShardID;
 import io.tilt.minka.spectator.MessageMetadata;
 

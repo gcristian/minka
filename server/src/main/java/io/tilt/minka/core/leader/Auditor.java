@@ -29,16 +29,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.Scheduler;
 import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
 import io.tilt.minka.core.leader.distributor.Reallocation;
+import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
@@ -121,7 +123,7 @@ public class Auditor {
 					// o ver de re-"ejecutar" la tarea si continua existiendo
 					// o enviar la baja sin instruir al delegado para que el follower no moleste
 					if (duty.getDutyEvent().is(EntityEvent.CREATE)) {
-					} else if (duty.getDutyEvent().is(EntityEvent.DELETE)) {
+					} else if (duty.getDutyEvent().is(EntityEvent.REMOVE)) {
 					}
 				}
 			}
@@ -238,8 +240,8 @@ public class Auditor {
 		final Set<ShardEntity> sortedLog = new TreeSet<>();
 		while (it.hasNext()) {
 			final ShardEntity reallocatedDuty = it.next();
-			if ((reallocatedDuty.getDutyEvent().is(EntityEvent.UNASSIGN)
-					|| reallocatedDuty.getDutyEvent().is(EntityEvent.DELETE))
+			if ((reallocatedDuty.getDutyEvent().is(EntityEvent.DETACH)
+					|| reallocatedDuty.getDutyEvent().is(EntityEvent.REMOVE))
 					&& !heartbeatDuties.stream()
 						.anyMatch(i -> i.equals(reallocatedDuty) && i.getDutyEvent() != reallocatedDuty.getDutyEvent())) {
 				sortedLog.add(reallocatedDuty);
@@ -314,7 +316,7 @@ public class Auditor {
 				sortedLog.add(potential);
 				it.remove();
 			} else {
-				logger.info("{}: Adding Entity: {}", getClass().getSimpleName(), potential);
+				logger.info("{}: Adding Dutyt: {}", getClass().getSimpleName(), potential);
 				partitionTable.addCrudDuty(potential);
 			}
 		}
@@ -337,6 +339,27 @@ public class Auditor {
 				sortedLog.add(she);
 				it.remove();
 			} else {
+				logger.info("{}: Adding Pallets: {}", getClass().getSimpleName(), she);
+				currEntities.add(she);
+			}
+		}
+		if (!sortedLog.isEmpty()) {
+			logger.info("{}: Skipping Crud Entity already in Partition Table: {}", getClass().getSimpleName(),
+				ShardEntity.toStringIds(sortedLog));
+		}
+	}
+	
+	
+/*
+	private void removeAndRegisterCrudEntities(final List<Entity<?>> sourceEntities, Predicate<?> p, final Set<ShardEntity> currentEntities) {
+		final Set<ShardEntity> sortedLog = new TreeSet<>();
+		final Iterator<Entity<?>> it = sourceEntities.iterator();
+		while (it.hasNext()) {
+			final ShardEntity she = ShardEntity.create(it.next());
+			if (p.test(she)) {
+				sortedLog.add(she);
+				it.remove();
+			} else {
 				logger.info("{}: Adding Entity: {}", getClass().getSimpleName(), she);
 				currEntities.add(she);
 			}
@@ -346,7 +369,7 @@ public class Auditor {
 				ShardEntity.toStringIds(sortedLog));
 		}
 	}
-
+*/
 	/**
 	 * Check valid actions to client sent duties, 
 	 * according their action and the current partition table
@@ -365,7 +388,7 @@ public class Auditor {
 					logger.warn("{}: Skipping Crud Event {} already in Partition Table: {}", getClass().getSimpleName(),
 						event, duty);
 				}
-			} else if (event.isCrud() && (event == EntityEvent.DELETE || event == FINALIZED || event == UPDATE)) {
+			} else if (event.isCrud() && (event == EntityEvent.REMOVE || event == FINALIZED || event == UPDATE)) {
 				if (found) {
 					logger.info("{}: Registering Crud Duty: {}", getClass().getSimpleName(), duty);
 					partitionTable.addCrudDuty(duty);

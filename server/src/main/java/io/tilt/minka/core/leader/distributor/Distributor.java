@@ -39,24 +39,25 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
+import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.DutyBuilder;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
-import io.tilt.minka.api.PartitionMaster;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.Scheduler;
-import io.tilt.minka.core.LeaderShardContainer;
-import io.tilt.minka.core.Scheduler.Agent;
-import io.tilt.minka.core.Scheduler.Frequency;
-import io.tilt.minka.core.Scheduler.PriorityLock;
-import io.tilt.minka.core.Semaphore.Action;
-import io.tilt.minka.core.impl.ServiceImpl;
 import io.tilt.minka.core.leader.Auditor;
 import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
 import io.tilt.minka.core.leader.distributor.Balancer.BalanceStrategy;
+import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.core.task.Scheduler.Agent;
+import io.tilt.minka.core.task.Scheduler.Frequency;
+import io.tilt.minka.core.task.Scheduler.PriorityLock;
+import io.tilt.minka.core.task.Semaphore.Action;
+import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
@@ -82,7 +83,7 @@ public class Distributor extends ServiceImpl {
 		private final Map<BalanceStrategy, Balancer> balancers;
 		private final EntityDao entityDao;
 		@SuppressWarnings("rawtypes")
-		private final PartitionMaster partitionMaster;
+		private final DependencyPlaceholder dependencyPlaceholder;
 		private final LeaderShardContainer leaderShardContainer;
 
 		private int distributionCounter;
@@ -96,7 +97,7 @@ public class Distributor extends ServiceImpl {
 		public Distributor(final Config config, final Scheduler scheduler, final EventBroker eventBroker,
 				final PartitionTable partitionTable, final Auditor accounter, final ShardID shardId,
 				final Map<BalanceStrategy, Balancer> balancers, final EntityDao dutyDao,
-				final PartitionMaster partitionMaster, final LeaderShardContainer leaderShardContainer) {
+				final DependencyPlaceholder dependencyPlaceholder, final LeaderShardContainer leaderShardContainer) {
 
 			this.config = config;
 			this.scheduler = scheduler;
@@ -109,12 +110,12 @@ public class Distributor extends ServiceImpl {
 			this.leaderShardContainer = leaderShardContainer;
 
 			if (config.getDutyStorage() == Storage.CLIENT_DEFINED) {
-				Validate.notNull(partitionMaster, "When Minka not in Storage mode: a Partition Master is required");
+				Validate.notNull(dependencyPlaceholder, "When Minka not in Storage mode: a Partition Master is required");
 			} else {
-				Validate.isTrue(partitionMaster == null, "When Minka in Storage mode: a Partition Master must not be exposed");
+				Validate.isTrue(dependencyPlaceholder.getMaster() == null, "When Minka in Storage mode: a Partition Master must not be exposed");
 			}
 
-			this.partitionMaster = partitionMaster;
+			this.dependencyPlaceholder = dependencyPlaceholder;
 			this.initialAdding = true;
 
 			this.distributor = scheduler.getAgentFactory()
@@ -184,7 +185,7 @@ public class Distributor extends ServiceImpl {
 						.append(config.getBalancerDistributionStrategy().toString().toUpperCase()).append(" by Leader: ")
 						.append(shardId.toString());
 			logger.info(LogUtils.titleLine(title.toString()));
-			//partitionTable.logStatus();
+			partitionTable.logStatus();
 		}
 
 		private void createChangeAndSendIssues(final Reallocation previousChange) {
@@ -194,12 +195,12 @@ public class Distributor extends ServiceImpl {
 			auditor.cleanTemporaryDuties();
 			if (!realloc.isEmpty()) {
 			   this.partitionTable.setWorkingHealth(ClusterHealth.UNSTABLE);
-            sendNextIssues();
-            logger.info("{}: Balancer generated {} issues on change: {}", 
+			   sendNextIssues();
+			   logger.info("{}: Balancer generated {} issues on change: {}", 
                     getName(), realloc.getGroupedIssues().size(), realloc.getId());
 			} else {
 			   this.partitionTable.setWorkingHealth(ClusterHealth.STABLE);
-            logger.info("{}: {} Balancer without change", getName(), LogUtils.BALANCED_CHAR);
+			   logger.info("{}: {} Balancer without change", getName(), LogUtils.BALANCED_CHAR);
 			}
 		}
 
@@ -226,22 +227,27 @@ public class Distributor extends ServiceImpl {
 		/* read from storage only first time */
 		private void checkWithStorageWhenAllOnlines() {
 			if (initialAdding || (config.distributorReloadsDutiesFromStorage()
-						&& config.getDistributorReloadDutiesFromStorageEachPeriods() == counter++)) {
+					&& config.getDistributorReloadDutiesFromStorageEachPeriods() == counter++)) {
 				counter = 0;
 				Set<Duty<?>> duties = reloadDutiesFromStorage();
 				Set<Pallet<?>> pallets = reloadPalletsFromStorage();
-				if (duties == null || duties.isEmpty()) { // || pallets == null || pallets.isEmpty()) {
-						logger.error("{}: distribution posponed: {} has not return any entities ", getName(),
-								config.getDutyStorage() == Storage.MINKA_MANAGEMENT ? "Minka storage" : "PartitionMaster");
+				if (duties == null || duties.isEmpty() || pallets == null || pallets.isEmpty()) {
+					logger.error("{}: distribution posponed: {} hasn't return any entities (pallets = {}, duties: {})", getName(),
+							config.getDutyStorage() == Storage.MINKA_MANAGEMENT ? "Minka storage" : "PartitionMaster", duties, pallets);
 				} else {
-						logger.info("{}: {} reported {} entities for sharding...", getName(),
-								config.getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster",
-								duties.size());
-						final List<Duty<?>> copy = Lists.newArrayList(duties);
-						auditor.removeAndRegisterCruds(copy);
-						final List<Pallet<?>> copyP = Lists.newArrayList(pallets);
-						auditor.removeAndRegisterCrudPallets(copyP);
-						initialAdding = false;
+					try {
+						duties.forEach(d->DutyBuilder.validateBuiltParams(d));
+					} catch (Exception e) {
+						logger.error("{}: Distribution suspended - Duty Built construction problem: ", getName(), e);
+						return;
+					}
+					logger.info("{}: {} reported {} entities for sharding...", getName(),
+						config.getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster", duties.size());
+					final List<Duty<?>> copy = Lists.newArrayList(duties);
+					auditor.removeAndRegisterCruds(copy);
+					final List<Pallet<?>> copyP = Lists.newArrayList(pallets);
+					auditor.removeAndRegisterCrudPallets(copyP);
+					initialAdding = false;
 				}
 				if (partitionTable.getDutiesCrud().isEmpty()) {
 						logger.error("{}: Aborting first distribution cause of no duties !", getName());
@@ -274,7 +280,7 @@ public class Distributor extends ServiceImpl {
 				if (config.getDutyStorage() == Storage.MINKA_MANAGEMENT) {
 						duties = entityDao.loadDutySnapshot();
 				} else {
-						duties = partitionMaster.loadDuties();
+						duties = dependencyPlaceholder.getMaster().loadDuties();
 				}
 			} catch (Exception e) {
 				logger.error("{}: {} throwed an Exception", getName(),
@@ -290,7 +296,7 @@ public class Distributor extends ServiceImpl {
 				if (config.getDutyStorage() == Storage.MINKA_MANAGEMENT) {
 						pallets = entityDao.loadPalletSnapshot();
 				} else {
-						pallets = partitionMaster.loadPallets();
+						pallets = dependencyPlaceholder.getMaster().loadPallets();
 				}
 			} catch (Exception e) {
 				logger.error("{}: {} throwed an Exception", getName(),

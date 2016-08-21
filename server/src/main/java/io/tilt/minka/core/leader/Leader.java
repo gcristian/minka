@@ -24,12 +24,12 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.Scheduler;
-import io.tilt.minka.core.LeaderShardContainer;
-import io.tilt.minka.core.Service;
-import io.tilt.minka.core.Scheduler.PriorityLock;
-import io.tilt.minka.core.Semaphore.Action;
-import io.tilt.minka.core.impl.ServiceImpl;
+import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.core.task.Service;
+import io.tilt.minka.core.task.Scheduler.PriorityLock;
+import io.tilt.minka.core.task.Semaphore.Action;
+import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.NetworkShardID;
 
 /**

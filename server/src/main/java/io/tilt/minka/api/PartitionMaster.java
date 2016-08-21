@@ -19,9 +19,9 @@ package io.tilt.minka.api;
 import java.io.Serializable;
 import java.util.Set;
 
-import io.tilt.minka.core.Bootstrap;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
+import io.tilt.minka.core.task.Bootstrap;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
@@ -32,10 +32,10 @@ import io.tilt.minka.domain.ShardEntity;
  * 
  * Minka will depend entirely on this to obtain the initial duties to distribute  
  * 
- * Adds and Removes from {@linkplain PartitionService} are yet properly functional.
+ * Adds and Removes from {@linkplain MinkaClient} are yet properly functional.
  * Adds and Removes should be ONLY used to enter new Duties to Minka after bootstrap.
  * In case of Leader reelection/termination: Minka recalls {@linkplain reportTotal} 
- * and forgets previously added duties thru add/remove from {@linkplain PartitionService}
+ * and forgets previously added duties thru add/remove from {@linkplain MinkaClient}
  * 
  * If overall Duties control from Minka is required: {@linkplain PartitionDelegate} must be used 
  *    

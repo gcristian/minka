@@ -24,9 +24,9 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.core.LeaderShardContainer;
 import io.tilt.minka.core.follower.Heartpump;
-import io.tilt.minka.core.impl.ServiceImpl;
+import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.NetworkShardID;
 import io.tilt.minka.domain.Partition;
@@ -60,7 +60,7 @@ public class HeartpumpImpl extends ServiceImpl implements Heartpump {
 			try {
 				if (leaderShardContainer.getLeaderShardId() == null) {
 						logger.warn("{}: Still without an acknowledged Leader shard !", getClass().getSimpleName(),
-								config.getResolvedShardId());
+								config.getLoggingShardId());
 						return;
 				}
 				/*
@@ -74,13 +74,13 @@ public class HeartpumpImpl extends ServiceImpl implements Heartpump {
 				if (!eventBroker.postEvent(eventBroker.buildToTarget(config, Channel.HEARTBEATS_TO_LEADER,
 							leaderShardContainer.getLeaderShardId()), arg)) {
 						logger.error("{}: ({}) Broker did not sent Heartbeat !", getClass().getSimpleName(),
-								config.getResolvedShardId());
+								config.getLoggingShardId());
 				}
 
 				this.lastHeartbeatTimestamp = new DateTime(DateTimeZone.UTC);
 
 			} catch (Exception e) {
-				logger.error("{}: ({}) Broker with exception", getClass().getSimpleName(), config.getResolvedShardId(), e);
+				logger.error("{}: ({}) Broker with exception", getClass().getSimpleName(), config.getLoggingShardId(), e);
 			}
 		}
 

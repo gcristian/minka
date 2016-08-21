@@ -22,19 +22,18 @@ package io.tilt.minka.domain;
  * depending on the State value. 
  */
 public enum EntityEvent {
-		/* user creates a duty from PartitionService */
+		
+		/* user creates a duty from MinkaClient */
 		CREATE(true),
-		/* leader assigns to a Shard */
-		ASSIGN(false),
-		/*
-		 * user updates something related to the duty that leader must notify the
-		 * shard
-		 */
-		UPDATE(true),
-		/* leader takes off the duty from the shard for any reason may be */
-		UNASSIGN(false),
 		/* user prompts to delete as a kill state */
-		DELETE(true),
+		REMOVE(true),
+		/* user updates something related to the duty that leader must notify the shard */
+		UPDATE(true),
+		
+		/* leader assigns to a Shard */
+		ATTACH(false),
+		/* leader takes off the duty from the shard for any reason may be */
+		DETACH(false),
 		/* the duty has finalized */
 		FINALIZED(true);
 
@@ -50,5 +49,10 @@ public enum EntityEvent {
 
 		public boolean is(EntityEvent pe) {
 			return this == pe;
+		}
+		
+		@Override
+		public String toString() {
+			return this.name().substring(0, 1);
 		}
 }

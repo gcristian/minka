@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.impl;
+package io.tilt.minka.core.task.impl;
 
 import java.util.function.Supplier;
 
@@ -39,7 +39,7 @@ public class SpectatorSupplier implements Supplier<Spectator> {
 
 		/* stop using same instance and renew object */
 		public void renew() {
-			logger.info("{}: ({}) Resetting held reference", getClass().getSimpleName(), config.getResolvedShardId());
+			logger.info("{}: ({}) Resetting held reference", getClass().getSimpleName(), config.getLoggingShardId());
 			this.spectator = null;
 		}
 
@@ -47,8 +47,8 @@ public class SpectatorSupplier implements Supplier<Spectator> {
 		public synchronized Spectator get() {
 			if (spectator == null || !spectator.isConnected()) {
 				logger.info("{}: ({}) Supplying a new Spectator client because current is: {}", getClass().getSimpleName(),
-							config.getResolvedShardId(), spectator == null ? "Uinitialized" : "Disconnected");
-				spectator = new Spectator(config.getZookeeperHostPort(), config.getResolvedShardId().toString());
+							config.getLoggingShardId(), spectator == null ? "Uinitialized" : "Disconnected");
+				spectator = new Spectator(config.getZookeeperHostPort(), config.getLoggingShardId().toString());
 			}
 			return spectator;
 		}

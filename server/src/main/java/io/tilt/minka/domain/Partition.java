@@ -76,7 +76,7 @@ public class Partition {
 			if (!sorted.isEmpty()) {
 				sorted.sort(sorted.get(0));
 			}
-			sorted.forEach(i -> sb.append(i.getDuty().getId()).append(", "));
+			sorted.forEach(i -> sb.append(i.toBrief()).append(", "));
 			return sb.toString();
 		}
 

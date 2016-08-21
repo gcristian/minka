@@ -22,10 +22,16 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Entity;
@@ -40,6 +46,8 @@ import io.tilt.minka.api.Pallet;
  */
 public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEntity>, EntityPayload {
 
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+	
 		private static final long serialVersionUID = 4519763920222729635L;
 
 		private final Entity<?> entity;
@@ -203,8 +211,19 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 		public EntityPayload getUserPayload() {
 			return this.userPayload;
-		}
+		} 
 
+		public String toStringGroupByPallet(Set<ShardEntity> duties) {
+			final StringBuilder sb = new StringBuilder();
+			final Multimap<String, ShardEntity> mm= HashMultimap.create();
+			duties.forEach(e->mm.put(e.getDuty().getPalletId(), e));
+			mm.asMap().forEach((k,v)-> {
+				sb.append("p").append(k).append(" -> ")
+				.append(toStringBrief(v)).append(", ");
+			});
+			return sb.toString();
+		}
+		
 		public static String toStringIds(Collection<ShardEntity> duties) {
 			final StringBuilder sb = new StringBuilder();
 			duties.forEach(i -> sb.append(i.getEntity().toString()).append(", "));
@@ -225,14 +244,40 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 		@Override
 		public String toString() {
-			StringBuilder sb = new StringBuilder();
-			sb.append(type == Type.DUTY ? "Duty: " : "Pallet ").append(getEntity().toString()).append(" (")
-						.append(getEntity().getClassType().getSimpleName()).append(": ").append(getDutyEvent()).append(", ")
-						.append(getState());
-			if (type == Type.DUTY) {
-				sb.append(", w:").append(((Duty) getEntity()).getWeight().getLoad());
+			try {				
+				final String ttype = getEntity().getClassType().getSimpleName();
+				final String id = getEntity().toString();
+				
+				StringBuilder sb = new StringBuilder(ttype.length() + id.length() + 30);
+				
+				if (type == Type.DUTY) {
+					sb.append("p").append(getDuty().getPalletId());
+				}
+				sb.append(type == Type.DUTY ? "d" : "p").append(id);
+				if (type == Type.DUTY) {
+					sb.append(", w").append(((Duty<?>) getEntity()).getWeight().getLoad());
+				}
+				sb.append(" ev").append(getDutyEvent());
+				sb.append(", s").append(getState());
+				
+				sb.append(", t").append(type);
+				return sb.toString();
+			} catch (Exception e){
+				logger.error("tostring", e);
 			}
-			sb.append(")");
+			return null;
+		}
+
+		public String toBrief() {
+			final String load = String.valueOf(this.getDuty().getWeight().getLoad());
+			final String pid = getDuty().getPalletId();
+			final String id = getEntity().toString();
+			final StringBuilder sb = new StringBuilder(10 + load.length() + id.length() + pid.length());
+			if (type == Type.DUTY) {
+				sb.append("p").append(pid);
+			}
+			sb.append("d").append(id);
+			sb.append(" w").append(load);
 			return sb.toString();
 		}
 
@@ -243,11 +288,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 		public State getState() {
 			return this.state;
-		}
-
-		public String toBrief() {
-			return new StringBuilder().append("Duty ID: ").append(getEntity().toString()).append(" Type: ")
-						.append(getEntity().getClassType().getSimpleName()).toString();
 		}
 
 		public int hashCode() {

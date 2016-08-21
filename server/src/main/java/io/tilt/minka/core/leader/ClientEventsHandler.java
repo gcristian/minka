@@ -16,7 +16,7 @@
  */
 package io.tilt.minka.core.leader;
 
-import static io.tilt.minka.api.PartitionService.Command.CLUSTER_CLEAN_SHUTDOWN;
+import static io.tilt.minka.api.MinkaClient.Command.CLUSTER_CLEAN_SHUTDOWN;
 import static io.tilt.minka.domain.ShardState.ONLINE;
 
 import java.io.Serializable;
@@ -27,12 +27,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.PartitionService;
+import io.tilt.minka.api.MinkaClient;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.core.Scheduler;
-import io.tilt.minka.core.Scheduler.PriorityLock;
-import io.tilt.minka.core.impl.ServiceImpl;
+import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.core.task.Scheduler.PriorityLock;
+import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.NetworkShardID;
 import io.tilt.minka.domain.Shard;
@@ -40,7 +40,7 @@ import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
- * Drives events generated thru the {@linkplain PartitionService} by the client
+ * Drives events generated thru the {@linkplain MinkaClient} by the client
  * when the {@linkplain Leader} is not activated in that Shard
  *  
  * @author Cristian Gonzalez

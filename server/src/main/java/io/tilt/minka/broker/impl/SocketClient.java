@@ -38,10 +38,10 @@ import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
-import io.tilt.minka.core.Scheduler;
-import io.tilt.minka.core.Scheduler.Frequency;
-import io.tilt.minka.core.Scheduler.PriorityLock;
-import io.tilt.minka.core.Semaphore.Action;
+import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.core.task.Scheduler.Frequency;
+import io.tilt.minka.core.task.Scheduler.PriorityLock;
+import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.spectator.MessageMetadata;
 
 /**

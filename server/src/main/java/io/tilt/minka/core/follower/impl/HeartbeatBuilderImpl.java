@@ -28,11 +28,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.PartitionDelegate;
-import io.tilt.minka.core.LeaderShardContainer;
 import io.tilt.minka.core.follower.HeartbeatBuilder;
+import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Partition;
@@ -50,17 +50,17 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 
 		private final Logger logger = LoggerFactory.getLogger(getClass());
 
-		private final PartitionDelegate partitionDelegate;
+		private final DependencyPlaceholder dependencyPlaceholder;
 		private final Partition partition;
 		private final AtomicLong sequence;
 		private final Config config;
 
-		public HeartbeatBuilderImpl(final Config config, final PartitionDelegate partitionDelegate,
+		public HeartbeatBuilderImpl(final Config config, final DependencyPlaceholder holder,
 				final Partition partition, final LeaderShardContainer leaderShardContainer) {
 
 			super();
 			this.config = config;
-			this.partitionDelegate = partitionDelegate;
+			this.dependencyPlaceholder = holder;
 			this.partition = partition;
 			this.sequence = new AtomicLong();
 		}
@@ -69,9 +69,9 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 		public Heartbeat build() {
 			Set<Duty<?>> reportedDuties;
 			try {
-				reportedDuties = partitionDelegate.reportTaken();
+				reportedDuties = dependencyPlaceholder.getDelegate().reportTaken();
 			} catch (Exception e) {
-				logger.error("{}: ({}) PartitionDelegate failure", getClass().getSimpleName(), config.getResolvedShardId(),
+				logger.error("{}: ({}) PartitionDelegate failure", getClass().getSimpleName(), config.getLoggingShardId(),
 							e);
 				reportedDuties = new HashSet();
 			}
@@ -98,7 +98,7 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 			// add non-reported: as dangling
 			for (final ShardEntity existing : partition.getDuties()) {
 				if (!reportedDuties.contains(existing.getEntity())) {
-						existing.registerEvent(EntityEvent.DELETE, DANGLING);
+						existing.registerEvent(EntityEvent.REMOVE, DANGLING);
 						logger.error("{}: ({}) Reporting a Dangling Duty (by Erasure): {}", getClass().getSimpleName(),
 								partition.getId(), existing);
 						shardingDuties.add(existing);
@@ -109,7 +109,7 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 			if (logger.isDebugEnabled()) {
 				logDebugNicely(hb);
 			} else {
-				logger.info("{}: ({}) {} SeqID: {}, Duties: {}", getClass().getSimpleName(), hb.getShardId(),
+				logger.debug("{}: ({}) {} SeqID: {}, Duties: {}", getClass().getSimpleName(), hb.getShardId(),
 							LogUtils.HB_CHAR, hb.getSequenceId(), hb.getDuties().size());
 			}
 			return hb;

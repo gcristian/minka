@@ -23,12 +23,12 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.Scheduler;
-import io.tilt.minka.core.Scheduler.Agent;
-import io.tilt.minka.core.Scheduler.Frequency;
-import io.tilt.minka.core.Scheduler.PriorityLock;
-import io.tilt.minka.core.Semaphore.Action;
-import io.tilt.minka.core.impl.ServiceImpl;
+import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.core.task.Scheduler.Agent;
+import io.tilt.minka.core.task.Scheduler.Frequency;
+import io.tilt.minka.core.task.Scheduler.PriorityLock;
+import io.tilt.minka.core.task.Semaphore.Action;
+import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardState;
@@ -100,7 +100,7 @@ public class Follower extends ServiceImpl {
 
     @Override
     public void start() {
-        logger.info("{}: ({}) Starting services", getClass().getSimpleName(), config.getResolvedShardId());
+        logger.info("{}: ({}) Starting services", getClass().getSimpleName(), config.getLoggingShardId());
         this.heartpump.init();
         this.leaderConsumer.init();
         alive = true;
@@ -113,12 +113,12 @@ public class Follower extends ServiceImpl {
     @Override
     public void stop() {
         logger.info("{}: ({}) Stopping services, on duty since: {}", getClass().getSimpleName(),
-                config.getResolvedShardId(), creation);
+                config.getLoggingShardId(), creation);
         if (inService()) {
             final Heartbeat bye = builder.build();
             bye.setStateChange(ShardState.QUITTED);
             heartpump.emit(bye);
-            logger.info("{}: ({}) Stopping timer", getClass().getSimpleName(), config.getResolvedShardId());
+            logger.info("{}: ({}) Stopping timer", getClass().getSimpleName(), config.getLoggingShardId());
             scheduler.stop(pump);
             alive = false;
             turnOffPolicies();
@@ -126,7 +126,7 @@ public class Follower extends ServiceImpl {
             this.leaderConsumer.stop();
         } else {
             logger.info("{}: ({}) Follower was not longer in service", getClass().getSimpleName(),
-                    config.getResolvedShardId());
+                    config.getLoggingShardId());
         }
     }
 
@@ -146,19 +146,19 @@ public class Follower extends ServiceImpl {
             if (lost) {
                 logger.error(
                         "{}: ({}) Executing Clearance policy, last: {} too old (Max: {}, Past: {} msecs)",
-                        getClass().getSimpleName(), config.getResolvedShardId(),
+                        getClass().getSimpleName(), config.getLoggingShardId(),
                         clear != null ? clear.getCreation() : "null", maxAbsence, delta);
                 leaderConsumer.getPartitionManager().releaseAllOnPolicies();
             } else {
                 logger.debug("{}: ({}) Clearence certified #{} from Leader: {}", getClass().getSimpleName(),
-                        config.getResolvedShardId(), clear.getSequenceId(), clear.getLeaderShardId());
+                        config.getLoggingShardId(), clear.getSequenceId(), clear.getLeaderShardId());
             }
         }
     }
 
     public void turnOnPolicies() {
         logger.info("{}: ({}) Scheduling constant policies", getClass().getSimpleName(),
-                config.getResolvedShardId());
+                config.getLoggingShardId());
         scheduler.schedule(clearancer);
         scheduler.schedule(cardiologyst);
     }
@@ -177,7 +177,7 @@ public class Follower extends ServiceImpl {
             if (expiracy.isBefore(new DateTime(DateTimeZone.UTC)) && true) {
                 logger.warn(
                         "{}: ({}) Executing Heartattack policy (last HB: {}): releasing delegate's held duties",
-                        getClass().getSimpleName(), config.getResolvedShardId(), expiracy);
+                        getClass().getSimpleName(), config.getLoggingShardId(), expiracy);
                 leaderConsumer.getPartitionManager().releaseAllOnPolicies();
             }
         }

@@ -14,10 +14,10 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.impl;
+package io.tilt.minka.core.task.impl;
 
-import static io.tilt.minka.core.Semaphore.Permission.GRANTED;
-import static io.tilt.minka.core.Semaphore.Permission.RETRY;
+import static io.tilt.minka.core.task.Semaphore.Permission.GRANTED;
+import static io.tilt.minka.core.task.Semaphore.Permission.RETRY;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import java.util.HashMap;
@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.core.Scheduler;
+import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.ShardID;
 
 /**
@@ -113,12 +113,14 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 					for (final Entry<Synchronized, ScheduledFuture<?>> e : this.futuresBySynchro.entrySet()) {
 						if (e.getValue().equals(((ScheduledFuture<?>) run))) {
 							Synchronized sync = e.getKey();
-							logger.info("{}: ({}) Queue check: {} ({}, {}, {}, {}", getName(), shardId,
-								sync.getTask().getClass().getSimpleName(),
-								"E: " + sync.getLastException() == null ? "" : sync.getLastException(),
-								"TS:" + (now - sync.getLastExecutionTimestamp()),
-								"Success Lapse: " + (sync.getLastSuccessfulExecutionLapse()),
-								"Success TS:" + (now - sync.getLastSuccessfulExecutionTimestamp()));
+							if (logger.isDebugEnabled()) {
+								logger.debug("{}: ({}) Queue check: {} ({}, {}, {}, {}", getName(), shardId,
+									sync.getTask().getClass().getSimpleName(),
+									"E: " + sync.getLastException() == null ? "" : sync.getLastException(),
+									"TS:" + (now - sync.getLastExecutionTimestamp()),
+									"Success Lapse: " + (sync.getLastSuccessfulExecutionLapse()),
+									"Success TS:" + (now - sync.getLastSuccessfulExecutionTimestamp()));
+							}
 						}
 					}
 				}
@@ -175,7 +177,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		Validate.notNull(agent);
 		Runnable runnable = null;
 		ScheduledFuture<?> future = null;
-		logger.info("{}: ({}) Saving Agent = {} ", getName(), shardId, agent.toString());
+		logger.debug("{}: ({}) Saving Agent = {} ", getName(), shardId, agent.toString());
 		if (agent.getFrequency() == Frequency.PERIODIC) {
 			future = executor.scheduleWithFixedDelay(runnable = () -> runSynchronized(agent), agent.getDelay(),
 				agent.getPeriodicDelay(), agent.getTimeUnit());
@@ -241,7 +243,9 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	private <R> R call(final Synchronized sync, boolean inSync) {
 		try {
 			if (sync.getTask() instanceof Runnable) {
-				logger.info("{}: ({}) Executing {}", getName(), shardId, sync.toString().toLowerCase());
+				if (logger.isDebugEnabled()) {
+					logger.debug("{}: ({}) Executing {}", getName(), shardId, sync.toString().toLowerCase());
+				}
 				sync.execute();
 				return (R) new Boolean(true);
 			} else if (sync.getTask() instanceof Callable) {

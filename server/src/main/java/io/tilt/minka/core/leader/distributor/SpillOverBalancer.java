@@ -126,12 +126,12 @@ public class SpillOverBalancer implements Balancer {
 			for (final ShardEntity newcomer : dutiesForBalance) {
 				final Shard receptor = makeSpaceIntoReceptors(loadStrat, newcomer, spaceByReceptor);
 				if (receptor != null) {
-						newcomer.registerEvent(EntityEvent.ASSIGN, State.PREPARED);
+						newcomer.registerEvent(EntityEvent.ATTACH, State.PREPARED);
 						realloc.addChange(receptor, newcomer);
 						logger.info("{}: Assigning to Shard: {} (space left: {}), Duty: {}", getClass().getSimpleName(),
 								receptor.getShardID(), spaceByReceptor.get(receptor), newcomer.toBrief());
 				} else {
-						newcomer.registerEvent(EntityEvent.ASSIGN, State.STUCK);
+						newcomer.registerEvent(EntityEvent.ATTACH, State.STUCK);
 						newcomer.setStuckCause(StuckCause.UNSUITABLE);
 						realloc.getProblems().put(null, newcomer);
 						unfitting.add(newcomer);
@@ -148,7 +148,7 @@ public class SpillOverBalancer implements Balancer {
 				for (final ShardEntity emitted : emitting) {
 						final Shard receptor = makeSpaceIntoReceptors(loadStrat, emitted, spaceByReceptor);
 						if (receptor == null) {
-							emitted.registerEvent(EntityEvent.ASSIGN, State.STUCK);
+							emitted.registerEvent(EntityEvent.ATTACH, State.STUCK);
 							emitted.setStuckCause(StuckCause.UNSUITABLE);
 							realloc.getProblems().put(null, emitted);
 							unfitting.add(emitted);
@@ -243,10 +243,10 @@ public class SpillOverBalancer implements Balancer {
 		private ShardEntity addMigrationChange(final Reallocation realloc, final Shard receptorShard,
 				final Shard emisorShard, final ShardEntity duty) {
 
-			duty.registerEvent(EntityEvent.ASSIGN, State.PREPARED);
+			duty.registerEvent(EntityEvent.ATTACH, State.PREPARED);
 			realloc.addChange(receptorShard, duty);
 			ShardEntity copy = ShardEntity.copy(duty);
-			copy.registerEvent(EntityEvent.UNASSIGN, State.PREPARED);
+			copy.registerEvent(EntityEvent.DETACH, State.PREPARED);
 			realloc.addChange(emisorShard, copy);
 			return copy;
 		}

@@ -2,7 +2,7 @@
  *  Copyright (c) 2011-2015 Zauber S.A.  -- All rights reserved
  */
 
-package io.tilt.minka.core.impl;
+package io.tilt.minka.core.task.impl;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -11,9 +11,9 @@ import java.util.Map;
 
 import org.apache.commons.lang.Validate;
 
-import io.tilt.minka.core.Journal;
-import io.tilt.minka.core.Journal.Fact;
-import io.tilt.minka.core.Journal.Story;
+import io.tilt.minka.core.task.Journal;
+import io.tilt.minka.core.task.Journal.Fact;
+import io.tilt.minka.core.task.Journal.Story;
 import io.tilt.minka.utils.SynchronizedSlidingQueue;
 
 public class JournalImpl implements Journal {

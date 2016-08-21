@@ -25,14 +25,14 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Sets;
 
+import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.PartitionDelegate;
-import io.tilt.minka.core.Scheduler;
-import io.tilt.minka.core.LeaderShardContainer;
-import io.tilt.minka.core.Scheduler.PriorityLock;
-import io.tilt.minka.core.Scheduler.Synchronized;
-import io.tilt.minka.core.Semaphore.Action;
 import io.tilt.minka.core.follower.PartitionManager;
+import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.core.task.Scheduler.PriorityLock;
+import io.tilt.minka.core.task.Scheduler.Synchronized;
+import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.domain.Partition;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
@@ -42,16 +42,16 @@ public class PartitionManagerImpl implements PartitionManager {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	private final PartitionDelegate partitionDelegate;
+	private final DependencyPlaceholder dependencyPlaceholder;
 	private final Partition partition;
 	private final Scheduler scheduler;
 	private final Synchronized releaser;
 
-	public PartitionManagerImpl(PartitionDelegate partitionDelegate, Partition partition, Scheduler scheduler,
+	public PartitionManagerImpl(DependencyPlaceholder dependencyPlaceholder, Partition partition, Scheduler scheduler,
 		LeaderShardContainer leaderShardContainer) {
 
 		super();
-		this.partitionDelegate = partitionDelegate;
+		this.dependencyPlaceholder = dependencyPlaceholder;
 		this.partition = partition;
 		this.scheduler = scheduler;
 		this.releaser = scheduler.getFactory().build(Action.INSTRUCT_DELEGATE, PriorityLock.MEDIUM_BLOCKING,
@@ -95,12 +95,12 @@ public class PartitionManagerImpl implements PartitionManager {
 				if (duty.getUserPayload() == null) {
 					logger.info("{}: ({}) Instructing PartitionDelegate to UPDATE : {}", getClass().getSimpleName(),
 						partition.getId(), duty.toBrief());
-					partitionDelegate.update(Sets.newHashSet(duty.getEntity()));
+					dependencyPlaceholder.getDelegate().update(Sets.newHashSet(duty.getEntity()));
 				} else {
 					logger.info("{}: ({}) Instructing PartitionDelegate to RECEIVE: {} with Payload type {}",
 						getClass().getSimpleName(), partition.getId(), duty.toBrief(),
 						duty.getUserPayload().getClass().getName());
-					partitionDelegate.receive(Sets.newHashSet(duty.getEntity()), duty.getUserPayload());
+					dependencyPlaceholder.getDelegate().receive(Sets.newHashSet(duty.getEntity()), duty.getUserPayload());
 				}
 			} else {
 				logger.error("{}: ({}) Unable to UPDATE a never taken Duty !: {}", getClass().getSimpleName(),
@@ -115,7 +115,7 @@ public class PartitionManagerImpl implements PartitionManager {
 	public Void unassign(final Collection<ShardEntity> duties) {
 		logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE : {}", getClass().getSimpleName(),
 			partition.getId(), ShardEntity.toStringBrief(duties));
-		partitionDelegate.release(toSet(duties, duty -> {
+		dependencyPlaceholder.getDelegate().release(toSet(duties, duty -> {
 			if (!partition.getDuties().contains(duty)) {
 				logger.error("{}: ({}) Unable to RELEASE a never taken Duty !: {}", getClass().getSimpleName(),
 					partition.getId(), duty);
@@ -139,7 +139,7 @@ public class PartitionManagerImpl implements PartitionManager {
 		 */
 		logger.info("{}: ({}) Instructing PartitionDelegate to TAKE: {}", getClass().getSimpleName(), partition.getId(),
 			ShardEntity.toStringBrief(duties));
-		partitionDelegate.take(toSet(duties, null));
+		dependencyPlaceholder.getDelegate().take(toSet(duties, null));
 		partition.getDuties().addAll(duties);
 		/*
 		 * } else { logger.error(

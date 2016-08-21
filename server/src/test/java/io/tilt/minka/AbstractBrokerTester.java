@@ -23,8 +23,8 @@ import org.junit.Test;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.LeaderShardContainer;
-import io.tilt.minka.core.impl.TransportlessLeaderShardContainer;
+import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.impl.TransportlessLeaderShardContainer;
 import io.tilt.minka.domain.NetworkShardID;
 import io.tilt.minka.domain.NetworkShardIDImpl;
 import junit.framework.Assert;

@@ -32,11 +32,11 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.Scheduler;
-import io.tilt.minka.core.LeaderShardContainer;
-import io.tilt.minka.core.Scheduler.Frequency;
-import io.tilt.minka.core.Scheduler.PriorityLock;
-import io.tilt.minka.core.Semaphore.Action;
+import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.core.task.Scheduler.Frequency;
+import io.tilt.minka.core.task.Scheduler.PriorityLock;
+import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.domain.NetworkShardID;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.spectator.MessageMetadata;
@@ -83,10 +83,11 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 				scheduler.getAgentFactory().create(Action.DISCARD_OBSOLETE_CONNECTIONS, PriorityLock.HIGH_ISOLATED,
 					Frequency.PERIODIC, () -> discardObsoleteClients()).delayed(5000).every(2000).build());
 
-			logger.debug("{}: Creating SocketServer", getClass().getSimpleName());
+			logger.info("{}: Creating SocketServer", getClass().getSimpleName());
+			getShardId().leavePortReservation();
 			this.server = new SocketServer(this, config.getBrokerServerConnectionHandlerThreads(),
 				getShardId().getInetPort(), getShardId().getInetAddress().getHostAddress(),
-				config.getFollowerUseNetworkInterfase(), scheduler, config.getBrokerRetryDelayMs(),
+				config.getBrokerUseNetworkInterfase(), scheduler, config.getBrokerRetryDelayMs(),
 				config.getBrokerMaxRetries());
 		}
 	}
@@ -152,7 +153,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 				config.getBrokerRetryDelayMs(), config.getBrokerMaxRetries(), getShardId().toString(), config));
 		}
 
-		logger.info("{}: ({}) Posting to Broker: {}:{} ({} into {}))", getClass().getSimpleName(), getShardId(),
+		logger.debug("{}: ({}) Posting to Broker: {}:{} ({} into {}))", getClass().getSimpleName(), getShardId(),
 			channel.getAddress().getInetAddress().getHostAddress(), channel.getAddress().getInetPort(),
 			event.getClass().getSimpleName(), channel.getChannel());
 
@@ -213,7 +214,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 
 		@Override
 		public String getFullName() {
-			return this.target.getStringID();
+			return this.target.getStringIdentity();
 		}
 
 		@Override

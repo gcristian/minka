@@ -14,15 +14,15 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.impl;
+package io.tilt.minka.core.task.impl;
 
-import static io.tilt.minka.core.Semaphore.Action.ANY;
-import static io.tilt.minka.core.Semaphore.Hierarchy.CHILD;
-import static io.tilt.minka.core.Semaphore.Hierarchy.PARENT;
-import static io.tilt.minka.core.Semaphore.Hierarchy.SIBLING;
-import static io.tilt.minka.core.Semaphore.Permission.DENIED;
-import static io.tilt.minka.core.Semaphore.Permission.GRANTED;
-import static io.tilt.minka.core.Semaphore.Permission.RETRY;
+import static io.tilt.minka.core.task.Semaphore.Action.ANY;
+import static io.tilt.minka.core.task.Semaphore.Hierarchy.CHILD;
+import static io.tilt.minka.core.task.Semaphore.Hierarchy.PARENT;
+import static io.tilt.minka.core.task.Semaphore.Hierarchy.SIBLING;
+import static io.tilt.minka.core.task.Semaphore.Permission.DENIED;
+import static io.tilt.minka.core.task.Semaphore.Permission.GRANTED;
+import static io.tilt.minka.core.task.Semaphore.Permission.RETRY;
 
 import java.util.HashMap;
 import java.util.List;
@@ -39,7 +39,7 @@ import com.google.common.util.concurrent.CycleDetectingLockFactory;
 import com.google.common.util.concurrent.CycleDetectingLockFactory.Policies;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.core.Semaphore;
+import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.spectator.Locks;
 

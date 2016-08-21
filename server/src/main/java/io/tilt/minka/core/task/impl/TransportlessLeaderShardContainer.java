@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.impl;
+package io.tilt.minka.core.task.impl;
 
 import java.util.HashSet;
 import java.util.List;
@@ -26,7 +26,7 @@ import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.core.LeaderShardContainer;
+import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.NetworkShardID;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.utils.SynchronizedSlidingQueue;
@@ -76,7 +76,7 @@ public class TransportlessLeaderShardContainer extends ServiceImpl implements Le
 				boolean firstLeader = lastLeaderShardId == null;
 				if (!firstLeader && lastLeaderShardId.equals(newLeader)) {
 						logger.info("{}: ({}) same Leader {} reelected, skipping observer notification",
-								getClass().getSimpleName(), myShardId, this.leaderShardId.getStringID());
+								getClass().getSimpleName(), myShardId, this.leaderShardId.getStringIdentity());
 						previousLeaders.add(leaderShardId);
 				} else {
 						logger.info("{}: ({}) Updating new Leader elected: {}", getClass().getSimpleName(), myShardId,

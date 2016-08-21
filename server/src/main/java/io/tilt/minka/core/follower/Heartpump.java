@@ -18,7 +18,7 @@ package io.tilt.minka.core.follower;
 
 import org.joda.time.DateTime;
 
-import io.tilt.minka.core.Service;
+import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.Heartbeat;
 
 /**

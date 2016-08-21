@@ -32,7 +32,11 @@ import io.tilt.minka.core.follower.Follower;
  */
 public interface ShardID extends Serializable {
 
-		String getStringID();
+		/** to be technically used - not for logging */
+		String getStringIdentity();
+		
+		/** for loggin - not to be seriously used */
+		String getSynthetizedID();
 
 		DateTime getCreation();
 

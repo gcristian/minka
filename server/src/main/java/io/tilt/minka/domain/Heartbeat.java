@@ -171,6 +171,6 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 
 		@Override
 		public String getId() {
-			return this.shardId.getStringID();
+			return this.shardId.getStringIdentity();
 		}
 }

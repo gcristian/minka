@@ -14,22 +14,22 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core;
+package io.tilt.minka.core.task;
 
-import static io.tilt.minka.core.Semaphore.Action.ANY;
-import static io.tilt.minka.core.Semaphore.Action.BOOTSTRAP;
-import static io.tilt.minka.core.Semaphore.Action.DISTRIBUTOR;
-import static io.tilt.minka.core.Semaphore.Action.HEARTBEAT_REPORT;
-import static io.tilt.minka.core.Semaphore.Action.INSTRUCT_DELEGATE;
-import static io.tilt.minka.core.Semaphore.Action.LEADERSHIP;
-import static io.tilt.minka.core.Semaphore.Action.PARTITION_TABLE_UPDATE;
-import static io.tilt.minka.core.Semaphore.Action.SHEPHERD;
-import static io.tilt.minka.core.Semaphore.Action.SHUTDOWN;
-import static io.tilt.minka.core.Semaphore.Action.STUCK_POLICY;
-import static io.tilt.minka.core.Semaphore.Hierarchy.CHILD;
-import static io.tilt.minka.core.Semaphore.Hierarchy.PARENT;
-import static io.tilt.minka.core.Semaphore.Hierarchy.SIBLING;
-import static io.tilt.minka.core.Semaphore.RuleFactory.builder;
+import static io.tilt.minka.core.task.Semaphore.Action.ANY;
+import static io.tilt.minka.core.task.Semaphore.Action.BOOTSTRAP;
+import static io.tilt.minka.core.task.Semaphore.Action.DISTRIBUTOR;
+import static io.tilt.minka.core.task.Semaphore.Action.HEARTBEAT_REPORT;
+import static io.tilt.minka.core.task.Semaphore.Action.INSTRUCT_DELEGATE;
+import static io.tilt.minka.core.task.Semaphore.Action.LEADERSHIP;
+import static io.tilt.minka.core.task.Semaphore.Action.PARTITION_TABLE_UPDATE;
+import static io.tilt.minka.core.task.Semaphore.Action.SHEPHERD;
+import static io.tilt.minka.core.task.Semaphore.Action.SHUTDOWN;
+import static io.tilt.minka.core.task.Semaphore.Action.STUCK_POLICY;
+import static io.tilt.minka.core.task.Semaphore.Hierarchy.CHILD;
+import static io.tilt.minka.core.task.Semaphore.Hierarchy.PARENT;
+import static io.tilt.minka.core.task.Semaphore.Hierarchy.SIBLING;
+import static io.tilt.minka.core.task.Semaphore.RuleFactory.builder;
 import static java.util.Arrays.asList;
 
 import java.util.Arrays;

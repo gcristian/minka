@@ -9,8 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import io.tilt.minka.api.PartitionService;
-import io.tilt.minka.core.Bootstrap;
+import io.tilt.minka.core.task.Bootstrap;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(locations = { "classpath:io/tilt/minka/config/context-minka-test-spring.xml" })
@@ -18,8 +17,6 @@ public class BootstrapTest {
 
 		@Autowired
 		private Bootstrap bootstrap;
-		@Autowired
-		private PartitionService service;
 
 		@Test
 		public void test_bootstrap() throws InterruptedException {
