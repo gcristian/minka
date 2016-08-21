@@ -54,7 +54,7 @@ public class DutyBuilder<T extends Serializable> implements Duty<T>, EntityPaylo
 		 * @return
 		 */
 		public static <T extends Serializable> DutyBuilder<T> build(Class<T> clas, final String id, final String palletId, final long load) {
-			return new DutyBuilder<T>(clas, null, id, load, load, palletId);
+			return new DutyBuilder<T>(clas, (T)id, id, load, load, palletId);
 		}
 
 		/**
@@ -100,17 +100,23 @@ public class DutyBuilder<T extends Serializable> implements Duty<T>, EntityPaylo
 
 		private DutyBuilder(final Class<T> class1, final T payload, final String id, final long load, final long maxLoad,
 				final String palletId) {
-			Validate.notNull(class1, "You must specify param's class or use overload builder");
-			Validate.notNull(payload, "You must specify payload param or use overload builder");
-			Validate.notNull(id, "A non null ID is required");
-			Validate.isTrue(load > 0, "A number greater than 0 expected for workload representing the duty");
-			Validate.notNull(maxLoad, "A number greater than 0 expected for the maximum workload (limit) in your domain");
 			this.id = id;
 			this.palletId = palletId;
 			this.load = load;
 			this.value = payload;
 			this.type = class1;
 			this.maxLoad = maxLoad;
+			validateBuiltParams(this);
+		}
+		
+		public static void validateBuiltParams(final Duty<?> duty) {
+			Validate.notNull(duty.getId(), "A non null ID is required");
+			final String id = "Duty:" + duty.getId() + " ";
+			Validate.notNull(duty.getPalletId(), id + "a Pallet ID is mandatory");
+			Validate.notNull(duty.getClassType(), id + "You must specify param's class or use overload builder");
+			Validate.notNull(duty.get(), id + "You must specify payload param or use overload builder");
+			Validate.isTrue(duty.getWeight().getLoad() > 0, id + "A number greater than 0 expected for workload representing the duty");
+			Validate.notNull(duty.getWeight().getMaxLoad(), id + "A number greater than 0 expected for the maximum workload (limit) in your domain");
 		}
 
 		@Override
@@ -131,7 +137,7 @@ public class DutyBuilder<T extends Serializable> implements Duty<T>, EntityPaylo
 
 		@Override
 		public String toString() {
-			return getId() + "-"+palletId;
+			return getId();
 		}
 
 		@Override
