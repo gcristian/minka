@@ -40,10 +40,9 @@ import io.tilt.minka.utils.Defaulter;
 public class Config extends Properties {
 
 		private static final long serialVersionUID = 3653003981484000071L;
-
 		private ShardID resolvedShardId;
 
-		public ShardID getResolvedShardId() {
+		public ShardID getLoggingShardId() {
 			return this.resolvedShardId;
 		}
 
@@ -56,7 +55,7 @@ public class Config extends Properties {
 		// ------------------------------------ common --------------------------------------------
 
 		private static final String SERVICE_NAME_DEFAULT = ("default-name");
-		private String serviceName;
+		private static String serviceName;
 
 		private static final String ZOOKEEPER_HOST_PORT_DEFAULT = "localhost:2181";
 		private String zookeeperHostPort;
@@ -93,33 +92,44 @@ public class Config extends Properties {
 		public int getBrokerRetryDelayMs() {
 			return this.brokerRetryDelayMs;
 		}
-
 		public int getBrokerMaxRetries() {
 			return this.brokerMaxRetries;
 		}
-
 		public int getBrokerServerConnectionHandlerThreads() {
 			return this.brokerServerConnectionHandlerThreads;
 		}
-
 		public String getBrokerServerHost() {
 			return this.brokerServerHost;
 		}
+		public String getBrokerShardIdSuffix() {
+			return this.brokerShardIdSuffix;
+		}
+		public String getBrokerUseNetworkInterfase() {
+			return this.brokerUseNetworkInterfase;
+		}
+		
+		public static final String BROKER_SERVER_PORT_FALLBACK_DEFAULT = "true";
+		public boolean brokerServerPortFallback;
+		/** True: try number-consecutive open ports if specified is busy, False: break bootup */		
+		public boolean getBrokerServerPortFallback() {
+			return brokerServerPortFallback;
+		}
 
-		public static final String THREAD_NAME_COORDINATOR_IN_BACKGROUND = "Minka-Scheduler";
-		public static final String THREAD_NAME_BROKER_SERVER_GROUP = "Minka-SocketServerThreadGroup";
-		public static final String THREAD_NAME_BROKER_SERVER_WORKER = "Minka-SocketServerThreadWorker";
-		public static final String THREAD_NANE_TCP_BROKER_CLIENT = "Minka-SocketClientThread";
+		public static final String PNAME = "Minka-" + serviceName;
+		public static final String THREAD_NAME_COORDINATOR_IN_BACKGROUND = PNAME + "-Scheduler";
+		public static final String THREAD_NAME_BROKER_SERVER_GROUP = PNAME + "-SocketServerThreadGroup";
+		public static final String THREAD_NAME_BROKER_SERVER_WORKER = PNAME + "-SocketServerThreadWorker";
+		public static final String THREAD_NANE_TCP_BROKER_CLIENT = PNAME + "-SocketClientThread";
 
 		public static final long SEMAPHORE_UNLOCK_RETRY_DELAY_MS = 100l; //50l;
 		public static final int SEMAPHORE_UNLOCK_MAX_RETRIES = 30;
 
 		// ------------------------------------ follower --------------------------------------------
 		private static final String FOLLOWER_SHARD_ID_SUFFIX_DEFAULT = "";
-		private String followerShardIdSuffix;
+		private String brokerShardIdSuffix;
 
-		private static final String FOLLOWER_USE_NETWORK_INTERFASE_DEFAULT = "lo";
-		private String followerUseNetworkInterfase;
+		private static final String BROKER_USE_NETWORK_INTERFASE_DEFAULT = "lo";
+		private String brokerUseNetworkInterfase;
 
 		/* each half second */
 		private static final String FOLLOWER_HEARTBEAT_START_DELAY_MS_DEFAULT = "1000";
@@ -282,13 +292,6 @@ public class Config extends Properties {
 			return this.distributorStartDelayMs;
 		}
 
-		public String getFollowerShardIdSuffix() {
-			return this.followerShardIdSuffix;
-		}
-
-		public String getFollowerUseNetworkInterfase() {
-			return this.followerUseNetworkInterfase;
-		}
 
 		public long getFollowerHeartbeatDelayMs() {
 			return this.followerHeartbeatDelayMs;
