@@ -10,6 +10,7 @@
 	<modules>
 		<module>spectator</module>
 		<module>server</module>
+		<module>samples</module>
 		<module>rest-app</module>
 	</modules>
 	<properties>

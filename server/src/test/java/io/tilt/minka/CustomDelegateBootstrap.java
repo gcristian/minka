@@ -18,8 +18,7 @@ public class CustomDelegateBootstrap {
 	}
 
 	@Test
-	public void test()
-			throws InstantiationException, IllegalAccessException, ClassNotFoundException, InterruptedException {
+	public void test() throws InstantiationException, IllegalAccessException, ClassNotFoundException, InterruptedException {
 		MinkaLoader loader = new MinkaLoader();
 		loader.load();
 		final String clazz = System.getProperty("delegate", "MultiPalletSample");
@@ -29,7 +28,7 @@ public class CustomDelegateBootstrap {
 		loader.setDelegate(master);
 		final MinkaClient  cli = MinkaClient.getInstance();
 		sleep(1);
-		cli.add(DutyBuilder.build(String.class, "hola", "PALETA"));
+		cli.add(DutyBuilder.build(String.class, "hola", "1"));
 		int mins = Integer.getInteger("mins", 30);
 		sleep(mins);
 		loader.destroy();
