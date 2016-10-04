@@ -34,12 +34,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.Workload;
 
 /**
  * Balances and distributes duties by creating clusters using their processing weight
@@ -75,7 +75,7 @@ public class FairWorkloadBalancer implements Balancer {
 			 * Otherwise this's the most optimus strategy.
 			 * Use this in case your Duties represent Data or Entities with a long lifecycle 
 			 */
-			WORKLOAD;
+			WEIGHT;
 		}
 		private final Clusterizer clusterizer;
 		
@@ -95,7 +95,7 @@ public class FairWorkloadBalancer implements Balancer {
 
 			// order new ones and current ones in order to get a fair distro 
 			final PreSortType presort = pallet.getBalancerFairLoadPresort();
-			final Comparator comparator = presort == PreSortType.WORKLOAD ? Workload.getComparator()
+			final Comparator comparator = presort == PreSortType.WEIGHT ? new Duty.WeightComparer()
 						: getShardDutyCreationDateComparator();
 
 			final Set<ShardEntity> duties = new TreeSet<>(comparator);
@@ -224,7 +224,7 @@ public class FairWorkloadBalancer implements Balancer {
 						int n = ai.incrementAndGet();
 						for (final ShardEntity sh : cluster) {
 							logger.debug("{}: Cluster {} = {} ({})", getClass().getSimpleName(), n, sh.getEntity().getId(),
-										sh.getDuty().getWeight().getLoad());
+										sh.getDuty().getWeight());
 						}
 				}
 			}

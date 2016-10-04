@@ -43,7 +43,7 @@ public interface Clusterizer {
 				for (ShardEntity duty : group) {
 						if (logger.isDebugEnabled()) {
 							logger.debug("{}: Duty: {} Weighting: {} in Group: {} ", getClass().getSimpleName(),
-										duty.getEntity().getId(), duty.getDuty().getWeight().getLoad(), i);
+										duty.getEntity().getId(), duty.getDuty().getWeight(), i);
 						}
 				}
 				i++;

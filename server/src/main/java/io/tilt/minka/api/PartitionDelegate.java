@@ -57,6 +57,9 @@ public interface PartitionDelegate<E extends Serializable, P extends Serializabl
 			return true;
 		}
 
+		
+		long getMaxWeight(Pallet<P> pallet);
+		
 		/**
 		* Instruct the Follower shard to take management responsibilities on these duties
 		*/

@@ -69,12 +69,10 @@ public interface Balancer {
 		public enum BalanceStrategy {
 			/* duties within the pallet will stick together wherever they fit*/
 			NONE(null),
-			/* classic circular assignation */
-			ROUND_ROBIN(RoundRobinBalancer.class),
 			/* try to fit in the best place, no migration at all */
 			WEIGHTED_ROUND_ROBIN(null),
 			/* all nodes same amount of entities */
-			EVEN_SIZE(EvenSizeBalancer.class),
+			ROUND_ROBIN(RoundRobinBalancer.class),
 			/* duties clustering according weights */
 			FAIR_LOAD(FairWorkloadBalancer.class),
 			/* fill each node until spill then fill another node */

@@ -23,15 +23,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
+import com.google.common.util.concurrent.AtomicDouble;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.domain.EntityEvent;
@@ -39,7 +40,6 @@ import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
 import io.tilt.minka.domain.ShardEntity.StuckCause;
-import io.tilt.minka.domain.Workload;
 import io.tilt.minka.utils.CircularCollection;
 
 /**
@@ -58,7 +58,7 @@ public class SpillOverBalancer implements Balancer {
 			 * Use the Max value to compare the sum of all running duties's weights 
 			 * and restrict new additions over a full shard 
 			 */
-			WORKLOAD, 
+			WEIGHT, 
 			/**
 			 * Use the Max value as max number of duties to fit in one shard 
 			 */
@@ -90,8 +90,8 @@ public class SpillOverBalancer implements Balancer {
 			} else {
 				logger.info("{}: Computing Spilling strategy: {} with a Max Value: {}", getClass().getSimpleName(),
 						pallet.getSpillBalancerStrategy(), maxValue);
-				boolean loadStrat = pallet.getSpillBalancerStrategy() == MaxValueUsage.WORKLOAD;
-				final Map<Shard, AtomicLong> spaceByReceptor = new HashMap<>();
+				boolean loadStrat = pallet.getSpillBalancerStrategy() == MaxValueUsage.WEIGHT;
+				final Map<Shard, AtomicDouble> spaceByReceptor = new HashMap<>();
 				final SetMultimap<Shard, ShardEntity> trans = collectTransceivers(pallet, table, loadStrat, spaceByReceptor,
 							maxValue);
 				if (spaceByReceptor.isEmpty() && !trans.isEmpty()) {
@@ -105,7 +105,7 @@ public class SpillOverBalancer implements Balancer {
 						//dutiesForBalance.addAll(dangling);
 						if (loadStrat) {
 							// so we can get the biggest accomodation of duties instead of the heaviest
-							Collections.sort(dutiesForBalance, Collections.reverseOrder(Workload.getComparator()));
+							Collections.sort(dutiesForBalance, Collections.reverseOrder(new Duty.WeightComparer()));
 						}
 						registerNewcomers(realloc, loadStrat, spaceByReceptor, unfitting, dutiesForBalance);
 						// then move those surplussing
@@ -120,7 +120,7 @@ public class SpillOverBalancer implements Balancer {
 		}
 
 		private void registerNewcomers(final Reallocation realloc, final boolean loadStrat,
-				final Map<Shard, AtomicLong> spaceByReceptor, final List<ShardEntity> unfitting,
+				final Map<Shard, AtomicDouble> spaceByReceptor, final List<ShardEntity> unfitting,
 				final List<ShardEntity> dutiesForBalance) {
 
 			for (final ShardEntity newcomer : dutiesForBalance) {
@@ -140,7 +140,7 @@ public class SpillOverBalancer implements Balancer {
 		}
 
 		private void registerMigrations(final Reallocation realloc, final boolean loadStrat,
-				final Map<Shard, AtomicLong> spaceByReceptor, final List<ShardEntity> unfitting,
+				final Map<Shard, AtomicDouble> spaceByReceptor, final List<ShardEntity> unfitting,
 				final SetMultimap<Shard, ShardEntity> trans, final long maxValue) {
 
 			for (final Shard emisor : trans.keys()) {
@@ -162,13 +162,13 @@ public class SpillOverBalancer implements Balancer {
 		}
 
 		private Shard makeSpaceIntoReceptors(final boolean loadStrat, final ShardEntity duty,
-				final Map<Shard, AtomicLong> spaceByReceptor) {
+				final Map<Shard, AtomicDouble> spaceByReceptor) {
 
 			for (final Shard receptor : spaceByReceptor.keySet()) {
-				AtomicLong space = spaceByReceptor.get(receptor);
-				final long newWeight = loadStrat ? duty.getDuty().getWeight().getLoad() : 1;
+				AtomicDouble space = spaceByReceptor.get(receptor);
+				final double newWeight = loadStrat ? duty.getDuty().getWeight() : 1;
 				if (space.get() - newWeight >= 0) {
-						long surplus = space.addAndGet(-newWeight);
+						double surplus = space.addAndGet(-newWeight);
 						// add the new weight to keep the map updated for latter emittings 
 						if (logger.isDebugEnabled()) {
 							logger.debug("{}: Making space for: {} into Shard: {} still has: {}", getClass().getSimpleName(),
@@ -182,7 +182,7 @@ public class SpillOverBalancer implements Balancer {
 
 		/* elect duties from emisors and compute receiving size at receptors */
 		private SetMultimap<Shard, ShardEntity> collectTransceivers(final Pallet<?> pallet, final PartitionTable table, 
-				boolean loadStrat, final Map<Shard, AtomicLong> spaceByReceptor, final long maxValue) {
+				boolean loadStrat, final Map<Shard, AtomicDouble> spaceByReceptor, final double maxValue) {
 
 			final SetMultimap<Shard, ShardEntity> transmitting = HashMultimap.create();
 			for (final Shard shard : table.getAllImmutable()) {
@@ -190,9 +190,9 @@ public class SpillOverBalancer implements Balancer {
 				final List<ShardEntity> checkingDuties = new ArrayList<>(dutiesByShard);
 				if (loadStrat) {
 						// order it so we can obtain sequentially granulated reductions of the transmitting shard
-						Collections.sort(checkingDuties, Workload.getComparator());
+						Collections.sort(checkingDuties, new Duty.WeightComparer());
 				}
-				final long totalWeight = dutiesByShard.stream().mapToLong(i -> i.getDuty().getWeight().getLoad()).sum();
+				final double totalWeight = dutiesByShard.stream().mapToDouble(i -> i.getDuty().getWeight()).sum();
 				final boolean isEmisor = (!loadStrat && dutiesByShard.size() > maxValue)
 							|| (loadStrat && (totalWeight) > maxValue);
 				final boolean isReceptor = (!loadStrat && dutiesByShard.size() < maxValue)
@@ -205,7 +205,7 @@ public class SpillOverBalancer implements Balancer {
 						} else if (loadStrat) {
 							long liftAccumulated = 0;
 							for (final ShardEntity takeMe : dutiesByShard) {
-								long load = takeMe.getDuty().getWeight().getLoad();
+								double load = takeMe.getDuty().getWeight();
 								if ((liftAccumulated += load) <= totalWeight - maxValue) {
 										transmitting.put(shard, takeMe);
 								} else {
@@ -216,7 +216,7 @@ public class SpillOverBalancer implements Balancer {
 				} else if (isReceptor) {
 						// until loop ends we cannot for certain which shard is receptor and can receive which duty
 						spaceByReceptor.put(shard,
-								new AtomicLong(maxValue - (loadStrat ? totalWeight : dutiesByShard.size())));
+								new AtomicDouble(maxValue - (loadStrat ? totalWeight : dutiesByShard.size())));
 				}
 			}
 			return transmitting;

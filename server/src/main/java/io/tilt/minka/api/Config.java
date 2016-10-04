@@ -125,7 +125,7 @@ public class Config extends Properties {
 		public static final int SEMAPHORE_UNLOCK_MAX_RETRIES = 30;
 
 		// ------------------------------------ follower --------------------------------------------
-		private static final String FOLLOWER_SHARD_ID_SUFFIX_DEFAULT = "";
+		private static final String BROKER_SHARD_ID_SUFFIX_DEFAULT = "";
 		private String brokerShardIdSuffix;
 
 		private static final String BROKER_USE_NETWORK_INTERFASE_DEFAULT = "lo";
@@ -190,16 +190,16 @@ public class Config extends Properties {
 		private static final String DISTRIBUTOR_REALLOCATION_MAX_RETRIES_DEFAULT = "3";
 		private int distributorReallocationMaxRetries;
 
-		private static final String BALANCER_EVEN_SIZE_MAX_DUTIES_DELTA_BETWEEN_SHARDS_DEFAULT = "1";
-		private int balancerEvenSizeMaxDutiesDeltaBetweenShards;
+		private static final String BALANCER_ROUND_ROBIN_MAX_DUTIES_DELTA_BETWEEN_SHARDS_DEFAULT = "1";
+		private int balancerRoundRobinMaxDutiesDeltaBetweenShards;
 
 		private static final String DISTRIBUTOR_BALANCER_STRATEGY_DEFAULT = "FAIR_LOAD";
 		private BalanceStrategy distributorBalancerStrategy;
 
-		private static final String BALANCER_FAIR_LOAD_PRESORT_DEFAULT = "WORKLOAD";
+		private static final String BALANCER_FAIR_LOAD_PRESORT_DEFAULT = "WEIGHT";
 		private PreSortType balancerFairLoadPresort;
 
-		private static final String BALANCER_SPILL_OVER_STRATEGY_DEFAULT = "WORKLOAD";
+		private static final String BALANCER_SPILL_OVER_STRATEGY_DEFAULT = "WEIGHT";
 		private MaxValueUsage balancerSpillOverStrategy;
 
 		private static final String BALANCER_SPILL_OVER_MAX_VALUE_DEFAULT = "0";
@@ -405,8 +405,8 @@ public class Config extends Properties {
 			return this.queueUserRetentionLapseMs;
 		}
 
-		public int getBalancerEvenSizeMaxDutiesDeltaBetweenShards() {
-			return this.balancerEvenSizeMaxDutiesDeltaBetweenShards;
+		public int getBalancerRoundRobinMaxDutiesDeltaBetweenShards() {
+			return this.balancerRoundRobinMaxDutiesDeltaBetweenShards;
 		}
 
 		public int getDistributorReallocationExpirationSec() {

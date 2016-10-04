@@ -124,9 +124,9 @@
     
     <util:map id="balancersMap" key-type="io.tilt.minka.core.leader.distributor.Balancer.BalanceStrategy" 
         value-type="io.tilt.minka.core.leader.distributor.Balancer">
-        <entry key="EVEN_SIZE">
+        <entry key="ROUND_ROBIN">
             <!-- Estrategia para distribuir entidades en forma pareja: iguales cantidades -->
-            <bean id="balancer" class="io.tilt.minka.core.leader.distributor.EvenSizeBalancer">
+            <bean id="balancer" class="io.tilt.minka.core.leader.distributor.RoundRobinBalancer">
                 <constructor-arg ref="config" />
             </bean>
         </entry>

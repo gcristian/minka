@@ -17,8 +17,9 @@
 package io.tilt.minka.api;
 
 import java.io.Serializable;
+import java.util.Comparator;
 
-import io.tilt.minka.domain.Workload;
+import io.tilt.minka.domain.ShardEntity;
 
 /**
  * An abstract entity that the host application uses to represent anything able to balance and distribute.  
@@ -40,12 +41,24 @@ public interface Duty<T extends Serializable> extends Entity<T> {
 		* Required to maintain a fairly load balancing  
 		* @return
 		*/
-		Workload getWeight();
+		double getWeight();
 
 		/**
 		* The pallet ID to which this duty must be grouped into.
 		* @return
 		*/
 		String getPalletId();
+		
+		
+		public static class WeightComparer implements Comparator<ShardEntity>, Serializable {
 
+			private static final long serialVersionUID = 2191475545082914908L;
+			
+			@Override
+			public int compare(final ShardEntity o1, final ShardEntity o2) {
+				return Double.compare(o1.getDuty().getWeight(), o2.getDuty().getWeight());
+			}
+
+		}
+		
 }

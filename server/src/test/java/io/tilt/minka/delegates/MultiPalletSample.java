@@ -44,7 +44,7 @@ public class MultiPalletSample extends BaseSampleDelegate {
 			if (pid == 1) {
 				strategy = BalanceStrategy.FAIR_LOAD;
 			} else {
-				strategy = BalanceStrategy.EVEN_SIZE;
+				strategy = BalanceStrategy.ROUND_ROBIN;
 			}
 			pallets.add(PalletBuilder.build(
 					String.valueOf(pid), String.class, strategy, Storage.CLIENT_DEFINED, "payload"));

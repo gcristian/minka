@@ -52,7 +52,7 @@ public class Partition {
 		public long getWeight() {
 			long weight = 0;
 			for (final ShardEntity duty : duties) {
-				weight += duty.getDuty().getWeight().getLoad();
+				weight += duty.getDuty().getWeight();
 			}
 			return weight;
 		}

@@ -44,11 +44,11 @@ import io.tilt.minka.utils.CircularCollection;
  * @author Cristian Gonzalez
  * @since Dec 13, 2015
  */
-public class EvenSizeBalancer implements Balancer {
+public class RoundRobinBalancer implements Balancer {
 
 		private final Logger logger = LoggerFactory.getLogger(getClass());
 		
-		public EvenSizeBalancer(final Config config) {
+		public RoundRobinBalancer(final Config config) {
 			
 		}
 		

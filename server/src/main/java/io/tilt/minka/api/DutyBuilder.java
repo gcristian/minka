@@ -21,8 +21,6 @@ import java.io.Serializable;
 import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 
-import io.tilt.minka.domain.Workload;
-
 /**
  * A plain simple duty that can be stored in maps, sets, compared to others, etc.
  * Instance identity is upon ID param.
@@ -41,8 +39,7 @@ public class DutyBuilder<T extends Serializable> implements Duty<T>, EntityPaylo
 
 		private final String id;
 		private final String palletId;
-		private final long load;
-		private final long maxLoad;
+		private final double load;
 		private final T value;
 		private Class<T> type;
 
@@ -54,7 +51,7 @@ public class DutyBuilder<T extends Serializable> implements Duty<T>, EntityPaylo
 		 * @return
 		 */
 		public static <T extends Serializable> DutyBuilder<T> build(Class<T> clas, final String id, final String palletId, final long load) {
-			return new DutyBuilder<T>(clas, (T)id, id, load, load, palletId);
+			return new DutyBuilder<T>(clas, (T)id, id, load, palletId);
 		}
 
 		/**
@@ -65,7 +62,7 @@ public class DutyBuilder<T extends Serializable> implements Duty<T>, EntityPaylo
 		 */
 		@SuppressWarnings("unchecked")
 		public static <T extends Serializable> DutyBuilder<T> build(Class<T> clas, final String id, final String palletId) {
-			return new DutyBuilder<T>(clas, (T)id, id, 1l, 1l, palletId);
+			return new DutyBuilder<T>(clas, (T)id, id, 1d, palletId);
 		}
 
 
@@ -80,7 +77,7 @@ public class DutyBuilder<T extends Serializable> implements Duty<T>, EntityPaylo
 		 */
 		public static <T extends Serializable> DutyBuilder<T> build(Class<T> type, final T value, final String id, final String palletId,
 				final long load) {
-			return new DutyBuilder<T>(type, value, id, load, load, palletId);
+			return new DutyBuilder<T>(type, value, id, load, palletId);
 		}
 
 		/**
@@ -90,22 +87,19 @@ public class DutyBuilder<T extends Serializable> implements Duty<T>, EntityPaylo
 		 * @param value         the payload traveling from Leader to Follower
 		 * @param id            must be a unique ID within your domain
 		 * @param load          the work load associated to this duty at execution time
-		 * @param maxLoad       the maximum work load (limit) that your domains recognizes for a duty
 		 * @return
 		 */
 		public static <T extends Serializable> DutyBuilder<T> build(final Class<T> type, final T value, final String id, final String palletId,
-				final long load, final long maxLoad) {
-			return new DutyBuilder<T>(type, value, id, load, maxLoad, palletId);
+				final double load) {
+			return new DutyBuilder<T>(type, value, id, load, palletId);
 		}
 
-		private DutyBuilder(final Class<T> class1, final T payload, final String id, final long load, final long maxLoad,
-				final String palletId) {
+		private DutyBuilder(final Class<T> class1, final T payload, final String id, final double load, final String palletId) {
 			this.id = id;
 			this.palletId = palletId;
 			this.load = load;
 			this.value = payload;
 			this.type = class1;
-			this.maxLoad = maxLoad;
 			validateBuiltParams(this);
 		}
 		
@@ -115,9 +109,7 @@ public class DutyBuilder<T extends Serializable> implements Duty<T>, EntityPaylo
 			Validate.notNull(duty.getPalletId(), id + "a Pallet ID is mandatory");
 			Validate.notNull(duty.getClassType(), id + "You must specify param's class or use overload builder");
 			Validate.notNull(duty.get(), id + "You must specify payload param or use overload builder");
-			Validate.isTrue(duty.getWeight().getLoad() > 0, id + "A number greater than 0 expected for workload representing the duty");
-			Validate.notNull(duty.getWeight().getMaxLoad(), id + "A number greater than 0 expected for the maximum workload (limit) in your domain");
-		}
+			Validate.isTrue(duty.getWeight() > 0, id + "A number greater than 0 expected for workload representing the duty");		}
 
 		@Override
 		public boolean equals(Object obj) {
@@ -151,8 +143,8 @@ public class DutyBuilder<T extends Serializable> implements Duty<T>, EntityPaylo
 		}
 
 		@Override
-		public Workload getWeight() {
-			return new Workload(load, maxLoad);
+		public double getWeight() {
+			return load;
 		}
 		
 		@Override

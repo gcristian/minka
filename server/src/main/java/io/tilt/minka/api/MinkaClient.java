@@ -36,7 +36,6 @@ import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.domain.ShardState;
-import io.tilt.minka.domain.Workload;
 
 /**
  * Client's point of integration.

@@ -40,7 +40,7 @@ public class DemoDelegate extends BaseSampleDelegate {
 		final Set<Pallet<String>> pallets = new HashSet<>();
 		for (int pid = 1; pid <= TOTAL_PALLETS; pid++) {
 			pallets.add(PalletBuilder.build(String.valueOf(pid), String.class,
-					pid != 1 ? BalanceStrategy.FAIR_LOAD : BalanceStrategy.EVEN_SIZE, Storage.CLIENT_DEFINED,
+					pid != 1 ? BalanceStrategy.FAIR_LOAD : BalanceStrategy.ROUND_ROBIN, Storage.CLIENT_DEFINED,
 					"payload"));
 		}
 		return pallets;

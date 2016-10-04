@@ -255,7 +255,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 				}
 				sb.append(type == Type.DUTY ? "d" : "p").append(id);
 				if (type == Type.DUTY) {
-					sb.append(", w").append(((Duty<?>) getEntity()).getWeight().getLoad());
+					sb.append(", w").append(((Duty<?>) getEntity()).getWeight());
 				}
 				sb.append(" ev").append(getDutyEvent());
 				sb.append(", s").append(getState());
@@ -269,7 +269,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		}
 
 		public String toBrief() {
-			final String load = String.valueOf(this.getDuty().getWeight().getLoad());
+			final String load = String.valueOf(this.getDuty().getWeight());
 			final String pid = getDuty().getPalletId();
 			final String id = getEntity().toString();
 			final StringBuilder sb = new StringBuilder(10 + load.length() + id.length() + pid.length());

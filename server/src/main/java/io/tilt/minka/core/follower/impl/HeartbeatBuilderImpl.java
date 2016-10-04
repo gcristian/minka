@@ -124,9 +124,9 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 
 			long totalWeight = 0;
 			for (ShardEntity i : hb.getDuties()) {
-				sb.append(i.getDuty().getId()).append("(").append(i.getDuty().getWeight().getLoad()).append(")")
+				sb.append(i.getDuty().getId()).append("(").append(i.getDuty().getWeight()).append(")")
 							.append(", ");
-				totalWeight += i.getDuty().getWeight().getLoad();
+				totalWeight += i.getDuty().getWeight();
 			}
 
 			logger.debug("{}: ({}) {} SeqID: {}, Duties: {}, Weight: {} = [ {}] {}", getClass().getSimpleName(),

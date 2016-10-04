@@ -138,4 +138,10 @@ public class BaseSampleDelegate implements PartitionMaster<String, String>, Seri
 		public Set<Pallet<String>> loadPallets() {
 			return allOriginalPallets;
 		}
+
+		@Override
+		public long getMaxWeight(Pallet<String> pallet) {
+			// TODO Auto-generated method stub
+			return 0;
+		}
 }

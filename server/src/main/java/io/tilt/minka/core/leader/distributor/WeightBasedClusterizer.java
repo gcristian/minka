@@ -67,16 +67,16 @@ public class WeightBasedClusterizer implements Clusterizer {
 			final int size = sortedDuties.size();
 			Validate.isTrue(partitions > 0 && size >= partitions);
 
-			final int[] sum = new int[size];
-			final int firstWeight = accessWeight(sortedDuties, 0);
+			final double[] sum = new double[size];
+			final double firstWeight = accessWeight(sortedDuties, 0);
 			sum[0] = firstWeight;
 
 			for (int i = 1; i < size; i++) {
-				int weight = accessWeight(sortedDuties, i);
+				double weight = accessWeight(sortedDuties, i);
 				sum[i] = sum[i - 1] + weight;
 			}
 
-			final int[][] partitionsByShards = new int[size + 1][partitions + 1];
+			final double[][] partitionsByShards = new double[size + 1][partitions + 1];
 			final int[][] results = new int[size + 1][partitions + 1];
 
 			initializeMatrix(partitions, size, sum, firstWeight, partitionsByShards);
@@ -89,16 +89,16 @@ public class WeightBasedClusterizer implements Clusterizer {
 			return dividers;
 		}
 
-		private int accessWeight(final List<ShardEntity> sortedDuties, final int i) {
+		private double accessWeight(final List<ShardEntity> sortedDuties, final int i) {
 			try {
-				return sortedDuties.get(i).getDuty().getWeight().getLoad().intValue();
+				return sortedDuties.get(i).getDuty().getWeight();
 			} catch (Exception e) {
 				throw new IllegalStateException("While trying to get weight for Duty: " + sortedDuties.get(i), e);
 			}
 		}
 
-		private void initializeMatrix(final int partitions, final int size, final int[] sum, final int firstWeight,
-				final int[][] partitionsByShards) {
+		private void initializeMatrix(final int partitions, final int size, final double[] sum, final double firstWeight,
+				final double[][] partitionsByShards) {
 
 			for (int t = 1; t <= size; t++) {
 				partitionsByShards[t][1] = sum[t - 1];
@@ -108,14 +108,14 @@ public class WeightBasedClusterizer implements Clusterizer {
 			}
 		}
 
-		private void build(final int partitions, final int size, final int[] sum, final int[][] partitionsByShards,
+		private void build(final int partitions, final int size, final double[] sum, final double[][] partitionsByShards,
 				final int[][] results) {
 
 			for (int t = 2; t <= size; t++) {
 				for (int p = 2; p <= partitions; p++) {
 						partitionsByShards[t][p] = Integer.MAX_VALUE;
 						for (int i = 1; i < t; i++) {
-							final int largest = Math.max(partitionsByShards[i][p - 1], sum[t - 1] - sum[i - 1]);
+							final double largest = Math.max(partitionsByShards[i][p - 1], sum[t - 1] - sum[i - 1]);
 							if (largest < partitionsByShards[t][p]) {
 								partitionsByShards[t][p] = largest;
 								results[t][p] = i;

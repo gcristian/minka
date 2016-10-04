@@ -41,7 +41,6 @@ public class Shard implements Comparator<Shard> {
 		private final DateTime firstTimeSeen;
 		private DateTime lastStatusChange;
 		private final SlidingSortedSet<Heartbeat> cardiacLapse;
-		private Workload workLoad;
 		private ShardState serviceState;
 
 		public Shard(final BrokerChannel channel, final NetworkShardID memberId) {
@@ -79,14 +78,6 @@ public class Shard implements Comparator<Shard> {
 
 		public List<Heartbeat> getHeartbeats() {
 			return this.cardiacLapse.values();
-		}
-
-		public Workload getWorkLoad() {
-			return this.workLoad;
-		}
-
-		public void setWorkLoad(Workload workLoad) {
-			this.workLoad = workLoad;
 		}
 
 		public ShardState getState() {

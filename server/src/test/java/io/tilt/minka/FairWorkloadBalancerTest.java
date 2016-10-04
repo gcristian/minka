@@ -65,8 +65,8 @@ public class FairWorkloadBalancerTest {
 				int sum = 0;
 				for (ShardEntity duty : group) {
 						System.out.println("Group " + i + " with Duty: " + duty.getEntity().getId() + " Weighting: "
-								+ duty.getDuty().getWeight().getLoad());
-						sum += duty.getDuty().getWeight().getLoad().intValue();
+								+ duty.getDuty().getWeight());
+						sum += duty.getDuty().getWeight();
 				}
 				System.out.println("Total Weights (" + i + ") = " + sum);
 				Assert.isTrue(i!=0 || (i==0 && sum == 810));
