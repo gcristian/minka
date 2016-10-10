@@ -20,24 +20,24 @@ import io.tilt.minka.api.Pallet.Storage;
 
 public class ConfigValidator {
 
-		/* TODO este metodo va a crecer mucho y requiere un monton de calculo */
-		public void validate(Config config, PartitionDelegate delegate) {
-			
-			if (config.getBrokerServerHost().indexOf(":") <1) {
-				throw new IllegalArgumentException("Broker host string (ip:port) invalid format = " + 
-						config.getBrokerServerHost());
-			}
-			checkPartitionMaster(config, delegate);
-		}
+	/* TODO este metodo va a crecer mucho y requiere un monton de calculo */
+	public void validate(Config config, PartitionDelegate delegate) {
 
-		private void checkPartitionMaster(Config config, PartitionDelegate delegate) {
-			if (delegate instanceof PartitionMaster && config.getDutyStorage() == Storage.MINKA_MANAGEMENT) {
-				throw new RuntimeException("You must provide a PartitionDelegate instead of PartitionMaster"
-							+ " while having configuration parameter Storage = MINKA_MANAGEMENT");
-			} else if (!(delegate instanceof PartitionMaster) && config.getDutyStorage() == Storage.CLIENT_DEFINED) {
-				throw new RuntimeException("You must provide a PartitionMaster instead of PartitionDelegate"
-							+ " while having configuration parameter Storage = CLIENT_DEFINED");
-			}
+		if (config.getBrokerServerHost().indexOf(":") < 1) {
+			throw new IllegalArgumentException(
+					"Broker host string (ip:port) invalid format = " + config.getBrokerServerHost());
 		}
+		checkPartitionMaster(config, delegate);
+	}
+
+	private void checkPartitionMaster(Config config, PartitionDelegate delegate) {
+		if (delegate instanceof PartitionMaster && config.getDutyStorage() == Storage.MINKA_MANAGEMENT) {
+			throw new RuntimeException("You must provide a PartitionDelegate instead of PartitionMaster"
+					+ " while having configuration parameter Storage = MINKA_MANAGEMENT");
+		} else if (!(delegate instanceof PartitionMaster) && config.getDutyStorage() == Storage.CLIENT_DEFINED) {
+			throw new RuntimeException("You must provide a PartitionMaster instead of PartitionDelegate"
+					+ " while having configuration parameter Storage = CLIENT_DEFINED");
+		}
+	}
 
 }

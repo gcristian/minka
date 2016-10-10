@@ -43,76 +43,77 @@ import io.tilt.minka.domain.ShardState;
  */
 public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heartbeat> {
 
-		private final Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-		private final Config config;
-		private final PartitionTable partitionTable;
-		private final Auditor auditor;
-		private final EventBroker eventBroker;
-		private final Scheduler scheduler;
-		private final NetworkShardID shardId;
-		/*
-		 * 10 mins min: previous time-window lapse to look for events to rebuild
-		 * Partition Table
-		 */
-		private final long START_PAST_LAPSE_MS = 1000 * 60 * 10;
+	private final Config config;
+	private final PartitionTable partitionTable;
+	private final Auditor auditor;
+	private final EventBroker eventBroker;
+	private final Scheduler scheduler;
+	private final NetworkShardID shardId;
+	/*
+	 * 10 mins min: previous time-window lapse to look for events to rebuild
+	 * Partition Table
+	 */
+	private final long START_PAST_LAPSE_MS = 1000 * 60 * 10;
 
-		public FollowerEventsHandler(final Config config, final PartitionTable partitionTable, final Auditor accounter,
-				final EventBroker eventBroker, final Scheduler scheduler, final NetworkShardID shardId) {
+	public FollowerEventsHandler(final Config config, final PartitionTable partitionTable, final Auditor accounter,
+			final EventBroker eventBroker, final Scheduler scheduler, final NetworkShardID shardId) {
 
-			this.config = config;
-			this.partitionTable = partitionTable;
-			this.auditor = accounter;
-			this.eventBroker = eventBroker;
-			this.scheduler = scheduler;
-			this.shardId = shardId;
+		this.config = config;
+		this.partitionTable = partitionTable;
+		this.auditor = accounter;
+		this.eventBroker = eventBroker;
+		this.scheduler = scheduler;
+		this.shardId = shardId;
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	@Override
+	public void start() {
+		logger.info("{}: Starting. Scheduling constant shepherding check", getClass().getSimpleName());
+
+		final long retentionLapse = Math.max(config.getQueuePartitionRetentionLapseMs(), START_PAST_LAPSE_MS);
+		final long readQueueSince = System.currentTimeMillis();
+
+		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.HEARTBEATS_TO_LEADER, shardId), Heartbeat.class,
+				(Consumer) this, readQueueSince, retentionLapse);
+
+	}
+
+	@Override
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public void stop() {
+		logger.info("{}: Stopping", getClass().getSimpleName());
+		this.eventBroker.unsubscribe(eventBroker.build(config, Channel.HEARTBEATS_TO_LEADER), Heartbeat.class,
+				(Consumer) this);
+	}
+
+	@Override
+	public void accept(final Heartbeat hb) {
+		hb.setReception(new DateTime(DateTimeZone.UTC));
+		if (logger.isDebugEnabled()) {
+			logger.debug("{}: Receiving Heartbeat: {} delayed {}ms", getClass().getSimpleName(), hb.toString(),
+					hb.getReceptionDelay());
 		}
 
-		@SuppressWarnings({ "unchecked", "rawtypes" })
-		@Override
-		public void start() {
-			logger.info("{}: Starting. Scheduling constant shepherding check", getClass().getSimpleName());
-
-			final long retentionLapse = Math.max(config.getQueuePartitionRetentionLapseMs(), START_PAST_LAPSE_MS);
-			final long readQueueSince = System.currentTimeMillis();
-
-			eventBroker.subscribeEvent(eventBroker.buildToTarget(config, Channel.HEARTBEATS_TO_LEADER, shardId),
-						Heartbeat.class, (Consumer) this, readQueueSince, retentionLapse);
-
-		}
-
-		@Override
-		@SuppressWarnings({ "rawtypes", "unchecked" })
-		public void stop() {
-			logger.info("{}: Stopping", getClass().getSimpleName());
-			this.eventBroker.unsubscribeEvent(eventBroker.build(config, Channel.HEARTBEATS_TO_LEADER), Heartbeat.class,
-						(Consumer) this);
-		}
-
-		@Override
-		public void accept(final Heartbeat hb) {
-			hb.setReception(new DateTime(DateTimeZone.UTC));
-			if (logger.isDebugEnabled()) {
-				logger.debug("{}: Receiving Heartbeat: {} delayed {}ms", getClass().getSimpleName(), hb.toString(),
-							hb.getReceptionDelay());
-			}
-
-			scheduler.run(scheduler.getFactory().build(Scheduler.Action.PARTITION_TABLE_UPDATE,
-						PriorityLock.MEDIUM_BLOCKING, () -> {
-								// when a shutdownlock acquired then keep receving HB to evaluate all Slaves are down!
-								Shard shard = partitionTable.getShard(hb.getShardId());
-								if (shard == null) {
-									// new member
-									partitionTable.addShard(shard = new Shard(eventBroker.buildToTarget(config,
-											Channel.INSTRUCTIONS_TO_FOLLOWER, hb.getShardId()), hb.getShardId()));
-								}
-								if (hb.getStateChange() == ShardState.QUITTED) {
-									logger.info("{}: ShardID: {} went cleanly: {}", getClass().getSimpleName(), shard,
-												hb.getStateChange());
-									partitionTable.getShard(shard.getShardID()).setState(ShardState.QUITTED);
-								}
-								auditor.account(hb, shard);
-						}));
-		}
+		scheduler.run(scheduler.getFactory().build(Scheduler.Action.PARTITION_TABLE_UPDATE,
+				PriorityLock.MEDIUM_BLOCKING, () -> {
+					// when a shutdownlock acquired then keep receving HB to evaluate all Slaves are down!
+					Shard shard = partitionTable.getShard(hb.getShardId());
+					if (shard == null) {
+						// new member
+						partitionTable.addShard(shard = new Shard(
+								eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, hb.getShardId()),
+								hb.getShardId()));
+					}
+					if (hb.getStateChange() == ShardState.QUITTED) {
+						logger.info("{}: ShardID: {} went cleanly: {}", getClass().getSimpleName(), shard,
+								hb.getStateChange());
+						partitionTable.getShard(shard.getShardID()).setState(ShardState.QUITTED);
+					}
+					auditor.account(hb, shard);
+				}));
+	}
 
 }

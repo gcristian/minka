@@ -12,7 +12,7 @@ public class AwaitingDelegate implements PartitionMaster<String, String> {
 	public boolean isReady() {
 		return false;
 	}
-	
+
 	@Override
 	public void take(Set<Duty<String>> duties) {
 		throw new IllegalStateException();

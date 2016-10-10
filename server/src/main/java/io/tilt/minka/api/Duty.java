@@ -37,28 +37,47 @@ import io.tilt.minka.domain.ShardEntity;
  * @param <T>
  */
 public interface Duty<T extends Serializable> extends Entity<T> {
-		/**
-		* Required to maintain a fairly load balancing  
-		* @return
-		*/
-		double getWeight();
+	/**
+	* Required to maintain a fairly load balancing  
+	* @return
+	*/
+	double getWeight();
 
-		/**
-		* The pallet ID to which this duty must be grouped into.
-		* @return
-		*/
-		String getPalletId();
-		
-		
-		public static class WeightComparer implements Comparator<ShardEntity>, Serializable {
+	/**
+	* The pallet ID to which this duty must be grouped into.
+	* @return
+	*/
+	String getPalletId();
 
-			private static final long serialVersionUID = 2191475545082914908L;
-			
-			@Override
-			public int compare(final ShardEntity o1, final ShardEntity o2) {
-				return Double.compare(o1.getDuty().getWeight(), o2.getDuty().getWeight());
-			}
+	/**
+	 * Duties that dont need to be removed, once assigned 
+	 * and reported, next time is absent will be interpreted 
+	 * as automatically ended and will not be re-attached
+	 */
+	boolean isLazyFinalized();
 
+	/** 
+	 * Duties that once assigned and started: cannot 
+	 * be migrating for balancing purposes.
+	 * They somewhat rely on local resources or cannot 
+	 * store State to continue working from a savepoint after re-assigned 
+	 */
+	boolean isIdempotent();
+
+	/**
+	 * 
+	 */
+	boolean isSynthetic();
+
+	public static class WeightComparer implements Comparator<ShardEntity>, Serializable {
+
+		private static final long serialVersionUID = 2191475545082914908L;
+
+		@Override
+		public int compare(final ShardEntity o1, final ShardEntity o2) {
+			return Double.compare(o1.getDuty().getWeight(), o2.getDuty().getWeight());
 		}
-		
+
+	}
+
 }

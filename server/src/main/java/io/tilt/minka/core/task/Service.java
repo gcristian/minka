@@ -30,34 +30,34 @@ import org.slf4j.LoggerFactory;
  */
 public interface Service extends Closeable {
 
-		final Logger logger = LoggerFactory.getLogger(Service.class);
+	final Logger logger = LoggerFactory.getLogger(Service.class);
 
-		default void init() {
-			logger.warn("{}: Default init without control !", getClass().getSimpleName());
-			start();
-		}
+	default void init() {
+		logger.warn("{}: Default init without control !", getClass().getSimpleName());
+		start();
+	}
 
-		default void destroy() {
-			logger.warn("{}: Default destroy without control !", getClass().getSimpleName());
-			stop();
-		}
+	default void destroy() {
+		logger.warn("{}: Default destroy without control !", getClass().getSimpleName());
+		stop();
+	}
 
-		/* callable from here only */
-		abstract void start();
+	/* callable from here only */
+	abstract void start();
 
-		/* callable from here only */
-		abstract void stop();
+	/* callable from here only */
+	abstract void stop();
 
-		default void close() {
-			stop();
-		}
+	default void close() {
+		stop();
+	}
 
-		boolean inService();
+	boolean inService();
 
-		State getState();
+	State getState();
 
-		enum State {
-			INITIALIZING, INIT_ERROR, STARTING, STARTED, STOPPING, STOPPED, DESTROYED, DESTROY_ERROR
-		}
+	enum State {
+		INITIALIZING, INIT_ERROR, STARTING, STARTED, STOPPING, STOPPED, DESTROYED, DESTROY_ERROR
+	}
 
 }

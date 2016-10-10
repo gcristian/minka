@@ -21,6 +21,8 @@ import java.io.Serializable;
 import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+
 /**
  * A plain simple duty that can be stored in maps, sets, compared to others, etc.
  * Instance identity is upon ID param.
@@ -35,7 +37,78 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 //@SuppressWarnings({ "unchecked", "rawtypes" })
 public class DutyBuilder<T extends Serializable> implements Duty<T>, EntityPayload {
 
-		private static final long serialVersionUID = 4976043821619752116L;
+
+	private static final long serialVersionUID = 4976043821619752116L;
+
+	public static class InnerDuty <T extends Serializable> implements Duty<T>, EntityPayload {
+
+
+		private final String id;
+		private final String palletId;
+		private final double weight;
+		private final T value;
+		private Class<T> type;
+		
+		private final boolean lazy;
+		private final boolean synthetic;
+		private final boolean idempotent;
+
+		
+		@JsonCreator 
+		private InnerDuty(String id, String palletId, double weight, T value, Class<T> type, boolean lazy,
+				boolean synthetic, boolean idempotent) {
+			super();
+			this.id = id;
+			this.palletId = palletId;
+			this.weight = weight;
+			this.value = value;
+			this.type = type;
+			this.lazy = lazy;
+			this.synthetic = synthetic;
+			this.idempotent = idempotent;
+		}
+
+		@Override
+		public Class<T> getClassType() {
+			return null;
+		}
+
+		@Override
+		public T get() {
+			return value;
+		}
+
+		@Override
+		public String getId() {
+			return id;
+		}
+
+		@Override
+		public double getWeight() {
+			return weight;
+		}
+
+		@Override
+		public String getPalletId() {
+			return palletId;
+		}
+
+		@Override
+		public boolean isLazyFinalized() {
+			return lazy;
+		}
+
+		@Override
+		public boolean isIdempotent() {
+			return idempotent;
+		}
+
+		@Override
+		public boolean isSynthetic() {
+			return synthetic;
+		}
+
+	}
 
 		private final String id;
 		private final String palletId;
@@ -157,4 +230,21 @@ public class DutyBuilder<T extends Serializable> implements Duty<T>, EntityPaylo
 			return palletId;
 		}
 
+		@Override
+		public boolean isLazyFinalized() {
+			return false;
+		}
+
+		@Override
+		public boolean isIdempotent() {
+			return true;
+		}
+
+		@Override
+		public boolean isSynthetic() {
+			return false;
+		}
+
+		
+		
 }

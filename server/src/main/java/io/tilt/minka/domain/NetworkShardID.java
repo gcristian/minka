@@ -30,10 +30,10 @@ import io.tilt.minka.core.follower.Follower;
  */
 public interface NetworkShardID extends ShardID {
 
-		int getInetPort();
+	int getInetPort();
 
-		InetAddress getInetAddress();
-		
-		void leavePortReservation();
+	InetAddress getInetAddress();
+
+	void leavePortReservation();
 
 }

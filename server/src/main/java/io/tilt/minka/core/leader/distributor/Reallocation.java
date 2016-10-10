@@ -52,117 +52,117 @@ import io.tilt.minka.domain.ShardEntity.State;
  */
 public class Reallocation implements Comparable<Reallocation> {
 
-		private final Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-		private SetMultimap<Shard, ShardEntity> problems;
-		private List<SetMultimap<Shard, ShardEntity>> issues;
-		private SetMultimap<Shard, ShardEntity> currentGroup;
-		private Iterator<SetMultimap<Shard, ShardEntity>> it;
-		private final long id;
-		private final DateTime creation;
-		private int retryCounter;
+	private SetMultimap<Shard, ShardEntity> problems;
+	private List<SetMultimap<Shard, ShardEntity>> issues;
+	private SetMultimap<Shard, ShardEntity> currentGroup;
+	private Iterator<SetMultimap<Shard, ShardEntity>> it;
+	private final long id;
+	private final DateTime creation;
+	private int retryCounter;
 
-		private static final AtomicLong sequence = new AtomicLong();
+	private static final AtomicLong sequence = new AtomicLong();
 
-		private final static int MAX_STEPS = 2;
-		private final static int STEP_DETACH = 0;
-		private final static int STEP_ATTACH = 1;
+	private final static int MAX_STEPS = 2;
+	private final static int STEP_DETACH = 0;
+	private final static int STEP_ATTACH = 1;
 
-		public Reallocation() {
-			this.issues = new ArrayList<>(MAX_STEPS);
-			this.currentGroup = null;
-			this.id = sequence.incrementAndGet();
-			this.creation = new DateTime(DateTimeZone.UTC);
-			this.problems = HashMultimap.create();
+	public Reallocation() {
+		this.issues = new ArrayList<>(MAX_STEPS);
+		this.currentGroup = null;
+		this.id = sequence.incrementAndGet();
+		this.creation = new DateTime(DateTimeZone.UTC);
+		this.problems = HashMultimap.create();
+	}
+
+	public void incrementRetry() {
+		retryCounter++;
+	}
+
+	public int getRetryCount() {
+		return retryCounter;
+	}
+
+	public void resetIssues() {
+		this.issues = new ArrayList<>(MAX_STEPS);
+	}
+
+	private SetMultimap<Shard, ShardEntity> init(int idx) {
+		SetMultimap<Shard, ShardEntity> dutyGroup = issues.size() > idx ? issues.get(idx) : null;
+		if (dutyGroup == null) {
+			for (int i = issues.size(); issues.size() < idx; i++) {
+				issues.add(i, HashMultimap.create());
+			}
+			issues.add(idx, dutyGroup = HashMultimap.create());
 		}
+		return dutyGroup;
+	}
 
-		public void incrementRetry() {
-			retryCounter++;
+	public void addChange(final Shard shard, final ShardEntity duty) {
+		if (duty.getDutyEvent().is(EntityEvent.CREATE) || duty.getDutyEvent().is(EntityEvent.ATTACH)) {
+			init(STEP_ATTACH).put(shard, duty);
+		} else if (duty.getDutyEvent().is(EntityEvent.REMOVE) || duty.getDutyEvent().is(EntityEvent.DETACH)) {
+			init(STEP_DETACH).put(shard, duty);
 		}
+	}
 
-		public int getRetryCount() {
-			return retryCounter;
+	public boolean isEmpty() {
+		return issues.isEmpty();
+	}
+
+	public boolean hasFinished() {
+		return it == null || !it.hasNext();
+	}
+
+	public void nextStep() {
+		if (it == null) {
+			it = issues.iterator();
 		}
-
-		public void resetIssues() {
-			this.issues = new ArrayList<>(MAX_STEPS);
+		if (it.hasNext()) {
+			currentGroup = it.next();
 		}
+	}
 
-		private SetMultimap<Shard, ShardEntity> init(int idx) {
-			SetMultimap<Shard, ShardEntity> dutyGroup = issues.size() > idx ? issues.get(idx) : null;
-			if (dutyGroup == null) {
-				for (int i = issues.size(); issues.size() < idx; i++) {
-						issues.add(i, HashMultimap.create());
+	public boolean hasCurrentStepFinished() {
+		final Set<ShardEntity> sortedLog = new TreeSet<>();
+		for (final Shard shard : currentGroup.keySet()) {
+			for (final ShardEntity duty : currentGroup.get(shard)) {
+				if (duty.getState() != State.CONFIRMED) {
+					// TODO get Partition TAble and check if Shard has long fell offline
+					sortedLog.add(duty);
+					logger.info("{}: waiting Shard: {} for at least Duties: {}", getClass().getSimpleName(), shard,
+							ShardEntity.toStringIds(sortedLog));
+					return false;
 				}
-				issues.add(idx, dutyGroup = HashMultimap.create());
-			}
-			return dutyGroup;
-		}
-
-		public void addChange(final Shard shard, final ShardEntity duty) {
-			if (duty.getDutyEvent().is(EntityEvent.CREATE) || duty.getDutyEvent().is(EntityEvent.ATTACH)) {
-				init(STEP_ATTACH).put(shard, duty);
-			} else if (duty.getDutyEvent().is(EntityEvent.REMOVE) || duty.getDutyEvent().is(EntityEvent.DETACH)) {
-				init(STEP_DETACH).put(shard, duty);
 			}
 		}
+		return true;
+	}
 
-		public boolean isEmpty() {
-			return issues.isEmpty();
-		}
+	public DateTime getCreation() {
+		return this.creation;
+	}
 
-		public boolean hasFinished() {
-			return it == null || !it.hasNext();
-		}
+	public SetMultimap<Shard, ShardEntity> getGroupedIssues() {
+		return currentGroup;
+	}
 
-		public void nextStep() {
-			if (it == null) {
-				it = issues.iterator();
-			}
-			if (it.hasNext()) {
-				currentGroup = it.next();
-			}
-		}
+	public long getId() {
+		return this.id;
+	}
 
-		public boolean hasCurrentStepFinished() {
-			final Set<ShardEntity> sortedLog = new TreeSet<>();
-			for (final Shard shard : currentGroup.keySet()) {
-				for (final ShardEntity duty : currentGroup.get(shard)) {
-						if (duty.getState() != State.CONFIRMED) {
-							// TODO get Partition TAble and check if Shard has long fell offline
-							sortedLog.add(duty);
-							logger.info("{}: waiting Shard: {} for at least Duties: {}", getClass().getSimpleName(), shard,
-										ShardEntity.toStringIds(sortedLog));
-							return false;
-						}
-				}
-			}
-			return true;
-		}
+	public SetMultimap<Shard, ShardEntity> getProblems() {
+		return this.problems;
+	}
 
-		public DateTime getCreation() {
-			return this.creation;
-		}
+	public void setProblems(SetMultimap<Shard, ShardEntity> problems) {
+		this.problems = problems;
+	}
 
-		public SetMultimap<Shard, ShardEntity> getGroupedIssues() {
-			return currentGroup;
-		}
-
-		public long getId() {
-			return this.id;
-		}
-
-		public SetMultimap<Shard, ShardEntity> getProblems() {
-			return this.problems;
-		}
-
-		public void setProblems(SetMultimap<Shard, ShardEntity> problems) {
-			this.problems = problems;
-		}
-
-		@Override
-		public int compareTo(Reallocation o) {
-			return o.getCreation().compareTo(getCreation());
-		}
+	@Override
+	public int compareTo(Reallocation o) {
+		return o.getCreation().compareTo(getCreation());
+	}
 
 }

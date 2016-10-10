@@ -41,135 +41,135 @@ import io.tilt.minka.spectator.Wells;
  */
 public class ZookeeperBroker extends AbstractBroker implements EventBroker, Consumer<MessageMetadata> {
 
-		private final Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-		private final Queues queues;
-		private final Wells wells;
+	private final Queues queues;
+	private final Wells wells;
 
-		public ZookeeperBroker(final Config config, final NetworkShardID shardId) {
-			super(shardId);
-			this.queues = new Queues(config.getZookeeperHostPort());
-			this.wells = new Wells(config.getZookeeperHostPort());
+	public ZookeeperBroker(final Config config, final NetworkShardID shardId) {
+		super(shardId);
+		this.queues = new Queues(config.getZookeeperHostPort());
+		this.wells = new Wells(config.getZookeeperHostPort());
+	}
+
+	@Override
+	public BrokerChannel buildToTarget(String service, Channel channel, NetworkShardID shardId) {
+		return new PathableChannel(service, channel, shardId.getStringIdentity());
+	}
+
+	@Override
+	public BrokerChannel buildToTarget(final Config config, final Channel channel, final NetworkShardID shardId) {
+		return buildToTarget(config.getServiceName(), channel, shardId);
+	}
+
+	@Override
+	public BrokerChannel build(final Config config, final Channel channel) {
+		return build(config.getServiceName(), channel);
+	}
+
+	@Override
+	public BrokerChannel build(final String service, final Channel channel) {
+		return new PathableChannel(service, channel, null);
+	}
+
+	public class PathableChannel implements BrokerChannel {
+		private final Channel channel;
+		private final String suffix;
+		private final String serviceName;
+
+		private PathableChannel(final String serviceName, final Channel channel, final String usageName) {
+			this.suffix = usageName;
+			this.channel = channel;
+			this.serviceName = serviceName;
+		}
+
+		public Channel getChannel() {
+			return this.channel;
+		}
+
+		public String getFullName() {
+			return SpectatorSupplier.MINKA_SUBDOMAIN + "/" + serviceName + "/" + channel.name()
+					+ (suffix == null ? "" : suffix);
 		}
 
 		@Override
-		public BrokerChannel buildToTarget(String service, Channel channel, NetworkShardID shardId) {
-			return new PathableChannel(service, channel, shardId.getStringIdentity());
+		public NetworkShardID getAddress() {
+			return null; /*
+								 * ShardID.valueOf(MINKA_SUBDOMAIN + "/" +
+								 * serviceName + "/" + channel.getName() + (suffix ==
+								 * null ? "" : suffix));
+								 */
 		}
+	}
 
-		@Override
-		public BrokerChannel buildToTarget(final Config config, final Channel channel, final NetworkShardID shardId) {
-			return buildToTarget(config.getServiceName(), channel, shardId);
+	@Override
+	public boolean postEvent(final BrokerChannel channel, ChannelHint type, final Serializable event) {
+		return post(channel, type, event);
+	}
+
+	@Override
+	public boolean postEvent(final BrokerChannel channel, final Serializable event) {
+		return postEvent(channel, channel.getChannel().getType(), event);
+	}
+
+	@Override
+	public boolean postEvents(final BrokerChannel channel, List<Serializable> events) {
+		return post(channel, channel.getChannel().getType(), events);
+		//events.forEach(i->postEvent(channel, i));
+	}
+
+	private boolean post(final BrokerChannel channel, ChannelHint type, final Object event) {
+		logger.info("{}: posting into channel: {} a new event: {}", getClass().getSimpleName(), channel.getFullName(),
+				event.toString());
+		if (channel.getChannel().getType() == EVENT_SET || type == EVENT_SET) {
+			return wells.updateWell(channel.getFullName(), event);
+		} else {
+			return queues.postBroadcastMessage(channel.getFullName(), event);
 		}
+	}
 
-		@Override
-		public BrokerChannel build(final Config config, final Channel channel) {
-			return build(config.getServiceName(), channel);
+	@Override
+	public boolean unsubscribe(final BrokerChannel channel, final Class<? extends Serializable> eventType,
+			final Consumer<Serializable> handler) {
+
+		logger.info("{}: Unsubscribing to channel: {} with Type: {} with Consumer: {} ", getClass().getSimpleName(),
+				channel.getFullName(), eventType.getSimpleName(), handler.getClass().getSimpleName());
+
+		if (channel.getChannel().getType() == EVENT_SET) {
+			wells.closeWell(channel.getFullName());
+		} else {
+			queues.stopSubscription(channel.getFullName());
 		}
+		return true;
+	}
 
-		@Override
-		public BrokerChannel build(final String service, final Channel channel) {
-			return new PathableChannel(service, channel, null);
+	@Override
+	protected boolean onSubscription(BrokerChannel channel, Class<? extends Serializable> eventType,
+			Consumer<Serializable> driver, long sinceTimestamp, long retentionLapse) {
+
+		try {
+			return (channel.getChannel().getType() == EVENT_SET) ? wells.runOnUpdate(channel.getFullName(), this)
+					: queues.runAsSubscriber(channel.getFullName(), this, sinceTimestamp, retentionLapse);
+		} catch (Exception e) {
+			throw new RuntimeException("Event subscription error", e);
 		}
+	}
 
-		public class PathableChannel implements BrokerChannel {
-			private final Channel channel;
-			private final String suffix;
-			private final String serviceName;
+	@Override
+	public void setBrokerShutdownCallback(Runnable callback) {
+		queues.setConnectionLostCallback(callback);
+		wells.setConnectionLostCallback(callback);
+	}
 
-			private PathableChannel(final String serviceName, final Channel channel, final String usageName) {
-				this.suffix = usageName;
-				this.channel = channel;
-				this.serviceName = serviceName;
-			}
+	@Override
+	public void start() {
 
-			public Channel getChannel() {
-				return this.channel;
-			}
+	}
 
-			public String getFullName() {
-				return SpectatorSupplier.MINKA_SUBDOMAIN + "/" + serviceName + "/" + channel.name()
-							+ (suffix == null ? "" : suffix);
-			}
-
-			@Override
-			public NetworkShardID getAddress() {
-				return null; /*
-									 * ShardID.valueOf(MINKA_SUBDOMAIN + "/" +
-									 * serviceName + "/" + channel.getName() + (suffix ==
-									 * null ? "" : suffix));
-									 */
-			}
-		}
-
-		@Override
-		public boolean postEvent(final BrokerChannel channel, ChannelHint type, final Serializable event) {
-			return post(channel, type, event);
-		}
-
-		@Override
-		public boolean postEvent(final BrokerChannel channel, final Serializable event) {
-			return postEvent(channel, channel.getChannel().getType(), event);
-		}
-
-		@Override
-		public boolean postEvents(final BrokerChannel channel, List<Serializable> events) {
-			return post(channel, channel.getChannel().getType(), events);
-			//events.forEach(i->postEvent(channel, i));
-		}
-
-		private boolean post(final BrokerChannel channel, ChannelHint type, final Object event) {
-			logger.info("{}: posting into channel: {} a new event: {}", getClass().getSimpleName(), channel.getFullName(),
-						event.toString());
-			if (channel.getChannel().getType() == EVENT_SET || type == EVENT_SET) {
-				return wells.updateWell(channel.getFullName(), event);
-			} else {
-				return queues.postBroadcastMessage(channel.getFullName(), event);
-			}
-		}
-
-		@Override
-		public boolean unsubscribeEvent(final BrokerChannel channel, final Class<? extends Serializable> eventType,
-				final Consumer<Serializable> handler) {
-
-			logger.info("{}: Unsubscribing to channel: {} with Type: {} with Consumer: {} ", getClass().getSimpleName(),
-						channel.getFullName(), eventType.getSimpleName(), handler.getClass().getSimpleName());
-
-			if (channel.getChannel().getType() == EVENT_SET) {
-				wells.closeWell(channel.getFullName());
-			} else {
-				queues.stopSubscription(channel.getFullName());
-			}
-			return true;
-		}
-
-		@Override
-		protected boolean onSubscription(BrokerChannel channel, Class<? extends Serializable> eventType,
-				Consumer<Serializable> driver, long sinceTimestamp, long retentionLapse) {
-
-			try {
-				return (channel.getChannel().getType() == EVENT_SET) ? wells.runOnUpdate(channel.getFullName(), this)
-							: queues.runAsSubscriber(channel.getFullName(), this, sinceTimestamp, retentionLapse);
-			} catch (Exception e) {
-				throw new RuntimeException("Event subscription error", e);
-			}
-		}
-
-		@Override
-		public void setBrokerShutdownCallback(Runnable callback) {
-			queues.setConnectionLostCallback(callback);
-			wells.setConnectionLostCallback(callback);
-		}
-
-		@Override
-		public void start() {
-
-		}
-
-		@Override
-		public void stop() {
-			this.queues.close();
-			this.wells.close();
-		}
+	@Override
+	public void stop() {
+		this.queues.close();
+		this.wells.close();
+	}
 
 }

@@ -66,7 +66,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	private Map<DirectChannel, SocketClient> clients;
 
 	public SocketBroker(Config config, NetworkShardID shardId, LeaderShardContainer leaderContainerShard,
-		Scheduler scheduler) {
+			Scheduler scheduler) {
 
 		super(shardId);
 		this.config = config;
@@ -79,16 +79,18 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	public void start() {
 		if (server == null) {
 			this.leaderShardContainer.observeForChange((s) -> onLeaderChange(s));
-			scheduler.schedule(
-				scheduler.getAgentFactory().create(Action.DISCARD_OBSOLETE_CONNECTIONS, PriorityLock.HIGH_ISOLATED,
-					Frequency.PERIODIC, () -> discardObsoleteClients()).delayed(5000).every(2000).build());
+			scheduler
+					.schedule(scheduler
+							.getAgentFactory().create(Action.DISCARD_OBSOLETE_CONNECTIONS, PriorityLock.HIGH_ISOLATED,
+									Frequency.PERIODIC, () -> discardObsoleteClients())
+							.delayed(5000).every(2000).build());
 
 			logger.info("{}: Creating SocketServer", getClass().getSimpleName());
 			getShardId().leavePortReservation();
 			this.server = new SocketServer(this, config.getBrokerServerConnectionHandlerThreads(),
-				getShardId().getInetPort(), getShardId().getInetAddress().getHostAddress(),
-				config.getBrokerUseNetworkInterfase(), scheduler, config.getBrokerRetryDelayMs(),
-				config.getBrokerMaxRetries());
+					getShardId().getInetPort(), getShardId().getInetAddress().getHostAddress(),
+					config.getBrokerUseNetworkInterfase(), scheduler, config.getBrokerRetryDelayMs(),
+					config.getBrokerMaxRetries());
 		}
 	}
 
@@ -109,7 +111,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 				final Entry<DirectChannel, SocketClient> ch = it.next();
 				if (ch.getValue().hasExpired()) {
 					logger.warn("{}: ({}) DISCARDING obsolete client: {} for channel: {}", getClass().getSimpleName(),
-						getShardId(), ch.getKey().getAddress(), ch.getKey().getChannel());
+							getShardId(), ch.getKey().getAddress(), ch.getKey().getChannel());
 					ch.getValue().close();
 					it.remove();
 				}
@@ -125,7 +127,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 		final ShardID previous = leaderShardContainer.getPreviousLeaderShardId();
 		if (previous == null || !previous.equals(newLeader)) {
 			logger.info("{}: ({}) Closing client connections to previous leader: {}, cause new leader is: {}",
-				getClass().getSimpleName(), super.getShardId(), previous, newLeader);
+					getClass().getSimpleName(), super.getShardId(), previous, newLeader);
 			closeClients();
 		}
 	}
@@ -148,14 +150,14 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 		SocketClient client = this.clients.get(channel);
 		if (client == null) {
 			logger.info("{}: ({}) CREATING SocketClient for Shard: {}", getClass().getSimpleName(), getShardId(),
-				channel.getAddress());
+					channel.getAddress());
 			this.clients.put((DirectChannel) channel, client = new SocketClient(channel, scheduler,
-				config.getBrokerRetryDelayMs(), config.getBrokerMaxRetries(), getShardId().toString(), config));
+					config.getBrokerRetryDelayMs(), config.getBrokerMaxRetries(), getShardId().toString(), config));
 		}
 
 		logger.debug("{}: ({}) Posting to Broker: {}:{} ({} into {}))", getClass().getSimpleName(), getShardId(),
-			channel.getAddress().getInetAddress().getHostAddress(), channel.getAddress().getInetPort(),
-			event.getClass().getSimpleName(), channel.getChannel());
+				channel.getAddress().getInetAddress().getHostAddress(), channel.getAddress().getInetPort(),
+				event.getClass().getSimpleName(), channel.getChannel());
 
 		return client.send(new MessageMetadata(event, channel.getChannel().name()));
 	}
@@ -176,7 +178,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	}
 
 	@Override
-	public boolean unsubscribeEvent(BrokerChannel brokerChannel, Class<? extends Serializable> eventType,
+	public boolean unsubscribe(BrokerChannel brokerChannel, Class<? extends Serializable> eventType,
 			Consumer<Serializable> driver) {
 		return true;
 	}
@@ -232,7 +234,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 			if (obj != null && obj instanceof DirectChannel) {
 				DirectChannel channel = (DirectChannel) obj;
 				return new EqualsBuilder().append(channel.getAddress(), getAddress())
-					.append(channel.getCreation(), getCreation()).isEquals();
+						.append(channel.getCreation(), getCreation()).isEquals();
 			} else {
 				return false;
 			}

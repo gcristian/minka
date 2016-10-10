@@ -36,60 +36,60 @@ import io.tilt.minka.core.leader.Leader;
  */
 public class Clearance implements Serializable, Comparable<Clearance> {
 
-		private static final long serialVersionUID = 4828220405145911529L;
-		private static final AtomicLong sequencer = new AtomicLong();
+	private static final long serialVersionUID = 4828220405145911529L;
+	private static final AtomicLong sequencer = new AtomicLong();
 
-		private final NetworkShardID leaderShardId;
-		private final DateTime creation;
-		private final long sequenceId;
+	private final NetworkShardID leaderShardId;
+	private final DateTime creation;
+	private final long sequenceId;
 
-		public static Clearance create(final NetworkShardID leaderShardId) {
-			return new Clearance(leaderShardId);
+	public static Clearance create(final NetworkShardID leaderShardId) {
+		return new Clearance(leaderShardId);
+	}
+
+	private Clearance(final NetworkShardID leaderShardId) {
+		this.creation = new DateTime(DateTimeZone.UTC);
+		this.sequenceId = sequencer.incrementAndGet();
+		this.leaderShardId = leaderShardId;
+	}
+
+	public DateTime getCreation() {
+		return this.creation;
+	}
+
+	public long getSequenceId() {
+		return this.sequenceId;
+	}
+
+	@Override
+	public int hashCode() {
+		return new HashCodeBuilder().append(getLeaderShardId()).append(getCreation()).append(getSequenceId())
+				.toHashCode();
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (obj instanceof Clearance) {
+			Clearance other = (Clearance) obj;
+			return new EqualsBuilder().append(getSequenceId(), other.getSequenceId())
+					.append(getLeaderShardId(), other.getLeaderShardId()).isEquals();
+		} else {
+			return false;
 		}
+	}
 
-		private Clearance(final NetworkShardID leaderShardId) {
-			this.creation = new DateTime(DateTimeZone.UTC);
-			this.sequenceId = sequencer.incrementAndGet();
-			this.leaderShardId = leaderShardId;
-		}
+	public NetworkShardID getLeaderShardId() {
+		return this.leaderShardId;
+	}
 
-		public DateTime getCreation() {
-			return this.creation;
-		}
+	@Override
+	public String toString() {
+		return new StringBuilder().append(" Clearance Sequence ID: ").append(sequenceId).append(" - ShardID: ")
+				.append(getLeaderShardId()).append(" - Created: ").append(getCreation()).toString();
+	}
 
-		public long getSequenceId() {
-			return this.sequenceId;
-		}
-
-		@Override
-		public int hashCode() {
-			return new HashCodeBuilder().append(getLeaderShardId()).append(getCreation()).append(getSequenceId())
-						.toHashCode();
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (obj instanceof Clearance) {
-				Clearance other = (Clearance) obj;
-				return new EqualsBuilder().append(getSequenceId(), other.getSequenceId())
-							.append(getLeaderShardId(), other.getLeaderShardId()).isEquals();
-			} else {
-				return false;
-			}
-		}
-
-		public NetworkShardID getLeaderShardId() {
-			return this.leaderShardId;
-		}
-
-		@Override
-		public String toString() {
-			return new StringBuilder().append(" Clearance Sequence ID: ").append(sequenceId).append(" - ShardID: ")
-						.append(getLeaderShardId()).append(" - Created: ").append(getCreation()).toString();
-		}
-
-		@Override
-		public int compareTo(Clearance o) {
-			return o.getCreation().compareTo(getCreation());
-		}
+	@Override
+	public int compareTo(Clearance o) {
+		return o.getCreation().compareTo(getCreation());
+	}
 }

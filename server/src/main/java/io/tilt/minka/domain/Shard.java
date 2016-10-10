@@ -18,11 +18,13 @@ package io.tilt.minka.domain;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
+import io.tilt.minka.api.Pallet;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.utils.SlidingSortedSet;
 
@@ -34,82 +36,83 @@ import io.tilt.minka.utils.SlidingSortedSet;
  */
 public class Shard implements Comparator<Shard> {
 
-		private static final int MAX_HEARBEATS_TO_EVALUATE = 50;
+	private static final int MAX_HEARBEATS_TO_EVALUATE = 50;
 
-		private final BrokerChannel brokerChannel;
-		private final NetworkShardID shardId;
-		private final DateTime firstTimeSeen;
-		private DateTime lastStatusChange;
-		private final SlidingSortedSet<Heartbeat> cardiacLapse;
-		private ShardState serviceState;
+	private final BrokerChannel brokerChannel;
+	private final NetworkShardID shardId;
+	private final DateTime firstTimeSeen;
+	private DateTime lastStatusChange;
+	private final SlidingSortedSet<Heartbeat> cardiacLapse;
+	private ShardState serviceState;
+	private Map<Pallet<?>, Double> maxWeight;
 
-		public Shard(final BrokerChannel channel, final NetworkShardID memberId) {
-			super();
-			this.brokerChannel = channel;
-			this.shardId = memberId;
-			this.serviceState = ShardState.JOINING;
-			this.cardiacLapse = new SlidingSortedSet<>(MAX_HEARBEATS_TO_EVALUATE);
-			this.firstTimeSeen = new DateTime(DateTimeZone.UTC);
-			this.lastStatusChange = new DateTime(DateTimeZone.UTC);
+	public Shard(final BrokerChannel channel, final NetworkShardID memberId) {
+		super();
+		this.brokerChannel = channel;
+		this.shardId = memberId;
+		this.serviceState = ShardState.JOINING;
+		this.cardiacLapse = new SlidingSortedSet<>(MAX_HEARBEATS_TO_EVALUATE);
+		this.firstTimeSeen = new DateTime(DateTimeZone.UTC);
+		this.lastStatusChange = new DateTime(DateTimeZone.UTC);
+	}
+
+	public DateTime getLastStatusChange() {
+		return this.lastStatusChange;
+	}
+
+	public DateTime getFirstTimeSeen() {
+		return this.firstTimeSeen;
+	}
+
+	public BrokerChannel getBrokerChannel() {
+		return this.brokerChannel;
+	}
+
+	public NetworkShardID getShardID() {
+		return this.shardId;
+	}
+
+	public void addHeartbeat(final Heartbeat hb) {
+		if (hb.getStateChange() != null) {
+			this.serviceState = hb.getStateChange();
 		}
+		this.cardiacLapse.add(hb);
+	}
 
-		public DateTime getLastStatusChange() {
-			return this.lastStatusChange;
-		}
+	public List<Heartbeat> getHeartbeats() {
+		return this.cardiacLapse.values();
+	}
 
-		public DateTime getFirstTimeSeen() {
-			return this.firstTimeSeen;
-		}
+	public ShardState getState() {
+		return this.serviceState;
+	}
 
-		public BrokerChannel getBrokerChannel() {
-			return this.brokerChannel;
-		}
+	public void setState(ShardState serviceState) {
+		this.serviceState = serviceState;
+		this.lastStatusChange = new DateTime(DateTimeZone.UTC);
+	}
 
-		public NetworkShardID getShardID() {
-			return this.shardId;
-		}
+	public int hashCode() {
+		return new HashCodeBuilder().append(this.getShardID()).toHashCode();
+	}
 
-		public void addHeartbeat(final Heartbeat hb) {
-			if (hb.getStateChange() != null) {
-				this.serviceState = hb.getStateChange();
-			}
-			this.cardiacLapse.add(hb);
+	@Override
+	public boolean equals(Object obj) {
+		if (obj instanceof Shard) {
+			Shard other = (Shard) obj;
+			return other.getShardID().equals(getShardID());
+		} else {
+			return false;
 		}
+	}
 
-		public List<Heartbeat> getHeartbeats() {
-			return this.cardiacLapse.values();
-		}
+	@Override
+	public String toString() {
+		return this.shardId.toString();
+	}
 
-		public ShardState getState() {
-			return this.serviceState;
-		}
-
-		public void setState(ShardState serviceState) {
-			this.serviceState = serviceState;
-			this.lastStatusChange = new DateTime(DateTimeZone.UTC);
-		}
-
-		public int hashCode() {
-			return new HashCodeBuilder().append(this.getShardID()).toHashCode();
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (obj instanceof Shard) {
-				Shard other = (Shard) obj;
-				return other.getShardID().equals(getShardID());
-			} else {
-				return false;
-			}
-		}
-
-		@Override
-		public String toString() {
-			return this.shardId.toString();
-		}
-
-		@Override
-		public int compare(Shard o1, Shard o2) {
-			return o1.getFirstTimeSeen().compareTo(o2.getFirstTimeSeen());
-		}
+	@Override
+	public int compare(Shard o1, Shard o2) {
+		return o1.getFirstTimeSeen().compareTo(o2.getFirstTimeSeen());
+	}
 }

@@ -16,16 +16,16 @@ import java.io.Serializable;
  */
 public interface EntityPayload extends Serializable {
 
-		default boolean hasStreamPayload() {
-			return false;
-		}
+	default boolean hasStreamPayload() {
+		return false;
+	}
 
-		/**
-		 * Only called first time to fetch 
-		 * @return
-		 */
-		default InputStream getInputStream() {
-			return null;
-		}
+	/**
+	 * Only called first time to fetch 
+	 * @return
+	 */
+	default InputStream getInputStream() {
+		return null;
+	}
 
 }

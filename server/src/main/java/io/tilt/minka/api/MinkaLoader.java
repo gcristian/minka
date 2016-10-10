@@ -20,8 +20,8 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 public class MinkaLoader {
 
 	private static final Logger logger = LoggerFactory.getLogger(MinkaLoader.class);
-	
-	private static ClassPathXmlApplicationContext ctx; 
+
+	private static ClassPathXmlApplicationContext ctx;
 
 	public MinkaLoader(final Properties p) {
 		Validate.notNull(p);
@@ -34,12 +34,13 @@ public class MinkaLoader {
 
 	private void init(final Properties p) {
 		logger.info("{}: Initializing context", getClass().getSimpleName());
-		if (ctx !=null) {
+		if (ctx != null) {
 			throw new IllegalStateException("Minka service already loaded !");
-		}	
+		}
 		String configPath = "classpath:io/tilt/minka/config/context-minka-spring.xml";
-		ctx = new ClassPathXmlApplicationContext(new String[]{configPath}, false);
-		if (p!=null) {
+		ctx = new ClassPathXmlApplicationContext(new String[] { configPath }, false);
+		ctx.setDisplayName("minka-ts:" + System.currentTimeMillis());
+		if (p != null) {
 			logger.info("{}: Using custom properties", getClass().getSimpleName());
 			ctx.setId(p.getProperty("serviceName", "minka-default-unnamed-" + System.currentTimeMillis()));
 			logger.info("{}: Naming context: {}", getClass().getSimpleName(), ctx.getId());
@@ -47,16 +48,16 @@ public class MinkaLoader {
 			propConfig.setProperties(p);
 			ctx.addBeanFactoryPostProcessor(propConfig);
 		}
-		Runtime.getRuntime().addShutdownHook(new Thread(() -> destroy() ));
+		Runtime.getRuntime().addShutdownHook(new Thread(() -> destroy()));
 	}
-	
+
 	public boolean isActive() {
 		return ctx.isActive();
 	}
 
 	/**
 	 * load and start Minka service.   
-	 */	
+	 */
 	public void load() {
 		if (!ctx.isActive()) {
 			ctx.refresh();
@@ -64,36 +65,36 @@ public class MinkaLoader {
 			logger.error("{}: Can only load Minka once !", getClass().getSimpleName());
 		}
 	}
-	
-	public <T, P>void setDelegate(final PartitionDelegate<?, ?> delegate) {
+
+	public <T, P> void setDelegate(final PartitionDelegate<?, ?> delegate) {
 		Validate.notNull(delegate);
 		checkInit();
-		logger.info("{}: Using new PartitionDelegate: {}", getClass().getSimpleName(), delegate.getClass().getSimpleName());
+		logger.info("{}: Using new PartitionDelegate: {}", getClass().getSimpleName(),
+				delegate.getClass().getSimpleName());
 		DependencyPlaceholder holder = ctx.getBean(DependencyPlaceholder.class);
 		holder.setDelegate(delegate);
 	}
 
 	private void checkInit() {
 		if (!ctx.isActive()) {
-			throw new IllegalStateException("Minka service must be started first !"); 
+			throw new IllegalStateException("Minka service must be started first !");
 		}
 	}
-	
-	public <T, P>void setMaster(final PartitionMaster<?, ?> master) {
+
+	public <T, P> void setMaster(final PartitionMaster<?, ?> master) {
 		Validate.notNull(master);
 		checkInit();
 		logger.info("{}: Using new PartitionMaster: {}", getClass().getSimpleName(), master.getClass().getSimpleName());
 		DependencyPlaceholder holder = ctx.getBean(DependencyPlaceholder.class);
 		holder.setMaster(master);
 	}
-	
+
 	public synchronized void destroy() {
-		if (ctx!=null && ctx.isActive()) {
+		if (ctx != null && ctx.isActive()) {
 			ctx.close();
 		} else {
 			logger.error("{}: Can only destroy service's context once !", getClass().getSimpleName());
 		}
 	}
-	
-	
+
 }

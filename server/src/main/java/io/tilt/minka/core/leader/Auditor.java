@@ -117,7 +117,7 @@ public class Auditor {
 					}
 				} else if (duty.getState() == DANGLING) {
 					logger.error("{}: Shard {} reported Dangling Duty (follower's unconfident: {}): {}",
-						getClass().getSimpleName(), shard.getShardID(), duty.getDutyEvent(), duty);
+							getClass().getSimpleName(), shard.getShardID(), duty.getDutyEvent(), duty);
 					// TODO : x ahora no va a pasar nada
 					// luego tengo q expirar el evento para no generar falsa alarma
 					// o ver de re-"ejecutar" la tarea si continua existiendo
@@ -191,7 +191,7 @@ public class Auditor {
 		}
 		if (!sortedLog.isEmpty()) {
 			logger.warn("{}: ShardID: {}, Missing Duties in heartbeat {}, Added to PartitionTable",
-				getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(sortedLog));
+					getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(sortedLog));
 		}
 	}
 
@@ -224,11 +224,11 @@ public class Auditor {
 		}
 		if (!sortedLogConfirmed.isEmpty()) {
 			logger.info("{}: ShardID: {}, Confirming partition event for Duties: {}", getClass().getSimpleName(),
-				shard.getShardID(), ShardEntity.toStringIds(sortedLogConfirmed));
+					shard.getShardID(), ShardEntity.toStringIds(sortedLogConfirmed));
 		}
 		if (!sortedLogDirty.isEmpty()) {
 			logger.warn("{}: ShardID: {}, Reporting DIRTY partition event for Duties: {}", getClass().getSimpleName(),
-				shard.getShardID(), ShardEntity.toStringIds(sortedLogDirty));
+					shard.getShardID(), ShardEntity.toStringIds(sortedLogDirty));
 		}
 	}
 
@@ -242,8 +242,8 @@ public class Auditor {
 			final ShardEntity reallocatedDuty = it.next();
 			if ((reallocatedDuty.getDutyEvent().is(EntityEvent.DETACH)
 					|| reallocatedDuty.getDutyEvent().is(EntityEvent.REMOVE))
-					&& !heartbeatDuties.stream()
-						.anyMatch(i -> i.equals(reallocatedDuty) && i.getDutyEvent() != reallocatedDuty.getDutyEvent())) {
+					&& !heartbeatDuties.stream().anyMatch(
+							i -> i.equals(reallocatedDuty) && i.getDutyEvent() != reallocatedDuty.getDutyEvent())) {
 				sortedLog.add(reallocatedDuty);
 				reallocatedDuty.registerEvent(CONFIRMED);
 				partitionTable.confirmDutyAboutShard(reallocatedDuty, shard);
@@ -252,31 +252,31 @@ public class Auditor {
 		}
 		if (!sortedLog.isEmpty()) {
 			logger.info("{}: ShardID: {}, Confirming (by absence) partioning event for Duties: {}",
-				getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(sortedLog));
+					getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(sortedLog));
 		}
 	}
 
 	public void checkShardChangingState(final Shard shard) {
 		switch (shard.getState()) {
-			case GONE:
-			case QUITTED:
-				//if (getCurrentReallocation().isEmpty()) {
-				recoverAndRetire(shard);
-				//} else {
-				// TODO esta situacion estaba contemplada pero aparecio un bug en 
-				// el manejo del transporte por el cambio de broker que permite
-				// resetear el realloc cuando se cayo un shard, antes no pasaba !!!!
-				//}
-				break;
-			case ONLINE:
-				// TODO get ready
-				break;
-			case QUARANTINE:
-				// TODO lot of consistency checks here on duties 
-				// to avoid chain of shit from heartbeats reporting doubtful stuff 
-				break;
-			default:
-				break;
+		case GONE:
+		case QUITTED:
+			//if (getCurrentReallocation().isEmpty()) {
+			recoverAndRetire(shard);
+			//} else {
+			// TODO esta situacion estaba contemplada pero aparecio un bug en 
+			// el manejo del transporte por el cambio de broker que permite
+			// resetear el realloc cuando se cayo un shard, antes no pasaba !!!!
+			//}
+			break;
+		case ONLINE:
+			// TODO get ready
+			break;
+		case QUARANTINE:
+			// TODO lot of consistency checks here on duties 
+			// to avoid chain of shit from heartbeats reporting doubtful stuff 
+			break;
+		default:
+			break;
 		}
 	}
 
@@ -289,8 +289,8 @@ public class Auditor {
 		final Set<ShardEntity> fallenDuties = partitionTable.getDutiesByShard(shard);
 		dangling.addAll(fallenDuties);
 
-		logger.info("{}: Saved from fallen Shard: {}, {} Duties: {}", getClass().getSimpleName(), shard, dangling.size(),
-			ShardEntity.toStringIds(dangling));
+		logger.info("{}: Saved from fallen Shard: {}, {} Duties: {}", getClass().getSimpleName(), shard,
+				dangling.size(), ShardEntity.toStringIds(dangling));
 
 		logger.info("{}: Removing Shard: {} from partition table", getClass().getSimpleName(), shard);
 		partitionTable.removeShard(shard);
@@ -322,7 +322,7 @@ public class Auditor {
 		}
 		if (!sortedLog.isEmpty()) {
 			logger.info("{}: Skipping Crud Duty already in Partition Table: {}", getClass().getSimpleName(),
-				ShardEntity.toStringIds(sortedLog));
+					ShardEntity.toStringIds(sortedLog));
 		}
 	}
 
@@ -345,31 +345,30 @@ public class Auditor {
 		}
 		if (!sortedLog.isEmpty()) {
 			logger.info("{}: Skipping Crud Entity already in Partition Table: {}", getClass().getSimpleName(),
-				ShardEntity.toStringIds(sortedLog));
+					ShardEntity.toStringIds(sortedLog));
 		}
 	}
-	
-	
-/*
-	private void removeAndRegisterCrudEntities(final List<Entity<?>> sourceEntities, Predicate<?> p, final Set<ShardEntity> currentEntities) {
-		final Set<ShardEntity> sortedLog = new TreeSet<>();
-		final Iterator<Entity<?>> it = sourceEntities.iterator();
-		while (it.hasNext()) {
-			final ShardEntity she = ShardEntity.create(it.next());
-			if (p.test(she)) {
-				sortedLog.add(she);
-				it.remove();
-			} else {
-				logger.info("{}: Adding Entity: {}", getClass().getSimpleName(), she);
-				currEntities.add(she);
+
+	/*
+		private void removeAndRegisterCrudEntities(final List<Entity<?>> sourceEntities, Predicate<?> p, final Set<ShardEntity> currentEntities) {
+			final Set<ShardEntity> sortedLog = new TreeSet<>();
+			final Iterator<Entity<?>> it = sourceEntities.iterator();
+			while (it.hasNext()) {
+				final ShardEntity she = ShardEntity.create(it.next());
+				if (p.test(she)) {
+					sortedLog.add(she);
+					it.remove();
+				} else {
+					logger.info("{}: Adding Entity: {}", getClass().getSimpleName(), she);
+					currEntities.add(she);
+				}
+			}
+			if (!sortedLog.isEmpty()) {
+				logger.info("{}: Skipping Crud Entity already in Partition Table: {}", getClass().getSimpleName(),
+					ShardEntity.toStringIds(sortedLog));
 			}
 		}
-		if (!sortedLog.isEmpty()) {
-			logger.info("{}: Skipping Crud Entity already in Partition Table: {}", getClass().getSimpleName(),
-				ShardEntity.toStringIds(sortedLog));
-		}
-	}
-*/
+	*/
 	/**
 	 * Check valid actions to client sent duties, 
 	 * according their action and the current partition table
@@ -386,15 +385,15 @@ public class Auditor {
 					partitionTable.addCrudDuty(duty);
 				} else {
 					logger.warn("{}: Skipping Crud Event {} already in Partition Table: {}", getClass().getSimpleName(),
-						event, duty);
+							event, duty);
 				}
 			} else if (event.isCrud() && (event == EntityEvent.REMOVE || event == FINALIZED || event == UPDATE)) {
 				if (found) {
 					logger.info("{}: Registering Crud Duty: {}", getClass().getSimpleName(), duty);
 					partitionTable.addCrudDuty(duty);
 				} else {
-					logger.warn("{}: Skipping Crud Event {} Not Found in Partition Table: {}", getClass().getSimpleName(),
-						event, duty);
+					logger.warn("{}: Skipping Crud Event {} Not Found in Partition Table: {}",
+							getClass().getSimpleName(), event, duty);
 				}
 			} else if (!event.isCrud()) {
 				throw new RuntimeException("Bad call");

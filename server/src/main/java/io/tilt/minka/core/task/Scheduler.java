@@ -28,80 +28,94 @@ import java.util.concurrent.TimeUnit;
  */
 public interface Scheduler extends Semaphore {
 
-		/* basic timed unit of work for a thread pool */
-		/* for better traceability, isolation, metrics, data output exposure */
-		public interface TimedTask {
-			Action getAction();
-			void execute();
-			Runnable getTask();
-			//void cancel();
-			long getLastExecutionTimestamp();
-			long getLastSuccessfulExecutionTimestamp();
-			long getLastSuccessfulExecutionLapse();
-			Exception getLastException();
-			default <T> T getResult() {
-				return null;
-			}
+	/* basic timed unit of work for a thread pool */
+	/* for better traceability, isolation, metrics, data output exposure */
+	public interface TimedTask {
+		Action getAction();
+
+		void execute();
+
+		Runnable getTask();
+
+		//void cancel();
+		long getLastExecutionTimestamp();
+
+		long getLastSuccessfulExecutionTimestamp();
+
+		long getLastSuccessfulExecutionLapse();
+
+		Exception getLastException();
+
+		default <T> T getResult() {
+			return null;
 		}
+	}
 
-		/* the way this task will be trated by the coordinator at the semaphore */
-		public enum PriorityLock {
-			/* no locks will be acquired to run this */
-			HIGH_ISOLATED,
-			/* high priority blocks the caller thread until permission is given */
-			MEDIUM_BLOCKING,
-			/* low priority will run only if permission is immediately granted */
-			LOW_ON_PERMISSION,
+	/* the way this task will be trated by the coordinator at the semaphore */
+	public enum PriorityLock {
+		/* no locks will be acquired to run this */
+		HIGH_ISOLATED,
+		/* high priority blocks the caller thread until permission is given */
+		MEDIUM_BLOCKING,
+		/* low priority will run only if permission is immediately granted */
+		LOW_ON_PERMISSION,
 
-			HIGH_DISABLING_SLAVES, HIGH_ASKING_MASTER,;
-		}
-		
-		/* so coordination internals dont spread along the codebase */
-		SynchronizedFactory getFactory();
-		AgentFactory getAgentFactory();
+		HIGH_DISABLING_SLAVES, HIGH_ASKING_MASTER,;
+	}
 
-		/* run this in the caller's thread */
-		void run(Synchronized synchro);
+	/* so coordination internals dont spread along the codebase */
+	SynchronizedFactory getFactory();
 
-		/* schedule this to run in the pool */
-		void schedule(Agent agent);
+	AgentFactory getAgentFactory();
 
-		/* stop the agent of running */
-		void stop(Synchronized agent);
+	/* run this in the caller's thread */
+	void run(Synchronized synchro);
 
-		/* forward to execute it now, leaving future schedules intact */
-		void forward(Agent agent);
+	/* schedule this to run in the pool */
+	void schedule(Agent agent);
 
-		/* query */
-		Agent get(Action action);
+	/* stop the agent of running */
+	void stop(Synchronized agent);
 
-		/* a task that needs synchronization with other tasks */
-		public interface Synchronized extends TimedTask {
-			PriorityLock getPriority();
-		}
+	/* forward to execute it now, leaving future schedules intact */
+	void forward(Agent agent);
 
-		public interface SynchronizedFactory {
-			Synchronized build(Action action, PriorityLock priority, Runnable task);
-		}
+	/* query */
+	Agent get(Action action);
 
-		/* for agents only */
-		public enum Frequency {
-			ONCE, ONCE_DELAYED, PERIODIC,
-		}
+	/* a task that needs synchronization with other tasks */
+	public interface Synchronized extends TimedTask {
+		PriorityLock getPriority();
+	}
 
-		/* a repetitive timed task */
-		public interface Agent extends Synchronized {
-			Frequency getFrequency();
-			long getDelay();
-			TimeUnit getTimeUnit();
-			long getPeriodicDelay();
-		}
-				
-		public interface AgentFactory {
-			AgentFactory create(Action action, PriorityLock priority, Frequency frequency, Runnable task);
-			AgentFactory every(long periodicDelay);
-			AgentFactory delayed(long firstDelayMs);
-			Agent build();
-		}
+	public interface SynchronizedFactory {
+		Synchronized build(Action action, PriorityLock priority, Runnable task);
+	}
+
+	/* for agents only */
+	public enum Frequency {
+		ONCE, ONCE_DELAYED, PERIODIC,
+	}
+
+	/* a repetitive timed task */
+	public interface Agent extends Synchronized {
+		Frequency getFrequency();
+
+		long getDelay();
+
+		TimeUnit getTimeUnit();
+
+		long getPeriodicDelay();
+	}
+
+	public interface AgentFactory {
+		AgentFactory create(Action action, PriorityLock priority, Frequency frequency, Runnable task);
+
+		AgentFactory every(long periodicDelay);
+
+		AgentFactory delayed(long firstDelayMs);
+
+		Agent build();
+	}
 
 }

@@ -53,305 +53,305 @@ import jersey.repackaged.com.google.common.collect.Sets;
  */
 public class PartitionTable {
 
-		private final Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-		private Map<ShardID, Shard> shardsByID;
-		private Map<Shard, Partition> partitionsByShard;
+	private Map<ShardID, Shard> shardsByID;
+	private Map<Shard, Partition> partitionsByShard;
 
-		/* only for saving client's additions */
-		private Set<ShardEntity> palletCrud;
-		private Set<ShardEntity> dutyCrud;
-		private Set<ShardEntity> dutyMissings;
-		private Set<ShardEntity> dutyDangling;
-		private ClusterHealth visibilityHealth;
-		private ClusterHealth workingHealth;
-		private ClusterCapacity capacity;
+	/* only for saving client's additions */
+	private Set<ShardEntity> palletCrud;
+	private Set<ShardEntity> dutyCrud;
+	private Set<ShardEntity> dutyMissings;
+	private Set<ShardEntity> dutyDangling;
+	private ClusterHealth visibilityHealth;
+	private ClusterHealth workingHealth;
+	private ClusterCapacity capacity;
 
-		/**
-		 * status for the cluster taken as Avg. for the last 5 cycles
-		 * when this happens the cluster rebalances workload 
-		 * by making shards exchange duties  
+	/**
+	 * status for the cluster taken as Avg. for the last 5 cycles
+	 * when this happens the cluster rebalances workload 
+	 * by making shards exchange duties  
+	 */
+	public enum ClusterHealth {
+		/*
+		 * visibility: if there was no shard changing status working: theere's
+		 * work-load balance among the nodes
 		 */
-		public enum ClusterHealth {
-			/*
-			 * visibility: if there was no shard changing status working: theere's
-			 * work-load balance among the nodes
-			 */
-			STABLE,
-			/*
-			 * visibility: if there was at least one shard changing status that
-			 * will provoke a duty reallocation working: there's a reallocation in
-			 * progress
-			 */
-			UNSTABLE,;
-		}
-
-		public enum ClusterCapacity {
-			IDLE, NORMAL,
-			/*
-			 * if there's only one Shard alive, or workload calculation needs more
-			 * working shards
-			 */
-			INSUFFICIENT,
-		}
-
-		public PartitionTable() {
-			this.shardsByID = new HashMap<>();
-			this.partitionsByShard = new HashMap<>();
-
-			this.palletCrud = new HashSet<>();
-			this.dutyCrud = new HashSet<>();
-			this.dutyMissings = new HashSet<>();
-			this.dutyDangling = new HashSet<>();
-
-			this.visibilityHealth = ClusterHealth.STABLE;
-			this.workingHealth = ClusterHealth.STABLE;
-			this.capacity = ClusterCapacity.IDLE;
-		}
-
-		public ClusterHealth getHealth() {
-			return this.workingHealth == visibilityHealth && workingHealth == STABLE ? STABLE : UNSTABLE;
-		}
-
-		public ClusterHealth getWorkingHealth() {
-			return this.workingHealth;
-		}
-
-		public void setWorkingHealth(ClusterHealth distributingHealth) {
-			this.workingHealth = distributingHealth;
-		}
-
-		public ClusterHealth getVisibilityHealth() {
-			return this.visibilityHealth;
-		}
-
-		public void setVisibilityHealth(ClusterHealth health) {
-			this.visibilityHealth = health;
-		}
-
-		public ClusterCapacity getCapacity() {
-			return this.capacity;
-		}
-
-		public void setCapacity(ClusterCapacity capacity) {
-			this.capacity = capacity;
-		}
-
-		public Set<ShardEntity> getDutiesDangling() {
-			return this.dutyDangling;
-		}
-
-		private StringBuilder buildLogForDuties(final List<ShardEntity> sorted) {
-			final StringBuilder sb = new StringBuilder();
-			if (!sorted.isEmpty()) {
-				sorted.sort(sorted.get(0));
-			}
-			sorted.forEach(i -> sb.append(i.getEntity().getId()).append(", "));
-			return sb;
-		}
-
-		@Override
-		public String toString() {
-			StringBuilder sb = new StringBuilder().append("Shards: ").append(shardsByID.size()).append(" Crud Duties: ")
-						.append(this.dutyCrud.size());
-			//.append(" Change: ").append(change.getGroupedIssues().size());
-			return sb.toString();
-		}
-
-		public int accountCrudDuties() {
-			return this.dutyCrud.size();
-		}
-
-		public void addCrudDuty(final ShardEntity duty) {
-			if (duty.getDutyEvent().isCrud()) {
-				dutyCrud.remove(duty);
-				dutyCrud.add(duty);
-			} else {
-				throw new RuntimeException("bad idea");
-			}
-		}
-
-		public void removeCrudDuties() {
-			this.dutyCrud = new HashSet<>();
-		}
-
-		public Set<ShardEntity> getDutiesCrud() {
-			return this.dutyCrud;
-		}
-
-		public Set<ShardEntity> getPalletsCrud() {
-			return this.palletCrud;
-		}
-		
-		public Set<ShardEntity> getDutiesMissing() {
-			return this.dutyMissings;
-		}
-
-		public Set<ShardEntity> getDutiesCrudWithFilters(final EntityEvent event, final State state) {
-			return getEntityCrudWithFilter(ShardEntity.Type.DUTY, event, state);
-		}
-		public Set<ShardEntity> getPalletsCrudWithFilters(final EntityEvent event, final State state) {
-			return getEntityCrudWithFilter(ShardEntity.Type.PALLET, event, state);
-		}
-
-		private Set<ShardEntity> getEntityCrudWithFilter(final ShardEntity.Type type, final EntityEvent event, final State state) {
-			return (type == ShardEntity.Type.DUTY ? getDutiesCrud():getPalletsCrud()).stream()
-					.filter(i -> i.getDutyEvent() == event && i.getState() == state)
-					.collect(Collectors.toCollection(HashSet::new));
-		}
-
-		public Set<ShardEntity> getPallets() {
-			return this.palletCrud;
-		}
-
-		/**
-		 * When a Shard has been offline and their dangling duties reassigned
-		 * after completing Change's cycles: the shard must be deleted
-		 * @param shard
+		STABLE,
+		/*
+		 * visibility: if there was at least one shard changing status that
+		 * will provoke a duty reallocation working: there's a reallocation in
+		 * progress
 		 */
-		public void removeShard(final Shard shard) {
-			logger.info("{}: Removing Shard {} - bye bye ! come back some day !", getClass().getSimpleName(), shard);
-			final Shard rem = this.shardsByID.remove(shard.getShardID());
-			final Partition part = this.partitionsByShard.remove(shard);
-			if (rem == null || part == null) {
-				logger.error("{}: trying to delete unexisting Shard: {}", getClass().getSimpleName(), shard);
-			}
-		}
+		UNSTABLE,;
+	}
 
-		public void addShard(final Shard shard) {
-			if (this.shardsByID.containsKey(shard.getShardID())) {
-				logger.error("{}: Inconsistency trying to add an already added Shard {}", getClass().getSimpleName(),
-							shard);
-			} else {
-				logger.info("{}: Adding new Shard {}", getClass().getSimpleName(), shard);
-				this.shardsByID.put(shard.getShardID(), shard);
-			}
-		}
+	public enum ClusterCapacity {
+		IDLE, NORMAL,
+		/*
+		 * if there's only one Shard alive, or workload calculation needs more
+		 * working shards
+		 */
+		INSUFFICIENT,
+	}
 
-		/** confirmation after reallocation phase */
-		public void confirmDutyAboutShard(final ShardEntity duty, final Shard where) {
-			if (duty.getDutyEvent().is(EntityEvent.ATTACH) || duty.getDutyEvent().is(EntityEvent.CREATE)) {
-				for (Shard sh : partitionsByShard.keySet()) {
-						if (!sh.equals(where) && partitionsByShard.get(sh).getDuties().contains(duty)) {
-							String msg = new StringBuilder().append("Shard ").append(where).append(" tries to Report Duty: ")
-										.append(duty).append(" already in ptable's Shard: ").append(sh).toString();
-							throw new ConcurrentDutyException("Duplication failure: " + msg);
-						}
+	public PartitionTable() {
+		this.shardsByID = new HashMap<>();
+		this.partitionsByShard = new HashMap<>();
+
+		this.palletCrud = new HashSet<>();
+		this.dutyCrud = new HashSet<>();
+		this.dutyMissings = new HashSet<>();
+		this.dutyDangling = new HashSet<>();
+
+		this.visibilityHealth = ClusterHealth.STABLE;
+		this.workingHealth = ClusterHealth.STABLE;
+		this.capacity = ClusterCapacity.IDLE;
+	}
+
+	public ClusterHealth getHealth() {
+		return this.workingHealth == visibilityHealth && workingHealth == STABLE ? STABLE : UNSTABLE;
+	}
+
+	public ClusterHealth getWorkingHealth() {
+		return this.workingHealth;
+	}
+
+	public void setWorkingHealth(ClusterHealth distributingHealth) {
+		this.workingHealth = distributingHealth;
+	}
+
+	public ClusterHealth getVisibilityHealth() {
+		return this.visibilityHealth;
+	}
+
+	public void setVisibilityHealth(ClusterHealth health) {
+		this.visibilityHealth = health;
+	}
+
+	public ClusterCapacity getCapacity() {
+		return this.capacity;
+	}
+
+	public void setCapacity(ClusterCapacity capacity) {
+		this.capacity = capacity;
+	}
+
+	public Set<ShardEntity> getDutiesDangling() {
+		return this.dutyDangling;
+	}
+
+	private StringBuilder buildLogForDuties(final List<ShardEntity> sorted) {
+		final StringBuilder sb = new StringBuilder();
+		if (!sorted.isEmpty()) {
+			sorted.sort(sorted.get(0));
+		}
+		sorted.forEach(i -> sb.append(i.getEntity().getId()).append(", "));
+		return sb;
+	}
+
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder().append("Shards: ").append(shardsByID.size()).append(" Crud Duties: ")
+				.append(this.dutyCrud.size());
+		//.append(" Change: ").append(change.getGroupedIssues().size());
+		return sb.toString();
+	}
+
+	public int accountCrudDuties() {
+		return this.dutyCrud.size();
+	}
+
+	public void addCrudDuty(final ShardEntity duty) {
+		if (duty.getDutyEvent().isCrud()) {
+			dutyCrud.remove(duty);
+			dutyCrud.add(duty);
+		} else {
+			throw new RuntimeException("bad idea");
+		}
+	}
+
+	public void removeCrudDuties() {
+		this.dutyCrud = new HashSet<>();
+	}
+
+	public Set<ShardEntity> getDutiesCrud() {
+		return this.dutyCrud;
+	}
+
+	public Set<ShardEntity> getPalletsCrud() {
+		return this.palletCrud;
+	}
+
+	public Set<ShardEntity> getDutiesMissing() {
+		return this.dutyMissings;
+	}
+
+	public Set<ShardEntity> getDutiesCrudWithFilters(final EntityEvent event, final State state) {
+		return getEntityCrudWithFilter(ShardEntity.Type.DUTY, event, state);
+	}
+
+	public Set<ShardEntity> getPalletsCrudWithFilters(final EntityEvent event, final State state) {
+		return getEntityCrudWithFilter(ShardEntity.Type.PALLET, event, state);
+	}
+
+	private Set<ShardEntity> getEntityCrudWithFilter(final ShardEntity.Type type, final EntityEvent event,
+			final State state) {
+		return (type == ShardEntity.Type.DUTY ? getDutiesCrud() : getPalletsCrud()).stream()
+				.filter(i -> i.getDutyEvent() == event && i.getState() == state)
+				.collect(Collectors.toCollection(HashSet::new));
+	}
+
+	public Set<ShardEntity> getPallets() {
+		return this.palletCrud;
+	}
+
+	/**
+	 * When a Shard has been offline and their dangling duties reassigned
+	 * after completing Change's cycles: the shard must be deleted
+	 * @param shard
+	 */
+	public void removeShard(final Shard shard) {
+		logger.info("{}: Removing Shard {} - bye bye ! come back some day !", getClass().getSimpleName(), shard);
+		final Shard rem = this.shardsByID.remove(shard.getShardID());
+		final Partition part = this.partitionsByShard.remove(shard);
+		if (rem == null || part == null) {
+			logger.error("{}: trying to delete unexisting Shard: {}", getClass().getSimpleName(), shard);
+		}
+	}
+
+	public void addShard(final Shard shard) {
+		if (this.shardsByID.containsKey(shard.getShardID())) {
+			logger.error("{}: Inconsistency trying to add an already added Shard {}", getClass().getSimpleName(),
+					shard);
+		} else {
+			logger.info("{}: Adding new Shard {}", getClass().getSimpleName(), shard);
+			this.shardsByID.put(shard.getShardID(), shard);
+		}
+	}
+
+	/** confirmation after reallocation phase */
+	public void confirmDutyAboutShard(final ShardEntity duty, final Shard where) {
+		if (duty.getDutyEvent().is(EntityEvent.ATTACH) || duty.getDutyEvent().is(EntityEvent.CREATE)) {
+			for (Shard sh : partitionsByShard.keySet()) {
+				if (!sh.equals(where) && partitionsByShard.get(sh).getDuties().contains(duty)) {
+					String msg = new StringBuilder().append("Shard ").append(where).append(" tries to Report Duty: ")
+							.append(duty).append(" already in ptable's Shard: ").append(sh).toString();
+					throw new ConcurrentDutyException("Duplication failure: " + msg);
 				}
-				getPartition(where).getDuties().add(duty);
-			} else if (duty.getDutyEvent().is(EntityEvent.DETACH) || duty.getDutyEvent().is(EntityEvent.REMOVE)) {
-				if (!getPartition(where).getDuties().remove(duty)) {
-						throw new IllegalStateException(
-								"Absence failure. Confirmed deletion actually doesnt exist or it " + "was already confirmed");
+			}
+			getPartition(where).getDuties().add(duty);
+		} else if (duty.getDutyEvent().is(EntityEvent.DETACH) || duty.getDutyEvent().is(EntityEvent.REMOVE)) {
+			if (!getPartition(where).getDuties().remove(duty)) {
+				throw new IllegalStateException(
+						"Absence failure. Confirmed deletion actually doesnt exist or it " + "was already confirmed");
+			}
+		}
+	}
+
+	/** @return a copy of duties by shard: dont change duties ! */
+	public Set<ShardEntity> getDutiesByShard(final Shard shard) {
+		return Sets.newHashSet(getPartition(shard).getDuties());
+	}
+
+	public Set<ShardEntity> getDutiesByShard(final Pallet<?> pallet, final Shard shard) {
+		return Sets.newHashSet(getPartition(shard).getDuties().stream()
+				.filter(e -> e.getDuty().getPalletId().equals(pallet.getId())).collect(Collectors.toList()));
+	}
+
+	public Set<ShardEntity> getDutiesAllByShardState(final Pallet<?> pallet, final ShardState state) {
+		final Set<ShardEntity> allDuties = new HashSet<>();
+		for (Shard shard : partitionsByShard.keySet().stream().filter(s -> s.getState() == state || state == null)
+				.collect(Collectors.toList())) {
+			allDuties.addAll(pallet == null ? partitionsByShard.get(shard).getDuties()
+					: partitionsByShard.get(shard).getDuties().stream()
+							.filter(d -> d.getDuty().getPalletId().equals(pallet.getId()))
+							.collect(Collectors.toList()));
+		}
+		return allDuties;
+	}
+
+	private Partition getPartition(Shard shard) {
+		Partition po = this.partitionsByShard.get(shard);
+		if (po == null) {
+			this.partitionsByShard.put(shard, po = Partition.partitionForFollower(shard.getShardID()));
+		}
+		return po;
+	}
+
+	public Shard getShard(NetworkShardID id) {
+		return shardsByID.get(id);
+	}
+
+	public int getAccountConfirmed() {
+		int total = 0;
+		for (Shard shard : partitionsByShard.keySet()) {
+			if (shard.getState() == ONLINE) {
+				Partition part = partitionsByShard.get(shard);
+				total += part.getDuties().size();
+			}
+		}
+		return total;
+	}
+
+	public Shard getDutyLocation(final ShardEntity se) {
+		for (final Shard shard : partitionsByShard.keySet()) {
+			final Partition part = partitionsByShard.get(shard);
+			for (ShardEntity st : part.getDuties()) {
+				if (st.equals(se)) {
+					return shard;
 				}
 			}
 		}
+		return null;
+	}
 
-		/** @return a copy of duties by shard: dont change duties ! */
-		public Set<ShardEntity> getDutiesByShard(final Shard shard) {
-			return Sets.newHashSet(getPartition(shard).getDuties());
-		}
-		
-		public Set<ShardEntity> getDutiesByShard(final Pallet<?> pallet, final Shard shard) {
-			return Sets.newHashSet(getPartition(shard).getDuties().stream()
-					.filter(e->e.getDuty().getPalletId().equals(pallet.getId()))
-					.collect(Collectors.toList()));
-		}
+	/** @return  shards by state filter or all if null */
+	public List<Shard> getShardsByState(final ShardState filter) {
+		return shardsByID.values().stream().filter(i -> i.getState() == filter || filter == null)
+				.collect(Collectors.toList());
+	}
 
-		public Set<ShardEntity> getDutiesAllByShardState(final Pallet<?> pallet, final ShardState state) {
-			final Set<ShardEntity> allDuties = new HashSet<>();
-			for (Shard shard : partitionsByShard.keySet().stream()
-						.filter(s -> s.getState() == state || state == null)
-						.collect(Collectors.toList())) {
-				allDuties.addAll(pallet == null ? partitionsByShard.get(shard).getDuties() : 
-						partitionsByShard.get(shard).getDuties().stream()
-						.filter(d->d.getDuty().getPalletId().equals(pallet.getId()))
-						.collect(Collectors.toList()));
-			}
-			return allDuties;
-		}
+	public List<Shard> getAllImmutable() {
+		return Lists.newArrayList(this.shardsByID.values());
+	}
 
-		private Partition getPartition(Shard shard) {
-			Partition po = this.partitionsByShard.get(shard);
-			if (po == null) {
-				this.partitionsByShard.put(shard, po = Partition.partitionForFollower(shard.getShardID()));
-			}
-			return po;
-		}
+	public void logStatus() {
+		if (shardsByID.isEmpty()) {
+			logger.warn("{}: Status without Shards", getClass().getSimpleName());
+		} else {
+			for (final Shard shard : shardsByID.values()) {
+				final Partition partition = partitionsByShard.get(shard);
+				if (partition == null) {
+					logger.info("{}: {} = Empty", getClass().getSimpleName(), shard);
+				} else {
+					if (logger.isInfoEnabled()) {
+						logger.info("{}: Status for Shard: {} = Weight: {} with {} Duties: [ {}]",
+								getClass().getSimpleName(), shard, partition.getWeight(), partition.getDuties().size(),
+								partition.toString());
+					} else {
+						logger.info("{}: Status for Shard: {} = Weight: {} with {} Duties", getClass().getSimpleName(),
+								shard, partition.getWeight(), partition.getDuties().size());
+					}
 
-		public Shard getShard(NetworkShardID id) {
-			return shardsByID.get(id);
-		}
-
-		public int getAccountConfirmed() {
-			int total = 0;
-			for (Shard shard : partitionsByShard.keySet()) {
-				if (shard.getState() == ONLINE) {
-						Partition part = partitionsByShard.get(shard);
-						total += part.getDuties().size();
 				}
 			}
-			return total;
 		}
-
-		public Shard getDutyLocation(final ShardEntity se) {
-			for (final Shard shard : partitionsByShard.keySet()) {
-				final Partition part = partitionsByShard.get(shard);
-				for (ShardEntity st : part.getDuties()) {
-						if (st.equals(se)) {
-							return shard;
-						}
-				}
-			}
-			return null;
+		if (!this.dutyMissings.isEmpty()) {
+			logger.warn("{}: {} Missing duties: [ {}]", getClass().getSimpleName(), dutyMissings.size(),
+					this.dutyMissings.toString());
 		}
-
-		/** @return  shards by state filter or all if null */
-		public List<Shard> getShardsByState(final ShardState filter) {
-			return shardsByID.values().stream().filter(i -> i.getState() == filter || filter == null)
-						.collect(Collectors.toList());
+		if (!this.dutyDangling.isEmpty()) {
+			logger.warn("{}: {} Dangling duties: [ {}]", getClass().getSimpleName(), dutyDangling.size(),
+					this.dutyDangling.toString());
 		}
-
-		public List<Shard> getAllImmutable() {
-			return Lists.newArrayList(this.shardsByID.values());
+		if (this.dutyCrud.isEmpty()) {
+			logger.info("{}: no CRUD duties", getClass().getSimpleName());
+		} else {
+			logger.info("{}: with {} CRUD duties: [ {}]", getClass().getSimpleName(), dutyCrud.size(),
+					buildLogForDuties(Lists.newArrayList(getDutiesCrud())));
 		}
-
-		public void logStatus() {
-			if (shardsByID.isEmpty()) {
-				logger.warn("{}: Status without Shards", getClass().getSimpleName());
-			} else {
-				for (final Shard shard : shardsByID.values()) {
-						final Partition partition = partitionsByShard.get(shard);
-						if (partition == null) {
-							logger.info("{}: {} = Empty", getClass().getSimpleName(), shard);
-						} else {
-							if (logger.isInfoEnabled()) {
-								logger.info("{}: Status for Shard: {} = Weight: {} with {} Duties: [ {}]",
-											getClass().getSimpleName(), shard, partition.getWeight(), partition.getDuties().size(),
-											partition.toString());
-							} else {
-								logger.info("{}: Status for Shard: {} = Weight: {} with {} Duties", getClass().getSimpleName(),
-											shard, partition.getWeight(), partition.getDuties().size());
-							}
-
-						}
-				}
-			}
-			if (!this.dutyMissings.isEmpty()) {
-				logger.warn("{}: {} Missing duties: [ {}]", getClass().getSimpleName(), dutyMissings.size(),
-							this.dutyMissings.toString());
-			}
-			if (!this.dutyDangling.isEmpty()) {
-				logger.warn("{}: {} Dangling duties: [ {}]", getClass().getSimpleName(), dutyDangling.size(),
-							this.dutyDangling.toString());
-			}
-			if (this.dutyCrud.isEmpty()) {
-				logger.info("{}: no CRUD duties", getClass().getSimpleName());
-			} else {
-				logger.info("{}: with {} CRUD duties: [ {}]", getClass().getSimpleName(), dutyCrud.size(),
-							buildLogForDuties(Lists.newArrayList(getDutiesCrud())));
-			}
-			logger.info("{}: Health: {}", getClass().getSimpleName(), getWorkingHealth());
-		}
+		logger.info("{}: Health: {}", getClass().getSimpleName(), getWorkingHealth());
+	}
 
 }

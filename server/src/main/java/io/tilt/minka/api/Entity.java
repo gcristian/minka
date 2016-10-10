@@ -39,46 +39,37 @@ import com.google.common.collect.Lists;
  */
 public abstract interface Entity<T extends Serializable> extends Comparable<Entity<T>>, Comparator<Entity<T>> {
 
-		Class<T> getClassType();
+	Class<T> getClassType();
 
-		/**
-		 * Duties have a payload as Pallets do.
-		 * 
-		 * Pallets may have their own payload, to be accesible and shared by their conforming duties.  
-		 * They will be carried to shards only the first time they appear in the shard's life-cycle. 
-		 * Unless they change thru {@linkplain MinkaClient}, ending up {@linkplain PartitionDelegate} being called.
-		 * 
-		 * In case of large objects, you should only build the return object when the method is call.
-		 * It will be kept useless in memory until you use it again, 
-		 * as Minka only calls this method but at the time of shard transportation.   
-		 * 
-		 * @return  any data that can be transported thru TCP-IP
-		 */
-		T get();
+	/**
+	 * Duties have a payload as Pallets do.
+	 * 
+	 * Pallets may have their own payload, to be accesible and shared by their conforming duties.  
+	 * They will be carried to shards only the first time they appear in the shard's life-cycle. 
+	 * Unless they change thru {@linkplain MinkaClient}, ending up {@linkplain PartitionDelegate} being called.
+	 * 
+	 * In case of large objects, you should only build the return object when the method is call.
+	 * It will be kept useless in memory until you use it again, 
+	 * as Minka only calls this method but at the time of shard transportation.   
+	 * 
+	 * @return  any data that can be transported thru TCP-IP
+	 */
+	T get();
 
-		/**
-		* Type erasure bans the chance to call a useful equals() on the impl.
-		* @return
-		*/
-		String getId();
+	/**
+	* Type erasure bans the chance to call a useful equals() on the impl.
+	* @return
+	*/
+	String getId();
 
-		/**
-		* Duties have specific attributes.
-		* Also Pallets have attributes to apply to all duties containing the pallet
-		* @return
-		*/
-		default List<DutyAttribute> getAttributes() {
-			return Lists.newArrayList();
-		}
+	@Override
+	default public int compareTo(Entity<T> o) {
+		return compare(this, o);
+	}
 
-		@Override
-		default public int compareTo(Entity<T> o) {
-			return compare(this, o);
-		}
-
-		@Override
-		default public int compare(Entity<T> o1, Entity<T> o2) {
-			return o1.getId().compareTo(o2.getId());
-		}
+	@Override
+	default public int compare(Entity<T> o1, Entity<T> o2) {
+		return o1.getId().compareTo(o2.getId());
+	}
 
 }

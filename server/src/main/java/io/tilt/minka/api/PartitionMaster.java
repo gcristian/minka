@@ -44,16 +44,16 @@ import io.tilt.minka.domain.ShardEntity;
  */
 public interface PartitionMaster<E extends Serializable, P extends Serializable> extends PartitionDelegate<E, P> {
 
-		/**
-		* This is a hint for the {@link Leader} to know in forehand the size
-		* of duties and do an initially massive {@link Follower} assignment.
-		* 
-		* In case of {@linkplain Config} parameter distributorRunConsistencyCheck is TRUE
-		* this will be called profusely only to check there's no duty unnassigned or lost.
-		* @return	a master (complete) list of duties from the storage
-		*/
-		Set<Duty<E>> loadDuties();
+	/**
+	* This is a hint for the {@link Leader} to know in forehand the size
+	* of duties and do an initially massive {@link Follower} assignment.
+	* 
+	* In case of {@linkplain Config} parameter distributorRunConsistencyCheck is TRUE
+	* this will be called profusely only to check there's no duty unnassigned or lost.
+	* @return	a master (complete) list of duties from the storage
+	*/
+	Set<Duty<E>> loadDuties();
 
-		Set<Pallet<E>> loadPallets();
+	Set<Pallet<E>> loadPallets();
 
 }

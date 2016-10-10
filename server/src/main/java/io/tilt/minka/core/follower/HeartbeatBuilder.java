@@ -26,6 +26,6 @@ import io.tilt.minka.domain.Heartbeat;
  */
 public interface HeartbeatBuilder {
 
-    Heartbeat build();
+	Heartbeat build();
 
 }

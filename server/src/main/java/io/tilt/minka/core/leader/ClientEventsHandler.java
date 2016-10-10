@@ -49,104 +49,104 @@ import io.tilt.minka.domain.ShardEntity;
  */
 public class ClientEventsHandler extends ServiceImpl implements Consumer<Serializable> {
 
-		private final Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-		private final Config config;
-		private final PartitionTable partitionTable;
-		private final Scheduler scheduler;
-		private final Auditor auditor;
-		private final EventBroker eventBroker;
-		private final NetworkShardID shardId;
-		
-		public ClientEventsHandler(Config config, PartitionTable partitionTable, Scheduler scheduler,
-				EventBroker eventBroker, Auditor auditor, NetworkShardID shardId) {
+	private final Config config;
+	private final PartitionTable partitionTable;
+	private final Scheduler scheduler;
+	private final Auditor auditor;
+	private final EventBroker eventBroker;
+	private final NetworkShardID shardId;
 
-			this.config = config;
-			this.partitionTable = partitionTable;
-			this.scheduler = scheduler;
-			this.eventBroker = eventBroker;
-			this.auditor = auditor;
-			this.shardId = shardId;
+	public ClientEventsHandler(Config config, PartitionTable partitionTable, Scheduler scheduler,
+			EventBroker eventBroker, Auditor auditor, NetworkShardID shardId) {
+
+		this.config = config;
+		this.partitionTable = partitionTable;
+		this.scheduler = scheduler;
+		this.eventBroker = eventBroker;
+		this.auditor = auditor;
+		this.shardId = shardId;
+	}
+
+	public boolean clusterOperation(final ShardCommand op) {
+		boolean done = false;
+		Runnable lambda = null;
+		if (op.getOperation() == CLUSTER_CLEAN_SHUTDOWN) {
+			lambda = () -> cleanShutdown(op);
 		}
+		scheduler.run(
+				scheduler.getFactory().build(op.getOperation().getAction(), PriorityLock.LOW_ON_PERMISSION, lambda));
+		//throw new IllegalStateException("Cannot perform cluster operation because scheduler disallowed so");
+		//}
+		return done;
+	}
 
-		public boolean clusterOperation(final ShardCommand op) {
-			boolean done = false;
-			Runnable lambda = null;
-			if (op.getOperation() == CLUSTER_CLEAN_SHUTDOWN) {
-				lambda = () -> cleanShutdown(op);
+	private void cleanShutdown(final ShardCommand op) {
+		//Locks.stopCandidate(Names.getLeaderName(config.getServiceName()), false);		
+		for (Shard slave : partitionTable.getShardsByState(ONLINE)) {
+			eventBroker.postEvent(slave.getBrokerChannel(), op);
+		}
+		boolean offline = false;
+		while (!offline && !Thread.interrupted()) {
+			LockSupport.parkUntil(5000l);
+			offline = partitionTable.getShardsByState(ONLINE).size() == 0;
+		}
+		// only then close subscriptions
+		stop();
+	}
+
+	private void listenUserEvents() {
+		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.CLIENT_TO_LEADER, shardId), ShardEntity.class,
+				this, 0, config.getQueueUserRetentionLapseMs());
+		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.CLIENT_TO_LEADER, shardId), ShardCommand.class,
+				this, 0, config.getQueueUserRetentionLapseMs());
+	}
+
+	@Override
+	public void start() {
+		logger.info("{}: Starting", getClass().getSimpleName());
+		listenUserEvents();
+	}
+
+	@Override
+	public void stop() {
+		logger.info("{}: Stopping", getClass().getSimpleName());
+		eventBroker.unsubscribe(eventBroker.build(config, Channel.CLIENT_TO_LEADER), ShardEntity.class, this);
+	}
+
+	@Override
+	public void accept(Serializable event) {
+		if (inService()) {
+			if (event instanceof ShardEntity) {
+				final ShardEntity duty = (ShardEntity) event;
+				mediateOnDuty(duty);
+			} else if (event instanceof ShardCommand) {
+				clusterOperation((ShardCommand) event);
 			}
-			scheduler.run(scheduler.getFactory().build(
-				op.getOperation().getAction(), PriorityLock.LOW_ON_PERMISSION, lambda));
-			//throw new IllegalStateException("Cannot perform cluster operation because scheduler disallowed so");
-			//}
-			return done;
+		} else {
+			logger.error("{}: User events came but this master is no longer in service: {}", getClass().getSimpleName(),
+					event.getClass().getSimpleName());
 		}
+	}
 
-		private void cleanShutdown(final ShardCommand op) {
-			//Locks.stopCandidate(Names.getLeaderName(config.getServiceName()), false);		
-			for (Shard slave : partitionTable.getShardsByState(ONLINE)) {
-				eventBroker.postEvent(slave.getBrokerChannel(), op);
-			}
-			boolean offline = false;
-			while (!offline && !Thread.interrupted()) {
-				LockSupport.parkUntil(5000l);
-				offline = partitionTable.getShardsByState(ONLINE).size() == 0;
-			}
-			// only then close subscriptions
-			stop();
-		}
-
-		private void listenUserEvents() {
-			eventBroker.subscribeEvent(eventBroker.buildToTarget(config, Channel.CLIENT_TO_LEADER, shardId),
-						ShardEntity.class, this, 0, config.getQueueUserRetentionLapseMs());
-			eventBroker.subscribeEvent(eventBroker.buildToTarget(config, Channel.CLIENT_TO_LEADER, shardId),
-						ShardCommand.class, this, 0, config.getQueueUserRetentionLapseMs());
-		}
-
-		@Override
-		public void start() {
-			logger.info("{}: Starting", getClass().getSimpleName());
-			listenUserEvents();
-		}
-
-		@Override
-		public void stop() {
-			logger.info("{}: Stopping", getClass().getSimpleName());
-			eventBroker.unsubscribeEvent(eventBroker.build(config, Channel.CLIENT_TO_LEADER), ShardEntity.class, this);
-		}
-
-		@Override
-		public void accept(Serializable event) {
-			if (inService()) {
-				if (event instanceof ShardEntity) {
-						final ShardEntity duty = (ShardEntity) event;
-						mediateOnDuty(duty);
-				} else if (event instanceof ShardCommand) {
-						clusterOperation((ShardCommand) event);
-				}
+	public void mediateOnDuty(final ShardEntity duty) {
+		if (duty.is(EntityEvent.UPDATE)) {
+			// TODO chekear las cuestiones de disponibilidad de esto
+			final Shard location = partitionTable.getDutyLocation(duty);
+			if (location != null && location.getState().isAlive()) {
+				final Serializable payloadType = duty.getUserPayload() != null
+						? duty.getUserPayload().getClass().getSimpleName() : "[empty]";
+				logger.info("{}: Routing event with Payload: {} on {} to Shard: {}", getClass().getSimpleName(),
+						payloadType, duty, location);
+				eventBroker.postEvent(location.getBrokerChannel(), duty);
 			} else {
-				logger.error("{}: User events came but this master is no longer in service: {}", getClass().getSimpleName(),
-							event.getClass().getSimpleName());
+				logger.error("{}: Cannot route event to Duty:{} as Shard:{} is no longer functional",
+						getClass().getSimpleName(), duty.toBrief(), location);
 			}
+		} else {
+			auditor.registerCrudThruCheck(duty);
 		}
-
-		public void mediateOnDuty(final ShardEntity duty) {
-			if (duty.is(EntityEvent.UPDATE)) {
-				// TODO chekear las cuestiones de disponibilidad de esto
-				final Shard location = partitionTable.getDutyLocation(duty);
-				if (location != null && location.getState().isAlive()) {
-						final Serializable payloadType = duty.getUserPayload() != null
-								? duty.getUserPayload().getClass().getSimpleName() : "[empty]";
-						logger.info("{}: Routing event with Payload: {} on {} to Shard: {}", getClass().getSimpleName(),
-								payloadType, duty, location);
-						eventBroker.postEvent(location.getBrokerChannel(), duty);
-				} else {
-						logger.error("{}: Cannot route event to Duty:{} as Shard:{} is no longer functional",
-								getClass().getSimpleName(), duty.toBrief(), location);
-				}
-			} else {
-				auditor.registerCrudThruCheck(duty);
-			}
-		}
+	}
 
 }

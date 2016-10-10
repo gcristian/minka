@@ -107,7 +107,8 @@ public class MinkaClient {
 	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
 
-	protected MinkaClient(final Config config, final Leader leader, final EventBroker eventBroker, final ClientEventsHandler mediator, final ShardID shardId,
+	protected MinkaClient(final Config config, final Leader leader, final EventBroker eventBroker,
+			final ClientEventsHandler mediator, final ShardID shardId,
 			final ZookeeperLeaderShardContainer leaderShardContainer) {
 		this.config = config;
 		this.leader = leader;
@@ -117,7 +118,7 @@ public class MinkaClient {
 		this.leaderShardContainer = leaderShardContainer;
 		instance = this;
 	}
-	
+
 	/**
 	 * Minka service must be fully initialized before being able to obtain an operative client
 	 * @return	an instance of a client   
@@ -177,6 +178,10 @@ public class MinkaClient {
 		return send(duty, EntityEvent.CREATE, null);
 	}
 
+	public boolean add(final Pallet<?> pallet) {
+		return send(pallet, EntityEvent.CREATE, null);
+	}
+
 	/**
 	* Notify Minka of an updated duty so it can notify {@linkplain PartitionDelegate} about it
 	 * @param duty      a duty sharded or to be sharded in the cluster
@@ -194,10 +199,15 @@ public class MinkaClient {
 		return send(duty, EntityEvent.UPDATE, userPayload);
 	}
 
-	private boolean send(final Duty<?> raw, final EntityEvent event, final EntityPayload userPayload) {
+	private boolean send(final Entity<?> raw, final EntityEvent event, final EntityPayload userPayload) {
 		Validate.notNull(raw, "an entity is required");
 		boolean sent = true;
-		final ShardEntity duty = ShardEntity.create(raw);
+		final ShardEntity duty;
+		if (raw instanceof Pallet) {
+			duty = ShardEntity.create((Duty<?>) raw);
+		} else {
+			duty = ShardEntity.create((Pallet<?>) raw);
+		}
 		duty.registerEvent(event, State.PREPARED);
 		if (userPayload != null) {
 			duty.setUserPayload(userPayload);
@@ -206,9 +216,10 @@ public class MinkaClient {
 			logger.info("{}: Recurring to local leader !", getClass().getSimpleName());
 			clientMediator.mediateOnDuty(duty);
 		} else {
-			logger.info("{}: Sending Duty: {} with Event: {} to leader in service", getClass().getSimpleName(), raw, event);
-			sent = eventBroker.postEvent(eventBroker.buildToTarget(config.getServiceName(), 
-					Channel.CLIENT_TO_LEADER, leaderShardContainer.getLeaderShardId()), duty);
+			logger.info("{}: Sending Duty: {} with Event: {} to leader in service", getClass().getSimpleName(), raw,
+					event);
+			sent = eventBroker.postEvent(eventBroker.buildToTarget(config.getServiceName(), Channel.CLIENT_TO_LEADER,
+					leaderShardContainer.getLeaderShardId()), duty);
 		}
 		return sent;
 	}
@@ -242,8 +253,8 @@ public class MinkaClient {
 			logger.info("{}: Execute: recurring to local leader in service", getClass().getSimpleName());
 			done = clientMediator.clusterOperation(op);
 		} else {
-			done = eventBroker.postEvent(eventBroker.buildToTarget(service, Channel.CLIENT_TO_LEADER, leaderShardContainer.getLeaderShardId()),
-					op);
+			done = eventBroker.postEvent(eventBroker.buildToTarget(service, Channel.CLIENT_TO_LEADER,
+					leaderShardContainer.getLeaderShardId()), op);
 		}
 		return done;
 	}

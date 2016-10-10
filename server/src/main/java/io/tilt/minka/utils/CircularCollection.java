@@ -22,21 +22,21 @@ import java.util.Iterator;
 import org.apache.commons.lang.Validate;
 
 public class CircularCollection<T> {
-		Collection<T> source;
-		Iterator<T> it;
+	Collection<T> source;
+	Iterator<T> it;
 
-		public CircularCollection(final Collection<T> collection) {
-			Validate.notEmpty(collection);
-			source = collection;
-		}
+	public CircularCollection(final Collection<T> collection) {
+		Validate.notEmpty(collection);
+		source = collection;
+	}
 
-		public T next() {
-			if (it == null || !it.hasNext()) {
-				it = source.iterator();
-				if (!it.hasNext()) {
-						return null;
-				}
+	public T next() {
+		if (it == null || !it.hasNext()) {
+			it = source.iterator();
+			if (!it.hasNext()) {
+				return null;
 			}
-			return it.next();
 		}
+		return it.next();
+	}
 }

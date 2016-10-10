@@ -31,61 +31,61 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class SynchronizedSlidingQueue<T> extends ArrayBlockingQueue<T> {
 
-		private static final long serialVersionUID = 1L;
-		private final ReadWriteLock readWrite;
+	private static final long serialVersionUID = 1L;
+	private final ReadWriteLock readWrite;
 
-		public SynchronizedSlidingQueue(int size) {
-			super(size, true);
-			this.readWrite = new ReentrantReadWriteLock(true);
-		}
+	public SynchronizedSlidingQueue(int size) {
+		super(size, true);
+		this.readWrite = new ReentrantReadWriteLock(true);
+	}
 
-		public boolean isSliding() {
-			return remainingCapacity() == 0;
-		}
+	public boolean isSliding() {
+		return remainingCapacity() == 0;
+	}
 
-		public List<T> getAllImmutable() {
-			List<T> list = new ArrayList<>();
-			readWrite.readLock().lock();
-			try {
-				Iterator<T> it = iterator();
-				while (it.hasNext()) {
-						list.add(it.next());
-				}
-			} finally {
-				readWrite.readLock().unlock();
-				;
+	public List<T> getAllImmutable() {
+		List<T> list = new ArrayList<>();
+		readWrite.readLock().lock();
+		try {
+			Iterator<T> it = iterator();
+			while (it.hasNext()) {
+				list.add(it.next());
 			}
-			return list;
+		} finally {
+			readWrite.readLock().unlock();
+			;
 		}
+		return list;
+	}
 
-		public void putAndDiscard(T t) {
-			putAndTake(t);
+	public void putAndDiscard(T t) {
+		putAndTake(t);
+	}
+
+	public T putAndTake(T t) {
+		T discarded = null;
+		readWrite.writeLock().lock();
+		try {
+			if (remainingCapacity() == 0) {
+				discarded = poll();
+			}
+			add(t);
+		} finally {
+			readWrite.writeLock().unlock();
 		}
+		return discarded;
+	}
 
-		public T putAndTake(T t) {
-			T discarded = null;
+	public T taste() {
+		return peek();
+	}
+
+	public T take() throws InterruptedException {
+		try {
 			readWrite.writeLock().lock();
-			try {
-				if (remainingCapacity() == 0) {
-						discarded = poll();
-				}
-				add(t);
-			} finally {
-				readWrite.writeLock().unlock();
-			}
-			return discarded;
+			return take();
+		} finally {
+			readWrite.writeLock().unlock();
 		}
-
-		public T taste() {
-			return peek();
-		}
-
-		public T take() throws InterruptedException {
-			try {
-				readWrite.writeLock().lock();
-				return take();
-			} finally {
-				readWrite.writeLock().unlock();
-			}
-		}
+	}
 }

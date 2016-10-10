@@ -18,15 +18,16 @@ public class CustomDelegateBootstrap {
 	}
 
 	@Test
-	public void test() throws InstantiationException, IllegalAccessException, ClassNotFoundException, InterruptedException {
+	public void test()
+			throws InstantiationException, IllegalAccessException, ClassNotFoundException, InterruptedException {
 		MinkaLoader loader = new MinkaLoader();
 		loader.load();
 		final String clazz = System.getProperty("delegate", "MultiPalletSample");
-		final PartitionMaster<?, ?> master = (PartitionMaster<?, ?>)
-				Class.forName("io.tilt.minka.delegates." + clazz).newInstance();
+		final PartitionMaster<?, ?> master = (PartitionMaster<?, ?>) Class.forName("io.tilt.minka.delegates." + clazz)
+				.newInstance();
 		loader.setMaster(master);
 		loader.setDelegate(master);
-		final MinkaClient  cli = MinkaClient.getInstance();
+		final MinkaClient cli = MinkaClient.getInstance();
 		sleep(1);
 		cli.add(DutyBuilder.build(String.class, "hola", "1"));
 		int mins = Integer.getInteger("mins", 30);
@@ -38,7 +39,8 @@ public class CustomDelegateBootstrap {
 	private static void sleep(final int mins) throws InterruptedException {
 		for (int i = 0; i < mins; i++) {
 			Thread.sleep(60 * 1000l);
-			for (int j = 0; j < 200000; j++);
+			for (int j = 0; j < 200000; j++)
+				;
 		}
 	}
 

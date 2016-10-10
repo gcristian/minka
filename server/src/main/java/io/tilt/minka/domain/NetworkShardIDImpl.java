@@ -49,25 +49,25 @@ public class NetworkShardIDImpl implements NetworkShardID, Closeable {
 	private static final Random random = new Random();
 
 	private static final int PORT_SEARCHES_MAX = 100;
-	
+
 	private String id;
 	private final InetAddress sourceHost;
 	private int port;
 	private final int configuredPort;
 	private final DateTime creation;
 	private transient ServerSocket bookedSocket;
-	
-//	private Journal journal;
+
+	//	private Journal journal;
 
 	//public NetworkShardIDImpl(final Config config, final Journal journal) throws IOException {
 	public NetworkShardIDImpl(final Config config) throws Exception {
 		this.creation = new DateTime(DateTimeZone.UTC);
 		this.configuredPort = Integer.parseInt(config.getBrokerServerHost().split(":")[1]);
 		this.port = configuredPort;
-		this.sourceHost = findLANAddress(config.getBrokerServerHost().split(":")[0], 
+		this.sourceHost = findLANAddress(config.getBrokerServerHost().split(":")[0],
 				config.getBrokerUseNetworkInterfase());
 		//this.journal = journal;
-		config.setResolvedShardId(this);		
+		config.setResolvedShardId(this);
 		ensureOpenPort(config.getBrokerServerPortFallback());
 		buildId(config);
 	}
@@ -76,31 +76,31 @@ public class NetworkShardIDImpl implements NetworkShardID, Closeable {
 	private void ensureOpenPort(final boolean findAnyPort) throws Exception {
 		//journal.commit(StoryBuilder.compose(this.getClass(), Fact.shard_finding_address).with(Case.FINAL).build());
 		Exception cause = null;
-		for (int search=0;search < (findAnyPort ? PORT_SEARCHES_MAX : 1) ;this.port++, search++) {
-			logger.info("{}: {} port {}:{} (search no.{}/{}) ", getClass().getSimpleName(), search == 0 ? 
-				"Validating":"Falling back", sourceHost, this.port, search, PORT_SEARCHES_MAX);
+		for (int search = 0; search < (findAnyPort ? PORT_SEARCHES_MAX : 1); this.port++, search++) {
+			logger.info("{}: {} port {}:{} (search no.{}/{}) ", getClass().getSimpleName(),
+					search == 0 ? "Validating" : "Falling back", sourceHost, this.port, search, PORT_SEARCHES_MAX);
 			try {
 				logger.info("{}: Booking port {}", getClass().getSimpleName(), this.port);
 				bookedSocket = bookAPort(this.port);
-				if (bookedSocket !=null) {
+				if (bookedSocket != null) {
 					return;
 				}
 			} catch (Exception e) {
-				if (search == 0 && !!findAnyPort  || findAnyPort) {
+				if (search == 0 && !!findAnyPort || findAnyPort) {
 					cause = e;
 				}
 			}
 		}
 		this.port = configuredPort; // just going back
 		//journal.commit(StoryBuilder.compose(this.getClass(), Fact.shard_finding_address).with(Case.ISSUED)
-				//	.with("").build());
+		//	.with("").build());
 		String fallbackFailed = "Fallbacks failed - try configuring a valid open port";
 		String configFailed = "To avoid boot-up failure enable configuration parameter: brokerServerPortFallback = true";
-		final Exception excp = new IllegalArgumentException(findAnyPort ? fallbackFailed: configFailed, cause);
+		final Exception excp = new IllegalArgumentException(findAnyPort ? fallbackFailed : configFailed, cause);
 		logger.error("{}: No open port Available ! {}", getClass().getSimpleName(), excp);
 		throw excp;
 	}
-	
+
 	private ServerSocket bookAPort(final int testPort) {
 		ServerSocket socket = null;
 		try {
@@ -114,27 +114,28 @@ public class NetworkShardIDImpl implements NetworkShardID, Closeable {
 			throw new IllegalArgumentException("Testing port cannot be opened: " + testPort, e);
 		}
 	}
-	
+
 	@Override
 	public void leavePortReservation() {
 		try {
-			if (bookedSocket!=null && !bookedSocket.isClosed()) {
+			if (bookedSocket != null && !bookedSocket.isClosed()) {
 				bookedSocket.close();
 			}
 		} catch (IOException e) {
 			throw new IllegalArgumentException("Testing port cannot be tested: ", e);
 		}
 	}
-	
+
 	private static final int MAX_SHARDID_NAME = 13;
+
 	@Override
 	/* trims ID up to a max length without excluding port */
 	public String getSynthetizedID() {
 		final int pos = getStringIdentity().indexOf(':');
-		String idd = getStringIdentity().substring(1, pos-1);
+		String idd = getStringIdentity().substring(1, pos - 1);
 		int len = idd.length();
-		return idd.substring(1, len > MAX_SHARDID_NAME ? len - MAX_SHARDID_NAME : len) +
-				getStringIdentity().substring(pos);
+		return idd.substring(1, len > MAX_SHARDID_NAME ? len - MAX_SHARDID_NAME : len)
+				+ getStringIdentity().substring(pos);
 	}
 
 	private void buildId(final Config config) {
@@ -161,8 +162,8 @@ public class NetworkShardIDImpl implements NetworkShardID, Closeable {
 		InetAddress fallback = null;
 		boolean specified;
 		try {
-			logger.info("{}: Looking for configured network interfase/address: {}/{}", 
-					getClass().getSimpleName(), specifiedInterfase, specifiedAddress);
+			logger.info("{}: Looking for configured network interfase/address: {}/{}", getClass().getSimpleName(),
+					specifiedInterfase, specifiedAddress);
 			final Enumeration<NetworkInterface> nis = NetworkInterface.getNetworkInterfaces();
 			while (nis.hasMoreElements()) {
 				final NetworkInterface ni = nis.nextElement();
@@ -176,9 +177,9 @@ public class NetworkShardIDImpl implements NetworkShardID, Closeable {
 				while (ias.hasMoreElements()) {
 					final InetAddress ia = ias.nextElement();
 					if (ia.getHostName().equals(specifiedAddress)) {
-						specified&=true;
-						logger.info("{}: Specified Host address found: {}:{} with Hostname {}", 
-								getClass().getSimpleName(), ia.getHostAddress(),  ia.getHostName());
+						specified &= true;
+						logger.info("{}: Specified Host address found: {}:{} with Hostname {}",
+								getClass().getSimpleName(), ia.getHostAddress(), ia.getHostName());
 					}
 					if (ia.isSiteLocalAddress()) {
 						fallback = fallback == null ? ia : fallback;
@@ -186,9 +187,10 @@ public class NetworkShardIDImpl implements NetworkShardID, Closeable {
 							return ia;
 						}
 					} else if (specified) {
-						logger.warn("{}: Specified Address: {} is not LAN candidate, "
-									+ "you should specify a non local-only valid interfase and address.",
-							getClass().getSimpleName(), ia.getHostAddress());
+						logger.warn(
+								"{}: Specified Address: {} is not LAN candidate, "
+										+ "you should specify a non local-only valid interfase and address.",
+								getClass().getSimpleName(), ia.getHostAddress());
 					}
 				}
 			}
@@ -196,7 +198,7 @@ public class NetworkShardIDImpl implements NetworkShardID, Closeable {
 			//journal.commit(compose(getClass(), Fact.shard_finding_address).with(Result.FAILURE).with(e).build());
 			logger.error("{}: Cannot build shard id value with hostname", getClass().getSimpleName(), e);
 		}
-		if (fallback !=null) {
+		if (fallback != null) {
 			logger.warn("{}: Using found fallback: {}!", getClass().getSimpleName(), fallback);
 			return fallback;
 		} else {

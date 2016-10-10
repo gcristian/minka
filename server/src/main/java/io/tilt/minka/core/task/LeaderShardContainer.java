@@ -31,23 +31,23 @@ import io.tilt.minka.domain.NetworkShardID;
  */
 public interface LeaderShardContainer extends Service {
 
-		void setNewLeader(NetworkShardID newLeader);
+	void setNewLeader(NetworkShardID newLeader);
 
-		/**
-		 * Add consumer of new leader when is first time or already elected, 
-		 * and for latter elections as well    
-		 * @param consumerOfNewLeader
-		 */
-		void observeForChange(Consumer<NetworkShardID> consumerOfNewLeader);
+	/**
+	 * Add consumer of new leader when is first time or already elected, 
+	 * and for latter elections as well    
+	 * @param consumerOfNewLeader
+	 */
+	void observeForChange(Consumer<NetworkShardID> consumerOfNewLeader);
 
-		NetworkShardID getLeaderShardId();
+	NetworkShardID getLeaderShardId();
 
-		NetworkShardID getPreviousLeaderShardId();
+	NetworkShardID getPreviousLeaderShardId();
 
-		/* Auditing matters */
-		List<NetworkShardID> getAllPreviousLeaders();
+	/* Auditing matters */
+	List<NetworkShardID> getAllPreviousLeaders();
 
-		/* whether the current shard is also the leader */
-		boolean imLeader();
+	/* whether the current shard is also the leader */
+	boolean imLeader();
 
 }

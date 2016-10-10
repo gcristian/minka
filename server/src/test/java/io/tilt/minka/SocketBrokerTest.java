@@ -21,16 +21,16 @@ import io.tilt.minka.domain.NetworkShardID;
 
 public class SocketBrokerTest extends AbstractBrokerTester {
 
-		@Override
-		protected EventBroker buildBroker(final Consumer<Serializable> driver, final LeaderShardContainer container,
-				final Config config, final NetworkShardID shard) {
+	@Override
+	protected EventBroker buildBroker(final Consumer<Serializable> driver, final LeaderShardContainer container,
+			final Config config, final NetworkShardID shard) {
 
-			final EventBroker broker = new SocketBroker(config, shard, container,
-						new SchedulerImpl(config, new SpectatorSupplier(config), shard, 
-							new SynchronizedAgentFactoryImpl(), new SynchronizedFactoryImpl()));
-			broker.subscribeEvent(broker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, shard),
-						AtomicInteger.class, driver, System.currentTimeMillis(), 10000l);
-			return broker;
-		}
+		final EventBroker broker = new SocketBroker(config, shard, container,
+				new SchedulerImpl(config, new SpectatorSupplier(config), shard, new SynchronizedAgentFactoryImpl(),
+						new SynchronizedFactoryImpl()));
+		broker.subscribe(broker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, shard), AtomicInteger.class,
+				driver, System.currentTimeMillis(), 10000l);
+		return broker;
+	}
 
 }

@@ -34,63 +34,63 @@ import io.tilt.minka.api.Duty;
  */
 public class Partition {
 
-		private final NetworkShardID id;
-		private Set<ShardEntity> duties;
+	private final NetworkShardID id;
+	private Set<ShardEntity> duties;
 
-		public static Partition partitionForFollower(final NetworkShardID shardId) {
-			return new Partition(shardId);
+	public static Partition partitionForFollower(final NetworkShardID shardId) {
+		return new Partition(shardId);
+	}
+
+	public Partition(final NetworkShardID shardId) {
+		this.id = shardId;
+		initDuties();
+	}
+
+	/**
+	 * @return  the sum of all weights present in these duties
+	 */
+	public long getWeight() {
+		long weight = 0;
+		for (final ShardEntity duty : duties) {
+			weight += duty.getDuty().getWeight();
 		}
+		return weight;
+	}
 
-		public Partition(final NetworkShardID shardId) {
-			this.id = shardId;
-			initDuties();
+	private void initDuties() {
+		this.duties = new TreeSet<>();
+	}
+
+	public NetworkShardID getId() {
+		return id;
+	}
+
+	public void clean() {
+		initDuties();
+	}
+
+	@Override
+	public String toString() {
+		final StringBuilder sb = new StringBuilder();
+		final List<ShardEntity> sorted = Lists.newArrayList(duties);
+		if (!sorted.isEmpty()) {
+			sorted.sort(sorted.get(0));
 		}
+		sorted.forEach(i -> sb.append(i.toBrief()).append(", "));
+		return sb.toString();
+	}
 
-		/**
-		 * @return  the sum of all weights present in these duties
-		 */
-		public long getWeight() {
-			long weight = 0;
-			for (final ShardEntity duty : duties) {
-				weight += duty.getDuty().getWeight();
+	public ShardEntity forDuty(final Duty<?> t) {
+		for (ShardEntity shardDuty : duties) {
+			if (shardDuty.getDuty().getId().equals(t.getId())) {
+				return shardDuty;
 			}
-			return weight;
 		}
+		return null;
+	}
 
-		private void initDuties() {
-			this.duties = new TreeSet<>();
-		}
-
-		public NetworkShardID getId() {
-			return id;
-		}
-
-		public void clean() {
-			initDuties();
-		}
-
-		@Override
-		public String toString() {
-			final StringBuilder sb = new StringBuilder();
-			final List<ShardEntity> sorted = Lists.newArrayList(duties);
-			if (!sorted.isEmpty()) {
-				sorted.sort(sorted.get(0));
-			}
-			sorted.forEach(i -> sb.append(i.toBrief()).append(", "));
-			return sb.toString();
-		}
-
-		public ShardEntity forDuty(final Duty<?> t) {
-			for (ShardEntity shardDuty : duties) {
-				if (shardDuty.getDuty().getId().equals(t.getId())) {
-						return shardDuty;
-				}
-			}
-			return null;
-		}
-
-		public Set<ShardEntity> getDuties() {
-			return duties;
-		}
+	public Set<ShardEntity> getDuties() {
+		return duties;
+	}
 
 }

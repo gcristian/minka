@@ -31,22 +31,22 @@ import io.tilt.minka.domain.ShardEntity;
  */
 public interface Clusterizer {
 
-		final static Logger logger = LoggerFactory.getLogger(Clusterizer.class);
+	final static Logger logger = LoggerFactory.getLogger(Clusterizer.class);
 
-		/* you were supossed to bring balance to the force !! */
-		List<List<ShardEntity>> split(final int shards, final List<ShardEntity> weightedDuties);
+	/* you were supossed to bring balance to the force !! */
+	List<List<ShardEntity>> split(final int shards, final List<ShardEntity> weightedDuties);
 
-		/* logger */
-		default void logDistributionResult(List<List<ShardEntity>> distro) {
-			int i = 0;
-			for (List<ShardEntity> group : distro) {
-				for (ShardEntity duty : group) {
-						if (logger.isDebugEnabled()) {
-							logger.debug("{}: Duty: {} Weighting: {} in Group: {} ", getClass().getSimpleName(),
-										duty.getEntity().getId(), duty.getDuty().getWeight(), i);
-						}
+	/* logger */
+	default void logDistributionResult(List<List<ShardEntity>> distro) {
+		int i = 0;
+		for (List<ShardEntity> group : distro) {
+			for (ShardEntity duty : group) {
+				if (logger.isDebugEnabled()) {
+					logger.debug("{}: Duty: {} Weighting: {} in Group: {} ", getClass().getSimpleName(),
+							duty.getEntity().getId(), duty.getDuty().getWeight(), i);
 				}
-				i++;
 			}
+			i++;
 		}
+	}
 }

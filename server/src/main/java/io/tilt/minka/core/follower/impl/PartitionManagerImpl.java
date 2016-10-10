@@ -48,14 +48,14 @@ public class PartitionManagerImpl implements PartitionManager {
 	private final Synchronized releaser;
 
 	public PartitionManagerImpl(DependencyPlaceholder dependencyPlaceholder, Partition partition, Scheduler scheduler,
-		LeaderShardContainer leaderShardContainer) {
+			LeaderShardContainer leaderShardContainer) {
 
 		super();
 		this.dependencyPlaceholder = dependencyPlaceholder;
 		this.partition = partition;
 		this.scheduler = scheduler;
 		this.releaser = scheduler.getFactory().build(Action.INSTRUCT_DELEGATE, PriorityLock.MEDIUM_BLOCKING,
-			() -> releaseAll());
+				() -> releaseAll());
 	}
 
 	public Void releaseAllOnPolicies() {
@@ -66,7 +66,7 @@ public class PartitionManagerImpl implements PartitionManager {
 
 	public Void releaseAll() {
 		logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE ALL", getClass().getSimpleName(),
-			partition.getId());
+				partition.getId());
 		unassign(partition.getDuties());
 		partition.clean();
 		return null;
@@ -77,11 +77,11 @@ public class PartitionManagerImpl implements PartitionManager {
 		for (ShardEntity duty : duties) {
 			if (partition.getDuties().contains(duty)) {
 				logger.info("{}: ({}) Removing finalized Duty from Partition: {}", getClass().getSimpleName(),
-					partition.getId(), duty.toBrief());
+						partition.getId(), duty.toBrief());
 				partition.getDuties().remove(duty);
 			} else {
 				logger.error("{}: ({}) Unable to ACKNOWLEDGE for finalization a never taken Duty !: {}",
-					getClass().getSimpleName(), partition.getId(), duty.toBrief());
+						getClass().getSimpleName(), partition.getId(), duty.toBrief());
 			}
 		}
 		return null;
@@ -94,17 +94,18 @@ public class PartitionManagerImpl implements PartitionManager {
 			if (partition.getDuties().contains(duty)) {
 				if (duty.getUserPayload() == null) {
 					logger.info("{}: ({}) Instructing PartitionDelegate to UPDATE : {}", getClass().getSimpleName(),
-						partition.getId(), duty.toBrief());
+							partition.getId(), duty.toBrief());
 					dependencyPlaceholder.getDelegate().update(Sets.newHashSet(duty.getEntity()));
 				} else {
 					logger.info("{}: ({}) Instructing PartitionDelegate to RECEIVE: {} with Payload type {}",
-						getClass().getSimpleName(), partition.getId(), duty.toBrief(),
-						duty.getUserPayload().getClass().getName());
-					dependencyPlaceholder.getDelegate().receive(Sets.newHashSet(duty.getEntity()), duty.getUserPayload());
+							getClass().getSimpleName(), partition.getId(), duty.toBrief(),
+							duty.getUserPayload().getClass().getName());
+					dependencyPlaceholder.getDelegate().receive(Sets.newHashSet(duty.getEntity()),
+							duty.getUserPayload());
 				}
 			} else {
 				logger.error("{}: ({}) Unable to UPDATE a never taken Duty !: {}", getClass().getSimpleName(),
-					partition.getId(), duty.toBrief());
+						partition.getId(), duty.toBrief());
 				// TODO todo mal reportar que no se puede tomar xq alguien la tiene q onda ???
 			}
 		}
@@ -114,11 +115,11 @@ public class PartitionManagerImpl implements PartitionManager {
 	@SuppressWarnings("unchecked")
 	public Void unassign(final Collection<ShardEntity> duties) {
 		logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE : {}", getClass().getSimpleName(),
-			partition.getId(), ShardEntity.toStringBrief(duties));
+				partition.getId(), ShardEntity.toStringBrief(duties));
 		dependencyPlaceholder.getDelegate().release(toSet(duties, duty -> {
 			if (!partition.getDuties().contains(duty)) {
 				logger.error("{}: ({}) Unable to RELEASE a never taken Duty !: {}", getClass().getSimpleName(),
-					partition.getId(), duty);
+						partition.getId(), duty);
 				return false;
 			} else {
 				return true;
@@ -138,7 +139,7 @@ public class PartitionManagerImpl implements PartitionManager {
 		 * duty.getDuty().getId())) == GRANTED) {
 		 */
 		logger.info("{}: ({}) Instructing PartitionDelegate to TAKE: {}", getClass().getSimpleName(), partition.getId(),
-			ShardEntity.toStringBrief(duties));
+				ShardEntity.toStringBrief(duties));
 		dependencyPlaceholder.getDelegate().take(toSet(duties, null));
 		partition.getDuties().addAll(duties);
 		/*

@@ -57,219 +57,217 @@ import io.tilt.minka.utils.LogUtils;
  */
 public class Shepherd extends ServiceImpl {
 
-		private final Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-		public static final String LEADER_SHARD_PATH = "leader-shard";
+	public static final String LEADER_SHARD_PATH = "leader-shard";
 
-		private final Config config;
-		private final PartitionTable partitionTable;
-		private final Auditor auditor;
-		private final EventBroker eventBroker;
-		private final Scheduler scheduler;
-		private final NetworkShardID shardId;
-		private final LeaderShardContainer leaderShardContainer;
+	private final Config config;
+	private final PartitionTable partitionTable;
+	private final Auditor auditor;
+	private final EventBroker eventBroker;
+	private final Scheduler scheduler;
+	private final NetworkShardID shardId;
+	private final LeaderShardContainer leaderShardContainer;
 
-		private int analysisCounter;
-		private int blessCounter;
-		private int lastUnstableAnalysisId;
+	private int analysisCounter;
+	private int blessCounter;
+	private int lastUnstableAnalysisId;
 
-		private final Agent analyzer;
+	private final Agent analyzer;
 
-		/*
-		 * 10 mins min: previous time-window lapse to look for events to rebuild
-		 * Partition Table
-		 */
+	/*
+	 * 10 mins min: previous time-window lapse to look for events to rebuild
+	 * Partition Table
+	 */
 
-		public Shepherd(Config config, PartitionTable partitionTable, Auditor accounter,
-				EventBroker eventBroker, Scheduler scheduler, NetworkShardID shardId,
-				LeaderShardContainer leaderShardContainer) {
+	public Shepherd(Config config, PartitionTable partitionTable, Auditor accounter, EventBroker eventBroker,
+			Scheduler scheduler, NetworkShardID shardId, LeaderShardContainer leaderShardContainer) {
 
-			this.config = config;
-			this.partitionTable = partitionTable;
-			this.auditor = accounter;
-			this.eventBroker = eventBroker;
-			this.scheduler = scheduler;
-			this.shardId = shardId;
-			this.leaderShardContainer = leaderShardContainer;
+		this.config = config;
+		this.partitionTable = partitionTable;
+		this.auditor = accounter;
+		this.eventBroker = eventBroker;
+		this.scheduler = scheduler;
+		this.shardId = shardId;
+		this.leaderShardContainer = leaderShardContainer;
 
-			this.analyzer = scheduler.getAgentFactory()
-						.create(Action.SHEPHERD, PriorityLock.MEDIUM_BLOCKING, Frequency.PERIODIC,
-									() -> analyzeShards())
-						.delayed(config.getShepherdStartDelayMs()).every(config.getShepherdDelayMs()).build();
+		this.analyzer = scheduler.getAgentFactory()
+				.create(Action.SHEPHERD, PriorityLock.MEDIUM_BLOCKING, Frequency.PERIODIC, () -> analyzeShards())
+				.delayed(config.getShepherdStartDelayMs()).every(config.getShepherdDelayMs()).build();
+	}
+
+	@Override
+	public void start() {
+		logger.info("{}: Starting. Scheduling constant shepherding check", getName());
+		scheduler.schedule(analyzer);
+	}
+
+	@Override
+	public void stop() {
+		logger.info("{}: Stopping", getName());
+		this.scheduler.stop(analyzer);
+	}
+
+	private void blessShards() {
+		try {
+			final List<Shard> shards = partitionTable.getShardsByState(ShardState.ONLINE);
+			logger.info("{}: Blessing {} shards {}", getName(), shards.size(), shards);
+			shards.forEach(i -> eventBroker.postEvent(i.getBrokerChannel(), EVENT_SET, Clearance.create(shardId)));
+		} catch (Exception e) {
+			logger.error("{}: Unexpected while blessing", getName(), e);
+		} finally {
+			logger.info(LogUtils.END_LINE);
 		}
+	}
 
-		@Override
-		public void start() {
-			logger.info("{}: Starting. Scheduling constant shepherding check", getName());
-			scheduler.schedule(analyzer);
-		}
-
-		@Override
-		public void stop() {
-			logger.info("{}: Stopping", getName());
-			this.scheduler.stop(analyzer);
-		}
-
-		private void blessShards() {
-			try {
-				final List<Shard> shards = partitionTable.getShardsByState(ShardState.ONLINE);
-				logger.info("{}: Blessing {} shards {}", getName(), shards.size(), shards);
-				shards.forEach(i -> eventBroker.postEvent(i.getBrokerChannel(), EVENT_SET, Clearance.create(shardId)));
-			} catch (Exception e) {
-				logger.error("{}: Unexpected while blessing", getName(), e);
-			} finally {
-				logger.info(LogUtils.END_LINE);
+	private void analyzeShards() {
+		try {
+			if (!leaderShardContainer.imLeader()) {
+				return;
 			}
-		}
-
-		private void analyzeShards() {
-			try {
-				if (!leaderShardContainer.imLeader()) {
-						return;
-				}
-				logger.info(LogUtils
-							.titleLine("Analyzing Shards (i" + analysisCounter++ + ") by Leader: " + shardId.toString()));
-				final List<Shard> shards = partitionTable.getAllImmutable();
-				if (shards.isEmpty()) {
-						logger.warn("{}: Partition queue empty: no shards emiting heartbeats ?", getName());
-						return;
-				}
-				lastUnstableAnalysisId = analysisCounter == 1 ? 1 : lastUnstableAnalysisId;
-				logger.info("{}: Health: {}, {} shard(s) going to be analyzed: {}", getName(),
-							partitionTable.getVisibilityHealth(), shards.size(), shards);
-				int sizeOnline = 0;
-				for (Shard shard : shards) {
-						ShardState concludedState = evaluateStateThruHeartbeats(shard);
-						if (concludedState != shard.getState()) {
-							lastUnstableAnalysisId = analysisCounter;
-							shard.setState(concludedState);
-							auditor.checkShardChangingState(shard);
-						}
-						sizeOnline += shard.getState() == ShardState.ONLINE ? 1 : 0;
-				}
-				final ClusterHealth health = sizeOnline == shards.size()
-							&& analysisCounter - lastUnstableAnalysisId >= config.getClusterHealthStabilityDelayPeriods()
-										? STABLE : UNSTABLE;
-				if (health != partitionTable.getVisibilityHealth()) {
-						partitionTable.setVisibilityHealth(health);
-						logger.warn("{}: Cluster back to: {} ({}, min unchanged analyses: {})", getName(),
-								partitionTable.getVisibilityHealth(), lastUnstableAnalysisId,
-								config.getClusterHealthStabilityDelayPeriods());
-				}
-				if (blessCounter++ > 2) {
-						blessCounter = 0;
-						blessShards();
-				}
-			} catch (Exception e) {
-				logger.error("{}: Unexpected while shepherdizing", getName(), e);
-			} finally {
-				logger.info(LogUtils.END_LINE);
+			logger.info(LogUtils
+					.titleLine("Analyzing Shards (i" + analysisCounter++ + ") by Leader: " + shardId.toString()));
+			final List<Shard> shards = partitionTable.getAllImmutable();
+			if (shards.isEmpty()) {
+				logger.warn("{}: Partition queue empty: no shards emiting heartbeats ?", getName());
+				return;
 			}
+			lastUnstableAnalysisId = analysisCounter == 1 ? 1 : lastUnstableAnalysisId;
+			logger.info("{}: Health: {}, {} shard(s) going to be analyzed: {}", getName(),
+					partitionTable.getVisibilityHealth(), shards.size(), shards);
+			int sizeOnline = 0;
+			for (Shard shard : shards) {
+				ShardState concludedState = evaluateStateThruHeartbeats(shard);
+				if (concludedState != shard.getState()) {
+					lastUnstableAnalysisId = analysisCounter;
+					shard.setState(concludedState);
+					auditor.checkShardChangingState(shard);
+				}
+				sizeOnline += shard.getState() == ShardState.ONLINE ? 1 : 0;
+			}
+			final ClusterHealth health = sizeOnline == shards.size()
+					&& analysisCounter - lastUnstableAnalysisId >= config.getClusterHealthStabilityDelayPeriods()
+							? STABLE : UNSTABLE;
+			if (health != partitionTable.getVisibilityHealth()) {
+				partitionTable.setVisibilityHealth(health);
+				logger.warn("{}: Cluster back to: {} ({}, min unchanged analyses: {})", getName(),
+						partitionTable.getVisibilityHealth(), lastUnstableAnalysisId,
+						config.getClusterHealthStabilityDelayPeriods());
+			}
+			if (blessCounter++ > 2) {
+				blessCounter = 0;
+				blessShards();
+			}
+		} catch (Exception e) {
+			logger.error("{}: Unexpected while shepherdizing", getName(), e);
+		} finally {
+			logger.info(LogUtils.END_LINE);
 		}
+	}
 
-		private ShardState evaluateStateThruHeartbeats(Shard shard) {
-			final long now = System.currentTimeMillis();
-			final long normalDelay = config.getFollowerHeartbeatDelayMs();
-			final long configuredLapse = config.getShepherdHeartbeatLapseSec() * 1000;
-			final long lapseStart = now - configuredLapse;
-			//long minMandatoryHBs = configuredLapse / normalDelay;
+	private ShardState evaluateStateThruHeartbeats(Shard shard) {
+		final long now = System.currentTimeMillis();
+		final long normalDelay = config.getFollowerHeartbeatDelayMs();
+		final long configuredLapse = config.getShepherdHeartbeatLapseSec() * 1000;
+		final long lapseStart = now - configuredLapse;
+		//long minMandatoryHBs = configuredLapse / normalDelay;
 
-			final ShardState currentState = shard.getState();
-			ShardState newState = currentState;
-			final List<Heartbeat> all = shard.getHeartbeats();
-			List<Heartbeat> pastLapse = null;
-			String msg = "";
+		final ShardState currentState = shard.getState();
+		ShardState newState = currentState;
+		final List<Heartbeat> all = shard.getHeartbeats();
+		List<Heartbeat> pastLapse = null;
+		String msg = "";
 
-			final int minHealthlyToGoOnline = config.getShepherdMinHealthlyHeartbeatsForShardOnline();
-			final int minToBeGone = config.getShepherdMaxAbsentHeartbeatsBeforeShardGone();
-			final int maxSickToGoQuarantine = config.getShepherdMaxSickHeartbeatsBeforeShardQuarantine();
+		final int minHealthlyToGoOnline = config.getShepherdMinHealthlyHeartbeatsForShardOnline();
+		final int minToBeGone = config.getShepherdMaxAbsentHeartbeatsBeforeShardGone();
+		final int maxSickToGoQuarantine = config.getShepherdMaxSickHeartbeatsBeforeShardQuarantine();
 
-			if (all.size() < minToBeGone) {
-				if (shard.getLastStatusChange().plus(config.getShepherdMaxShardJoiningStateMs()).isBeforeNow()) {
-						msg = "try joining expired";
-						newState = ShardState.GONE;
+		if (all.size() < minToBeGone) {
+			if (shard.getLastStatusChange().plus(config.getShepherdMaxShardJoiningStateMs()).isBeforeNow()) {
+				msg = "try joining expired";
+				newState = ShardState.GONE;
+			} else {
+				msg = "no enough heartbeats in lapse";
+				newState = ShardState.JOINING;
+			}
+		} else {
+			pastLapse = all.stream().filter(i -> i.getCreation().isAfter(lapseStart))
+					.collect(Collectors.toCollection(ArrayList::new));
+			int pastLapseSize = pastLapse.size();
+			if (pastLapseSize > 0 && checkHealth(now, normalDelay, pastLapse)) {
+				if (pastLapseSize >= minHealthlyToGoOnline) {
+					msg = "healthy lapse > = min. healthly for online";
+					newState = ShardState.ONLINE;
 				} else {
-						msg = "no enough heartbeats in lapse";
-						newState = ShardState.JOINING;
+					msg = "healthly lapse < min. healthly for online";
+					newState = ShardState.QUARANTINE;
+					// TODO cuantas veces soporto que flapee o que este Quarantine antes de matarlo x forro ?
 				}
 			} else {
-				pastLapse = all.stream().filter(i -> i.getCreation().isAfter(lapseStart))
-							.collect(Collectors.toCollection(ArrayList::new));
-				int pastLapseSize = pastLapse.size();
-				if (pastLapseSize > 0 && checkHealth(now, normalDelay, pastLapse)) {
-						if (pastLapseSize >= minHealthlyToGoOnline) {
-							msg = "healthy lapse > = min. healthly for online";
-							newState = ShardState.ONLINE;
-						} else {
-							msg = "healthly lapse < min. healthly for online";
-							newState = ShardState.QUARANTINE;
-							// TODO cuantas veces soporto que flapee o que este Quarantine antes de matarlo x forro ?
-						}
+				if (pastLapseSize > maxSickToGoQuarantine) {
+					if (pastLapseSize <= minToBeGone || pastLapseSize == 0) {
+						msg = "sick lapse < min to gone";
+						newState = ShardState.GONE;
+					} else {
+						msg = "sick lapse > max. sick to stay online";
+						newState = ShardState.QUARANTINE;
+					}
+				} else if (pastLapseSize <= minToBeGone && currentState == QUARANTINE) {
+					msg = "sick lapse < min to gone";
+					newState = ShardState.GONE;
+				} else if (pastLapseSize > 0 && currentState == ShardState.ONLINE) {
+					msg = "sick lapse > 0 (" + pastLapseSize + ")";
+					newState = ShardState.QUARANTINE;
+				} else if (pastLapseSize == 0 && currentState == QUARANTINE) {
+					msg = "sick lapse = 0 ";
+					newState = ShardState.GONE;
 				} else {
-						if (pastLapseSize > maxSickToGoQuarantine) {
-							if (pastLapseSize <= minToBeGone || pastLapseSize == 0) {
-								msg = "sick lapse < min to gone";
-								newState = ShardState.GONE;
-							} else {
-								msg = "sick lapse > max. sick to stay online";
-								newState = ShardState.QUARANTINE;
-							}
-						} else if (pastLapseSize <= minToBeGone && currentState == QUARANTINE) {
-							msg = "sick lapse < min to gone";
-							newState = ShardState.GONE;
-						} else if (pastLapseSize > 0 && currentState == ShardState.ONLINE) {
-							msg = "sick lapse > 0 (" + pastLapseSize + ")";
-							newState = ShardState.QUARANTINE;
-						} else if (pastLapseSize == 0 && currentState == QUARANTINE) {
-							msg = "sick lapse = 0 ";
-							newState = ShardState.GONE;
-						} else {
-							msg = "lapse is wtf=" + pastLapseSize;
-						}
+					msg = "lapse is wtf=" + pastLapseSize;
 				}
 			}
-
-			logger.info("{}: {} {} {}, {}, ({}/{}), Seq [{}..{}] {}", getName(), shard,
-						newState == currentState ? "stays in" : "changing to", newState, msg, all.size(),
-						pastLapse != null ? pastLapse.size() : 0, all.get(all.size() - 1).getSequenceId(),
-						all.get(0).getSequenceId(), shardId.equals(shard.getShardID()) ? LogUtils.SPECIAL : "");
-
-			return newState;
 		}
 
-		private boolean checkHealth(long now, long normalDelay, List<Heartbeat> onTime) {
-			SummaryStatistics stat = new SummaryStatistics();
-			// there's some hope
-			long lastCreation = onTime.get(0).getCreation().getMillis();
-			long biggestDistance = 0;
-			for (Heartbeat hb : onTime) {
-				long creation = hb.getCreation().getMillis();
-				long arriveDelay = now - creation;
-				long distance = creation - lastCreation;
-				stat.addValue(distance);
-				lastCreation = creation;
-				biggestDistance = distance > biggestDistance ? distance : biggestDistance;
-				if (logger.isDebugEnabled()) {
-						logger.debug("{}: HB SeqID: {}, Arrive Delay: {}ms, Distance: {}ms, Creation: {}",
-								getName(), hb.getSequenceId(), arriveDelay, distance, hb.getCreation());
-				}
-			}
+		logger.info("{}: {} {} {}, {}, ({}/{}), Seq [{}..{}] {}", getName(), shard,
+				newState == currentState ? "stays in" : "changing to", newState, msg, all.size(),
+				pastLapse != null ? pastLapse.size() : 0, all.get(all.size() - 1).getSequenceId(),
+				all.get(0).getSequenceId(), shardId.equals(shard.getShardID()) ? LogUtils.SPECIAL : "");
 
-			long stdDeviationDelay = (long) Precision.round(stat.getStandardDeviation(), 2);
-			long permittedStdDeviationDistance = (normalDelay
-						* (long) (config.getShepherdHeartbeatMaxDistanceStandardDeviation() * 10d) / 100);
-			/*
-			 * long permittedBiggestDelay = (normalDelay *
-			 * (long)(config.getShepherdHeartbeatMaxBiggestDistanceFactor()*10d) /
-			 * 100);
-			 */
-			final NetworkShardID shardId = onTime.get(0).getShardId();
-			boolean healthly = stdDeviationDelay < permittedStdDeviationDistance;// && biggestDelay < permittedBiggestDelay;
-			if (logger.isInfoEnabled()) {
-				logger.debug("{}: Shard: {}, {} Standard deviation distance: {}/{}", getName(), shardId,
-							healthly ? HEALTH_UP : HEALTH_DOWN, stdDeviationDelay, permittedStdDeviationDistance);
+		return newState;
+	}
+
+	private boolean checkHealth(long now, long normalDelay, List<Heartbeat> onTime) {
+		SummaryStatistics stat = new SummaryStatistics();
+		// there's some hope
+		long lastCreation = onTime.get(0).getCreation().getMillis();
+		long biggestDistance = 0;
+		for (Heartbeat hb : onTime) {
+			long creation = hb.getCreation().getMillis();
+			long arriveDelay = now - creation;
+			long distance = creation - lastCreation;
+			stat.addValue(distance);
+			lastCreation = creation;
+			biggestDistance = distance > biggestDistance ? distance : biggestDistance;
+			if (logger.isDebugEnabled()) {
+				logger.debug("{}: HB SeqID: {}, Arrive Delay: {}ms, Distance: {}ms, Creation: {}", getName(),
+						hb.getSequenceId(), arriveDelay, distance, hb.getCreation());
 			}
-			return healthly;
 		}
+
+		long stdDeviationDelay = (long) Precision.round(stat.getStandardDeviation(), 2);
+		long permittedStdDeviationDistance = (normalDelay
+				* (long) (config.getShepherdHeartbeatMaxDistanceStandardDeviation() * 10d) / 100);
+		/*
+		 * long permittedBiggestDelay = (normalDelay *
+		 * (long)(config.getShepherdHeartbeatMaxBiggestDistanceFactor()*10d) /
+		 * 100);
+		 */
+		final NetworkShardID shardId = onTime.get(0).getShardId();
+		boolean healthly = stdDeviationDelay < permittedStdDeviationDistance;// && biggestDelay < permittedBiggestDelay;
+		if (logger.isInfoEnabled()) {
+			logger.debug("{}: Shard: {}, {} Standard deviation distance: {}/{}", getName(), shardId,
+					healthly ? HEALTH_UP : HEALTH_DOWN, stdDeviationDelay, permittedStdDeviationDistance);
+		}
+		return healthly;
+	}
 
 }

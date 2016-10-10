@@ -30,32 +30,32 @@ import io.tilt.minka.api.MinkaClient.Command;
  */
 public class ShardCommand implements EntityPayload {
 
-		private static final long serialVersionUID = 5911601577093197314L;
+	private static final long serialVersionUID = 5911601577093197314L;
 
-		private Command command;
-		private DateTime creation;
-		private NetworkShardID shardId;
+	private Command command;
+	private DateTime creation;
+	private NetworkShardID shardId;
 
-		public ShardCommand(final Command command, final NetworkShardID shardId) {
-			super();
-			this.command = command;
-			Validate.isTrue(
-						command == Command.FOLLOWER_DEACTIVATE || command == Command.FOLLOWER_ACTIVATE
-									|| command == Command.FOLLOWER_DECOMISSION || command == Command.FOLLOWER_HOARD,
-						"this type is inalid for a host");
-			this.shardId = shardId;
-		}
+	public ShardCommand(final Command command, final NetworkShardID shardId) {
+		super();
+		this.command = command;
+		Validate.isTrue(
+				command == Command.FOLLOWER_DEACTIVATE || command == Command.FOLLOWER_ACTIVATE
+						|| command == Command.FOLLOWER_DECOMISSION || command == Command.FOLLOWER_HOARD,
+				"this type is inalid for a host");
+		this.shardId = shardId;
+	}
 
-		public NetworkShardID getShardId() {
-			return this.shardId;
-		}
+	public NetworkShardID getShardId() {
+		return this.shardId;
+	}
 
-		public Command getOperation() {
-			return this.command;
-		}
+	public Command getOperation() {
+		return this.command;
+	}
 
-		public void setOperation(Command operation) {
-			this.command = operation;
-		}
+	public void setOperation(Command operation) {
+		this.command = operation;
+	}
 
 }

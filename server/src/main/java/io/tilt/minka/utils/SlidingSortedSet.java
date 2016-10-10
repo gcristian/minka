@@ -27,26 +27,26 @@ import org.apache.commons.lang.Validate;
  */
 public class SlidingSortedSet<E> {
 
-		private final TreeSet<E> set;
-		private final int maxSize;
+	private final TreeSet<E> set;
+	private final int maxSize;
 
-		public SlidingSortedSet(int maxSize) {
-			super();
-			Validate.isTrue(maxSize>0);
-			this.maxSize = maxSize;
-			this.set = new TreeSet<>();
-		}
+	public SlidingSortedSet(int maxSize) {
+		super();
+		Validate.isTrue(maxSize > 0);
+		this.maxSize = maxSize;
+		this.set = new TreeSet<>();
+	}
 
-		public void add(E e) {
-		    Validate.notNull(e);
-			set.add(e);
-			if (set.size() >= maxSize) {
-				set.pollLast();
-			}
+	public void add(E e) {
+		Validate.notNull(e);
+		set.add(e);
+		if (set.size() >= maxSize) {
+			set.pollLast();
 		}
+	}
 
-		public List<E> values() {
-			return new ArrayList<>(this.set);
-		}
+	public List<E> values() {
+		return new ArrayList<>(this.set);
+	}
 
 }

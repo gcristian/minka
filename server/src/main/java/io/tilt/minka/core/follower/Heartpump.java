@@ -29,8 +29,8 @@ import io.tilt.minka.domain.Heartbeat;
  */
 public interface Heartpump extends Service {
 
-    DateTime getLastBeat();
+	DateTime getLastBeat();
 
-    void emit(Heartbeat hb);
+	void emit(Heartbeat hb);
 
 }

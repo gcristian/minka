@@ -32,92 +32,84 @@ import io.tilt.minka.domain.Shard;
  */
 public class PalletBuilder<P extends Serializable> implements Pallet<P>, Serializable {
 
-		private static final long serialVersionUID = 4519763920222729635L;
+	private static final long serialVersionUID = 4519763920222729635L;
 
-		private final BalanceStrategy balanceStrategy;
-		private final Storage storage;
-		private final List<DutyAttribute> attribute;
-		private final P value;
-		private final Class<P> type;
-		private final String id;
+	private final BalanceStrategy balanceStrategy;
+	private final Storage storage;
+	private final P value;
+	private final Class<P> type;
+	private final String id;
 
-		private PalletBuilder(String id, Class<P> clas, BalanceStrategy balanceStrategy, Pallet.Storage storage,
-				List<DutyAttribute> attribute, P payload) {
-			super();
-			this.balanceStrategy = balanceStrategy;
-			this.storage = storage;
-			this.attribute = attribute;
-			this.value = payload;
-			this.id = id;
-			this.type = clas;
-		}
+	private PalletBuilder(String id, Class<P> clas, BalanceStrategy balanceStrategy, Pallet.Storage storage,
+			P payload) {
+		super();
+		this.balanceStrategy = balanceStrategy;
+		this.storage = storage;
+		this.value = payload;
+		this.id = id;
+		this.type = clas;
+	}
 
-		public static <P extends Serializable> PalletBuilder<P> build(String id, Class<P> clas) {
-			return new PalletBuilder<P>(id, clas, null, null, null, null);
-		}
+	public static <P extends Serializable> PalletBuilder<P> build(String id, Class<P> clas) {
+		return new PalletBuilder<P>(id, clas, null, null, null);
+	}
 
-		public static <P extends Serializable> PalletBuilder<P> build(String id, Class<P> clas, P payload) {
-			return new PalletBuilder<P>(id, clas, null, null, null, payload);
-		}
+	public static <P extends Serializable> PalletBuilder<P> build(String id, Class<P> clas, P payload) {
+		return new PalletBuilder<P>(id, clas, null, null, payload);
+	}
 
-		public static <P extends Serializable> PalletBuilder<P> build(String id, Class<P> clas, BalanceStrategy strategy, 
-				Storage storage, P payload) {
-			return new PalletBuilder<P>(id, clas, strategy, storage, null, payload);
-		}
+	public static <P extends Serializable> PalletBuilder<P> build(String id, Class<P> clas, BalanceStrategy strategy,
+			Storage storage, P payload) {
+		return new PalletBuilder<P>(id, clas, strategy, storage, payload);
+	}
 
-		@Override
-		public Storage getStorage() {
-			return storage;
-		}
+	@Override
+	public Storage getStorage() {
+		return storage;
+	}
 
-		@Override
-		public BalanceStrategy getBalanceStrategy() {
-			return balanceStrategy;
-		}
+	@Override
+	public BalanceStrategy getBalanceStrategy() {
+		return balanceStrategy;
+	}
 
-		@Override
-		public List<DutyAttribute> getAttributes() {
-			return attribute;
-		}
+	@Override
+	public String getId() {
+		return id;
+	}
 
-		@Override
-		public String getId() {
-			return id;
-		}
-		
+	@Override
+	public int hashCode() {
+		return new HashCodeBuilder().append(getId()).toHashCode();
+	}
 
-		@Override
-		public int hashCode() {
-			return new HashCodeBuilder().append(getId()).toHashCode();
+	@Override
+	public boolean equals(Object obj) {
+		if (obj != null && obj instanceof Entity) {
+			Entity<P> entity = (Entity) obj;
+			return getId().equals(entity.getId());
+		} else {
+			return false;
 		}
-		
-		@Override
-		public boolean equals(Object obj) {
-			if (obj != null && obj instanceof Entity) {
-				Entity<P> entity = (Entity) obj;
-				return getId().equals(entity.getId());
-			} else {
-				return false;
-			}
-		}
+	}
 
-		@Override
-		public Class<P> getClassType() {
-			return type;
-		}
+	@Override
+	public Class<P> getClassType() {
+		return type;
+	}
 
-		@Override
-		public P get() {
-			return value;
-		}
-		
-		public Class<P> getType() {
-			return this.type;
-		}
+	@Override
+	public P get() {
+		return value;
+	}
 
-		@Override
-		public String toString() {
-			return id;
-		}
+	public Class<P> getType() {
+		return this.type;
+	}
+
+	@Override
+	public String toString() {
+		return id;
+	}
 
 }

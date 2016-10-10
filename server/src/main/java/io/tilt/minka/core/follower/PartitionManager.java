@@ -29,18 +29,18 @@ import io.tilt.minka.domain.ShardEntity;
  */
 public interface PartitionManager {
 
-    Void releaseAllOnPolicies();
+	Void releaseAllOnPolicies();
 
-    Void releaseAll();
+	Void releaseAll();
 
-    Void finalized(final Collection<ShardEntity> duty);
+	Void finalized(final Collection<ShardEntity> duty);
 
-    Void update(final Collection<ShardEntity> duty);
+	Void update(final Collection<ShardEntity> duty);
 
-    Void unassign(final Collection<ShardEntity> duty);
+	Void unassign(final Collection<ShardEntity> duty);
 
-    Void assign(final Collection<ShardEntity> duty);
+	Void assign(final Collection<ShardEntity> duty);
 
-    Void handleClusterOperation(final ShardCommand op);
+	Void handleClusterOperation(final ShardCommand op);
 
 }

@@ -23,55 +23,55 @@ import io.tilt.minka.api.Pallet;
 
 public interface EntityDao {
 
-		Set<Duty<?>> loadDutySnapshot();
+	Set<Duty<?>> loadDutySnapshot();
 
-		Set<Pallet<?>> loadPalletSnapshot();
+	Set<Pallet<?>> loadPalletSnapshot();
 
-		void save(Duty<?> duty);
+	void save(Duty<?> duty);
 
-		void save(Pallet<?> pallet);
+	void save(Pallet<?> pallet);
 
-		void saveDutySnapshot(Set<Duty<?>> duties);
+	void saveDutySnapshot(Set<Duty<?>> duties);
 
-		void savePalletSnapshot(Set<Pallet<?>> pallets);
+	void savePalletSnapshot(Set<Pallet<?>> pallets);
 
-		public static class FakeDao implements EntityDao {
+	public static class FakeDao implements EntityDao {
 
-			@Override
-			public Set<Duty<?>> loadDutySnapshot() {
-				// TODO Auto-generated method stub
-				return null;
-			}
+		@Override
+		public Set<Duty<?>> loadDutySnapshot() {
+			// TODO Auto-generated method stub
+			return null;
+		}
 
-			@Override
-			public Set<Pallet<?>> loadPalletSnapshot() {
-				// TODO Auto-generated method stub
-				return null;
-			}
+		@Override
+		public Set<Pallet<?>> loadPalletSnapshot() {
+			// TODO Auto-generated method stub
+			return null;
+		}
 
-			@Override
-			public void save(Duty<?> duty) {
-				// TODO Auto-generated method stub
-
-			}
-
-			@Override
-			public void save(Pallet<?> pallet) {
-				// TODO Auto-generated method stub
-
-			}
-
-			@Override
-			public void saveDutySnapshot(Set<Duty<?>> duties) {
-				// TODO Auto-generated method stub
-
-			}
-
-			@Override
-			public void savePalletSnapshot(Set<Pallet<?>> pallets) {
-				// TODO Auto-generated method stub
-
-			}
+		@Override
+		public void save(Duty<?> duty) {
+			// TODO Auto-generated method stub
 
 		}
+
+		@Override
+		public void save(Pallet<?> pallet) {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void saveDutySnapshot(Set<Duty<?>> duties) {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void savePalletSnapshot(Set<Pallet<?>> pallets) {
+			// TODO Auto-generated method stub
+
+		}
+
+	}
 }

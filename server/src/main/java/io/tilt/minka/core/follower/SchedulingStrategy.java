@@ -19,10 +19,10 @@ package io.tilt.minka.core.follower;
 
 public enum SchedulingStrategy {
 
-    WEIGHTED_FAIR_QUEUEING,
+	WEIGHTED_FAIR_QUEUEING,
 
-    WEIGHTED_ROUND_ROBIN,
+	WEIGHTED_ROUND_ROBIN,
 
-    ROUND_ROBIN;
+	ROUND_ROBIN;
 
 }

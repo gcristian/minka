@@ -65,13 +65,16 @@ public class SocketClient {
 	private long lastUsage;
 	private final long clientExpiration;
 
-	protected SocketClient(final BrokerChannel channel, final Scheduler scheduler, final int retryDelay, final int maxRetries,
-			final String loggingName, final Config config) {
+	protected SocketClient(final BrokerChannel channel, final Scheduler scheduler, final int retryDelay,
+			final int maxRetries, final String loggingName, final Config config) {
 
 		this.loggingName = loggingName;
 		this.clientHandler = new SocketClientHandler();
-		scheduler.schedule(scheduler.getAgentFactory().create(Action.BROKER_CLIENT_START, PriorityLock.HIGH_ISOLATED, Frequency.ONCE,
-				() -> keepConnectedWithRetries(channel, maxRetries, retryDelay)).build());
+		scheduler
+				.schedule(scheduler
+						.getAgentFactory().create(Action.BROKER_CLIENT_START, PriorityLock.HIGH_ISOLATED,
+								Frequency.ONCE, () -> keepConnectedWithRetries(channel, maxRetries, retryDelay))
+						.build());
 		this.creation = System.currentTimeMillis();
 		this.clientExpiration = Math.max(config.getShepherdDelayMs(), config.getFollowerClearanceMaxAbsenceMs());
 	}
@@ -86,8 +89,8 @@ public class SocketClient {
 		} else {
 			long elapsed = System.currentTimeMillis() - lastUsage;
 			if (elapsed > this.clientExpiration) {
-				logger.warn("{}: ({}) expired ! {} old (for max is: {})", getClass().getSimpleName(), loggingName, elapsed,
-						this.clientExpiration);
+				logger.warn("{}: ({}) expired ! {} old (for max is: {})", getClass().getSimpleName(), loggingName,
+						elapsed, this.clientExpiration);
 				return true;
 			} else {
 				return false;
@@ -108,7 +111,8 @@ public class SocketClient {
 	 * follower or leader
 	 */
 	private void keepConnectedWithRetries(final BrokerChannel channel, final int maxRetries, final int retryDelay) {
-		clientGroup = new NioEventLoopGroup(1, new ThreadFactoryBuilder().setNameFormat(Config.THREAD_NANE_TCP_BROKER_CLIENT).build());
+		clientGroup = new NioEventLoopGroup(1,
+				new ThreadFactoryBuilder().setNameFormat(Config.THREAD_NANE_TCP_BROKER_CLIENT).build());
 
 		boolean wronglyDisconnected = true;
 		while (retry < maxRetries && wronglyDisconnected) {
@@ -116,8 +120,8 @@ public class SocketClient {
 				try {
 					Thread.sleep(retryDelay);
 				} catch (InterruptedException e) {
-					logger.error("{}: ({}) Unexpected while waiting for next client connection retry", getClass().getSimpleName(), loggingName,
-							e);
+					logger.error("{}: ({}) Unexpected while waiting for next client connection retry",
+							getClass().getSimpleName(), loggingName, e);
 				}
 			}
 			wronglyDisconnected = keepConnected(channel);
@@ -129,26 +133,28 @@ public class SocketClient {
 		try {
 			final String address = channel.getAddress().getInetAddress().getHostAddress();
 			final int port = channel.getAddress().getInetPort();
-			logger.info("{}: ({}) Building client (retry:{}) for outbound messages to: {}", 
-					getClass().getSimpleName(), loggingName, retry, channel.getAddress());
+			logger.info("{}: ({}) Building client (retry:{}) for outbound messages to: {}", getClass().getSimpleName(),
+					loggingName, retry, channel.getAddress());
 			final Bootstrap b = new Bootstrap();
 			b.group(clientGroup).channel(NioSocketChannel.class).handler(new ChannelInitializer<SocketChannel>() {
 				@Override
 				public void initChannel(SocketChannel ch) throws Exception {
-					ch.pipeline().addLast(new ObjectEncoder(), new ObjectDecoder(ClassResolvers.cacheDisabled(null)), clientHandler);
+					ch.pipeline().addLast(new ObjectEncoder(), new ObjectDecoder(ClassResolvers.cacheDisabled(null)),
+							clientHandler);
 				}
 			});
 			this.alive = true;
-			logger.info("{}: ({}) Binding to broker: {}:{} at channel: {}", 
-					getClass().getSimpleName(), loggingName, address, port, channel.getChannel().name());
-			b.connect(channel.getAddress().getInetAddress().getHostAddress(), channel.getAddress().getInetPort())
-					.sync().channel().closeFuture().sync();
+			logger.info("{}: ({}) Binding to broker: {}:{} at channel: {}", getClass().getSimpleName(), loggingName,
+					address, port, channel.getChannel().name());
+			b.connect(channel.getAddress().getInetAddress().getHostAddress(), channel.getAddress().getInetPort()).sync()
+					.channel().closeFuture().sync();
 			wrongDisconnection = false;
 		} catch (InterruptedException ie) {
 			wrongDisconnection = false;
 		} catch (Exception e) {
 			wrongDisconnection = true;
-			logger.error("{}: ({}) Unexpected while contacting shard's broker", getClass().getSimpleName(), loggingName, e);
+			logger.error("{}: ({}) Unexpected while contacting shard's broker", getClass().getSimpleName(), loggingName,
+					e);
 		} finally {
 			logger.info("{}: ({}) Exiting client writing scope", getClass().getSimpleName(), loggingName);
 		}
@@ -182,12 +188,13 @@ public class SocketClient {
 								msg.getPayloadType().getSimpleName(), msg.getInbox());
 						ctx.writeAndFlush(new MessageMetadata(msg.getPayload(), msg.getInbox()));
 					} else {
-						logger.error("{}: ({}) Waiting for messages to be enqueued: {}", getClass().getSimpleName(), loggingName);
+						logger.error("{}: ({}) Waiting for messages to be enqueued: {}", getClass().getSimpleName(),
+								loggingName);
 					}
 				}
 			} catch (InterruptedException e) {
-				logger.error("{}: ({}) interrupted while waiting for Socketclient blocking queue gets offered", getClass().getSimpleName(),
-						loggingName, e);
+				logger.error("{}: ({}) interrupted while waiting for Socketclient blocking queue gets offered",
+						getClass().getSimpleName(), loggingName, e);
 			}
 		}
 
@@ -203,7 +210,8 @@ public class SocketClient {
 
 		@Override
 		public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-			logger.error("{}: ({}) Unexpected while posting message payload", getClass().getSimpleName(), loggingName, cause);
+			logger.error("{}: ({}) Unexpected while posting message payload", getClass().getSimpleName(), loggingName,
+					cause);
 			ctx.close();
 		}
 

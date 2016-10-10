@@ -38,43 +38,43 @@ import io.tilt.minka.domain.ShardCommand;
 @Singleton
 public class Endpoint {
 
-		private final MinkaClient minkaClient;
+	private final MinkaClient minkaClient;
 
-		@Inject
-		public Endpoint(@Named("minkaClient") final MinkaClient minkaClient) {
-			this.minkaClient = minkaClient;
+	@Inject
+	public Endpoint(@Named("minkaClient") final MinkaClient minkaClient) {
+		this.minkaClient = minkaClient;
+	}
+
+	@POST
+	@Path("/{type}")
+	@Consumes(MediaType.APPLICATION_JSON)
+	public Response clusterCommand(@PathParam("service") String service, @PathParam("command") ShardCommand command) {
+
+		if (minkaClient.execute(service, command)) {
+			return Response.accepted().build();
+		} else {
+			return Response.serverError().build();
 		}
+	}
 
-		@POST
-		@Path("/{type}")
-		@Consumes(MediaType.APPLICATION_JSON)
-		public Response clusterCommand(@PathParam("service") String service, @PathParam("command") ShardCommand command) {
+	@POST
+	@Path("/{shardId}/{command}")
+	@Consumes(MediaType.APPLICATION_JSON)
+	/**
+	 * 
+	 * @param service   "mulita" for instance 
+	 * @param shardId   "198.82.123.11" the follower ID
+	 * @param type      
+	 * @return
+	 */
+	public Response shardCommand(@PathParam("service") String service, @PathParam("shardId") NetworkShardIDImpl shardId,
+			@PathParam("command") ShardCommand command) {
 
-			if (minkaClient.execute(service, command)) {
-				return Response.accepted().build();
-			} else {
-				return Response.serverError().build();
-			}
+		if (minkaClient.execute(service, command)) {
+			return Response.accepted().build();
+		} else {
+			return Response.serverError().build();
 		}
-
-		@POST
-		@Path("/{shardId}/{command}")
-		@Consumes(MediaType.APPLICATION_JSON)
-		/**
-		 * 
-		 * @param service   "mulita" for instance 
-		 * @param shardId   "198.82.123.11" the follower ID
-		 * @param type      
-		 * @return
-		 */
-		public Response shardCommand(@PathParam("service") String service,
-				@PathParam("shardId") NetworkShardIDImpl shardId, @PathParam("command") ShardCommand command) {
-
-			if (minkaClient.execute(service, command)) {
-				return Response.accepted().build();
-			} else {
-				return Response.serverError().build();
-			}
-		}
+	}
 
 }

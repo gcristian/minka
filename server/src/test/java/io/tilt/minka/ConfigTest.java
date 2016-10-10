@@ -10,11 +10,11 @@ import io.tilt.minka.api.Config;
 
 public class ConfigTest {
 
-		@Test
-		public void testConfig() {
+	@Test
+	public void testConfig() {
 
-			new Config(null);
+		new Config(null);
 
-		}
+	}
 
 }

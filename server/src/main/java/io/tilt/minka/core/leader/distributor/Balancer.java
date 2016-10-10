@@ -38,61 +38,52 @@ import io.tilt.minka.domain.ShardEntity;
  */
 public interface Balancer {
 
+	/**
+	 * Implement according these params:
+	 * 
+	 * @param table         the current situation 
+	 * @param realloc          previous allocation to check for anything of interest
+	 * @param onlineShards  the shards to distribute
+	 * @param dangling      to treat as creations
+	 * @param creations     new additions reported from source or added from partition service to distribute
+	 * @param deletions     already registered: passed only for calculation
+	 * @param accounted     summarization of already running and stable duties 
+	 */
+	void balance(final Pallet<?> pallet, final PartitionTable table, final Reallocation realloc,
+			final List<Shard> onlineShards, final Set<ShardEntity> creations, final Set<ShardEntity> deletions,
+			final int accounted);
 
+	public enum BalanceAttributes {
 		/**
-		 * Implement according these params:
-		 * 
-		 * @param table         the current situation 
-		 * @param realloc          previous allocation to check for anything of interest
-		 * @param onlineShards  the shards to distribute
-		 * @param dangling      to treat as creations
-		 * @param creations     new additions reported from source or added from partition service to distribute
-		 * @param deletions     already registered: passed only for calculation
-		 * @param accounted     summarization of already running and stable duties 
+		 * Keep at least one pallet of each kind
 		 */
-		void balance(
-				final Pallet<?> pallet,
-				final PartitionTable table, 
-				final Reallocation realloc,
-				final List<Shard> onlineShards, 
-				final Set<ShardEntity> creations,
-				final Set<ShardEntity> deletions,
-				final int accounted);
-		
-		public enum BalanceAttributes {
-			/**
-			 * Keep at least one pallet of each kind
-			 */
-			NOE;
+		NOE;
+	}
+
+	public enum BalanceStrategy {
+		/* duties within the pallet will stick together wherever they fit*/
+		NONE(null),
+		/* try to fit in the best place, no migration at all */
+		WEIGHTED_ROUND_ROBIN(null),
+		/* all nodes same amount of entities */
+		ROUND_ROBIN(RoundRobinBalancer.class),
+		/* duties clustering according weights */
+		FAIR_LOAD(FairWorkloadBalancer.class),
+		/* fill each node until spill then fill another node */
+		SPILL_OVER(SpillOverBalancer.class),
+
+		;
+
+		Class<? extends Balancer> balancer;
+
+		BalanceStrategy(Class<? extends Balancer> balancer) {
+			this.balancer = balancer;
 		}
 
-		public enum BalanceStrategy {
-			/* duties within the pallet will stick together wherever they fit*/
-			NONE(null),
-			/* try to fit in the best place, no migration at all */
-			WEIGHTED_ROUND_ROBIN(null),
-			/* all nodes same amount of entities */
-			ROUND_ROBIN(RoundRobinBalancer.class),
-			/* duties clustering according weights */
-			FAIR_LOAD(FairWorkloadBalancer.class),
-			/* fill each node until spill then fill another node */
-			SPILL_OVER(SpillOverBalancer.class),
-			
-			;
-			
-			Class<? extends Balancer> balancer;
-			
-			BalanceStrategy(Class<? extends Balancer> balancer) {
-				this.balancer = balancer;
-			}
-			
-			public Class<? extends Balancer> getBalancer() {
-				return this.balancer;
-			}
-		
+		public Class<? extends Balancer> getBalancer() {
+			return this.balancer;
 		}
 
+	}
 
-
-		
 }

@@ -42,91 +42,91 @@ import io.tilt.minka.spectator.MessageMetadata;
  */
 public abstract class AbstractBroker extends ServiceImpl implements EventBroker, Consumer<MessageMetadata> {
 
-		private final Logger logger = LoggerFactory.getLogger(getClass());
-		/* save (channel-eventType) -> (many consumers) */
-		private Multimap<String, Consumer<Serializable>> consumerPerChannelEventType;
-		/* save (consumer) -> (many channeles) */
-		private Multimap<Consumer<Serializable>, String> channelsPerConsumer;
-		private final NetworkShardID shardId;
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+	/* save (channel-eventType) -> (many consumers) */
+	private Multimap<String, Consumer<Serializable>> consumerPerChannelEventType;
+	/* save (consumer) -> (many channeles) */
+	private Multimap<Consumer<Serializable>, String> channelsPerConsumer;
+	private final NetworkShardID shardId;
 
-		public AbstractBroker(final NetworkShardID shardId) {
-			this.shardId = shardId;
-			this.consumerPerChannelEventType = HashMultimap.create();
-			this.channelsPerConsumer = HashMultimap.create();
+	public AbstractBroker(final NetworkShardID shardId) {
+		this.shardId = shardId;
+		this.consumerPerChannelEventType = HashMultimap.create();
+		this.channelsPerConsumer = HashMultimap.create();
+	}
+
+	public NetworkShardID getShardId() {
+		return this.shardId;
+	}
+
+	@Override
+	public void accept(MessageMetadata meta) {
+		logger.debug("{}: ({}) Consuming {}", getClass().getSimpleName(), shardId,
+				meta.getPayloadType().getSimpleName());
+		String key = meta.getInbox() + meta.getPayloadType().getSimpleName();
+		logger.debug("{}: ({}) Looking subscribed consumer to Key: {}", getClass().getSimpleName(), shardId, key);
+
+		Collection<Consumer<Serializable>> consumers = consumerPerChannelEventType.get(key);
+		if (!consumers.isEmpty()) {
+			consumers.forEach(i -> i.accept((Serializable) meta.getPayload()));
+		} else {
+			logger.error("{}: ({}) Unknown incoming event: {} at channel: {}", getClass().getSimpleName(), shardId,
+					meta.getPayloadType(), meta.getInbox());
 		}
+	}
 
-		public NetworkShardID getShardId() {
-			return this.shardId;
-		}
+	protected abstract boolean onSubscription(BrokerChannel channel, Class<? extends Serializable> eventType,
+			Consumer<Serializable> consumer, long sinceTimestamp, long retentionLapse);
 
-		@Override
-		public void accept(MessageMetadata meta) {
-			logger.debug("{}: ({}) Consuming {}", getClass().getSimpleName(), shardId,
-						meta.getPayloadType().getSimpleName());
-			String key = meta.getInbox() + meta.getPayloadType().getSimpleName();
-			logger.debug("{}: ({}) Looking subscribed consumer to Key: {}", getClass().getSimpleName(), shardId, key);
+	@Override
+	public void subscribeEvents(BrokerChannel buildToTarget, Class<? extends Serializable> class1,
+			Consumer<Serializable> driver, long sinceNow, long retentionLapse) {
+		subscribe(buildToTarget, class1, driver, sinceNow, retentionLapse);
+	}
 
-			Collection<Consumer<Serializable>> consumers = consumerPerChannelEventType.get(key);
-			if (!consumers.isEmpty()) {
-				consumers.forEach(i -> i.accept((Serializable) meta.getPayload()));
+	@Override
+	public final boolean subscribe(BrokerChannel channel, Class<? extends Serializable> eventType,
+			Consumer<Serializable> consumer, long sinceTimestamp, long retentionLapse) {
+
+		try {
+			// TODO para Pathable usar getFullName...
+			final String key = channel.getChannel().name() + eventType.getSimpleName();
+			final Collection<Consumer<Serializable>> drivers = consumerPerChannelEventType.get(key);
+			if (drivers != null && drivers.contains(consumer)) {
+				logger.warn("{}: ({}) Already subscribed to channel-eventType: {}", getClass().getSimpleName(), shardId,
+						key);
+				return true;
 			} else {
-				logger.error("{}: ({}) Unknown incoming event: {} at channel: {}", getClass().getSimpleName(), shardId,
-							meta.getPayloadType(), meta.getInbox());
-			}
-		}
-
-		protected abstract boolean onSubscription(BrokerChannel channel, Class<? extends Serializable> eventType,
-				Consumer<Serializable> consumer, long sinceTimestamp, long retentionLapse);
-
-		@Override
-		public void subscribeEvents(BrokerChannel buildToTarget, Class<? extends Serializable> class1, 
-				Consumer<Serializable> driver,long sinceNow, long retentionLapse) {
-			subscribeEvent(buildToTarget, class1, driver, sinceNow, retentionLapse);
-		}
-
-		@Override
-		public final boolean subscribeEvent(BrokerChannel channel, Class<? extends Serializable> eventType,
-				Consumer<Serializable> consumer, long sinceTimestamp, long retentionLapse) {
-
-			try {
-				// TODO para Pathable usar getFullName...
-				final String key = channel.getChannel().name() + eventType.getSimpleName();
-				final Collection<Consumer<Serializable>> drivers = consumerPerChannelEventType.get(key);
-				if (drivers != null && drivers.contains(consumer)) {
-						logger.warn("{}: ({}) Already subscribed to channel-eventType: {}", getClass().getSimpleName(),
-								shardId, key);
-						return true;
-				} else {
-						logger.info("{}: ({}) Subscribing channel: {} with Type: {} with Driver: {} ",
-								getClass().getSimpleName(), shardId, channel.getChannel().name(), eventType.getSimpleName(),
-								consumer.getClass().getSimpleName());
-				}
-
-				Collection<String> channeles = channelsPerConsumer.get(consumer);
-				if (channeles != null) {
-						channeles = channeles.stream().filter(i -> i.equals(channel.getFullName()))
-								.collect(Collectors.toCollection(ArrayList::new));
-				}
-
-				logger.debug("{}: ({}) Saving handler: {} on Key: {}", getClass().getSimpleName(),
-							channel.getAddress().toString(), consumer.getClass().getSimpleName(), key);
-
-				consumerPerChannelEventType.put(key, consumer);
-				if (channeles.isEmpty()) {
-						channelsPerConsumer.put(consumer, channel.getFullName());
-						if (!onSubscription(channel, eventType, consumer, sinceTimestamp, retentionLapse)) {
-							throw new RuntimeException("Event subscription not guaranteed");
-						}
-				} else {
-						// already done (Spectator supports subscription once: consumer->channel, ignores types)
-						// so we cannot subscribe'em twice, though we can redirect to our consumer indexing by type
-						return true;
-				}
-			} catch (Exception e) {
-				throw new RuntimeException("Event subscription error on channel:" + channel.getAddress().toString(), e);
+				logger.info("{}: ({}) Subscribing channel: {} with Type: {} with Driver: {} ",
+						getClass().getSimpleName(), shardId, channel.getChannel().name(), eventType.getSimpleName(),
+						consumer.getClass().getSimpleName());
 			}
 
-			return true;
+			Collection<String> channeles = channelsPerConsumer.get(consumer);
+			if (channeles != null) {
+				channeles = channeles.stream().filter(i -> i.equals(channel.getFullName()))
+						.collect(Collectors.toCollection(ArrayList::new));
+			}
+
+			logger.debug("{}: ({}) Saving handler: {} on Key: {}", getClass().getSimpleName(),
+					channel.getAddress().toString(), consumer.getClass().getSimpleName(), key);
+
+			consumerPerChannelEventType.put(key, consumer);
+			if (channeles.isEmpty()) {
+				channelsPerConsumer.put(consumer, channel.getFullName());
+				if (!onSubscription(channel, eventType, consumer, sinceTimestamp, retentionLapse)) {
+					throw new RuntimeException("Event subscription not guaranteed");
+				}
+			} else {
+				// already done (Spectator supports subscription once: consumer->channel, ignores types)
+				// so we cannot subscribe'em twice, though we can redirect to our consumer indexing by type
+				return true;
+			}
+		} catch (Exception e) {
+			throw new RuntimeException("Event subscription error on channel:" + channel.getAddress().toString(), e);
 		}
+
+		return true;
+	}
 
 }

@@ -36,91 +36,93 @@ import io.tilt.minka.domain.NetworkShardID;
  */
 public interface EventBroker extends Service {
 
-		BrokerChannel build(Config config, Channel channel);
+	BrokerChannel build(Config config, Channel channel);
 
-		default BrokerChannel build(String service, Channel channel) {
-			throw new RuntimeException("Unmandatory build was required");
-		}
+	default BrokerChannel build(String service, Channel channel) {
+		throw new RuntimeException("Unmandatory build was required");
+	}
 
-		BrokerChannel buildToTarget(Config config, Channel channel, NetworkShardID shardId);
+	BrokerChannel buildToTarget(Config config, Channel channel, NetworkShardID shardId);
 
-		default BrokerChannel buildToTarget(String service, Channel channel, NetworkShardID shardId) {
-			throw new RuntimeException("Unmandatory build was required");
-		}
+	default BrokerChannel buildToTarget(String service, Channel channel, NetworkShardID shardId) {
+		throw new RuntimeException("Unmandatory build was required");
+	}
 
-		/**
-		 * A shard-targeted channel 
+	/**
+	 * A shard-targeted channel 
+	 */
+	interface BrokerChannel {
+		Channel getChannel();
+
+		String getFullName();
+
+		NetworkShardID getAddress();
+	}
+
+	enum ChannelHint {
+		/*
+		 * for the broker impl to interpret it as an accumulation of events
+		 * that may be read alltogether or by time-windows, but non overridable
+		 * events.
 		 */
-		interface BrokerChannel {
-			Channel getChannel();
-			String getFullName();
-			NetworkShardID getAddress();
+		EVENT_QUEUE,
+		/*
+		 * for the broker impl to interpret it as an overriding event where
+		 * only matters the last of each event they are a set of unique among
+		 * the same path or folder or topic
+		 */
+		EVENT_SET;
+	};
+
+	public enum Channel {
+
+		/* where the followers put their events to the leader */
+		HEARTBEATS_TO_LEADER(EVENT_SET),
+		/* where the client put its events to the leader */
+		CLIENT_TO_LEADER(EVENT_QUEUE),
+		/* where the leader puts its partition messags to followers */
+		INSTRUCTIONS_TO_FOLLOWER(EVENT_QUEUE);
+
+		private final ChannelHint type;
+
+		Channel(final ChannelHint type) {
+			this.type = type;
 		}
 
-		enum ChannelHint {
-			/*
-			 * for the broker impl to interpret it as an accumulation of events
-			 * that may be read alltogether or by time-windows, but non overridable
-			 * events.
-			 */
-			EVENT_QUEUE,
-			/*
-			 * for the broker impl to interpret it as an overriding event where
-			 * only matters the last of each event they are a set of unique among
-			 * the same path or folder or topic
-			 */
-			EVENT_SET;
-		};
-
-		public enum Channel {
-
-			/* where the followers put their events to the leader */
-			HEARTBEATS_TO_LEADER(EVENT_SET),
-			/* where the client put its events to the leader */
-			CLIENT_TO_LEADER(EVENT_QUEUE),
-			/* where the leader puts its partition messags to followers */
-			INSTRUCTIONS_TO_FOLLOWER(EVENT_QUEUE);
-
-			private final ChannelHint type;
-
-			Channel(final ChannelHint type) {
-				this.type = type;
-			}
-
-			public ChannelHint getType() {
-				return this.type;
-			}
+		public ChannelHint getType() {
+			return this.type;
 		}
+	}
 
-		/* send an event object to an inbox name */
-		boolean postEvent(BrokerChannel channel, Serializable event);
+	/* send an event object to an inbox name */
+	boolean postEvent(BrokerChannel channel, Serializable event);
 
-		/* send an event object list to an inbox name */
-		boolean postEvents(BrokerChannel channel, List<Serializable> event);
+	/* send an event object list to an inbox name */
+	boolean postEvents(BrokerChannel channel, List<Serializable> event);
 
-		/* idem overriding channel type */
-		boolean postEvent(BrokerChannel channel, ChannelHint hint, Serializable event);
+	/* idem overriding channel type */
+	boolean postEvent(BrokerChannel channel, ChannelHint hint, Serializable event);
 
-		/* use a driver to handle events of a certain type */
-		boolean subscribeEvent(BrokerChannel channel, Class<? extends Serializable> type, Consumer<Serializable> driver, 
-				long sinceTimestamp, long retentionLapse);
+	/* use a driver to handle events of a certain type */
+	boolean subscribe(BrokerChannel channel, Class<? extends Serializable> type, Consumer<Serializable> driver,
+			long sinceTimestamp, long retentionLapse);
 
-		/* unregister the driver handling events of a certain type */
-		boolean unsubscribeEvent(BrokerChannel channel, Class<? extends Serializable> eventType,
-				final Consumer<Serializable> driver);
+	/* unregister the driver handling events of a certain type */
+	boolean unsubscribe(BrokerChannel channel, Class<? extends Serializable> eventType,
+			final Consumer<Serializable> driver);
 
-		/* emergency callback to know when the communication has been broken */
-		void setBrokerShutdownCallback(final Runnable callback);
+	/* emergency callback to know when the communication has been broken */
+	void setBrokerShutdownCallback(final Runnable callback);
 
-		default List<Consumer<?>> getRegisteredDrivers() {
-			throw new UnsupportedOperationException();
-		}
+	default List<Consumer<?>> getRegisteredDrivers() {
+		throw new UnsupportedOperationException();
+	}
 
-		default List<Class<?>> getRegisteredEvents() {
-			throw new UnsupportedOperationException();
-		}
+	default List<Class<?>> getRegisteredEvents() {
+		throw new UnsupportedOperationException();
+	}
 
-		void subscribeEvents(BrokerChannel channel, Class<? extends Serializable> class1,
-				final Consumer<Serializable> driver, long sinceNow, long retentionLapse);
+	void subscribeEvents(BrokerChannel channel, Class<? extends Serializable> class1,
+			final Consumer<Serializable> driver, long sinceNow, long retentionLapse);
 
 }

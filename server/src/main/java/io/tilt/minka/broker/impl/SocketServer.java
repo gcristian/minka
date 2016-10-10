@@ -54,159 +54,157 @@ import io.tilt.minka.spectator.MessageMetadata;
  */
 public class SocketServer {
 
-		private final Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-		/* for server */
-		private SocketServerHandler serverHandler;
-		private EventLoopGroup serverWorkerGroup;
-		private final Consumer<MessageMetadata> consumer;
+	/* for server */
+	private SocketServerHandler serverHandler;
+	private EventLoopGroup serverWorkerGroup;
+	private final Consumer<MessageMetadata> consumer;
 
-		private final int connectionHandlerThreads;
-		private final int serverPort;
-		private final String serverAddress;
-		private final String networkInterfase;
-		private final Scheduler scheduler;
-		private int retry;
+	private final int connectionHandlerThreads;
+	private final int serverPort;
+	private final String serverAddress;
+	private final String networkInterfase;
+	private final Scheduler scheduler;
+	private int retry;
 
-		private Runnable shutdownCallback;
+	private Runnable shutdownCallback;
 
-		protected SocketServer(Consumer<MessageMetadata> consumer, int connectionHandlerThreads,
-				int serverPort, String serverAddress, String networkInterfase,
-				Scheduler scheduler, int retryDelay, int maxRetries) {
+	protected SocketServer(Consumer<MessageMetadata> consumer, int connectionHandlerThreads, int serverPort,
+			String serverAddress, String networkInterfase, Scheduler scheduler, int retryDelay, int maxRetries) {
 
-			this.serverHandler = new SocketServerHandler();
-			this.consumer = consumer;
-			this.connectionHandlerThreads = connectionHandlerThreads;
-			this.serverPort = serverPort;
-			this.serverAddress = serverAddress;
-			this.networkInterfase = networkInterfase;
-			this.scheduler = scheduler;
+		this.serverHandler = new SocketServerHandler();
+		this.consumer = consumer;
+		this.connectionHandlerThreads = connectionHandlerThreads;
+		this.serverPort = serverPort;
+		this.serverAddress = serverAddress;
+		this.networkInterfase = networkInterfase;
+		this.scheduler = scheduler;
 
-			scheduler.schedule(scheduler.getAgentFactory().create(Action.BROKER_SERVER_START, PriorityLock.HIGH_ISOLATED,
-						Frequency.ONCE, () -> keepListeningWithRetries(maxRetries, retryDelay)).build());
+		scheduler.schedule(scheduler.getAgentFactory().create(Action.BROKER_SERVER_START, PriorityLock.HIGH_ISOLATED,
+				Frequency.ONCE, () -> keepListeningWithRetries(maxRetries, retryDelay)).build());
+	}
+
+	protected void setShutdownCallback(Runnable callback) {
+		this.shutdownCallback = callback;
+	}
+
+	/*
+	 * a client for a shard's broker to send any type of messages, whether be
+	 * follower or leader
+	 */
+	private void keepListeningWithRetries(final int maxRetries, final int retryDelay) {
+		this.serverWorkerGroup = new NioEventLoopGroup(this.connectionHandlerThreads,
+				new ThreadFactoryBuilder().setNameFormat(Config.THREAD_NAME_BROKER_SERVER_WORKER).build());
+
+		boolean disconnected = true;
+		while (retry < maxRetries && disconnected) {
+			if (retry++ > 0) {
+				try {
+					Thread.sleep(retryDelay);
+				} catch (InterruptedException e) {
+					logger.error("{}: ({}) Unexpected while waiting for next server bootup retry",
+							getClass().getSimpleName(), e);
+				}
+			}
+			disconnected = keepListening();
 		}
+	}
 
-		protected void setShutdownCallback(Runnable callback) {
-			this.shutdownCallback = callback;
-		}
+	/*
+	 * whether be follower or leader the server will always hear for messages
+	 */
+	private boolean keepListening() {
+		boolean disconnected;
+		logger.info("{}: ({}:{}) Building server (using i: {}) with up to {} concurrent requests",
+				getClass().getSimpleName(), serverAddress, serverPort, networkInterfase, this.connectionHandlerThreads);
 
-		/*
-		 * a client for a shard's broker to send any type of messages, whether be
-		 * follower or leader
-		 */
-		private void keepListeningWithRetries(final int maxRetries, final int retryDelay) {
-			this.serverWorkerGroup = new NioEventLoopGroup(this.connectionHandlerThreads,
-						new ThreadFactoryBuilder().setNameFormat(Config.THREAD_NAME_BROKER_SERVER_WORKER).build());
-
-			boolean disconnected = true;
-			while (retry < maxRetries && disconnected) {
-				if (retry++ > 0) {
-						try {
-							Thread.sleep(retryDelay);
-						} catch (InterruptedException e) {
-							logger.error("{}: ({}) Unexpected while waiting for next server bootup retry",
-										getClass().getSimpleName(), e);
+		try {
+			final ServerBootstrap b = new ServerBootstrap();
+			b.group(serverWorkerGroup).channel(NioServerSocketChannel.class)
+					//.channel(OioServerSocketChannel.class)
+					.handler(new LoggingHandler(LogLevel.INFO)).childHandler(new ChannelInitializer<SocketChannel>() {
+						@Override
+						public void initChannel(SocketChannel ch) throws Exception {
+							ch.pipeline().addLast(new ObjectEncoder(),
+									new ObjectDecoder(ClassResolvers.cacheDisabled(null)), serverHandler);
 						}
-				}
-				disconnected = keepListening();
-			}
+					});
+			logger.info("{}: Listening for client connections..", getClass().getSimpleName());
+			b.childOption(ChannelOption.SO_KEEPALIVE, true);
+
+			logger.info("{}: ({}:{}) Listening to client connections (using i:{}) with up to {} concurrent requests",
+					getClass().getSimpleName(), serverAddress, serverPort, networkInterfase,
+					this.connectionHandlerThreads);
+
+			b.bind(this.serverAddress, this.serverPort).sync().channel().closeFuture().sync();
+			disconnected = false;
+		} catch (Exception e) {
+			disconnected = true;
+			logger.error("{}: ({}:{}) Unexpected interruption while listening incoming connections",
+					getClass().getSimpleName(), serverAddress, serverPort, e);
+		} finally {
+			logger.info("{}: ({}:{}) Exiting server listening scope", getClass().getSimpleName(), serverAddress,
+					serverPort);
+			shutdown();
 		}
+		return disconnected;
+	}
 
-		/*
-		 * whether be follower or leader the server will always hear for messages
-		 */
-		private boolean keepListening() {
-			boolean disconnected;
-			logger.info("{}: ({}:{}) Building server (using i: {}) with up to {} concurrent requests",
-						getClass().getSimpleName(), serverAddress, serverPort, networkInterfase,
-						this.connectionHandlerThreads);
-
+	private void shutdown() {
+		if (this.shutdownCallback != null) {
 			try {
-				final ServerBootstrap b = new ServerBootstrap();
-				b.group(serverWorkerGroup).channel(NioServerSocketChannel.class)
-							//.channel(OioServerSocketChannel.class)
-							.handler(new LoggingHandler(LogLevel.INFO)).childHandler(new ChannelInitializer<SocketChannel>() {
-									@Override
-									public void initChannel(SocketChannel ch) throws Exception {
-										ch.pipeline().addLast(new ObjectEncoder(),
-													new ObjectDecoder(ClassResolvers.cacheDisabled(null)), serverHandler);
-									}
-							});
-				logger.info("{}: Listening for client connections..", getClass().getSimpleName());
-				b.childOption(ChannelOption.SO_KEEPALIVE, true);
-
-				logger.info("{}: ({}:{}) Listening to client connections (using i:{}) with up to {} concurrent requests",
-							getClass().getSimpleName(), serverAddress, serverPort, networkInterfase,
-							this.connectionHandlerThreads);
-
-				b.bind(this.serverAddress, this.serverPort).sync().channel().closeFuture().sync();
-				disconnected = false;
+				logger.info("{}: ({}:{}) Executing shutdown callback: {}", getClass().getSimpleName(),
+						shutdownCallback.getClass().getSimpleName(), serverAddress, serverPort);
+				shutdownCallback.run();
 			} catch (Exception e) {
-				disconnected = true;
-				logger.error("{}: ({}:{}) Unexpected interruption while listening incoming connections",
-							getClass().getSimpleName(), serverAddress, serverPort, e);
-			} finally {
-				logger.info("{}: ({}:{}) Exiting server listening scope", getClass().getSimpleName(), serverAddress,
-							serverPort);
-				shutdown();
-			}
-			return disconnected;
-		}
-
-		private void shutdown() {
-			if (this.shutdownCallback != null) {
-				try {
-						logger.info("{}: ({}:{}) Executing shutdown callback: {}", getClass().getSimpleName(),
-								shutdownCallback.getClass().getSimpleName(), serverAddress, serverPort);
-						shutdownCallback.run();
-				} catch (Exception e) {
-						logger.error("{}: ({}:{}) Unexpected while executing shutdown callback", getClass().getSimpleName(),
-								serverAddress, serverPort, e);
-				}
-			}
-			close();
-		}
-
-		public void close() {
-			logger.warn("{}: ({}:{}) Closing connections to client", getClass().getSimpleName(), serverAddress,
-						serverPort);
-			if (serverWorkerGroup != null) {
-				serverWorkerGroup.shutdownGracefully();
+				logger.error("{}: ({}:{}) Unexpected while executing shutdown callback", getClass().getSimpleName(),
+						serverAddress, serverPort, e);
 			}
 		}
+		close();
+	}
 
-		@Sharable
-		/**
-		 * Sharable makes it able to use the same handler for concurrent clients
-		 */
-		protected class SocketServerHandler extends ChannelInboundHandlerAdapter {
+	public void close() {
+		logger.warn("{}: ({}:{}) Closing connections to client", getClass().getSimpleName(), serverAddress, serverPort);
+		if (serverWorkerGroup != null) {
+			serverWorkerGroup.shutdownGracefully();
+		}
+	}
 
-			@Override
-			public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-				super.channelUnregistered(ctx);
-			}
+	@Sharable
+	/**
+	 * Sharable makes it able to use the same handler for concurrent clients
+	 */
+	protected class SocketServerHandler extends ChannelInboundHandlerAdapter {
 
-			@Override
-			public void channelRead(ChannelHandlerContext ctx, Object msg) {
-				consume(msg);
-			}
+		@Override
+		public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
+			super.channelUnregistered(ctx);
+		}
 
-			private void consume(Object msg) {
-				try {
-						scheduler.schedule(scheduler.getAgentFactory().create(Action.BROKER_INCOMING_MESSAGE,
-								PriorityLock.HIGH_ISOLATED, Frequency.ONCE, () -> consumer.accept((MessageMetadata) msg)).build());
-				} catch (Exception e) {
-						logger.error("SocketServerHandler: ({}:{}) Unexpected while reading incoming message", serverAddress,
-								serverPort, e);
-				}
-			}
+		@Override
+		public void channelRead(ChannelHandlerContext ctx, Object msg) {
+			consume(msg);
+		}
 
-			@Override
-			public void exceptionCaught(final ChannelHandlerContext ctx, final Throwable e) {
-				logger.error("SocketServerHandler:({}:{}) Unexpected while reading incoming message", serverAddress,
-							serverPort, e);
-				ctx.close();
+		private void consume(Object msg) {
+			try {
+				scheduler.schedule(
+						scheduler.getAgentFactory().create(Action.BROKER_INCOMING_MESSAGE, PriorityLock.HIGH_ISOLATED,
+								Frequency.ONCE, () -> consumer.accept((MessageMetadata) msg)).build());
+			} catch (Exception e) {
+				logger.error("SocketServerHandler: ({}:{}) Unexpected while reading incoming message", serverAddress,
+						serverPort, e);
 			}
 		}
+
+		@Override
+		public void exceptionCaught(final ChannelHandlerContext ctx, final Throwable e) {
+			logger.error("SocketServerHandler:({}:{}) Unexpected while reading incoming message", serverAddress,
+					serverPort, e);
+			ctx.close();
+		}
+	}
 
 }

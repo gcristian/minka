@@ -17,25 +17,25 @@
 package io.tilt.minka.core.leader;
 
 public class ConcurrentDutyException extends IllegalStateException {
-		private static final long serialVersionUID = 8190676188841385263L;
+	private static final long serialVersionUID = 8190676188841385263L;
 
-		public ConcurrentDutyException() {
-			// TODO Auto-generated constructor stub
-		}
+	public ConcurrentDutyException() {
+		// TODO Auto-generated constructor stub
+	}
 
-		public ConcurrentDutyException(String s) {
-			super(s);
-			// TODO Auto-generated constructor stub
-		}
+	public ConcurrentDutyException(String s) {
+		super(s);
+		// TODO Auto-generated constructor stub
+	}
 
-		public ConcurrentDutyException(Throwable cause) {
-			super(cause);
-			// TODO Auto-generated constructor stub
-		}
+	public ConcurrentDutyException(Throwable cause) {
+		super(cause);
+		// TODO Auto-generated constructor stub
+	}
 
-		public ConcurrentDutyException(String message, Throwable cause) {
-			super(message, cause);
-			// TODO Auto-generated constructor stub
-		}
+	public ConcurrentDutyException(String message, Throwable cause) {
+		super(message, cause);
+		// TODO Auto-generated constructor stub
+	}
 
 }

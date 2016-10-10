@@ -35,13 +35,13 @@ public class PalletCollector {
 		Validate.notNull(duties);
 		Validate.notEmpty(palletSet);
 		palletSet.forEach(p -> this.palletById.put(p.getPallet().getId(), ShardEntity.create(p.getPallet())));
-		for (ShardEntity se: duties) {
+		for (ShardEntity se : duties) {
 			try {
 				if (logger.isDebugEnabled()) {
-					logger.info("{}: Loooking for pallet: {}: on duty: {}", getClass().getSimpleName(), 
+					logger.info("{}: Loooking for pallet: {}: on duty: {}", getClass().getSimpleName(),
 							se.getDuty().getPalletId(), se.getDuty());
 				}
-				add(se, this.palletById.get(se.getDuty().getPalletId()));				
+				add(se, this.palletById.get(se.getDuty().getPalletId()));
 			} catch (Exception e) {
 				logger.error("Collecting pallets", e);
 			}
@@ -68,7 +68,7 @@ public class PalletCollector {
 
 	protected Set<ShardEntity> getDuties(ShardEntity pallet) {
 		Set<ShardEntity> p = this.pallets.get(pallet);
-		if (p==null) {
+		if (p == null) {
 			p = new HashSet<>();
 		}
 		return p;
