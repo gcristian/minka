@@ -39,7 +39,7 @@ public class AwaitingDelegate implements PartitionMaster<String, String> {
 	}
 
 	@Override
-	public long getMaxWeight(Pallet<String> pallet) {
+	public double getMaxWeight(Pallet<?> pallet) {
 		throw new IllegalStateException();
 	}
 
