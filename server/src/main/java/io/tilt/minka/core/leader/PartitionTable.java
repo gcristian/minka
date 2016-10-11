@@ -36,7 +36,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.NetworkShardID;
-import io.tilt.minka.domain.Partition;
+import io.tilt.minka.domain.AttachedPartition;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
@@ -214,7 +214,7 @@ public class PartitionTable {
 	public void removeShard(final Shard shard) {
 		logger.info("{}: Removing Shard {} - bye bye ! come back some day !", getClass().getSimpleName(), shard);
 		final Shard rem = this.shardsByID.remove(shard.getShardID());
-		final Partition part = this.partitionsByShard.remove(shard);
+		final AttachedPartition part = this.partitionsByShard.remove(shard);
 		if (rem == null || part == null) {
 			logger.error("{}: trying to delete unexisting Shard: {}", getClass().getSimpleName(), shard);
 		}
@@ -265,16 +265,16 @@ public class PartitionTable {
 				.collect(Collectors.toList())) {
 			allDuties.addAll(pallet == null ? partitionsByShard.get(shard).getDuties()
 					: partitionsByShard.get(shard).getDuties().stream()
-							.filter(d -> d.getDuty().getPalletId().equals(pallet.getId()))
+							.filter(d -> d.getDuty().getPallet().getId().equals(pallet.getId()))
 							.collect(Collectors.toList()));
 		}
 		return allDuties;
 	}
 
-	private Partition getPartition(Shard shard) {
-		Partition po = this.partitionsByShard.get(shard);
+	private AttachedPartition getPartition(Shard shard) {
+		AttachedPartition po = this.partitionsByShard.get(shard);
 		if (po == null) {
-			this.partitionsByShard.put(shard, po = Partition.partitionForFollower(shard.getShardID()));
+			this.partitionsByShard.put(shard, po = AttachedPartition.partitionForFollower(shard.getShardID()));
 		}
 		return po;
 	}
@@ -287,7 +287,7 @@ public class PartitionTable {
 		int total = 0;
 		for (Shard shard : partitionsByShard.keySet()) {
 			if (shard.getState() == ONLINE) {
-				Partition part = partitionsByShard.get(shard);
+				AttachedPartition part = partitionsByShard.get(shard);
 				total += part.getDuties().size();
 			}
 		}
@@ -296,7 +296,7 @@ public class PartitionTable {
 
 	public Shard getDutyLocation(final ShardEntity se) {
 		for (final Shard shard : partitionsByShard.keySet()) {
-			final Partition part = partitionsByShard.get(shard);
+			final AttachedPartition part = partitionsByShard.get(shard);
 			for (ShardEntity st : part.getDuties()) {
 				if (st.equals(se)) {
 					return shard;
@@ -321,7 +321,7 @@ public class PartitionTable {
 			logger.warn("{}: Status without Shards", getClass().getSimpleName());
 		} else {
 			for (final Shard shard : shardsByID.values()) {
-				final Partition partition = partitionsByShard.get(shard);
+				final AttachedPartition partition = partitionsByShard.get(shard);
 				if (partition == null) {
 					logger.info("{}: {} = Empty", getClass().getSimpleName(), shard);
 				} else {

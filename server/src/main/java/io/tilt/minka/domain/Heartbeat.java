@@ -120,7 +120,11 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	}
 
 	public int hashCode() {
-		return new HashCodeBuilder().append(getShardId()).append(getCreation()).append(getSequenceId()).toHashCode();
+		return new HashCodeBuilder()
+				.append(getShardId())
+				.append(getCreation())
+				.append(getSequenceId())
+				.toHashCode();
 	}
 
 	public boolean equalsInContent(Heartbeat hb) {

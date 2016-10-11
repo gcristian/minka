@@ -32,18 +32,19 @@ import io.tilt.minka.api.Duty;
  * @since Dec 13, 2015
  *
  */
-public class Partition {
+public class AttachedPartition {
 
 	private final NetworkShardID id;
 	private Set<ShardEntity> duties;
+	private Set<ShardEntity> pallets;
 
-	public static Partition partitionForFollower(final NetworkShardID shardId) {
-		return new Partition(shardId);
+	public static AttachedPartition partitionForFollower(final NetworkShardID shardId) {
+		return new AttachedPartition(shardId);
 	}
 
-	public Partition(final NetworkShardID shardId) {
+	public AttachedPartition(final NetworkShardID shardId) {
 		this.id = shardId;
-		initDuties();
+		init();
 	}
 
 	/**
@@ -57,8 +58,9 @@ public class Partition {
 		return weight;
 	}
 
-	private void initDuties() {
+	private void init() {
 		this.duties = new TreeSet<>();
+		this.pallets = new TreeSet<>();
 	}
 
 	public NetworkShardID getId() {
@@ -66,7 +68,7 @@ public class Partition {
 	}
 
 	public void clean() {
-		initDuties();
+		init();
 	}
 
 	@Override

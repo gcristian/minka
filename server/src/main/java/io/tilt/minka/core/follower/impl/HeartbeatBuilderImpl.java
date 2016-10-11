@@ -38,7 +38,7 @@ import io.tilt.minka.core.follower.HeartbeatBuilder;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Heartbeat;
-import io.tilt.minka.domain.Partition;
+import io.tilt.minka.domain.AttachedPartition;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.utils.LogUtils;
 
@@ -54,11 +54,11 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private final DependencyPlaceholder dependencyPlaceholder;
-	private final Partition partition;
+	private final AttachedPartition partition;
 	private final AtomicLong sequence;
 	private final Config config;
 
-	public HeartbeatBuilderImpl(final Config config, final DependencyPlaceholder holder, final Partition partition,
+	public HeartbeatBuilderImpl(final Config config, final DependencyPlaceholder holder, final AttachedPartition partition,
 			final LeaderShardContainer leaderShardContainer) {
 
 		super();

@@ -33,21 +33,20 @@ import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.core.task.Semaphore.Action;
-import io.tilt.minka.domain.Partition;
+import io.tilt.minka.domain.AttachedPartition;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 
-@SuppressWarnings("rawtypes")
 public class PartitionManagerImpl implements PartitionManager {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private final DependencyPlaceholder dependencyPlaceholder;
-	private final Partition partition;
+	private final AttachedPartition partition;
 	private final Scheduler scheduler;
 	private final Synchronized releaser;
 
-	public PartitionManagerImpl(DependencyPlaceholder dependencyPlaceholder, Partition partition, Scheduler scheduler,
+	public PartitionManagerImpl(DependencyPlaceholder dependencyPlaceholder, AttachedPartition partition, Scheduler scheduler,
 			LeaderShardContainer leaderShardContainer) {
 
 		super();
@@ -67,7 +66,7 @@ public class PartitionManagerImpl implements PartitionManager {
 	public Void releaseAll() {
 		logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE ALL", getClass().getSimpleName(),
 				partition.getId());
-		unassign(partition.getDuties());
+		dettach(partition.getDuties());
 		partition.clean();
 		return null;
 	}

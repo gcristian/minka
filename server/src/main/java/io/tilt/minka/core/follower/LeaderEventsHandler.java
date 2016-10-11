@@ -41,7 +41,7 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.Clearance;
-import io.tilt.minka.domain.Partition;
+import io.tilt.minka.domain.AttachedPartition;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 
@@ -59,7 +59,7 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final PartitionManager partitionManager;
-	private final Partition partition;
+	private final AttachedPartition partition;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
 	private final Config config;
@@ -73,7 +73,7 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 	private final long START_PAST_LAPSE_MS = 1000 * 60 * 10;
 
 	public LeaderEventsHandler(final Config config, final DependencyPlaceholder dependencyPlaceholder,
-			final Partition partition, final PartitionManager partitionManager, final EventBroker eventBroker,
+			final AttachedPartition partition, final PartitionManager partitionManager, final EventBroker eventBroker,
 			final Scheduler scheduler, final LeaderShardContainer leaderContainer) {
 
 		super();
@@ -164,13 +164,10 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 		try {
 			switch (duties[0].getDutyEvent()) {
 			case ATTACH:
-				partitionManager.assign(Lists.newArrayList(duties));
+				partitionManager.attach(Lists.newArrayList(duties));
 				break;
 			case DETACH:
-				partitionManager.unassign(Lists.newArrayList(duties));
-				for (ShardEntity duty : duties) {
-					partition.getDuties().remove(duty);
-				}
+				partitionManager.dettach(Lists.newArrayList(duties));
 				break;
 			case UPDATE:
 				partitionManager.update(Lists.newArrayList(duties));

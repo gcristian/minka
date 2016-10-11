@@ -37,9 +37,9 @@ public interface PartitionManager {
 
 	Void update(final Collection<ShardEntity> duty);
 
-	Void unassign(final Collection<ShardEntity> duty);
+	Void dettach(final Collection<ShardEntity> duty);
 
-	Void assign(final Collection<ShardEntity> duty);
+	Void attach(final Collection<ShardEntity> duty);
 
 	Void handleClusterOperation(final ShardCommand op);
 
