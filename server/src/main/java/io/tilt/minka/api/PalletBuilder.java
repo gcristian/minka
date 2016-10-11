@@ -86,8 +86,12 @@ public class PalletBuilder<P extends Serializable> implements Pallet<P>, Seriali
 	@Override
 	public boolean equals(Object obj) {
 		if (obj != null && obj instanceof Entity) {
-			Entity<P> entity = (Entity) obj;
-			return getId().equals(entity.getId());
+			if (obj == this ) {
+				return true;
+			} else {
+				Entity<P> entity = (Entity) obj;
+				return getId().equals(entity.getId());
+			}
 		} else {
 			return false;
 		}
