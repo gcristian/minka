@@ -43,10 +43,8 @@ public interface Duty<T extends Serializable> extends Entity<T> {
 	*/
 	double getWeight();
 
-	/**
-	* The pallet ID to which this duty must be grouped into.
-	* @return
-	*/
+	/** The pallet to which this duty must be grouped into. */	
+	Pallet<?> getPallet();
 	String getPalletId();
 
 	/**

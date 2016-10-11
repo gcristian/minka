@@ -82,7 +82,6 @@ public class Distributor extends ServiceImpl {
 	private final ShardID shardId;
 	private final Map<BalanceStrategy, Balancer> balancers;
 	private final EntityDao entityDao;
-	@SuppressWarnings("rawtypes")
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final LeaderShardContainer leaderShardContainer;
 
@@ -93,7 +92,6 @@ public class Distributor extends ServiceImpl {
 
 	private final Agent distributor;
 
-	@SuppressWarnings("rawtypes")
 	public Distributor(final Config config, final Scheduler scheduler, final EventBroker eventBroker,
 			final PartitionTable partitionTable, final Auditor accounter, final ShardID shardId,
 			final Map<BalanceStrategy, Balancer> balancers, final EntityDao dutyDao,

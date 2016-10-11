@@ -152,8 +152,10 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	public boolean equals(Object obj) {
 		if (obj instanceof Heartbeat) {
 			Heartbeat other = (Heartbeat) obj;
-			return new EqualsBuilder().append(getShardId(), other.getShardId())
-					.append(getCreation(), other.getCreation()).append(getSequenceId(), other.getSequenceId())
+			return new EqualsBuilder()
+					.append(getShardId(), other.getShardId())
+					.append(getCreation(), other.getCreation())
+					.append(getSequenceId(), other.getSequenceId())
 					.isEquals();
 		} else {
 			return false;
@@ -162,8 +164,11 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 
 	@Override
 	public String toString() {
-		return new StringBuilder().append(" Sequence: ").append(sequenceId).append(" - Created: ").append(getCreation())
-				.append(" - ShardID: ").append(getShardId()).append(" - Duties: ").append(getDuties().size())
+		return new StringBuilder()
+				.append(" Sequence: ").append(sequenceId)
+				.append(" - Created: ").append(getCreation())
+				.append(" - ShardID: ").append(getShardId())
+				.append(" - Duties: ").append(getDuties().size())
 				.toString();
 	}
 

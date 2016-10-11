@@ -78,17 +78,13 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		RECEIVED,
 		/* status at leader after the effect is confirmed */
 		CONFIRMED,
-		/*
-		 * status at leader when a follower falls, and at follower when lack of
+		/* status at leader when a follower falls, and at follower when lack of
 		 * its registry presence
 		 */
 		DANGLING,
 		/* suddenly stop being reported from follower: no solution yet */
 		MISSING,
-		/*
-		 * status at a leader or follower when there's no viable solution for a
-		 * duty
-		 */
+		/* status at a leader or follower when there's no viable solution for a duty */
 		STUCK
 	}
 
