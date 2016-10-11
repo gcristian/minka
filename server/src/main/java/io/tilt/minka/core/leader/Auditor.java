@@ -308,7 +308,7 @@ public class Auditor {
 		partitionTable.getDutiesDangling().clear();
 	}
 
-	public void removeAndRegisterCruds(final List<Duty<?>> dutiesFromSource) {
+	public void registerDutyCRUD(final List<Duty<?>> dutiesFromSource) {
 		final Set<ShardEntity> sortedLog = new TreeSet<>();
 		final Iterator<Duty<?>> it = dutiesFromSource.iterator();
 		while (it.hasNext()) {
@@ -334,7 +334,7 @@ public class Auditor {
 		}
 	}
 
-	public void removeAndRegisterCrudPallets(final List<Pallet<?>> palletsFromSource) {
+	public void registerPalletCRUD(final List<Pallet<?>> palletsFromSource) {
 		removeAndRegisterCrudEntities(palletsFromSource, partitionTable.getPallets());
 	}
 

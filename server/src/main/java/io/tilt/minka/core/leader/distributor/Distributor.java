@@ -244,9 +244,9 @@ public class Distributor extends ServiceImpl {
 						config.getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster",
 						duties.size());
 				final List<Duty<?>> copy = Lists.newArrayList(duties);
-				auditor.removeAndRegisterCruds(copy);
+				auditor.registerDutyCRUD(copy);
 				final List<Pallet<?>> copyP = Lists.newArrayList(pallets);
-				auditor.removeAndRegisterCrudPallets(copyP);
+				auditor.registerPalletCRUD(copyP);
 				initialAdding = false;
 			}
 			if (partitionTable.getDutiesCrud().isEmpty()) {
