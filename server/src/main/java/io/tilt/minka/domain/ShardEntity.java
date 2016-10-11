@@ -60,7 +60,8 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	private Map<EntityEvent, DateTime> partitionDates;
 	private Map<State, DateTime> stateDates;
 	private boolean checkForChange;
-
+	private ShardEntity relatedEntity;
+	
 	public enum Type {
 		DUTY, PALLET
 	}
@@ -105,9 +106,17 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		t.setUserPayload(entity.getUserPayload());
 		t.setState(entity.getState());
 		t.setPartitionEvent(entity.getDutyEvent());
+		t.setRelatedEntity(entity.getRelatedEntity());
 		return t;
 	}
 
+	public void setRelatedEntity(final ShardEntity entity){
+		this.relatedEntity = entity;
+	}
+	
+	public ShardEntity getRelatedEntity() {
+		return this.relatedEntity;
+	}
 	private void setPartitionEvent(EntityEvent dutyEvent) {
 		this.event = dutyEvent;
 	}
@@ -212,7 +221,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	public String toStringGroupByPallet(Set<ShardEntity> duties) {
 		final StringBuilder sb = new StringBuilder();
 		final Multimap<String, ShardEntity> mm = HashMultimap.create();
-		duties.forEach(e -> mm.put(e.getDuty().getPalletId(), e));
+		duties.forEach(e -> mm.put(e.getDuty().getPallet().getId(), e));
 		mm.asMap().forEach((k, v) -> {
 			sb.append("p").append(k).append(" -> ").append(toStringBrief(v)).append(", ");
 		});
@@ -246,7 +255,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 			StringBuilder sb = new StringBuilder(ttype.length() + id.length() + 30);
 
 			if (type == Type.DUTY) {
-				sb.append("p").append(getDuty().getPalletId());
+				sb.append("p").append(getDuty().getPallet().getId());
 			}
 			sb.append(type == Type.DUTY ? "d" : "p").append(id);
 			if (type == Type.DUTY) {
@@ -265,7 +274,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	public String toBrief() {
 		final String load = String.valueOf(this.getDuty().getWeight());
-		final String pid = getDuty().getPalletId();
+		final String pid = getDuty().getPallet().getId();
 		final String id = getEntity().toString();
 		final StringBuilder sb = new StringBuilder(10 + load.length() + id.length() + pid.length());
 		if (type == Type.DUTY) {

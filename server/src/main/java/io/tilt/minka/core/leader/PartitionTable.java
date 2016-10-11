@@ -56,8 +56,9 @@ public class PartitionTable {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private Map<ShardID, Shard> shardsByID;
-	private Map<Shard, Partition> partitionsByShard;
-
+	private Map<Shard, AttachedPartition> partitionsByShard;
+	private Map<String, ShardEntity> palletsById;
+	
 	/* only for saving client's additions */
 	private Set<ShardEntity> palletCrud;
 	private Set<ShardEntity> dutyCrud;
@@ -175,6 +176,10 @@ public class PartitionTable {
 		this.dutyCrud = new HashSet<>();
 	}
 
+	public ShardEntity getPalletById(final String id) {
+		return this.palletsById.get(id);
+	}
+	
 	public Set<ShardEntity> getDutiesCrud() {
 		return this.dutyCrud;
 	}
@@ -256,7 +261,7 @@ public class PartitionTable {
 
 	public Set<ShardEntity> getDutiesByShard(final Pallet<?> pallet, final Shard shard) {
 		return Sets.newHashSet(getPartition(shard).getDuties().stream()
-				.filter(e -> e.getDuty().getPalletId().equals(pallet.getId())).collect(Collectors.toList()));
+				.filter(e -> e.getDuty().getPallet().getId().equals(pallet.getId())).collect(Collectors.toList()));
 	}
 
 	public Set<ShardEntity> getDutiesAllByShardState(final Pallet<?> pallet, final ShardState state) {

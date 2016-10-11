@@ -101,6 +101,7 @@ public class Auditor {
 			return;
 		}
 		shard.addHeartbeat(hb);
+		shard.setMaxWeights(hb.getMaxWeights());
 		if (getCurrentReallocation().isEmpty()) {
 			// believe only when online: to avoid Dirty efects after follower's hangs/stucks
 			// so it clears itself before trusting their HBs
@@ -317,7 +318,14 @@ public class Auditor {
 				it.remove();
 			} else {
 				logger.info("{}: Adding Dutyt: {}", getClass().getSimpleName(), potential);
-				partitionTable.addCrudDuty(potential);
+				final ShardEntity pallet = partitionTable.getPalletById(potential.getDuty().getPalletId());
+				if (pallet!=null) {
+					potential.setRelatedEntity(pallet);
+					partitionTable.addCrudDuty(potential);
+				} else {
+					logger.error("{}: Skipping CRUD: Pallet ID :{} set not found or yet created", getClass().getSimpleName(),
+							potential, potential.getDuty().getPalletId());
+				}
 			}
 		}
 		if (!sortedLog.isEmpty()) {
@@ -376,24 +384,31 @@ public class Auditor {
 	 * @param dutiesFromAction
 	 */
 	public void registerCrudThruCheck(ShardEntity... dutiesFromAction) {
-		for (final ShardEntity duty : dutiesFromAction) {
-			final boolean found = presentInPartition(duty);
-			final EntityEvent event = duty.getDutyEvent();
+		for (final ShardEntity ent : dutiesFromAction) {
+			final boolean found = presentInPartition(ent);
+			final EntityEvent event = ent.getDutyEvent();
 			if (event.isCrud() && (event == CREATE)) {
 				if (!found) {
-					logger.info("{}: Registering Crud Duty: {}", getClass().getSimpleName(), duty);
-					partitionTable.addCrudDuty(duty);
+					logger.info("{}: Registering Crud Duty: {}", getClass().getSimpleName(), ent);
+					final ShardEntity pallet = partitionTable.getPalletById(ent.getDuty().getPalletId());
+					if (pallet!=null) {
+						ent.setRelatedEntity(pallet);
+						partitionTable.addCrudDuty(ent);
+					} else {
+						logger.error("{}: Skipping Crud Event {}: Pallet ID :{} set not found or yet created", getClass().getSimpleName(),
+								event, ent, ent.getDuty().getPalletId());
+					}
 				} else {
 					logger.warn("{}: Skipping Crud Event {} already in Partition Table: {}", getClass().getSimpleName(),
-							event, duty);
+							event, ent);
 				}
 			} else if (event.isCrud() && (event == EntityEvent.REMOVE || event == FINALIZED || event == UPDATE)) {
 				if (found) {
-					logger.info("{}: Registering Crud Duty: {}", getClass().getSimpleName(), duty);
-					partitionTable.addCrudDuty(duty);
+					logger.info("{}: Registering Crud Duty: {}", getClass().getSimpleName(), ent);
+					partitionTable.addCrudDuty(ent);
 				} else {
 					logger.warn("{}: Skipping Crud Event {} Not Found in Partition Table: {}",
-							getClass().getSimpleName(), event, duty);
+							getClass().getSimpleName(), event, ent);
 				}
 			} else if (!event.isCrud()) {
 				throw new RuntimeException("Bad call");

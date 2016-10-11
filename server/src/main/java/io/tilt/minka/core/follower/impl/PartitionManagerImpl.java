@@ -19,6 +19,7 @@ package io.tilt.minka.core.follower.impl;
 import java.util.Collection;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -112,18 +113,30 @@ public class PartitionManagerImpl implements PartitionManager {
 	}
 
 	@SuppressWarnings("unchecked")
-	public Void unassign(final Collection<ShardEntity> duties) {
+	public Void dettach(final Collection<ShardEntity> duties) {
 		logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE : {}", getClass().getSimpleName(),
 				partition.getId(), ShardEntity.toStringBrief(duties));
-		dependencyPlaceholder.getDelegate().release(toSet(duties, duty -> {
-			if (!partition.getDuties().contains(duty)) {
-				logger.error("{}: ({}) Unable to RELEASE a never taken Duty !: {}", getClass().getSimpleName(),
-						partition.getId(), duty);
-				return false;
-			} else {
-				return true;
-			}
-		}));
+		try {
+			dependencyPlaceholder.getDelegate().release(toSet(duties, duty -> {
+				if (!partition.getDuties().contains(duty)) {
+					logger.error("{}: ({}) Unable to RELEASE a never taken Duty !: {}", getClass().getSimpleName(),
+							partition.getId(), duty);
+					return false;
+				} else {
+					return true;
+				}
+			}));
+			duties.forEach(d->partition.getDuties().remove(d));
+			// remove pallets absent in duties
+			partition.getPallets().removeAll(partition.getPallets().stream()
+				.filter(p->!partition.getDuties().contains(p.getRelatedEntity().getPallet()))
+				.collect(Collectors.toList()));
+			
+			
+		} catch (Exception e) {
+			logger.error("{}: ({}) Exception: {}", getClass().getSimpleName(),
+					partition.getId(), e);
+		}
 		/*
 		 * scheduler.release(IdentifiedAction.build(RESERVE_DUTY,
 		 * duty.getDuty().getId()));
@@ -132,15 +145,22 @@ public class PartitionManagerImpl implements PartitionManager {
 	}
 
 	@SuppressWarnings("unchecked")
-	public Void assign(final Collection<ShardEntity> duties) {
+	public Void attach(final Collection<ShardEntity> duties) {
 		/*
 		 * if (scheduler.acquire(IdentifiedAction.build(RESERVE_DUTY,
 		 * duty.getDuty().getId())) == GRANTED) {
 		 */
 		logger.info("{}: ({}) Instructing PartitionDelegate to TAKE: {}", getClass().getSimpleName(), partition.getId(),
 				ShardEntity.toStringBrief(duties));
-		dependencyPlaceholder.getDelegate().take(toSet(duties, null));
-		partition.getDuties().addAll(duties);
+		try {
+			dependencyPlaceholder.getDelegate().take(toSet(duties, null));
+			partition.getDuties().addAll(duties);
+			partition.getPallets().addAll(duties.stream()
+					.map(d->d.getRelatedEntity()).distinct().collect(Collectors.toList()));
+		} catch (Exception e) {
+			logger.error("{}: ({}) Delegate thrown an Exception while Taking", getClass().getSimpleName(), 
+					partition.getId(), e);
+		}
 		/*
 		 * } else { logger.error(
 		 * "{}: ShardID: {}, Unable to TAKE an already Locked Duty !: {}",

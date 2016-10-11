@@ -44,7 +44,7 @@ public class Shard implements Comparator<Shard> {
 	private DateTime lastStatusChange;
 	private final SlidingSortedSet<Heartbeat> cardiacLapse;
 	private ShardState serviceState;
-	private Map<Pallet<?>, Double> maxWeight;
+	private Map<Pallet<?>, Double> maxWeights;
 
 	public Shard(final BrokerChannel channel, final NetworkShardID memberId) {
 		super();
@@ -71,7 +71,11 @@ public class Shard implements Comparator<Shard> {
 	public NetworkShardID getShardID() {
 		return this.shardId;
 	}
-
+	
+	public void setMaxWeights(Map<Pallet<?>, Double> maxWeights) {
+		this.maxWeights = maxWeights;
+	}
+	
 	public void addHeartbeat(final Heartbeat hb) {
 		if (hb.getStateChange() != null) {
 			this.serviceState = hb.getStateChange();

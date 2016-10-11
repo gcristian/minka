@@ -93,7 +93,7 @@ public class Arranger {
 		final Iterator<Set<ShardEntity>> itPallet = allCollector.getPalletsIterator();
 		while (itPallet.hasNext()) {
 			final ShardEntity pallet = allCollector
-					.getPallet(itPallet.next().iterator().next().getDuty().getPalletId());
+					.getPallet(itPallet.next().iterator().next().getDuty().getPallet().getId());
 			final Balancer balancer = balancerMap.get(pallet.getPallet().getBalanceStrategy());
 
 			logger.info("{}: using {} on Pallet: {} with Duties: {}", getClass().getSimpleName(),

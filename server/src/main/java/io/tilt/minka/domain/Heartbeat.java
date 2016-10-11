@@ -54,17 +54,18 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	private ShardState stateChange;
 
 	public static Heartbeat create(final List<ShardEntity> entities, final boolean warning, final NetworkShardID id,
-			long sequenceId) {
-		return new Heartbeat(entities, warning, id, sequenceId);
+			long sequenceId, final Map<Pallet<?>, Double> maxWeights) {
+		return new Heartbeat(entities, warning, id, sequenceId, maxWeights);
 	}
 
 	private Heartbeat(final List<ShardEntity> duties, final boolean warning, final NetworkShardID id,
-			final long sequenceId) {
+			final long sequenceId, final Map<Pallet<?>, Double> maxWeights) {
 		this.duties = duties;
 		this.warning = warning;
 		this.shardId = id;
 		this.creation = new DateTime(DateTimeZone.UTC);
 		this.sequenceId = sequenceId;
+		this.maxWeights = maxWeights;
 	}
 
 	public static Heartbeat copy(final Heartbeat hb) {
@@ -72,7 +73,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		for (ShardEntity d : hb.getDuties()) {
 			cloned.add(ShardEntity.copy(d));
 		}
-		return new Heartbeat(cloned, hb.hasWarning(), hb.shardId, hb.sequenceId);
+		return new Heartbeat(cloned, hb.hasWarning(), hb.shardId, hb.sequenceId, hb.maxWeights);
 	}
 
 	public void cleanDuties() {
@@ -184,5 +185,9 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	@Override
 	public String getId() {
 		return this.shardId.getStringIdentity();
+	}
+	
+	public Map<Pallet<?>, Double> getMaxWeights() {
+		return this.maxWeights;
 	}
 }

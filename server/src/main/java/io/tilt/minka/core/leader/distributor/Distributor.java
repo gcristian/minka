@@ -39,8 +39,8 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
-import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.DutyBuilder;
 import io.tilt.minka.api.Pallet;

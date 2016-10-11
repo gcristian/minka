@@ -94,5 +94,9 @@ public class AttachedPartition {
 	public Set<ShardEntity> getDuties() {
 		return duties;
 	}
+	
+	public Set<ShardEntity> getPallets() {
+		return this.pallets;
+	}
 
 }

@@ -100,13 +100,18 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 
 		addAbsentAsDangling(reportedDuties, shardingDuties);
 
-		Map<Pallet<?>, Double> weights = new HashMap<>();
-		Set<Pallet<?>> pallets = new HashSet<>();
+		Map<Pallet<?>, Double> maxWeights = new HashMap<>();
+		partition.getPallets().forEach(p -> {
+				try {
+					maxWeights.put(p.getPallet(), dependencyPlaceholder.getDelegate().getMaxWeight(p.getPallet()));
+				} catch (Exception e) {
+					logger.error("{}: ({}) Error ocurred while asking for Max Weight on Pallet: {}", getClass().getSimpleName(),
+							partition.getId(), p.getPallet());
+				}
+			});
 
-		reportedDuties.forEach(d -> pallets.add(d.getPalletId()));
-		dependencyPlaceholder.getDelegate().getMaxWeight(p);
-
-		final Heartbeat hb = Heartbeat.create(shardingDuties, warning, partition.getId(), sequence.getAndIncrement());
+		final Heartbeat hb = Heartbeat.create(shardingDuties, warning, partition.getId(), sequence.getAndIncrement(), 
+				maxWeights);
 		if (logger.isDebugEnabled()) {
 			logDebugNicely(hb);
 		} else {
