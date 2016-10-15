@@ -31,8 +31,8 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.AtomicDouble;
 
-import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.domain.EntityEvent;
@@ -65,7 +65,7 @@ public class SpillOverBalancer implements Balancer {
 		SIZE
 	}
 
-	public SpillOverBalancer(final Config config) {
+	public SpillOverBalancer(final NewConfig config) {
 
 	}
 

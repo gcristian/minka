@@ -28,9 +28,8 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Lists;
 
 import io.tilt.minka.api.DependencyPlaceholder;
-import io.tilt.minka.api.Config;
 import io.tilt.minka.api.EntityPayload;
-import io.tilt.minka.api.PartitionDelegate;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.task.LeaderShardContainer;
@@ -40,8 +39,8 @@ import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.core.task.impl.ServiceImpl;
-import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.AttachedPartition;
+import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 
@@ -62,7 +61,7 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 	private final AttachedPartition partition;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
-	private final Config config;
+	private final NewConfig config;
 	private Clearance lastClearance;
 	private final LeaderShardContainer leaderContainer;
 
@@ -72,7 +71,7 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 	 */
 	private final long START_PAST_LAPSE_MS = 1000 * 60 * 10;
 
-	public LeaderEventsHandler(final Config config, final DependencyPlaceholder dependencyPlaceholder,
+	public LeaderEventsHandler(final NewConfig config, final DependencyPlaceholder dependencyPlaceholder,
 			final AttachedPartition partition, final PartitionManager partitionManager, final EventBroker eventBroker,
 			final Scheduler scheduler, final LeaderShardContainer leaderContainer) {
 
@@ -90,15 +89,14 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 	public void start() {
 		this.dependencyPlaceholder.getDelegate().activate();
 		logger.info("{}: ({}) Preparing for leader events", getName(), config.getLoggingShardId());
-		final long retentionLapse = Math.max(config.getQueueInboxRetentionLapseMs() * 1000, START_PAST_LAPSE_MS);
 		final long sinceNow = System.currentTimeMillis();
 		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()),
-				ShardEntity.class, this, sinceNow, retentionLapse);
+				ShardEntity.class, this, sinceNow);
 		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()),
-				Clearance.class, this, sinceNow, retentionLapse);
+				Clearance.class, this, sinceNow);
 		eventBroker.subscribeEvents(
 				eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()), ArrayList.class,
-				this, sinceNow, retentionLapse);
+				this, sinceNow);
 
 	}
 

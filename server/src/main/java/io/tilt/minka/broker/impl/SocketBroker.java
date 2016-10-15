@@ -30,7 +30,7 @@ import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Config;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
@@ -58,14 +58,14 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	private final Config config;
+	private final NewConfig config;
 	private final LeaderShardContainer leaderShardContainer;
 	private final Scheduler scheduler;
 	private SocketServer server;
 
 	private Map<DirectChannel, SocketClient> clients;
 
-	public SocketBroker(Config config, NetworkShardID shardId, LeaderShardContainer leaderContainerShard,
+	public SocketBroker(NewConfig config, NetworkShardID shardId, LeaderShardContainer leaderContainerShard,
 			Scheduler scheduler) {
 
 		super(shardId);
@@ -87,10 +87,10 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 
 			logger.info("{}: Creating SocketServer", getClass().getSimpleName());
 			getShardId().leavePortReservation();
-			this.server = new SocketServer(this, config.getBrokerServerConnectionHandlerThreads(),
+			this.server = new SocketServer(this, config.getBroker().getConnectionHandlerThreads(),
 					getShardId().getInetPort(), getShardId().getInetAddress().getHostAddress(),
-					config.getBrokerUseNetworkInterfase(), scheduler, config.getBrokerRetryDelayMs(),
-					config.getBrokerMaxRetries());
+					config.getBroker().getNetworkInterfase(), scheduler, config.getBroker().getRetryDelayMs(),
+					config.getBroker().getMaxRetries());
 		}
 	}
 
@@ -152,7 +152,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 			logger.info("{}: ({}) CREATING SocketClient for Shard: {}", getClass().getSimpleName(), getShardId(),
 					channel.getAddress());
 			this.clients.put((DirectChannel) channel, client = new SocketClient(channel, scheduler,
-					config.getBrokerRetryDelayMs(), config.getBrokerMaxRetries(), getShardId().toString(), config));
+					config.getBroker().getRetryDelayMs(), config.getBroker().getMaxRetries(), getShardId().toString(), config));
 		}
 
 		logger.debug("{}: ({}) Posting to Broker: {}:{} ({} into {}))", getClass().getSimpleName(), getShardId(),
@@ -243,13 +243,13 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 
 	@Override
 	protected boolean onSubscription(BrokerChannel channel, Class<? extends Serializable> eventType,
-			Consumer<Serializable> driver, long sinceTimestamp, long retentionLapse) {
+			Consumer<Serializable> driver, long sinceTimestamp) {
 		return true;
 	}
 
 	@Override
-	public BrokerChannel build(Config config, Channel channel) {
-		return build(config.getServiceName(), channel);
+	public BrokerChannel build(NewConfig config, Channel channel) {
+		return build(config.getBootstrap().getServiceName(), channel);
 	}
 
 	@Override
@@ -258,8 +258,8 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	}
 
 	@Override
-	public BrokerChannel buildToTarget(Config config, Channel channel, NetworkShardID shardId) {
-		return new DirectChannel(config.getServiceName(), shardId, channel);
+	public BrokerChannel buildToTarget(NewConfig config, Channel channel, NetworkShardID shardId) {
+		return new DirectChannel(config.getBootstrap().getServiceName(), shardId, channel);
 	}
 
 	@Override

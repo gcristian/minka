@@ -104,10 +104,10 @@ public class MinkaClient {
 	private final EventBroker eventBroker;
 	private final ClientEventsHandler clientMediator;
 	private final ShardID shardId;
-	private final Config config;
+	private final NewConfig config;
 	private final LeaderShardContainer leaderShardContainer;
 
-	protected MinkaClient(final Config config, final Leader leader, final EventBroker eventBroker,
+	protected MinkaClient(final NewConfig config, final Leader leader, final EventBroker eventBroker,
 			final ClientEventsHandler mediator, final ShardID shardId,
 			final ZookeeperLeaderShardContainer leaderShardContainer) {
 		this.config = config;
@@ -218,7 +218,7 @@ public class MinkaClient {
 		} else {
 			logger.info("{}: Sending Duty: {} with Event: {} to leader in service", getClass().getSimpleName(), raw,
 					event);
-			sent = eventBroker.postEvent(eventBroker.buildToTarget(config.getServiceName(), Channel.CLIENT_TO_LEADER,
+			sent = eventBroker.postEvent(eventBroker.buildToTarget(config.getBootstrap().getServiceName(), Channel.CLIENT_TO_LEADER,
 					leaderShardContainer.getLeaderShardId()), duty);
 		}
 		return sent;

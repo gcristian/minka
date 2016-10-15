@@ -25,7 +25,7 @@ import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Config;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.impl.SpectatorSupplier;
 import io.tilt.minka.domain.NetworkShardID;
@@ -46,10 +46,10 @@ public class ZookeeperBroker extends AbstractBroker implements EventBroker, Cons
 	private final Queues queues;
 	private final Wells wells;
 
-	public ZookeeperBroker(final Config config, final NetworkShardID shardId) {
+	public ZookeeperBroker(final NewConfig config, final NetworkShardID shardId) {
 		super(shardId);
-		this.queues = new Queues(config.getZookeeperHostPort());
-		this.wells = new Wells(config.getZookeeperHostPort());
+		this.queues = new Queues(config.getBootstrap().getZookeeperHostPort());
+		this.wells = new Wells(config.getBootstrap().getZookeeperHostPort());
 	}
 
 	@Override
@@ -58,13 +58,13 @@ public class ZookeeperBroker extends AbstractBroker implements EventBroker, Cons
 	}
 
 	@Override
-	public BrokerChannel buildToTarget(final Config config, final Channel channel, final NetworkShardID shardId) {
-		return buildToTarget(config.getServiceName(), channel, shardId);
+	public BrokerChannel buildToTarget(final NewConfig config, final Channel channel, final NetworkShardID shardId) {
+		return buildToTarget(config.getBootstrap().getServiceName(), channel, shardId);
 	}
 
 	@Override
-	public BrokerChannel build(final Config config, final Channel channel) {
-		return build(config.getServiceName(), channel);
+	public BrokerChannel build(final NewConfig config, final Channel channel) {
+		return build(config.getBootstrap().getServiceName(), channel);
 	}
 
 	@Override
@@ -145,11 +145,11 @@ public class ZookeeperBroker extends AbstractBroker implements EventBroker, Cons
 
 	@Override
 	protected boolean onSubscription(BrokerChannel channel, Class<? extends Serializable> eventType,
-			Consumer<Serializable> driver, long sinceTimestamp, long retentionLapse) {
+			Consumer<Serializable> driver, long sinceTimestamp) {
 
 		try {
 			return (channel.getChannel().getType() == EVENT_SET) ? wells.runOnUpdate(channel.getFullName(), this)
-					: queues.runAsSubscriber(channel.getFullName(), this, sinceTimestamp, retentionLapse);
+					: queues.runAsSubscriber(channel.getFullName(), this, sinceTimestamp, 1000 * 30);
 		} catch (Exception e) {
 			throw new RuntimeException("Event subscription error", e);
 		}

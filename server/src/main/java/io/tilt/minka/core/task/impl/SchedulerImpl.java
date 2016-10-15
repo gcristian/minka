@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
-import io.tilt.minka.api.Config;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.ShardID;
 
@@ -59,14 +59,13 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	/* for local scope actions */
 	private final Map<Action, Rule> rules;
 	private final ShardID shardId;
-
 	private long lastCheck;
 
 	/* for global scope actions */
 	private ScheduledThreadPoolExecutor executor;
 
 	public SchedulerImpl(
-			final Config config, 
+			final NewConfig config, 
 			final SpectatorSupplier supplier, 
 			final ShardID shardId, 
 			final AgentFactory agentFactory,
@@ -76,7 +75,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		this.agentFactory = agentFactory;
 		this.syncFactory = syncFactory;
 		this.executor = new ScheduledThreadPoolExecutor(MAX_CONCURRENT_THREADS,
-			new ThreadFactoryBuilder().setNameFormat(Config.THREAD_NAME_COORDINATOR_IN_BACKGROUND).build());
+			new ThreadFactoryBuilder().setNameFormat(NewConfig.SchedulerConf.THREAD_NAME_COORDINATOR_IN_BACKGROUND).build());
 		executor.setRemoveOnCancelPolicy(true);
 		executor.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
 		executor.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
@@ -216,14 +215,14 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 			if (p == GRANTED) {
 				return call(sync, true);
 			} else if (p == RETRY && untilGrant) {
-				if (retries++ < Config.SEMAPHORE_UNLOCK_MAX_RETRIES) {
+				if (retries++ < getConfig().getScheduler().getSemaphoreUnlockMaxRetries()) {
 					if (logger.isDebugEnabled()) {
 						logger.warn("{}: ({}) Sleeping while waiting to acquire lock: {}", getName(), shardId,
 							sync.getAction());
 					}
 					// TODO: WTF -> LockSupport.parkUntil(Config.SEMAPHORE_UNLOCK_RETRY_DELAY_MS);
 					try {
-						Thread.sleep(Config.SEMAPHORE_UNLOCK_RETRY_DELAY_MS);
+						Thread.sleep(getConfig().getScheduler().getSemaphoreUnlockRetryDelayMs());
 					} catch (InterruptedException e) {
 						logger.error("{}: ({}) While sleeping for unlock delay", getName(), shardId, e);
 					}

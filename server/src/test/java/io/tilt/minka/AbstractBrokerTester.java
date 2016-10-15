@@ -21,7 +21,7 @@ import java.util.function.Consumer;
 import org.junit.Before;
 import org.junit.Test;
 
-import io.tilt.minka.api.Config;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.impl.TransportlessLeaderShardContainer;
@@ -52,12 +52,12 @@ public abstract class AbstractBrokerTester {
 
 		// network communication requires some time
 
-		final Config configL = buidConfig(22000);
+		final NewConfig configL = buidConfig(22000);
 		final NetworkShardIDImpl shardL = new NetworkShardIDImpl(configL);
 
-		final Config configF1 = buidConfig(22001);
+		final NewConfig configF1 = buidConfig(22001);
 		final NetworkShardIDImpl shardF1 = new NetworkShardIDImpl(configF1);
-		final Config configF2 = buidConfig(22002);
+		final NewConfig configF2 = buidConfig(22002);
 		final NetworkShardIDImpl shardF2 = new NetworkShardIDImpl(configF2);
 
 		final LeaderShardContainer container = new TransportlessLeaderShardContainer(shardL);
@@ -79,18 +79,18 @@ public abstract class AbstractBrokerTester {
 	}
 
 	public static class MetaBroker {
-		private final Config config;
+		private final NewConfig config;
 		private final NetworkShardIDImpl shard;
 		private final EventBroker broker;
 
-		public MetaBroker(final Config config, final NetworkShardIDImpl shard, final EventBroker broker) {
+		public MetaBroker(final NewConfig config, final NetworkShardIDImpl shard, final EventBroker broker) {
 			super();
 			this.config = config;
 			this.shard = shard;
 			this.broker = broker;
 		}
 
-		public Config getConfig() {
+		NewConfig getConfig() {
 			return this.config;
 		}
 
@@ -119,7 +119,7 @@ public abstract class AbstractBrokerTester {
 		for (int i = 0; i < brokerSize; i++) {
 			while (!ports.add(port = rnd.nextInt(MAX_PORT_VALUE)) && port < MIN_PORT_VALUE)
 				;
-			final Config config = buidConfig(port);
+			final NewConfig config = buidConfig(port);
 			final NetworkShardIDImpl shard = new NetworkShardIDImpl(config);
 			if (container == null) {
 				container = new TransportlessLeaderShardContainer(shard);
@@ -140,7 +140,7 @@ public abstract class AbstractBrokerTester {
 		}
 	}
 
-	private void test(final EventBroker sourceBroker, final NetworkShardID targetShard, final Config config,
+	private void test(final EventBroker sourceBroker, final NetworkShardID targetShard, final NewConfig config,
 			final int integer) throws InterruptedException {
 
 		latch = new CountDownLatch(1);
@@ -154,7 +154,7 @@ public abstract class AbstractBrokerTester {
 	}
 
 	protected abstract EventBroker buildBroker(final Consumer<Serializable> driver,
-			final LeaderShardContainer container, final Config config, final NetworkShardID shard);
+			final LeaderShardContainer container, final NewConfig config, final NetworkShardID shard);
 
 	protected Consumer<Serializable> buildConsumer(final AtomicInteger msgAtDestiny) {
 
@@ -167,10 +167,10 @@ public abstract class AbstractBrokerTester {
 		};
 	}
 
-	protected Config buidConfig(int port) {
+	protected NewConfig buidConfig(int port) {
 		Properties propF = new Properties();
 		propF.setProperty("brokerServerPort", String.valueOf(port));
-		return new Config(propF);
+		return new NewConfig(propF);
 	}
 
 }

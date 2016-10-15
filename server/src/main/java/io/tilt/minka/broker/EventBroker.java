@@ -23,7 +23,7 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.function.Consumer;
 
-import io.tilt.minka.api.Config;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.NetworkShardID;
 
@@ -36,13 +36,13 @@ import io.tilt.minka.domain.NetworkShardID;
  */
 public interface EventBroker extends Service {
 
-	BrokerChannel build(Config config, Channel channel);
+	BrokerChannel build(NewConfig config, Channel channel);
 
 	default BrokerChannel build(String service, Channel channel) {
 		throw new RuntimeException("Unmandatory build was required");
 	}
 
-	BrokerChannel buildToTarget(Config config, Channel channel, NetworkShardID shardId);
+	BrokerChannel buildToTarget(NewConfig config, Channel channel, NetworkShardID shardId);
 
 	default BrokerChannel buildToTarget(String service, Channel channel, NetworkShardID shardId) {
 		throw new RuntimeException("Unmandatory build was required");
@@ -105,7 +105,7 @@ public interface EventBroker extends Service {
 
 	/* use a driver to handle events of a certain type */
 	boolean subscribe(BrokerChannel channel, Class<? extends Serializable> type, Consumer<Serializable> driver,
-			long sinceTimestamp, long retentionLapse);
+			long sinceTimestamp);
 
 	/* unregister the driver handling events of a certain type */
 	boolean unsubscribe(BrokerChannel channel, Class<? extends Serializable> eventType,
@@ -123,6 +123,6 @@ public interface EventBroker extends Service {
 	}
 
 	void subscribeEvents(BrokerChannel channel, Class<? extends Serializable> class1,
-			final Consumer<Serializable> driver, long sinceNow, long retentionLapse);
+			final Consumer<Serializable> driver, long sinceNowLapse);
 
 }

@@ -6,14 +6,14 @@ package io.tilt.minka;
 
 import org.junit.Test;
 
-import io.tilt.minka.api.Config;
+import io.tilt.minka.api.NewConfig;
 
 public class ConfigTest {
 
 	@Test
 	public void testConfig() {
 
-		new Config(null);
+		new NewConfig(null);
 
 	}
 

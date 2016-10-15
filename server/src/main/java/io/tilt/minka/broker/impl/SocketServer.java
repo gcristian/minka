@@ -38,7 +38,7 @@ import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-import io.tilt.minka.api.Config;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
@@ -95,7 +95,7 @@ public class SocketServer {
 	 */
 	private void keepListeningWithRetries(final int maxRetries, final int retryDelay) {
 		this.serverWorkerGroup = new NioEventLoopGroup(this.connectionHandlerThreads,
-				new ThreadFactoryBuilder().setNameFormat(Config.THREAD_NAME_BROKER_SERVER_WORKER).build());
+				new ThreadFactoryBuilder().setNameFormat(NewConfig.SchedulerConf.THREAD_NAME_BROKER_SERVER_WORKER).build());
 
 		boolean disconnected = true;
 		while (retry < maxRetries && disconnected) {

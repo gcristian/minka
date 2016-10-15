@@ -44,7 +44,6 @@ public class Defaulter {
 	private final static Logger logger = LoggerFactory.getLogger(Defaulter.class);
 
 	private final static String DELIMS = "_";
-	private final static String SUFFIX = "DEFAULT";
 
 	/**
 	 * @param   props the properties instance to look up keys for 
@@ -54,41 +53,40 @@ public class Defaulter {
 	 * 
 	 * @return  TRUE if all defaults were applied. FALSE if some was not !
 	 */
-	public static boolean apply(final Properties props, Object configurable) {
+	public static boolean apply(final Properties props, final String propPrefix, final Object configurable) {
 		Validate.notNull(props);
 		Validate.notNull(configurable);
 		boolean all = true;
 		for (final Field staticField : getStaticDefaults(configurable.getClass())) {
 			final String name = properCaseIt(staticField.getName());
-			if (staticField.getName().endsWith(SUFFIX)) {
-				final String nameNoDef = name.substring(0, name.length() - SUFFIX.length());
+			final String nameNoDef = name.substring(0, name.length());
+			try {
+				final Field instanceField = configurable.getClass().getDeclaredField(nameNoDef);
 				try {
-					final Field instanceField = configurable.getClass().getDeclaredField(nameNoDef);
-					try {
-						final PropertyEditor editor = edit(props, configurable, staticField, instanceField);
-						instanceField.setAccessible(true);
-						instanceField.set(configurable, editor.getValue());
-					} catch (IllegalArgumentException | IllegalAccessException e) {
-						all = false;
-						logger.error("Defaulter: object <{}> cannot set value for field: {}",
-								configurable.getClass().getSimpleName(), nameNoDef, e);
-					}
-				} catch (NoSuchFieldException | SecurityException e) {
+					final PropertyEditor editor = edit(props, propPrefix, configurable, staticField, instanceField);
+					instanceField.setAccessible(true);
+					instanceField.set(configurable, editor.getValue());
+				} catch (IllegalArgumentException | IllegalAccessException e) {
 					all = false;
-					logger.error("Defaulter: object <{}> has no field: {} for default static: {} (reason: {})",
-							configurable.getClass().getSimpleName(), nameNoDef, staticField.getName(),
-							e.getClass().getSimpleName());
+					logger.error("Defaulter: object <{}> cannot set value for field: {}",
+							configurable.getClass().getSimpleName(), nameNoDef, e);
 				}
+			} catch (NoSuchFieldException | SecurityException e) {
+				all = false;
+				logger.error("Defaulter: object <{}> has no field: {} for default static: {} (reason: {})",
+						configurable.getClass().getSimpleName(), nameNoDef, staticField.getName(),
+						e.getClass().getSimpleName());
 			}
 		}
 		return all;
 	}
 
-	private static PropertyEditor edit(final Properties props, final Object configurable, final Field staticField,
+	private static PropertyEditor edit(final Properties props, final String propPrefix, 
+			final Object configurable, final Field staticField,
 			final Field instanceField) throws IllegalAccessException {
 
 		staticField.setAccessible(true);
-		final String name = instanceField.getName();
+		final String name = propPrefix + instanceField.getName();
 		final String staticValue = staticField.get(configurable).toString();
 		final Object propertyOrDefault = props.getProperty(name, System.getProperty(name, staticValue));
 		final String objName = configurable.getClass().getSimpleName();
@@ -97,7 +95,7 @@ public class Defaulter {
 		try {
 			editor.setAsText(propertyOrDefault.toString());
 			logger.info(setLog, objName, name, editor.getValue(),
-					propertyOrDefault != staticValue ? " property " : staticField.getName());
+					propertyOrDefault != staticValue ? " property file / system environment " : staticField.getName());
 		} catch (Exception e) {
 			logger.error(
 					"Defaulter: object <{}> field: {} does not accept property or static "

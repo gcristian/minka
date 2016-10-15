@@ -23,7 +23,7 @@ import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Config;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.task.Scheduler;
@@ -45,7 +45,7 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	private final Config config;
+	private final NewConfig config;
 	private final PartitionTable partitionTable;
 	private final Auditor auditor;
 	private final EventBroker eventBroker;
@@ -57,7 +57,7 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 	 */
 	private final long START_PAST_LAPSE_MS = 1000 * 60 * 10;
 
-	public FollowerEventsHandler(final Config config, final PartitionTable partitionTable, final Auditor accounter,
+	public FollowerEventsHandler(final NewConfig config, final PartitionTable partitionTable, final Auditor accounter,
 			final EventBroker eventBroker, final Scheduler scheduler, final NetworkShardID shardId) {
 
 		this.config = config;
@@ -73,11 +73,10 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 	public void start() {
 		logger.info("{}: Starting. Scheduling constant shepherding check", getClass().getSimpleName());
 
-		final long retentionLapse = Math.max(config.getQueuePartitionRetentionLapseMs(), START_PAST_LAPSE_MS);
 		final long readQueueSince = System.currentTimeMillis();
 
 		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.HEARTBEATS_TO_LEADER, shardId), Heartbeat.class,
-				(Consumer) this, readQueueSince, retentionLapse);
+				(Consumer) this, readQueueSince);
 
 	}
 

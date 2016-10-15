@@ -39,10 +39,10 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
-import io.tilt.minka.api.Config;
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.DutyBuilder;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.broker.EventBroker;
@@ -74,7 +74,7 @@ public class Distributor extends ServiceImpl {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	private final Config config;
+	private final NewConfig config;
 	private final Scheduler scheduler;
 	private final EventBroker eventBroker;
 	private final PartitionTable partitionTable;
@@ -92,7 +92,7 @@ public class Distributor extends ServiceImpl {
 
 	private final Agent distributor;
 
-	public Distributor(final Config config, final Scheduler scheduler, final EventBroker eventBroker,
+	public Distributor(final NewConfig config, final Scheduler scheduler, final EventBroker eventBroker,
 			final PartitionTable partitionTable, final Auditor accounter, final ShardID shardId,
 			final Map<BalanceStrategy, Balancer> balancers, final EntityDao dutyDao,
 			final DependencyPlaceholder dependencyPlaceholder, final LeaderShardContainer leaderShardContainer) {
@@ -107,7 +107,7 @@ public class Distributor extends ServiceImpl {
 		this.entityDao = dutyDao;
 		this.leaderShardContainer = leaderShardContainer;
 
-		if (config.getDutyStorage() == Storage.CLIENT_DEFINED) {
+		if (config.getConsistency().getDutyStorage() == Storage.CLIENT_DEFINED) {
 			Validate.notNull(dependencyPlaceholder, "When Minka not in Storage mode: a Partition Master is required");
 		} else {
 			Validate.isTrue(dependencyPlaceholder.getMaster() == null,
@@ -119,7 +119,7 @@ public class Distributor extends ServiceImpl {
 
 		this.distributor = scheduler.getAgentFactory()
 				.create(Action.DISTRIBUTOR, PriorityLock.MEDIUM_BLOCKING, Frequency.PERIODIC, () -> periodicCheck())
-				.delayed(config.getDistributorStartDelayMs()).every(config.getDistributorDelayMs()).build();
+				.delayed(config.getDistributor().getStartDelayMs()).every(config.getDistributor().getDelayMs()).build();
 
 		this.arranger = new Arranger(config);
 	}
@@ -153,7 +153,7 @@ public class Distributor extends ServiceImpl {
 			showStatus();
 			final long now = System.currentTimeMillis();
 			final int online = partitionTable.getShardsByState(ONLINE).size();
-			final int min = config.getShepherdMinShardsOnlineBeforeSharding();
+			final int min = config.getShepherd().getMinShardsOnlineBeforeSharding();
 			if (online >= min) {
 				checkWithStorageWhenAllOnlines();
 				final Reallocation currentRealloc = auditor.getCurrentReallocation();
@@ -179,7 +179,7 @@ public class Distributor extends ServiceImpl {
 	private void showStatus() {
 		StringBuilder title = new StringBuilder();
 		title.append("Distributor (i").append(++distributionCounter).append(") with Strategy: ")
-				.append(config.getBalancerDistributionStrategy().toString().toUpperCase()).append(" by Leader: ")
+				.append(config.getBalancer().getStrategy().toString().toUpperCase()).append(" by Leader: ")
 				.append(shardId.toString());
 		logger.info(LogUtils.titleLine(title.toString()));
 		partitionTable.logStatus();
@@ -203,10 +203,10 @@ public class Distributor extends ServiceImpl {
 
 	private void checkExpiration(final long now, final Reallocation currentRealloc) {
 		final DateTime created = currentRealloc.getCreation();
-		final int maxSecs = config.getDistributorReallocationExpirationSec();
+		final int maxSecs = config.getDistributor().getReallocationExpirationSec();
 		final DateTime expiration = created.plusSeconds(maxSecs);
 		if (expiration.isBefore(now)) {
-			if (currentRealloc.getRetryCount() == config.getDistributorReallocationMaxRetries()) {
+			if (currentRealloc.getRetryCount() == config.getDistributor().getReallocationMaxRetries()) {
 				logger.info("{}: Abandoning change expired ! (max secs:{}) ", getName(), maxSecs);
 				createChangeAndSendIssues(currentRealloc);
 			} else {
@@ -223,15 +223,15 @@ public class Distributor extends ServiceImpl {
 
 	/* read from storage only first time */
 	private void checkWithStorageWhenAllOnlines() {
-		if (initialAdding || (config.distributorReloadsDutiesFromStorage()
-				&& config.getDistributorReloadDutiesFromStorageEachPeriods() == counter++)) {
+		if (initialAdding || (config.getDistributor().isReloadDutiesFromStorage()
+				&& config.getDistributor().getReloadDutiesFromStorageEachPeriods() == counter++)) {
 			counter = 0;
 			Set<Duty<?>> duties = reloadDutiesFromStorage();
 			Set<Pallet<?>> pallets = reloadPalletsFromStorage();
 			if (duties == null || duties.isEmpty() || pallets == null || pallets.isEmpty()) {
 				logger.error("{}: distribution posponed: {} hasn't return any entities (pallets = {}, duties: {})",
 						getName(),
-						config.getDutyStorage() == Storage.MINKA_MANAGEMENT ? "Minka storage" : "PartitionMaster",
+						config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "Minka storage" : "PartitionMaster",
 						duties, pallets);
 			} else {
 				try {
@@ -241,7 +241,7 @@ public class Distributor extends ServiceImpl {
 					return;
 				}
 				logger.info("{}: {} reported {} entities for sharding...", getName(),
-						config.getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster",
+						config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster",
 						duties.size());
 				final List<Duty<?>> copy = Lists.newArrayList(duties);
 				auditor.registerDutyCRUD(copy);
@@ -259,7 +259,7 @@ public class Distributor extends ServiceImpl {
 	}
 
 	private void checkConsistencyState() {
-		if (config.getDistributorRunConsistencyCheck() && auditor.getCurrentReallocation().isEmpty()) {
+		if (config.getDistributor().isRunConsistencyCheck() && auditor.getCurrentReallocation().isEmpty()) {
 			// only warn in case there's no reallocation ahead
 			final Set<ShardEntity> currently = partitionTable.getDutiesAllByShardState(null, null);
 			final Set<ShardEntity> sortedLog = new TreeSet<>();
@@ -277,14 +277,14 @@ public class Distributor extends ServiceImpl {
 	private Set<Duty<?>> reloadDutiesFromStorage() {
 		Set<Duty<?>> duties = null;
 		try {
-			if (config.getDutyStorage() == Storage.MINKA_MANAGEMENT) {
+			if (config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT) {
 				duties = entityDao.loadDutySnapshot();
 			} else {
 				duties = dependencyPlaceholder.getMaster().loadDuties();
 			}
 		} catch (Exception e) {
 			logger.error("{}: {} throwed an Exception", getName(),
-					config.getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster", e);
+					config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster", e);
 		}
 		return duties;
 	}
@@ -293,14 +293,14 @@ public class Distributor extends ServiceImpl {
 	private Set<Pallet<?>> reloadPalletsFromStorage() {
 		Set<Pallet<?>> pallets = null;
 		try {
-			if (config.getDutyStorage() == Storage.MINKA_MANAGEMENT) {
+			if (config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT) {
 				pallets = entityDao.loadPalletSnapshot();
 			} else {
 				pallets = dependencyPlaceholder.getMaster().loadPallets();
 			}
 		} catch (Exception e) {
 			logger.error("{}: {} throwed an Exception", getName(),
-					config.getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster", e);
+					config.getConsistency().getDutyStorage()== Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster", e);
 		}
 		return pallets;
 	}

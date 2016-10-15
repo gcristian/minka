@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Sets;
 
-import io.tilt.minka.api.Config;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.distributor.Balancer.BalanceStrategy;
 import io.tilt.minka.domain.EntityEvent;
@@ -48,9 +48,9 @@ public class Arranger {
 
 	private static final Logger logger = LoggerFactory.getLogger(Arranger.class);
 
-	private final Config config;
+	private final NewConfig config;
 
-	protected Arranger(final Config config) {
+	protected Arranger(final NewConfig config) {
 		this.config = config;
 	}
 
@@ -185,7 +185,7 @@ public class Arranger {
 		}
 	}
 
-	protected Config getConfig() {
+	protected NewConfig getConfig() {
 		return this.config;
 	}
 

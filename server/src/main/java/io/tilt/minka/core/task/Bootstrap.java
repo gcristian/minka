@@ -20,10 +20,10 @@ import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.DependencyPlaceholder;
-import io.tilt.minka.api.Config;
 import io.tilt.minka.api.ConfigValidator;
+import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.MinkaClient;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
@@ -50,7 +50,7 @@ public class Bootstrap extends ServiceImpl {
 
 	private static final Logger logger = LoggerFactory.getLogger(Bootstrap.class);
 
-	private final Config config;
+	private final NewConfig config;
 	private final ConfigValidator validator;
 	private final Leader leader;
 	private final Follower follower;
@@ -76,7 +76,7 @@ public class Bootstrap extends ServiceImpl {
 	* @param partitionDelegate		your delegate as point of integration
 	*/
 	@SuppressWarnings("rawtypes")
-	public Bootstrap(final Config config, final ConfigValidator validator, final SpectatorSupplier spectatorSupplier,
+	public Bootstrap(final NewConfig config, final ConfigValidator validator, final SpectatorSupplier spectatorSupplier,
 			final boolean autoStart, final Leader leader, final Follower follower,
 			final DependencyPlaceholder dependencyPlaceholder, final Scheduler scheduler,
 			final LeaderShardContainer leaderShardContainer, final ShardID shardId, final EventBroker eventBroker,
@@ -103,7 +103,7 @@ public class Bootstrap extends ServiceImpl {
 		this.readyAwareBooting = scheduler
 				.getAgentFactory().create(Action.BOOTSTRAP_BULLETPROOF_START, PriorityLock.HIGH_ISOLATED,
 						Frequency.ONCE_DELAYED, () -> readyAwareBooting())
-				.delayed(config.getBootstrapReadynessRetryDelayMs()).build();
+				.delayed(config.getBootstrap().getReadynessRetryDelayMs()).build();
 
 		if (autoStart) {
 			start();
@@ -113,7 +113,7 @@ public class Bootstrap extends ServiceImpl {
 	@Override
 	public void start() {
 		//journal.commit(compose(this.getClass(), Fact.bootstrapper_start).with(Case.ISSUED).build());
-		logger.info(LogUtils.getGreetings(leader.getShardId(), config.getServiceName()));
+		logger.info(LogUtils.getGreetings(leader.getShardId(), config.getBootstrap().getServiceName()));
 		// check configuration is valid and not unstable-prone
 		validator.validate(config, dependencyPlaceholder.getMaster());
 		scheduler.start();
@@ -137,10 +137,10 @@ public class Bootstrap extends ServiceImpl {
 		if (inService()) {
 			//journal.commit(compose(this.getClass(), Fact.bootstrapper_stop).with(Case.ISSUED).build());
 			logger.info("{}: ({}) Destroying context..", getName(), shardId);
-			if (config.bootstrapLeaderShardAlsoFollows()) {
+			if (config.getBootstrap().isLeaderShardAlsoFollows()) {
 				follower.destroy();
 			}
-			if (config.bootstrapPublishLeaderCandidature() && leader.inService()) {
+			if (config.getBootstrap().isPublishLeaderCandidature() && leader.inService()) {
 				leader.destroy();
 			}
 			leaderShardContainer.destroy();
@@ -170,7 +170,7 @@ public class Bootstrap extends ServiceImpl {
 		 */
 
 		// stop current leader if on service and start the highlander booting all over again
-		if (config.bootstrapPublishLeaderCandidature() && leader.inService()) {
+		if (config.getBootstrap().isPublishLeaderCandidature() && leader.inService()) {
 			leader.destroy();
 		}
 		// ignore container's current held refs. and start it over
@@ -185,7 +185,7 @@ public class Bootstrap extends ServiceImpl {
 	private void readyAwareBooting() {
 		if (dependencyPlaceholder.getDelegate().isReady()) {
 			logger.info("{}: ({}) Starting...", getName(), shardId);
-			if (config.bootstrapLeaderShardAlsoFollows()) {
+			if (config.getBootstrap().isLeaderShardAlsoFollows()) {
 				follower.init();
 			}
 			bootLeadershipCandidate();
@@ -202,7 +202,7 @@ public class Bootstrap extends ServiceImpl {
 	 * even in case of losing leadership   
 	 */
 	private void bootLeadershipCandidate() {
-		if (config.bootstrapPublishLeaderCandidature()) {
+		if (config.getBootstrap().isPublishLeaderCandidature()) {
 			logger.info("{}: ({}) Candidating Leader (lap: {})", getName(), shardId, repostulationCounter);
 			if (!locks.runWhenLeader(getElectionName(), new ServerCandidate() {
 				@Override
@@ -243,7 +243,7 @@ public class Bootstrap extends ServiceImpl {
 	}
 
 	private String getElectionName() {
-		final String electionName = "minka/" + config.getServiceName() + "/leader-latch";
+		final String electionName = "minka/" + config.getBootstrap().getServiceName() + "/leader-latch";
 		return electionName;
 	}
 

@@ -8,7 +8,7 @@ import java.io.Serializable;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
-import io.tilt.minka.api.Config;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.broker.impl.SocketBroker;
@@ -23,13 +23,13 @@ public class SocketBrokerTest extends AbstractBrokerTester {
 
 	@Override
 	protected EventBroker buildBroker(final Consumer<Serializable> driver, final LeaderShardContainer container,
-			final Config config, final NetworkShardID shard) {
+			final NewConfig config, final NetworkShardID shard) {
 
 		final EventBroker broker = new SocketBroker(config, shard, container,
 				new SchedulerImpl(config, new SpectatorSupplier(config), shard, new SynchronizedAgentFactoryImpl(),
 						new SynchronizedFactoryImpl()));
 		broker.subscribe(broker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, shard), AtomicInteger.class,
-				driver, System.currentTimeMillis(), 10000l);
+				driver, System.currentTimeMillis());
 		return broker;
 	}
 

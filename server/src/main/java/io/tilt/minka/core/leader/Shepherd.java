@@ -32,7 +32,7 @@ import org.apache.commons.math3.util.Precision;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Config;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
 import io.tilt.minka.core.task.LeaderShardContainer;
@@ -61,7 +61,7 @@ public class Shepherd extends ServiceImpl {
 
 	public static final String LEADER_SHARD_PATH = "leader-shard";
 
-	private final Config config;
+	private final NewConfig config;
 	private final PartitionTable partitionTable;
 	private final Auditor auditor;
 	private final EventBroker eventBroker;
@@ -80,7 +80,7 @@ public class Shepherd extends ServiceImpl {
 	 * Partition Table
 	 */
 
-	public Shepherd(Config config, PartitionTable partitionTable, Auditor accounter, EventBroker eventBroker,
+	public Shepherd(NewConfig config, PartitionTable partitionTable, Auditor accounter, EventBroker eventBroker,
 			Scheduler scheduler, NetworkShardID shardId, LeaderShardContainer leaderShardContainer) {
 
 		this.config = config;
@@ -93,7 +93,7 @@ public class Shepherd extends ServiceImpl {
 
 		this.analyzer = scheduler.getAgentFactory()
 				.create(Action.SHEPHERD, PriorityLock.MEDIUM_BLOCKING, Frequency.PERIODIC, () -> analyzeShards())
-				.delayed(config.getShepherdStartDelayMs()).every(config.getShepherdDelayMs()).build();
+				.delayed(config.getShepherd().getStartDelayMs()).every(config.getShepherd().getDelayMs()).build();
 	}
 
 	@Override
@@ -146,13 +146,13 @@ public class Shepherd extends ServiceImpl {
 				sizeOnline += shard.getState() == ShardState.ONLINE ? 1 : 0;
 			}
 			final ClusterHealth health = sizeOnline == shards.size()
-					&& analysisCounter - lastUnstableAnalysisId >= config.getClusterHealthStabilityDelayPeriods()
+					&& analysisCounter - lastUnstableAnalysisId >= config.getShepherd().getClusterHealthStabilityDelayPeriods()
 							? STABLE : UNSTABLE;
 			if (health != partitionTable.getVisibilityHealth()) {
 				partitionTable.setVisibilityHealth(health);
 				logger.warn("{}: Cluster back to: {} ({}, min unchanged analyses: {})", getName(),
 						partitionTable.getVisibilityHealth(), lastUnstableAnalysisId,
-						config.getClusterHealthStabilityDelayPeriods());
+						config.getShepherd().getClusterHealthStabilityDelayPeriods());
 			}
 			if (blessCounter++ > 2) {
 				blessCounter = 0;
@@ -167,8 +167,8 @@ public class Shepherd extends ServiceImpl {
 
 	private ShardState evaluateStateThruHeartbeats(Shard shard) {
 		final long now = System.currentTimeMillis();
-		final long normalDelay = config.getFollowerHeartbeatDelayMs();
-		final long configuredLapse = config.getShepherdHeartbeatLapseSec() * 1000;
+		final long normalDelay = config.getFollower().getHeartbeatDelayMs();
+		final long configuredLapse = config.getShepherd().getHeartbeatLapseSec() * 1000;
 		final long lapseStart = now - configuredLapse;
 		//long minMandatoryHBs = configuredLapse / normalDelay;
 
@@ -178,12 +178,12 @@ public class Shepherd extends ServiceImpl {
 		List<Heartbeat> pastLapse = null;
 		String msg = "";
 
-		final int minHealthlyToGoOnline = config.getShepherdMinHealthlyHeartbeatsForShardOnline();
-		final int minToBeGone = config.getShepherdMaxAbsentHeartbeatsBeforeShardGone();
-		final int maxSickToGoQuarantine = config.getShepherdMaxSickHeartbeatsBeforeShardQuarantine();
+		final int minHealthlyToGoOnline = config.getShepherd().getMinHealthlyHeartbeatsForShardOnline();
+		final int minToBeGone = config.getShepherd().getMaxAbsentHeartbeatsBeforeShardGone();
+		final int maxSickToGoQuarantine = config.getShepherd().getMaxSickHeartbeatsBeforeShardQuarantine();
 
 		if (all.size() < minToBeGone) {
-			if (shard.getLastStatusChange().plus(config.getShepherdMaxShardJoiningStateMs()).isBeforeNow()) {
+			if (shard.getLastStatusChange().plus(config.getShepherd().getMaxShardJoiningStateMs()).isBeforeNow()) {
 				msg = "try joining expired";
 				newState = ShardState.GONE;
 			} else {
@@ -255,7 +255,7 @@ public class Shepherd extends ServiceImpl {
 
 		long stdDeviationDelay = (long) Precision.round(stat.getStandardDeviation(), 2);
 		long permittedStdDeviationDistance = (normalDelay
-				* (long) (config.getShepherdHeartbeatMaxDistanceStandardDeviation() * 10d) / 100);
+				* (long) (config.getShepherd().getHeartbeatMaxDistanceStandardDeviation() * 10d) / 100);
 		/*
 		 * long permittedBiggestDelay = (normalDelay *
 		 * (long)(config.getShepherdHeartbeatMaxBiggestDistanceFactor()*10d) /

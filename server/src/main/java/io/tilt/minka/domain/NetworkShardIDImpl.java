@@ -30,7 +30,7 @@ import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Config;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.core.follower.Follower;
 
 /**
@@ -60,15 +60,15 @@ public class NetworkShardIDImpl implements NetworkShardID, Closeable {
 	//	private Journal journal;
 
 	//public NetworkShardIDImpl(final Config config, final Journal journal) throws IOException {
-	public NetworkShardIDImpl(final Config config) throws Exception {
+	public NetworkShardIDImpl(final NewConfig config) throws Exception {
 		this.creation = new DateTime(DateTimeZone.UTC);
-		this.configuredPort = Integer.parseInt(config.getBrokerServerHost().split(":")[1]);
+		this.configuredPort = Integer.parseInt(config.getBroker().getHostPort().split(":")[1]);
 		this.port = configuredPort;
-		this.sourceHost = findLANAddress(config.getBrokerServerHost().split(":")[0],
-				config.getBrokerUseNetworkInterfase());
+		this.sourceHost = findLANAddress(config.getBroker().getHostPort().split(":")[0],
+				config.getBroker().getNetworkInterfase());
 		//this.journal = journal;
 		config.setResolvedShardId(this);
-		ensureOpenPort(config.getBrokerServerPortFallback());
+		ensureOpenPort(config.getBroker().isEnablePortFallback());
 		buildId(config);
 	}
 
@@ -138,12 +138,12 @@ public class NetworkShardIDImpl implements NetworkShardID, Closeable {
 				+ getStringIdentity().substring(pos);
 	}
 
-	private void buildId(final Config config) {
+	private void buildId(final NewConfig config) {
 		String id = null;
 		if (sourceHost != null) {
 			if (!sourceHost.getHostName().isEmpty()) {
 				id = sourceHost.getHostName();
-				final String suffix = config.getBrokerShardIdSuffix();
+				final String suffix = config.getBroker().getShardIdSuffix();
 				if (suffix != null && !suffix.isEmpty()) {
 					id += "-" + suffix;
 				}

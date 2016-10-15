@@ -76,17 +76,17 @@ public abstract class AbstractBroker extends ServiceImpl implements EventBroker,
 	}
 
 	protected abstract boolean onSubscription(BrokerChannel channel, Class<? extends Serializable> eventType,
-			Consumer<Serializable> consumer, long sinceTimestamp, long retentionLapse);
+			Consumer<Serializable> consumer, long sinceTimestamp);
 
 	@Override
 	public void subscribeEvents(BrokerChannel buildToTarget, Class<? extends Serializable> class1,
-			Consumer<Serializable> driver, long sinceNow, long retentionLapse) {
-		subscribe(buildToTarget, class1, driver, sinceNow, retentionLapse);
+			Consumer<Serializable> driver, long sinceNow) {
+		subscribe(buildToTarget, class1, driver, sinceNow);
 	}
 
 	@Override
 	public final boolean subscribe(BrokerChannel channel, Class<? extends Serializable> eventType,
-			Consumer<Serializable> consumer, long sinceTimestamp, long retentionLapse) {
+			Consumer<Serializable> consumer, long sinceTimestamp) {
 
 		try {
 			// TODO para Pathable usar getFullName...
@@ -114,7 +114,7 @@ public abstract class AbstractBroker extends ServiceImpl implements EventBroker,
 			consumerPerChannelEventType.put(key, consumer);
 			if (channeles.isEmpty()) {
 				channelsPerConsumer.put(consumer, channel.getFullName());
-				if (!onSubscription(channel, eventType, consumer, sinceTimestamp, retentionLapse)) {
+				if (!onSubscription(channel, eventType, consumer, sinceTimestamp)) {
 					throw new RuntimeException("Event subscription not guaranteed");
 				}
 			} else {

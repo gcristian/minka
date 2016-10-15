@@ -36,7 +36,7 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
-import io.tilt.minka.api.Config;
+import io.tilt.minka.api.NewConfig;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Frequency;
@@ -66,7 +66,7 @@ public class SocketClient {
 	private final long clientExpiration;
 
 	protected SocketClient(final BrokerChannel channel, final Scheduler scheduler, final int retryDelay,
-			final int maxRetries, final String loggingName, final Config config) {
+			final int maxRetries, final String loggingName, final NewConfig config) {
 
 		this.loggingName = loggingName;
 		this.clientHandler = new SocketClientHandler();
@@ -76,7 +76,7 @@ public class SocketClient {
 								Frequency.ONCE, () -> keepConnectedWithRetries(channel, maxRetries, retryDelay))
 						.build());
 		this.creation = System.currentTimeMillis();
-		this.clientExpiration = Math.max(config.getShepherdDelayMs(), config.getFollowerClearanceMaxAbsenceMs());
+		this.clientExpiration = Math.max(config.getShepherd().getDelayMs(), config.getFollower().getClearanceMaxAbsenceMs());
 	}
 
 	protected long getCreation() {
@@ -112,7 +112,7 @@ public class SocketClient {
 	 */
 	private void keepConnectedWithRetries(final BrokerChannel channel, final int maxRetries, final int retryDelay) {
 		clientGroup = new NioEventLoopGroup(1,
-				new ThreadFactoryBuilder().setNameFormat(Config.THREAD_NANE_TCP_BROKER_CLIENT).build());
+				new ThreadFactoryBuilder().setNameFormat(NewConfig.SchedulerConf.THREAD_NANE_TCP_BROKER_CLIENT).build());
 
 		boolean wronglyDisconnected = true;
 		while (retry < maxRetries && wronglyDisconnected) {
