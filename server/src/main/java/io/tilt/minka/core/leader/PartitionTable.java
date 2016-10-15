@@ -55,15 +55,15 @@ public class PartitionTable {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	private Map<ShardID, Shard> shardsByID;
-	private Map<Shard, AttachedPartition> partitionsByShard;
-	private Map<String, ShardEntity> palletsById;
+	private final Map<ShardID, Shard> shardsByID;
+	private final Map<Shard, AttachedPartition> partitionsByShard;
+	private final Map<String, ShardEntity> palletsById;
 	
 	/* only for saving client's additions */
-	private Set<ShardEntity> palletCrud;
+	private final Set<ShardEntity> palletCrud;
 	private Set<ShardEntity> dutyCrud;
-	private Set<ShardEntity> dutyMissings;
-	private Set<ShardEntity> dutyDangling;
+	private final Set<ShardEntity> dutyMissings;
+	private final Set<ShardEntity> dutyDangling;
 	private ClusterHealth visibilityHealth;
 	private ClusterHealth workingHealth;
 	private ClusterCapacity capacity;
@@ -101,6 +101,7 @@ public class PartitionTable {
 		this.partitionsByShard = new HashMap<>();
 
 		this.palletCrud = new HashSet<>();
+		this.palletsById = new HashMap<>();
 		this.dutyCrud = new HashSet<>();
 		this.dutyMissings = new HashSet<>();
 		this.dutyDangling = new HashSet<>();
@@ -163,6 +164,7 @@ public class PartitionTable {
 		return this.dutyCrud.size();
 	}
 
+	/* add it for the next Distribution cycle consideration */
 	public void addCrudDuty(final ShardEntity duty) {
 		if (duty.getDutyEvent().isCrud()) {
 			dutyCrud.remove(duty);

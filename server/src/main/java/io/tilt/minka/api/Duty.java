@@ -38,33 +38,35 @@ import io.tilt.minka.domain.ShardEntity;
  */
 public interface Duty<T extends Serializable> extends Entity<T> {
 	/**
-	* Required to maintain a fairly load balancing  
-	* @return
-	*/
+	* @return a representation in the same measure unit than the delegate's pallet capacity 
+	* Required to maintain a fairly load balancing  */
 	double getWeight();
 
-	/** The pallet to which this duty must be grouped into. */	
-	Pallet<?> getPallet();
+	/** @return the pallet id to which this duty must be grouped into. */		
 	String getPalletId();
-
+	
+	/** @return not mandatory only for Client usage */ 
+	Pallet<?> getPallet();
+	
 	/**
-	 * Duties that dont need to be removed, once assigned 
-	 * and reported, next time is absent will be interpreted 
-	 * as automatically ended and will not be re-attached
+	 * @return whether or not the absence this duty in the delegate's report
+	 * must be interpreted as a normal finalization. 
+	 * Otherwise it will be missing and schedule for reattachment
 	 */
 	boolean isLazyFinalized();
 
 	/** 
-	 * Duties that once assigned and started: cannot 
-	 * be migrating for balancing purposes.
-	 * They somewhat rely on local resources or cannot 
-	 * store State to continue working from a savepoint after re-assigned 
+	 * @return whether or not this duty can migrate for balancing purposes.
+	 * Generally true if the Client doesn't link to local machine resources and
+	 * the duty can be paused and restarted at a different machine, 
+	 * for which it may require a distributed savepoints facility if depends of state
+	 * 
+	 * Minka doesnt yet support in-memory snapshot of the Duty representation for continuos state recording.
+	 * Such a feature depends on stronger partitiontable replication flows and wider CRUD consistency issues.  
 	 */
 	boolean isIdempotent();
 
-	/**
-	 * 
-	 */
+	/** @return whether of not this Duty cannot be balanced and it must cohabitat all Minka shards */
 	boolean isSynthetic();
 
 	public static class WeightComparer implements Comparator<ShardEntity>, Serializable {

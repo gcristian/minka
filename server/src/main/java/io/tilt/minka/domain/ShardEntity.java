@@ -255,16 +255,16 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 			StringBuilder sb = new StringBuilder(ttype.length() + id.length() + 30);
 
 			if (type == Type.DUTY) {
-				sb.append("p").append(getDuty().getPallet().getId());
+				sb.append("p:").append(getDuty().getPalletId());
 			}
-			sb.append(type == Type.DUTY ? "d" : "p").append(id);
+			sb.append(type == Type.DUTY ? " d:" : "p:").append(id);
 			if (type == Type.DUTY) {
-				sb.append(", w").append(((Duty<?>) getEntity()).getWeight());
+				sb.append(" w:").append(((Duty<?>) getEntity()).getWeight());
 			}
-			sb.append(" ev").append(getDutyEvent());
-			sb.append(", s").append(getState());
+			sb.append(" ev:").append(getDutyEvent());
+			sb.append(" s:").append(getState());
 
-			sb.append(", t").append(type);
+			sb.append(" t:").append(type);
 			return sb.toString();
 		} catch (Exception e) {
 			logger.error("tostring", e);
@@ -274,14 +274,14 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	public String toBrief() {
 		final String load = String.valueOf(this.getDuty().getWeight());
-		final String pid = getDuty().getPallet().getId();
+		final String pid = getDuty().getPalletId();
 		final String id = getEntity().toString();
 		final StringBuilder sb = new StringBuilder(10 + load.length() + id.length() + pid.length());
 		if (type == Type.DUTY) {
-			sb.append("p").append(pid);
+			sb.append("p:").append(pid).append(" ");
 		}
-		sb.append("d").append(id);
-		sb.append(" w").append(load);
+		sb.append("d:").append(id);
+		sb.append(" w:").append(load);
 		return sb.toString();
 	}
 

@@ -54,7 +54,6 @@ public class Bootstrap extends ServiceImpl {
 	private final ConfigValidator validator;
 	private final Leader leader;
 	private final Follower follower;
-	@SuppressWarnings("rawtypes")
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final Scheduler scheduler;
 	private final LeaderShardContainer leaderShardContainer;
@@ -75,7 +74,6 @@ public class Bootstrap extends ServiceImpl {
 	* @param config 				a specific configuration  
 	* @param partitionDelegate		your delegate as point of integration
 	*/
-	@SuppressWarnings("rawtypes")
 	public Bootstrap(final NewConfig config, final ConfigValidator validator, final SpectatorSupplier spectatorSupplier,
 			final boolean autoStart, final Leader leader, final Follower follower,
 			final DependencyPlaceholder dependencyPlaceholder, final Scheduler scheduler,
@@ -151,7 +149,7 @@ public class Bootstrap extends ServiceImpl {
 			locks.close();
 			//journal.commit(compose(this.getClass(), Fact.bootstrapper_stop).with(Case.SOLVED).build());
 		} else {
-			logger.warn("{}: ({}) Not in service", getName(), shardId);
+			logger.warn("{}: ({}) Stopping ? I'm not in service", getName(), shardId);
 		}
 	}
 

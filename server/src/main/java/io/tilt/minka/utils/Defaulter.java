@@ -32,7 +32,7 @@ import javassist.Modifier;
 /**
  * Configures an instance object's fields with their default static values if:
  * no key present on passed Properties, no value set to JVM as property, in that order.
- * Searches instance's class static fields as "GOOD_BYE_CRUEL_WORLD_DEFAULT" to key1 "goodByeCruelWorld"
+ * Searches instance's class static fields as "GOOD_BYE_CRUEL_WORLD" to key1 "goodByeCruelWorld"
  * in the given Properties, if no present: uses static field value to set instance object's field as key1;
  * 
  * @author Cristian Gonzalez
@@ -68,12 +68,12 @@ public class Defaulter {
 					instanceField.set(configurable, editor.getValue());
 				} catch (IllegalArgumentException | IllegalAccessException e) {
 					all = false;
-					logger.error("Defaulter: object <{}> cannot set value for field: {}",
+					logger.error("Defaulter: object {} cannot set value for field: {}",
 							configurable.getClass().getSimpleName(), nameNoDef, e);
 				}
 			} catch (NoSuchFieldException | SecurityException e) {
 				all = false;
-				logger.error("Defaulter: object <{}> has no field: {} for default static: {} (reason: {})",
+				logger.debug("Defaulter: object {} has no field: {} for default static: {} (reason: {})",
 						configurable.getClass().getSimpleName(), nameNoDef, staticField.getName(),
 						e.getClass().getSimpleName());
 			}
@@ -91,14 +91,14 @@ public class Defaulter {
 		final Object propertyOrDefault = props.getProperty(name, System.getProperty(name, staticValue));
 		final String objName = configurable.getClass().getSimpleName();
 		final PropertyEditor editor = PropertyEditorManager.findEditor(instanceField.getType());
-		final String setLog = "Defaulter: set <{}> field [{}] = '{}' from {} ";
+		final String setLog = "Defaulter: set '{}' to field: {} ({} {})";
 		try {
 			editor.setAsText(propertyOrDefault.toString());
-			logger.info(setLog, objName, name, editor.getValue(),
-					propertyOrDefault != staticValue ? " property file / system environment " : staticField.getName());
+			logger.info(setLog, editor.getValue(), name,  propertyOrDefault != staticValue ? 
+					" property file / system env." : "static: " + staticField.getName());
 		} catch (Exception e) {
 			logger.error(
-					"Defaulter: object <{}> field: {} does not accept property or static "
+					"Defaulter: object {} field: {} does not accept property or static "
 							+ "default value: {} (reason: {})",
 					objName, name, propertyOrDefault, e.getClass().getSimpleName());
 			try { // at this moment only prop. might've been failed

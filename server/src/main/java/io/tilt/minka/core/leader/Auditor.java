@@ -416,4 +416,25 @@ public class Auditor {
 		}
 	}
 
+
+	/*
+		private void removeAndRegisterCrudEntities(final List<Entity<?>> sourceEntities, Predicate<?> p, final Set<ShardEntity> currentEntities) {
+			final Set<ShardEntity> sortedLog = new TreeSet<>();
+			final Iterator<Entity<?>> it = sourceEntities.iterator();
+			while (it.hasNext()) {
+				final ShardEntity she = ShardEntity.create(it.next());
+				if (p.test(she)) {
+					sortedLog.add(she);
+					it.remove();
+				} else {
+					logger.info("{}: Adding Entity: {}", getClass().getSimpleName(), she);
+					currEntities.add(she);
+				}
+			}
+			if (!sortedLog.isEmpty()) {
+				logger.info("{}: Skipping Crud Entity already in Partition Table: {}", getClass().getSimpleName(),
+					ShardEntity.toStringIds(sortedLog));
+			}
+		}
+	*/
 }

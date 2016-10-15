@@ -46,7 +46,7 @@ public class NewConfig {
     static {
         objectMapper.configure(SerializationFeature.WRITE_NULL_MAP_VALUES, false);
         objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-        objectMapper.configure(SerializationFeature.WRITE_EMPTY_JSON_ARRAYS.CLOSE_CLOSEABLE, true);
+        objectMapper.configure(SerializationFeature.CLOSE_CLOSEABLE, true);
         objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
         
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
