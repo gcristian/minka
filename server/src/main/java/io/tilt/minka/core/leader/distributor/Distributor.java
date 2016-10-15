@@ -243,10 +243,10 @@ public class Distributor extends ServiceImpl {
 				logger.info("{}: {} reported {} entities for sharding...", getName(),
 						config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster",
 						duties.size());
-				final List<Duty<?>> copy = Lists.newArrayList(duties);
-				auditor.registerDutyCRUD(copy);
 				final List<Pallet<?>> copyP = Lists.newArrayList(pallets);
-				auditor.registerPalletCRUD(copyP);
+				auditor.registerPalletsFromSource(copyP);
+				final List<Duty<?>> copy = Lists.newArrayList(duties);
+				auditor.registerDutiesFromSource(copy);
 				initialAdding = false;
 			}
 			if (partitionTable.getDutiesCrud().isEmpty()) {

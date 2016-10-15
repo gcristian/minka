@@ -507,7 +507,7 @@ public class NewConfig {
 		}
 	}
 
-	public NewConfig(Properties prop) {
+	public NewConfig(Properties prop) throws Exception {
 		this.scheduler = new SchedulerConf();
 		this.bootstrap = new BootstrapConf();
 		this.broker = new BrokerConf();
@@ -519,9 +519,8 @@ public class NewConfig {
 		loadFromPropOrSystem(prop);
 
 	}
-	private void loadFromPropOrSystem(Properties prop) {
+	private void loadFromPropOrSystem(Properties prop) throws Exception {
 		if (prop == null) {
-			logger.warn("{}: Using all DEFAULT values !", getClass().getSimpleName());
 			prop = new Properties();
 		}
 		Defaulter.apply(prop, "consistency.", this.getConsistency());
@@ -532,9 +531,10 @@ public class NewConfig {
 		Defaulter.apply(prop, "follower.", this.getFollower());
 		Defaulter.apply(prop, "scheduler.", this.getScheduler());
 		Defaulter.apply(prop, "shepherd.", this.getShepherd());
+		logger.info("{}: Configuration: {} ", getClass().getSimpleName(), toJson());
 	}
 	
-	public NewConfig() {
+	public NewConfig() throws Exception {
 		this(null);
 	}
 	

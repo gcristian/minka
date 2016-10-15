@@ -18,9 +18,6 @@ package io.tilt.minka.api;
 
 import java.io.Serializable;
 import java.util.Comparator;
-import java.util.List;
-
-import com.google.common.collect.Lists;
 
 /**
  * An abstract entity that the host application uses to represent anything able to balance and distribute.  

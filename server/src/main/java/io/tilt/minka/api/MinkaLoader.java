@@ -37,14 +37,16 @@ public class MinkaLoader {
 		if (ctx != null) {
 			throw new IllegalStateException("Minka service already loaded !");
 		}
-		String configPath = "classpath:io/tilt/minka/config/context-minka-spring.xml";
+		final String configPath = "classpath:io/tilt/minka/config/context-minka-spring.xml";
 		ctx = new ClassPathXmlApplicationContext(new String[] { configPath }, false);
 		ctx.setDisplayName("minka-ts:" + System.currentTimeMillis());
+		final String defServiceName = "minka-default-unnamed-" + System.currentTimeMillis();
+		ctx.setId(defServiceName);
 		if (p != null) {
 			logger.info("{}: Using custom properties", getClass().getSimpleName());
-			ctx.setId(p.getProperty("serviceName", "minka-default-unnamed-" + System.currentTimeMillis()));
+			ctx.setId(p.getProperty("serviceName", defServiceName));
 			logger.info("{}: Naming context: {}", getClass().getSimpleName(), ctx.getId());
-			PropertyPlaceholderConfigurer propConfig = new PropertyPlaceholderConfigurer();
+			final PropertyPlaceholderConfigurer propConfig = new PropertyPlaceholderConfigurer();
 			propConfig.setProperties(p);
 			ctx.addBeanFactoryPostProcessor(propConfig);
 		}

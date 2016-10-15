@@ -174,6 +174,16 @@ public class PartitionTable {
 		}
 	}
 
+	/* add without considerations (pallets are not distributed per se) */
+	public void addCrudPallet(final ShardEntity pallet) {
+		if (pallet.getDutyEvent().isCrud()) {
+			palletsById.put(pallet.getPallet().getId(), pallet);
+			palletCrud.add(pallet);
+		} else {
+			throw new RuntimeException("bad idea");			
+		}
+	}
+
 	public void removeCrudDuties() {
 		this.dutyCrud = new HashSet<>();
 	}
@@ -263,7 +273,7 @@ public class PartitionTable {
 
 	public Set<ShardEntity> getDutiesByShard(final Pallet<?> pallet, final Shard shard) {
 		return Sets.newHashSet(getPartition(shard).getDuties().stream()
-				.filter(e -> e.getDuty().getPallet().getId().equals(pallet.getId())).collect(Collectors.toList()));
+				.filter(e -> e.getDuty().getPalletId().equals(pallet.getId())).collect(Collectors.toList()));
 	}
 
 	public Set<ShardEntity> getDutiesAllByShardState(final Pallet<?> pallet, final ShardState state) {
@@ -272,7 +282,7 @@ public class PartitionTable {
 				.collect(Collectors.toList())) {
 			allDuties.addAll(pallet == null ? partitionsByShard.get(shard).getDuties()
 					: partitionsByShard.get(shard).getDuties().stream()
-							.filter(d -> d.getDuty().getPallet().getId().equals(pallet.getId()))
+							.filter(d -> d.getDuty().getPalletId().equals(pallet.getId()))
 							.collect(Collectors.toList()));
 		}
 		return allDuties;

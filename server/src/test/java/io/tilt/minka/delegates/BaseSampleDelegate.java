@@ -2,7 +2,7 @@
  * Copyright (c) 2011-2015 Zauber S.A. -- All rights reserved
  */
 
-package io.tilt.minka;
+package io.tilt.minka.delegates;
 
 import java.io.Serializable;
 import java.util.Collection;

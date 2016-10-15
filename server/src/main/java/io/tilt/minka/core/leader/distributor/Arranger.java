@@ -92,8 +92,9 @@ public class Arranger {
 
 		final Iterator<Set<ShardEntity>> itPallet = allCollector.getPalletsIterator();
 		while (itPallet.hasNext()) {
-			final ShardEntity pallet = allCollector
-					.getPallet(itPallet.next().iterator().next().getDuty().getPallet().getId());
+			Iterator<ShardEntity> itDuties = itPallet.next().iterator();
+			final ShardEntity pallet = allCollector.getPallet(itDuties.next().getDuty().getPalletId());
+			//allCollector.
 			final Balancer balancer = balancerMap.get(pallet.getPallet().getBalanceStrategy());
 
 			logger.info("{}: using {} on Pallet: {} with Duties: {}", getClass().getSimpleName(),

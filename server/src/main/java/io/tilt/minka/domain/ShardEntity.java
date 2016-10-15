@@ -221,7 +221,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	public String toStringGroupByPallet(Set<ShardEntity> duties) {
 		final StringBuilder sb = new StringBuilder();
 		final Multimap<String, ShardEntity> mm = HashMultimap.create();
-		duties.forEach(e -> mm.put(e.getDuty().getPallet().getId(), e));
+		duties.forEach(e -> mm.put(e.getDuty().getPalletId(), e));
 		mm.asMap().forEach((k, v) -> {
 			sb.append("p").append(k).append(" -> ").append(toStringBrief(v)).append(", ");
 		});

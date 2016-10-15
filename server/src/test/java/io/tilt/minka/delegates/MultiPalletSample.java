@@ -8,7 +8,6 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 
-import io.tilt.minka.BaseSampleDelegate;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.DutyBuilder;
 import io.tilt.minka.api.Pallet;

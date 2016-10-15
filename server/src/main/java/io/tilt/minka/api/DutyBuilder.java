@@ -105,8 +105,8 @@ public class DutyBuilder<T extends Serializable> implements Duty<T>, EntityPaylo
 
 	public static void validateBuiltParams(final Duty<?> duty) {
 		Validate.notNull(duty.getId(), "A non null ID is required");
-		final String id = "Duty:" + duty.getId() + " ";
-		Validate.notNull(duty.getPallet(), id + "a Pallet is mandatory");
+		final String id = "Duty:" + duty.getId() + " - ";
+		Validate.notNull(duty.getPalletId(), id + "a Pallet is mandatory");
 		Validate.notNull(duty.getClassType(), id + "You must specify param's class or use overload builder");
 		Validate.notNull(duty.get(), id + "You must specify payload param or use overload builder");
 		Validate.isTrue(duty.getWeight() > 0,

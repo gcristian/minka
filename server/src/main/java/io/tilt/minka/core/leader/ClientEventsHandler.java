@@ -145,7 +145,7 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 						getClass().getSimpleName(), duty.toBrief(), location);
 			}
 		} else {
-			auditor.registerCrudThruCheck(duty);
+			auditor.registerDutyCRUD(duty);
 		}
 	}
 

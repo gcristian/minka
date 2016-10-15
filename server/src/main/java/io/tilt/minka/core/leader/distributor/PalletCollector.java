@@ -39,9 +39,9 @@ public class PalletCollector {
 			try {
 				if (logger.isDebugEnabled()) {
 					logger.info("{}: Loooking for pallet: {}: on duty: {}", getClass().getSimpleName(),
-							se.getDuty().getPallet().getId(), se.getDuty());
+							se.getDuty().getPalletId(), se.getDuty());
 				}
-				add(se, this.palletById.get(se.getDuty().getPallet().getId()));
+				add(se, this.palletById.get(se.getDuty().getPalletId()));
 			} catch (Exception e) {
 				logger.error("Collecting pallets", e);
 			}

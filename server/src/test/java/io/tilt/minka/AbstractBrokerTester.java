@@ -167,7 +167,7 @@ public abstract class AbstractBrokerTester {
 		};
 	}
 
-	protected NewConfig buidConfig(int port) {
+	protected NewConfig buidConfig(int port) throws Exception {
 		Properties propF = new Properties();
 		propF.setProperty("brokerServerPort", String.valueOf(port));
 		return new NewConfig(propF);

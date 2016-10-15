@@ -203,7 +203,7 @@ public class MinkaClient {
 		Validate.notNull(raw, "an entity is required");
 		boolean sent = true;
 		final ShardEntity duty;
-		if (raw instanceof Pallet) {
+		if (raw instanceof Duty) {
 			duty = ShardEntity.create((Duty<?>) raw);
 		} else {
 			duty = ShardEntity.create((Pallet<?>) raw);

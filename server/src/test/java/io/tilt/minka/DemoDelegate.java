@@ -14,6 +14,7 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.core.leader.distributor.Balancer.BalanceStrategy;
+import io.tilt.minka.delegates.BaseSampleDelegate;
 
 public class DemoDelegate extends BaseSampleDelegate {
 

@@ -308,7 +308,7 @@ public class Auditor {
 		partitionTable.getDutiesDangling().clear();
 	}
 
-	public void registerDutyCRUD(final List<Duty<?>> dutiesFromSource) {
+	public void registerDutiesFromSource(final List<Duty<?>> dutiesFromSource) {
 		final Set<ShardEntity> sortedLog = new TreeSet<>();
 		final Iterator<Duty<?>> it = dutiesFromSource.iterator();
 		while (it.hasNext()) {
@@ -317,73 +317,47 @@ public class Auditor {
 				sortedLog.add(potential);
 				it.remove();
 			} else {
-				logger.info("{}: Adding Dutyt: {}", getClass().getSimpleName(), potential);
 				final ShardEntity pallet = partitionTable.getPalletById(potential.getDuty().getPalletId());
 				if (pallet!=null) {
 					potential.setRelatedEntity(pallet);
+					logger.info("{}: Adding New Duty: {}", getClass().getSimpleName(), potential);
 					partitionTable.addCrudDuty(potential);
 				} else {
-					logger.error("{}: Skipping CRUD: Pallet ID :{} set not found or yet created", getClass().getSimpleName(),
+					logger.error("{}: Skipping Duty CRUD {}: Pallet Not found (pallet id: {})", getClass().getSimpleName(),
 							potential, potential.getDuty().getPalletId());
 				}
 			}
 		}
 		if (!sortedLog.isEmpty()) {
-			logger.info("{}: Skipping Crud Duty already in Partition Table: {}", getClass().getSimpleName(),
+			logger.info("{}: Skipping Duty CRUD already in PTable: {}", getClass().getSimpleName(),
 					ShardEntity.toStringIds(sortedLog));
 		}
 	}
 
-	public void registerPalletCRUD(final List<Pallet<?>> palletsFromSource) {
-		removeAndRegisterCrudEntities(palletsFromSource, partitionTable.getPallets());
-	}
-
-	private void removeAndRegisterCrudEntities(final List<Pallet<?>> sourceEntities, Set<ShardEntity> currEntities) {
+	public void registerPalletsFromSource(final List<Pallet<?>> palletsFromSource) {
 		final Set<ShardEntity> sortedLog = new TreeSet<>();
-		final Iterator<Pallet<?>> it = sourceEntities.iterator();
+		final Iterator<Pallet<?>> it = palletsFromSource.iterator();
 		while (it.hasNext()) {
 			final ShardEntity she = ShardEntity.create(it.next());
-			if (currEntities.contains(she)) {
+			if (palletsFromSource.contains(she)) {
 				sortedLog.add(she);
 				it.remove();
 			} else {
-				logger.info("{}: Adding Pallets: {}", getClass().getSimpleName(), she);
-				currEntities.add(she);
+				logger.info("{}: Adding New Pallet: {}", getClass().getSimpleName(), she);
+				partitionTable.addCrudPallet(she);
 			}
 		}
 		if (!sortedLog.isEmpty()) {
-			logger.info("{}: Skipping Crud Entity already in Partition Table: {}", getClass().getSimpleName(),
+			logger.info("{}: Skipping Pallet CRUD already in PTable: {}", getClass().getSimpleName(),
 					ShardEntity.toStringIds(sortedLog));
 		}
 	}
 
-	/*
-		private void removeAndRegisterCrudEntities(final List<Entity<?>> sourceEntities, Predicate<?> p, final Set<ShardEntity> currentEntities) {
-			final Set<ShardEntity> sortedLog = new TreeSet<>();
-			final Iterator<Entity<?>> it = sourceEntities.iterator();
-			while (it.hasNext()) {
-				final ShardEntity she = ShardEntity.create(it.next());
-				if (p.test(she)) {
-					sortedLog.add(she);
-					it.remove();
-				} else {
-					logger.info("{}: Adding Entity: {}", getClass().getSimpleName(), she);
-					currEntities.add(she);
-				}
-			}
-			if (!sortedLog.isEmpty()) {
-				logger.info("{}: Skipping Crud Entity already in Partition Table: {}", getClass().getSimpleName(),
-					ShardEntity.toStringIds(sortedLog));
-			}
-		}
-	*/
 	/**
 	 * Check valid actions to client sent duties, 
 	 * according their action and the current partition table
-	 * 
-	 * @param dutiesFromAction
 	 */
-	public void registerCrudThruCheck(ShardEntity... dutiesFromAction) {
+	public void registerDutyCRUD(ShardEntity... dutiesFromAction) {
 		for (final ShardEntity ent : dutiesFromAction) {
 			final boolean found = presentInPartition(ent);
 			final EntityEvent event = ent.getDutyEvent();
