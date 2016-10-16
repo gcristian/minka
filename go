@@ -7,7 +7,7 @@
 port_start=${1:-'5000'}
 host='localhost'
 xms='512M'
-delegate=${1:-'MultiPalletSample'}
+delegate=${1:-'MultiPalletRandomSample'}
 pp='broker.hostPort'
 for i in {1..20}; do
 	i=$(($i+$port_start))
