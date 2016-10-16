@@ -341,7 +341,8 @@ public class Auditor {
 				sortedLog.add(she);
 				it.remove();
 			} else {
-				logger.info("{}: Adding New Pallet: {}", getClass().getSimpleName(), she);
+				logger.info("{}: Adding New Pallet: {} with Balancer: {}", getClass().getSimpleName(), she, 
+						she.getPallet().getStrategy());
 				partitionTable.addCrudPallet(she);
 			}
 		}

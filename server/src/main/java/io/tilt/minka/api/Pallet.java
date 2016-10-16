@@ -79,7 +79,7 @@ public interface Pallet<P extends Serializable> extends Entity<P> {
 	}
 
 	default int getBalancerSpillOverMaxValue() {
-		return 1;
+		return 99999999;
 	}
 
 	default int getBalancerRoundRobinMaxDutiesDeltaBetweenShards() {

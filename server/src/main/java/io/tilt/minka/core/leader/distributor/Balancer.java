@@ -85,6 +85,10 @@ public interface Balancer {
 		}
 	}
 	
+	public static class Metadata {
+		
+	}
+	
 	public enum Strategy {
 
 		/* equally sized shards: each one with same amount of entities or almost */
@@ -92,16 +96,16 @@ public interface Balancer {
 		/* equally loaded shards: duties clustering according weights*/
 		EVEN_WEIGHT(EvenLoadBalancer.class),
 		/* fairly loaded shards: duty-weight and shard-capacity trade-off distribution */
-		EVEN_CAPACITY(FairLoadBalancer.class),
+		//EVEN_CAPACITY(FairLoadBalancer.class),
 		
 		/* Unbalanced strategies related to distribution */
 		
 		/* keep minimum usage of shards: until spill then fill another one but keep frugal */
 		SPILLOVER(SpillOverBalancer.class),
 		/* keep agglutination of duties: move them together wherever they are */
-		COALESCE(CoalesceBalancer.class),
+		//COALESCE(CoalesceBalancer.class),
 		/* random lazily spread distribution */
-		SCATTER(ShuffleBalancer.class),
+		//SCATTER(ShuffleBalancer.class),
 		;
 		Class<? extends Balancer> balancer;
 

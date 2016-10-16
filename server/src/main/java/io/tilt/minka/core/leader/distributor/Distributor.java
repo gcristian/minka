@@ -151,14 +151,15 @@ public class Distributor extends ServiceImpl {
 			final int online = partitionTable.getShardsByState(ONLINE).size();
 			final int min = config.getShepherd().getMinShardsOnlineBeforeSharding();
 			if (online >= min) {
-				checkWithStorageWhenAllOnlines();
-				final Reallocation currentRealloc = auditor.getCurrentReallocation();
-				if (currentRealloc.isEmpty()) {
-					createChangeAndSendIssues(null);
-				} else if (!currentRealloc.hasFinished() && currentRealloc.hasCurrentStepFinished()) {
-					sendNextIssues();
-				} else {
-					checkExpiration(now, currentRealloc);
+				if (checkWithStorageWhenAllOnlines()) {
+					final Reallocation currentRealloc = auditor.getCurrentReallocation();
+					if (currentRealloc.isEmpty()) {
+						createChangeAndSendIssues(null);
+					} else if (!currentRealloc.hasFinished() && currentRealloc.hasCurrentStepFinished()) {
+						sendNextIssues();
+					} else {
+						checkExpiration(now, currentRealloc);
+					}
 				}
 			} else {
 				logger.info("{}: balancing posponed: not enough online shards (min:{}, now:{})", getName(), min,
@@ -218,23 +219,24 @@ public class Distributor extends ServiceImpl {
 	}
 
 	/* read from storage only first time */
-	private void checkWithStorageWhenAllOnlines() {
+	private boolean checkWithStorageWhenAllOnlines() {
 		if (initialAdding || (config.getDistributor().isReloadDutiesFromStorage()
 				&& config.getDistributor().getReloadDutiesFromStorageEachPeriods() == counter++)) {
 			counter = 0;
 			Set<Duty<?>> duties = reloadDutiesFromStorage();
 			Set<Pallet<?>> pallets = reloadPalletsFromStorage();
 			if (duties == null || duties.isEmpty() || pallets == null || pallets.isEmpty()) {
-				logger.error("{}: distribution posponed: {} hasn't return any entities (pallets = {}, duties: {})",
+				logger.warn("{}: distribution posponed: {} hasn't return any entities (pallets = {}, duties: {})",
 						getName(),
 						config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "Minka storage" : "PartitionMaster",
 						duties, pallets);
+				return false;
 			} else {
 				try {
 					duties.forEach(d -> DutyBuilder.validateBuiltParams(d));
 				} catch (Exception e) {
 					logger.error("{}: Distribution suspended - Duty Built construction problem: ", getName(), e);
-					return;
+					return false;
 				}
 				logger.info("{}: {} reported {} entities for sharding...", getName(),
 						config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster",
@@ -246,12 +248,13 @@ public class Distributor extends ServiceImpl {
 				initialAdding = false;
 			}
 			if (partitionTable.getDutiesCrud().isEmpty()) {
-				logger.error("{}: Aborting first distribution cause of no duties !", getName());
-				return;
+				logger.warn("{}: Aborting first distribution cause of no duties !", getName());
+				return false;
 			}
 		} else {
 			checkConsistencyState();
 		}
+		return true;
 	}
 
 	private void checkConsistencyState() {

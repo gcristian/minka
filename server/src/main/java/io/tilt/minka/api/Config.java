@@ -102,7 +102,7 @@ public class Config {
 	public static class BootstrapConf {
 		protected static final String SERVICE_NAME = ("default-name");
 		private static String serviceName;
-		protected final long READYNESS_RETRY_DELAY_MS = 5000l;
+		protected static final long READYNESS_RETRY_DELAY_MS = 5000l;
 		private long readynessRetryDelayMs;
 		protected final static boolean PUBLISH_LEADER_CANDIDATURE = true;
 		private boolean publishLeaderCandidature;
