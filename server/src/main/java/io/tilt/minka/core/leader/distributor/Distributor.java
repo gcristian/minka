@@ -42,7 +42,7 @@ import com.google.common.collect.Multimap;
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.DutyBuilder;
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.broker.EventBroker;
@@ -74,7 +74,7 @@ public class Distributor extends ServiceImpl {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	private final NewConfig config;
+	private final Config config;
 	private final Scheduler scheduler;
 	private final EventBroker eventBroker;
 	private final PartitionTable partitionTable;
@@ -92,7 +92,7 @@ public class Distributor extends ServiceImpl {
 
 	private final Agent distributor;
 
-	public Distributor(final NewConfig config, final Scheduler scheduler, final EventBroker eventBroker,
+	public Distributor(final Config config, final Scheduler scheduler, final EventBroker eventBroker,
 			final PartitionTable partitionTable, final Auditor accounter, final ShardID shardId,
 			final Map<BalanceStrategy, Balancer> balancers, final EntityDao dutyDao,
 			final DependencyPlaceholder dependencyPlaceholder, final LeaderShardContainer leaderShardContainer) {

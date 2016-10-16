@@ -8,7 +8,7 @@ import java.util.Properties;
 
 import org.junit.Test;
 
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.utils.Defaulter;
 import junit.framework.Assert;
 
@@ -17,11 +17,11 @@ public class NewConfigTest {
 	@Test
 	public void testConfigSerialization() throws Exception {
 
-		final NewConfig conf = new NewConfig();
+		final Config conf = new Config();
 		final String json = conf.toJson();
 		System.out.println(json);
 		
-		NewConfig fromString = NewConfig.fromString(json);
+		Config fromString = Config.fromString(json);
 		String toStr = fromString.toJson();
 		System.out.println(toStr);
 		Assert.assertTrue(toStr.equals(json));
@@ -31,7 +31,7 @@ public class NewConfigTest {
 	public void testConfigDefaults() throws Exception {
 
 		final Properties prop = new Properties();
-		NewConfig conf = new NewConfig();
+		Config conf = new Config();
 		Defaulter.apply(prop, "concistency.", conf.getConsistency());
 		Defaulter.apply(prop, "balancer.", conf.getBalancer());
 		Defaulter.apply(prop, "bootstrap.", conf.getBootstrap());

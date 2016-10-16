@@ -38,7 +38,7 @@ import io.tilt.minka.core.leader.distributor.SpillOverBalancer.MaxValueUsage;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.utils.Defaulter;
 
-public class NewConfig {
+public class Config {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
@@ -507,7 +507,7 @@ public class NewConfig {
 		}
 	}
 
-	public NewConfig(Properties prop) throws Exception {
+	public Config(Properties prop) throws Exception {
 		this.scheduler = new SchedulerConf();
 		this.bootstrap = new BootstrapConf();
 		this.broker = new BrokerConf();
@@ -534,7 +534,7 @@ public class NewConfig {
 		logger.info("{}: Configuration: {} ", getClass().getSimpleName(), toJson());
 	}
 	
-	public NewConfig() throws Exception {
+	public Config() throws Exception {
 		this(null);
 	}
 	
@@ -545,12 +545,12 @@ public class NewConfig {
 		objectMapper.writeValue(new File(filepath), this);
 	}
 	
-	public static NewConfig fromString(final String json) throws Exception {
-		return objectMapper.readValue(json, NewConfig.class);
+	public static Config fromString(final String json) throws Exception {
+		return objectMapper.readValue(json, Config.class);
 	}
 	
-	public static NewConfig fromJsonFile(final String filepath) throws Exception {
-		return objectMapper.readValue(filepath, NewConfig.class);
+	public static Config fromJsonFile(final String filepath) throws Exception {
+		return objectMapper.readValue(filepath, Config.class);
 	}
 
 	@JsonIgnore

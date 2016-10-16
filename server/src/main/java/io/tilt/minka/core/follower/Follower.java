@@ -21,7 +21,7 @@ import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -53,7 +53,7 @@ public class Follower extends ServiceImpl {
 	private final DateTime creation;
 
 	private final LeaderEventsHandler leaderConsumer;
-	private final NewConfig config;
+	private final Config config;
 	private final EventBroker eventBroker;
 
 	private final Scheduler scheduler;
@@ -66,7 +66,7 @@ public class Follower extends ServiceImpl {
 
 	private boolean firstClearanceGot;
 
-	public Follower(final NewConfig config, final Heartpump heartpump, final LeaderEventsHandler leaderConsumer,
+	public Follower(final Config config, final Heartpump heartpump, final LeaderEventsHandler leaderConsumer,
 			final EventBroker eventBroker, final Scheduler scheduler, final HeartbeatBuilder builder) {
 		super();
 

@@ -30,7 +30,7 @@ import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
@@ -58,14 +58,14 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	private final NewConfig config;
+	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
 	private final Scheduler scheduler;
 	private SocketServer server;
 
 	private Map<DirectChannel, SocketClient> clients;
 
-	public SocketBroker(NewConfig config, NetworkShardID shardId, LeaderShardContainer leaderContainerShard,
+	public SocketBroker(Config config, NetworkShardID shardId, LeaderShardContainer leaderContainerShard,
 			Scheduler scheduler) {
 
 		super(shardId);
@@ -248,7 +248,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	}
 
 	@Override
-	public BrokerChannel build(NewConfig config, Channel channel) {
+	public BrokerChannel build(Config config, Channel channel) {
 		return build(config.getBootstrap().getServiceName(), channel);
 	}
 
@@ -258,7 +258,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	}
 
 	@Override
-	public BrokerChannel buildToTarget(NewConfig config, Channel channel, NetworkShardID shardId) {
+	public BrokerChannel buildToTarget(Config config, Channel channel, NetworkShardID shardId) {
 		return new DirectChannel(config.getBootstrap().getServiceName(), shardId, channel);
 	}
 

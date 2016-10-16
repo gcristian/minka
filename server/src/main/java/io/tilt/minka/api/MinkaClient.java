@@ -104,10 +104,10 @@ public class MinkaClient {
 	private final EventBroker eventBroker;
 	private final ClientEventsHandler clientMediator;
 	private final ShardID shardId;
-	private final NewConfig config;
+	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
 
-	protected MinkaClient(final NewConfig config, final Leader leader, final EventBroker eventBroker,
+	protected MinkaClient(final Config config, final Leader leader, final EventBroker eventBroker,
 			final ClientEventsHandler mediator, final ShardID shardId,
 			final ZookeeperLeaderShardContainer leaderShardContainer) {
 		this.config = config;

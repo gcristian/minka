@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.HeartbeatBuilder;
 import io.tilt.minka.core.task.LeaderShardContainer;
@@ -56,9 +56,9 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final AttachedPartition partition;
 	private final AtomicLong sequence;
-	private final NewConfig config;
+	private final Config config;
 
-	public HeartbeatBuilderImpl(final NewConfig config, final DependencyPlaceholder holder, final AttachedPartition partition,
+	public HeartbeatBuilderImpl(final Config config, final DependencyPlaceholder holder, final AttachedPartition partition,
 			final LeaderShardContainer leaderShardContainer) {
 
 		super();

@@ -21,7 +21,7 @@ import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.follower.Heartpump;
@@ -35,14 +35,14 @@ public class HeartpumpImpl extends ServiceImpl implements Heartpump {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	private final NewConfig config;
+	private final Config config;
 	private final EventBroker eventBroker;
 	private final AttachedPartition partition;
 	private final LeaderShardContainer leaderShardContainer;
 
 	private DateTime lastHeartbeatTimestamp;
 
-	public HeartpumpImpl(final NewConfig config, final EventBroker eventBroker, final AttachedPartition partition,
+	public HeartpumpImpl(final Config config, final EventBroker eventBroker, final AttachedPartition partition,
 			final LeaderShardContainer leaderShardContainer) {
 
 		super();

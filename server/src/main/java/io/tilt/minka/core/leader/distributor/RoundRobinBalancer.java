@@ -28,7 +28,7 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.domain.EntityEvent;
@@ -48,7 +48,7 @@ public class RoundRobinBalancer implements Balancer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public RoundRobinBalancer(final NewConfig config) {
+	public RoundRobinBalancer(final Config config) {
 
 	}
 

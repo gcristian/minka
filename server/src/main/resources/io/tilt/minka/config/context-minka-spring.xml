@@ -15,7 +15,7 @@
         location="file://${minka.config.filepath:minka.properties}" />
     
     <!-- si no hay properties: la configuracion se llena de valores predeterminados -->
-    <bean id="config" class="io.tilt.minka.api.NewConfig">
+    <bean id="config" class="io.tilt.minka.api.Config">
         <constructor-arg ref="minka-properties" />
     </bean>
     

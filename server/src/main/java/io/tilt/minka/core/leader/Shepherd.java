@@ -32,7 +32,7 @@ import org.apache.commons.math3.util.Precision;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
 import io.tilt.minka.core.task.LeaderShardContainer;
@@ -61,7 +61,7 @@ public class Shepherd extends ServiceImpl {
 
 	public static final String LEADER_SHARD_PATH = "leader-shard";
 
-	private final NewConfig config;
+	private final Config config;
 	private final PartitionTable partitionTable;
 	private final Auditor auditor;
 	private final EventBroker eventBroker;
@@ -80,7 +80,7 @@ public class Shepherd extends ServiceImpl {
 	 * Partition Table
 	 */
 
-	public Shepherd(NewConfig config, PartitionTable partitionTable, Auditor accounter, EventBroker eventBroker,
+	public Shepherd(Config config, PartitionTable partitionTable, Auditor accounter, EventBroker eventBroker,
 			Scheduler scheduler, NetworkShardID shardId, LeaderShardContainer leaderShardContainer) {
 
 		this.config = config;

@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.util.concurrent.CycleDetectingLockFactory;
 import com.google.common.util.concurrent.CycleDetectingLockFactory.Policies;
 
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.spectator.Locks;
@@ -59,10 +59,10 @@ public class SemaphoreImpl extends ServiceImpl implements Semaphore {
 
 	/* for global scope actions */
 	private Locks locks;
-	private final NewConfig config;
+	private final Config config;
 	private final SpectatorSupplier supplier;
 
-	public SemaphoreImpl(final NewConfig config, final SpectatorSupplier supplier, final ShardID shardId) {
+	public SemaphoreImpl(final Config config, final SpectatorSupplier supplier, final ShardID shardId) {
 		this.config = config;
 		this.rules = new HashMap<>();
 		getLockingRules().forEach(rule -> this.rules.put(rule.getAction(), rule));
@@ -254,7 +254,7 @@ public class SemaphoreImpl extends ServiceImpl implements Semaphore {
 		return locksByAction.get(a);
 	}
 	
-	protected NewConfig getConfig() {
+	protected Config getConfig() {
 		return this.config;
 	}
 }

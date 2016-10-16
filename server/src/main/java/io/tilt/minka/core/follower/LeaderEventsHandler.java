@@ -29,7 +29,7 @@ import com.google.common.collect.Lists;
 
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.EntityPayload;
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.task.LeaderShardContainer;
@@ -61,7 +61,7 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 	private final AttachedPartition partition;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
-	private final NewConfig config;
+	private final Config config;
 	private Clearance lastClearance;
 	private final LeaderShardContainer leaderContainer;
 
@@ -71,7 +71,7 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 	 */
 	private final long START_PAST_LAPSE_MS = 1000 * 60 * 10;
 
-	public LeaderEventsHandler(final NewConfig config, final DependencyPlaceholder dependencyPlaceholder,
+	public LeaderEventsHandler(final Config config, final DependencyPlaceholder dependencyPlaceholder,
 			final AttachedPartition partition, final PartitionManager partitionManager, final EventBroker eventBroker,
 			final Scheduler scheduler, final LeaderShardContainer leaderContainer) {
 

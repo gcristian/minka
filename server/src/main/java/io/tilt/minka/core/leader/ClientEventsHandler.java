@@ -27,7 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.MinkaClient;
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.task.Scheduler;
@@ -51,14 +51,14 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	private final NewConfig config;
+	private final Config config;
 	private final PartitionTable partitionTable;
 	private final Scheduler scheduler;
 	private final Auditor auditor;
 	private final EventBroker eventBroker;
 	private final NetworkShardID shardId;
 
-	public ClientEventsHandler(NewConfig config, PartitionTable partitionTable, Scheduler scheduler,
+	public ClientEventsHandler(Config config, PartitionTable partitionTable, Scheduler scheduler,
 			EventBroker eventBroker, Auditor auditor, NetworkShardID shardId) {
 
 		this.config = config;

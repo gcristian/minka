@@ -34,7 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.domain.EntityEvent;
@@ -79,7 +79,7 @@ public class FairWorkloadBalancer implements Balancer {
 
 	private final Clusterizer clusterizer;
 
-	public FairWorkloadBalancer(final NewConfig config, final Clusterizer partitioneer) {
+	public FairWorkloadBalancer(final Config config, final Clusterizer partitioneer) {
 		this.clusterizer = partitioneer;
 	}
 

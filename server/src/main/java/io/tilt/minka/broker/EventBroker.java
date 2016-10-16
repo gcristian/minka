@@ -23,7 +23,7 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.function.Consumer;
 
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.NetworkShardID;
 
@@ -36,13 +36,13 @@ import io.tilt.minka.domain.NetworkShardID;
  */
 public interface EventBroker extends Service {
 
-	BrokerChannel build(NewConfig config, Channel channel);
+	BrokerChannel build(Config config, Channel channel);
 
 	default BrokerChannel build(String service, Channel channel) {
 		throw new RuntimeException("Unmandatory build was required");
 	}
 
-	BrokerChannel buildToTarget(NewConfig config, Channel channel, NetworkShardID shardId);
+	BrokerChannel buildToTarget(Config config, Channel channel, NetworkShardID shardId);
 
 	default BrokerChannel buildToTarget(String service, Channel channel, NetworkShardID shardId) {
 		throw new RuntimeException("Unmandatory build was required");

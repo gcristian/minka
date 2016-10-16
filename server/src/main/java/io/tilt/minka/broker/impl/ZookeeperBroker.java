@@ -25,7 +25,7 @@ import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.impl.SpectatorSupplier;
 import io.tilt.minka.domain.NetworkShardID;
@@ -46,7 +46,7 @@ public class ZookeeperBroker extends AbstractBroker implements EventBroker, Cons
 	private final Queues queues;
 	private final Wells wells;
 
-	public ZookeeperBroker(final NewConfig config, final NetworkShardID shardId) {
+	public ZookeeperBroker(final Config config, final NetworkShardID shardId) {
 		super(shardId);
 		this.queues = new Queues(config.getBootstrap().getZookeeperHostPort());
 		this.wells = new Wells(config.getBootstrap().getZookeeperHostPort());
@@ -58,12 +58,12 @@ public class ZookeeperBroker extends AbstractBroker implements EventBroker, Cons
 	}
 
 	@Override
-	public BrokerChannel buildToTarget(final NewConfig config, final Channel channel, final NetworkShardID shardId) {
+	public BrokerChannel buildToTarget(final Config config, final Channel channel, final NetworkShardID shardId) {
 		return buildToTarget(config.getBootstrap().getServiceName(), channel, shardId);
 	}
 
 	@Override
-	public BrokerChannel build(final NewConfig config, final Channel channel) {
+	public BrokerChannel build(final Config config, final Channel channel) {
 		return build(config.getBootstrap().getServiceName(), channel);
 	}
 

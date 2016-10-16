@@ -21,7 +21,7 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.spectator.Spectator;
 
 /* to share one connection with different children */
@@ -30,10 +30,10 @@ public class SpectatorSupplier implements Supplier<Spectator> {
 		private final Logger logger = LoggerFactory.getLogger(getClass());
 		public static String MINKA_SUBDOMAIN = "minka";
 
-		private final NewConfig config;
+		private final Config config;
 		private Spectator spectator;
 
-		public SpectatorSupplier(final NewConfig config) {
+		public SpectatorSupplier(final Config config) {
 			this.config = config;
 		}
 

@@ -21,7 +21,7 @@ import io.tilt.minka.api.Pallet.Storage;
 public class ConfigValidator {
 
 	/* TODO este metodo va a crecer mucho y requiere un monton de calculo */
-	public void validate(NewConfig config, PartitionDelegate delegate) {
+	public void validate(Config config, PartitionDelegate delegate) {
 
 		if (config.getBroker().getHostPort().indexOf(":") < 1) {
 			throw new IllegalArgumentException(
@@ -30,7 +30,7 @@ public class ConfigValidator {
 		checkPartitionMaster(config, delegate);
 	}
 
-	private void checkPartitionMaster(NewConfig config, PartitionDelegate delegate) {
+	private void checkPartitionMaster(Config config, PartitionDelegate delegate) {
 		if (delegate instanceof PartitionMaster && config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT) {
 			throw new RuntimeException("You must provide a PartitionDelegate instead of PartitionMaster"
 					+ " while having configuration parameter Storage = MINKA_MANAGEMENT");

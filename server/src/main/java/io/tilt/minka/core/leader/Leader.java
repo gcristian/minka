@@ -22,7 +22,7 @@ import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
@@ -50,11 +50,11 @@ public class Leader extends ServiceImpl {
 	private final Scheduler scheduler;
 	private final NetworkShardID shardId;
 	private final List<Service> services;
-	private final NewConfig config;
+	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
 	private boolean served;
 
-	public Leader(NewConfig config, List<Service> services, Scheduler scheduler, NetworkShardID shardId,
+	public Leader(Config config, List<Service> services, Scheduler scheduler, NetworkShardID shardId,
 			LeaderShardContainer leaderShardContainer, EventBroker eventBroker) {
 
 		super();

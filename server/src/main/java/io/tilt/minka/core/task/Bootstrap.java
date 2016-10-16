@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.ConfigValidator;
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.MinkaClient;
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
@@ -50,7 +50,7 @@ public class Bootstrap extends ServiceImpl {
 
 	private static final Logger logger = LoggerFactory.getLogger(Bootstrap.class);
 
-	private final NewConfig config;
+	private final Config config;
 	private final ConfigValidator validator;
 	private final Leader leader;
 	private final Follower follower;
@@ -74,7 +74,7 @@ public class Bootstrap extends ServiceImpl {
 	* @param config 				a specific configuration  
 	* @param partitionDelegate		your delegate as point of integration
 	*/
-	public Bootstrap(final NewConfig config, final ConfigValidator validator, final SpectatorSupplier spectatorSupplier,
+	public Bootstrap(final Config config, final ConfigValidator validator, final SpectatorSupplier spectatorSupplier,
 			final boolean autoStart, final Leader leader, final Follower follower,
 			final DependencyPlaceholder dependencyPlaceholder, final Scheduler scheduler,
 			final LeaderShardContainer leaderShardContainer, final ShardID shardId, final EventBroker eventBroker,

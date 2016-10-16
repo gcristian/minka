@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.ShardID;
 
@@ -65,7 +65,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	private ScheduledThreadPoolExecutor executor;
 
 	public SchedulerImpl(
-			final NewConfig config, 
+			final Config config, 
 			final SpectatorSupplier supplier, 
 			final ShardID shardId, 
 			final AgentFactory agentFactory,
@@ -75,7 +75,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		this.agentFactory = agentFactory;
 		this.syncFactory = syncFactory;
 		this.executor = new ScheduledThreadPoolExecutor(MAX_CONCURRENT_THREADS,
-			new ThreadFactoryBuilder().setNameFormat(NewConfig.SchedulerConf.THREAD_NAME_COORDINATOR_IN_BACKGROUND).build());
+			new ThreadFactoryBuilder().setNameFormat(Config.SchedulerConf.THREAD_NAME_COORDINATOR_IN_BACKGROUND).build());
 		executor.setRemoveOnCancelPolicy(true);
 		executor.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
 		executor.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);

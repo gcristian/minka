@@ -23,7 +23,7 @@ import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.NewConfig;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.domain.NetworkShardID;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.spectator.MessageMetadata;
@@ -45,10 +45,10 @@ public class ZookeeperLeaderShardContainer extends TransportlessLeaderShardConta
 
 		private Wells wells;
 		private final Supplier<Spectator> supplier;
-		private final NewConfig config;
+		private final Config config;
 		private final Consumer<MessageMetadata> callbackConsumer;
 
-		public ZookeeperLeaderShardContainer(final NewConfig config, final ShardID myShardId,
+		public ZookeeperLeaderShardContainer(final Config config, final ShardID myShardId,
 				final Supplier<Spectator> supplier) {
 			super(myShardId);
 			Validate.notNull(config);
