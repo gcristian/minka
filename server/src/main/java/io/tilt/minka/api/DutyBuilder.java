@@ -21,8 +21,6 @@ import java.io.Serializable;
 import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-
 /** A plain simple duty that can be stored in maps, sets, compared to others,
  * etc. Instance identity is upon ID param.
  * 

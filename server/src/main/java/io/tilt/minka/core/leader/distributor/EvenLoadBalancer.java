@@ -1,5 +1,5 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
+ * Licensed to the Apache Software Foundation (ASF) under one or more 
  * contributor license agreements. See the NOTICE file distributed with this
  * work for additional information regarding copyright ownership. The ASF
  * licenses this file to You under the Apache License, Version 2.0 (the
@@ -33,8 +33,8 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.domain.EntityEvent;
@@ -42,13 +42,14 @@ import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
+ * Result: equally loaded shards: duties clustering according weights
  * Balances and distributes duties by creating clusters using their processing weight
  * and assigning to Shards in order to have a perfectly balanced workload 
  * 
  * @author Cristian Gonzalez
  * @since Dec 13, 2015
  */
-public class FairWorkloadBalancer implements Balancer {
+public class EvenLoadBalancer implements Balancer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -77,11 +78,7 @@ public class FairWorkloadBalancer implements Balancer {
 		WEIGHT;
 	}
 
-	private final Clusterizer clusterizer;
-
-	public FairWorkloadBalancer(final Config config, final Clusterizer partitioneer) {
-		this.clusterizer = partitioneer;
-	}
+	private final Clusterizer clusterizer = new WeightBasedClusterizer();
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public final void balance(final Pallet<?> pallet, final PartitionTable table, final Reallocation realloc,

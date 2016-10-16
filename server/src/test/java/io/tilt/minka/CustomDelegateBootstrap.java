@@ -23,7 +23,7 @@ public class CustomDelegateBootstrap extends BootstrapTesting {
 			logger.info("loading minka");
 			MinkaLoader loader = new MinkaLoader();
 			loader.load();
-			final String clazz = System.getProperty("delegate", "MultiPalletSample");
+			final String clazz = System.getProperty("delegate", "MultiPalletRandomSample");
 			logger.info("creating custom delegate");
 			final PartitionMaster<?, ?> master = (PartitionMaster<?, ?>) Class.forName("io.tilt.minka.delegates." + clazz)
 					.newInstance();

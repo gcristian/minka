@@ -121,34 +121,8 @@
     ===============================================================================================-->
     
     <bean id="partitionTable" class="io.tilt.minka.core.leader.PartitionTable"/>
-    
-    <util:map id="balancersMap" key-type="io.tilt.minka.core.leader.distributor.Balancer.BalanceStrategy" 
-        value-type="io.tilt.minka.core.leader.distributor.Balancer">
-        <entry key="ROUND_ROBIN">
-            <!-- Estrategia para distribuir entidades en forma pareja: iguales cantidades -->
-            <bean id="balancer" class="io.tilt.minka.core.leader.distributor.RoundRobinBalancer">
-                <constructor-arg ref="config" />
-            </bean>
-        </entry>
-        <entry key="FAIR_LOAD">
-            <!-- Estrategia para distribuir entidades en forma justa: clustering por carga de trabajo -->
-            <bean id="balancer" class="io.tilt.minka.core.leader.distributor.FairWorkloadBalancer">
-                <constructor-arg ref="config" />
-                <constructor-arg>
-                    <bean class="io.tilt.minka.core.leader.distributor.WeightBasedClusterizer"/>
-                </constructor-arg>
-            </bean>        
-        </entry>
-        <entry key="SPILL_OVER">
-            <!-- Estrategia para distribuir entidades en por derrame: para disponibilidad -->
-            <bean id="balancer" class="io.tilt.minka.core.leader.distributor.SpillOverBalancer">
-                <constructor-arg ref="config" />
-            </bean>        
-        </entry>
-    </util:map>
-    
-    <bean id="entityDao" class="io.tilt.minka.core.leader.EntityDao.FakeDao">
-    </bean>
+        
+    <bean id="entityDao" class="io.tilt.minka.core.leader.EntityDao.FakeDao"/>
     
     <!-- Balancea las tareas -->
     <bean id="distributor" class="io.tilt.minka.core.leader.distributor.Distributor">
@@ -158,7 +132,6 @@
         <constructor-arg ref="partitionTable" />
         <constructor-arg ref="auditor" />
         <constructor-arg ref="shardId" />
-        <constructor-arg ref="balancersMap" />
         <constructor-arg ref="entityDao" />
         <constructor-arg ref="clientHolder" />
         <constructor-arg ref="leaderShardContainer" />

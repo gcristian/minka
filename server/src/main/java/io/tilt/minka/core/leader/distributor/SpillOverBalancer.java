@@ -31,8 +31,8 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.AtomicDouble;
 
-import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.domain.EntityEvent;
@@ -43,6 +43,9 @@ import io.tilt.minka.domain.ShardEntity.StuckCause;
 import io.tilt.minka.utils.CircularCollection;
 
 /**
+ * Unbalanced strategy related to distribution.
+ * Result: keep minimum usage of shards: until spill then fill another one but keep frugal
+ * 
  * Balances and distributes duties by spilling from one shard to another.
  * Useful to save machines without loosing high availability
  * 
@@ -65,9 +68,6 @@ public class SpillOverBalancer implements Balancer {
 		SIZE
 	}
 
-	public SpillOverBalancer(final Config config) {
-
-	}
 
 	@Override
 	public final void balance(final Pallet<?> pallet, final PartitionTable table, final Reallocation realloc,

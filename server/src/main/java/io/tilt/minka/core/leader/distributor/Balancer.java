@@ -16,8 +16,14 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+
+import org.apache.commons.lang.Validate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
@@ -53,30 +59,53 @@ public interface Balancer {
 			final List<Shard> onlineShards, final Set<ShardEntity> creations, final Set<ShardEntity> deletions,
 			final int accounted);
 
-	public enum BalanceAttributes {
-		/**
-		 * Keep at least one pallet of each kind
-		 */
-		NOE;
+	
+	/** So clients can add new balancers */
+	public static class Directory {
+		private static final Logger logger = LoggerFactory.getLogger(Balancer.class);
+		private final static Map<Class<? extends Balancer>, Balancer> directory = new HashMap<>();
+		static {
+			try {
+				for (Strategy strat: Strategy.values()) {
+					directory.put(strat.getBalancer(), strat.getBalancer().newInstance());
+				}
+			} catch (InstantiationException | IllegalAccessException e) {
+				logger.error("Unexpected factorying balancer's directory", e);
+			}
+		}
+		public static void addCustomBalancer(final Balancer b) {
+			Validate.notNull(b);
+			if (directory.values().contains(b)) {
+				throw new IllegalArgumentException("given balancer already exists: " + b.getClass().getName());
+			}
+			directory.put(b.getClass(), b);
+		}
+		public static Balancer getByStrategy(final Class<? extends Balancer>strategy) {
+			return Directory.directory.get(strategy);
+		}
 	}
+	
+	public enum Strategy {
 
-	public enum BalanceStrategy {
-		/* duties within the pallet will stick together wherever they fit*/
-		NONE(null),
-		/* try to fit in the best place, no migration at all */
-		WEIGHTED_ROUND_ROBIN(null),
-		/* all nodes same amount of entities */
+		/* equally sized shards: each one with same amount of entities or almost */
 		ROUND_ROBIN(RoundRobinBalancer.class),
-		/* duties clustering according weights */
-		FAIR_LOAD(FairWorkloadBalancer.class),
-		/* fill each node until spill then fill another node */
-		SPILL_OVER(SpillOverBalancer.class),
-
+		/* equally loaded shards: duties clustering according weights*/
+		EVEN_WEIGHT(EvenLoadBalancer.class),
+		/* fairly loaded shards: duty-weight and shard-capacity trade-off distribution */
+		EVEN_CAPACITY(FairLoadBalancer.class),
+		
+		/* Unbalanced strategies related to distribution */
+		
+		/* keep minimum usage of shards: until spill then fill another one but keep frugal */
+		SPILLOVER(SpillOverBalancer.class),
+		/* keep agglutination of duties: move them together wherever they are */
+		COALESCE(CoalesceBalancer.class),
+		/* random lazily spread distribution */
+		SCATTER(ShuffleBalancer.class),
 		;
-
 		Class<? extends Balancer> balancer;
 
-		BalanceStrategy(Class<? extends Balancer> balancer) {
+		Strategy(Class<? extends Balancer> balancer) {
 			this.balancer = balancer;
 		}
 

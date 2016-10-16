@@ -21,7 +21,6 @@ import static io.tilt.minka.domain.ShardState.ONLINE;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -31,7 +30,6 @@ import com.google.common.collect.Sets;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.core.leader.distributor.Balancer.BalanceStrategy;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
@@ -54,8 +52,7 @@ public class Arranger {
 		this.config = config;
 	}
 
-	public final Reallocation process(final Map<BalanceStrategy, Balancer> balancerMap, final PartitionTable table,
-			final Reallocation previousChange) {
+	public final Reallocation process(final PartitionTable table, final Reallocation previousChange) {
 
 		final Reallocation realloc = new Reallocation();
 		final List<Shard> onlineShards = table.getShardsByState(ONLINE);
@@ -95,15 +92,19 @@ public class Arranger {
 			Iterator<ShardEntity> itDuties = itPallet.next().iterator();
 			final ShardEntity pallet = allCollector.getPallet(itDuties.next().getDuty().getPalletId());
 			//allCollector.
-			final Balancer balancer = balancerMap.get(pallet.getPallet().getBalanceStrategy());
-
-			logger.info("{}: using {} on Pallet: {} with Duties: {}", getClass().getSimpleName(),
+			final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getPallet().getStrategy()); 
+			if (balancer!=null) {
+				logger.info("{}: using {} on Pallet: {} with Duties: {}", getClass().getSimpleName(),
 					balancer.getClass().getSimpleName(), pallet,
 					ShardEntity.toStringIds(allCollector.getDuties(pallet)));
+			
+				final Set<ShardEntity> creations = creationsCollector.getDuties(pallet);
 
-			final Set<ShardEntity> creations = creationsCollector.getDuties(pallet);
-
-			balancer.balance(pallet.getPallet(), table, realloc, onlineShards, creations, dutyDeletions, accounted);
+				balancer.balance(pallet.getPallet(), table, realloc, onlineShards, creations, dutyDeletions, accounted);
+			} else {
+				logger.info("{}: Balancer not found ! {} set on Pallet: {} ", getClass().getSimpleName(), 
+						pallet.getPallet().getStrategy(), pallet);
+			}
 		}
 
 		return realloc;

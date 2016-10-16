@@ -6,8 +6,8 @@ package io.tilt.minka.api;
 
 import java.io.Serializable;
 
-import io.tilt.minka.core.leader.distributor.Balancer.BalanceStrategy;
-import io.tilt.minka.core.leader.distributor.FairWorkloadBalancer.PreSortType;
+import io.tilt.minka.core.leader.distributor.Balancer;
+import io.tilt.minka.core.leader.distributor.EvenLoadBalancer.PreSortType;
 import io.tilt.minka.core.leader.distributor.SpillOverBalancer.MaxValueUsage;
 
 /**
@@ -65,7 +65,7 @@ public interface Pallet<P extends Serializable> extends Entity<P> {
 	 *   
 	 * @return
 	 */
-	BalanceStrategy getBalanceStrategy();
+	Class<? extends Balancer> getStrategy();
 
 	/*
 	 * TODO refactor all this into a builder for fair and spill balancer config
@@ -82,8 +82,8 @@ public interface Pallet<P extends Serializable> extends Entity<P> {
 		return 1;
 	}
 
-	default int getBalancerEvenSizeMaxDutiesDeltaBetweenShards() {
-		return 3;
+	default int getBalancerRoundRobinMaxDutiesDeltaBetweenShards() {
+		return 1;
 	}
 
 	/**

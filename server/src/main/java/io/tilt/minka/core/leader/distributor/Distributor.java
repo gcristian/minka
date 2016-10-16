@@ -26,7 +26,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -39,10 +38,10 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
+import io.tilt.minka.api.Config;
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.DutyBuilder;
-import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.broker.EventBroker;
@@ -50,7 +49,6 @@ import io.tilt.minka.core.leader.Auditor;
 import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
-import io.tilt.minka.core.leader.distributor.Balancer.BalanceStrategy;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -80,7 +78,6 @@ public class Distributor extends ServiceImpl {
 	private final PartitionTable partitionTable;
 	private final Auditor auditor;
 	private final ShardID shardId;
-	private final Map<BalanceStrategy, Balancer> balancers;
 	private final EntityDao entityDao;
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final LeaderShardContainer leaderShardContainer;
@@ -94,8 +91,8 @@ public class Distributor extends ServiceImpl {
 
 	public Distributor(final Config config, final Scheduler scheduler, final EventBroker eventBroker,
 			final PartitionTable partitionTable, final Auditor accounter, final ShardID shardId,
-			final Map<BalanceStrategy, Balancer> balancers, final EntityDao dutyDao,
-			final DependencyPlaceholder dependencyPlaceholder, final LeaderShardContainer leaderShardContainer) {
+			final EntityDao dutyDao, final DependencyPlaceholder dependencyPlaceholder, 
+			final LeaderShardContainer leaderShardContainer) {
 
 		this.config = config;
 		this.scheduler = scheduler;
@@ -103,7 +100,6 @@ public class Distributor extends ServiceImpl {
 		this.partitionTable = partitionTable;
 		this.auditor = accounter;
 		this.shardId = shardId;
-		this.balancers = balancers;
 		this.entityDao = dutyDao;
 		this.leaderShardContainer = leaderShardContainer;
 
@@ -186,7 +182,7 @@ public class Distributor extends ServiceImpl {
 	}
 
 	private void createChangeAndSendIssues(final Reallocation previousChange) {
-		final Reallocation realloc = arranger.process(balancers, partitionTable, previousChange);
+		final Reallocation realloc = arranger.process(partitionTable, previousChange);
 
 		auditor.addReallocation(realloc);
 		auditor.cleanTemporaryDuties();

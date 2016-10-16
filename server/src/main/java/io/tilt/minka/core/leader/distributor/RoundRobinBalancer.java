@@ -38,6 +38,8 @@ import io.tilt.minka.domain.ShardState;
 import io.tilt.minka.utils.CircularCollection;
 
 /**
+ * Result: equally sized shards: each one with same amount of entities or almost
+ * 
  * Balances and distributes evenly all sharding duties into ONLINE shards.
  * Considering dangling and new unpartitioned duties
  * 
@@ -47,10 +49,6 @@ import io.tilt.minka.utils.CircularCollection;
 public class RoundRobinBalancer implements Balancer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
-
-	public RoundRobinBalancer(final Config config) {
-
-	}
 
 	/*
 	 * TODO BUG: no olvidarme de evitar quitarle tareas a los q estan en
@@ -120,7 +118,7 @@ public class RoundRobinBalancer implements Balancer {
 			final Set<Shard> emisors, final Set<ShardEntity> deletions) {
 
 		final Map<Shard, Integer> deltas = new HashMap<>();
-		final int maxDelta = pallet.getBalancerEvenSizeMaxDutiesDeltaBetweenShards();
+		final int maxDelta = pallet.getBalancerRoundRobinMaxDutiesDeltaBetweenShards();
 		for (final Shard shard : onlineShards) {
 			final Set<ShardEntity> shardedDuties = table.getDutiesByShard(pallet, shard);
 			// check if this shard contains the deleting duties 
