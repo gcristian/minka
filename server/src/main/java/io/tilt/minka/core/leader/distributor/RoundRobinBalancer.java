@@ -16,8 +16,6 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
-import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -50,6 +48,29 @@ public class RoundRobinBalancer implements Balancer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
+	public static class RoundrobinMetadata implements BalancerMetadata {
+		private final int maxDutiesDeltaBetweenShards;
+		@Override
+		public Class<? extends Balancer> getBalancer() {
+			return RoundRobinBalancer.class;
+		}
+		public RoundrobinMetadata(int maxDutiesDeltaBetweenShards) {
+			super();
+			this.maxDutiesDeltaBetweenShards = maxDutiesDeltaBetweenShards;
+		}
+		public RoundrobinMetadata() {
+			super();
+			this.maxDutiesDeltaBetweenShards = Config.BalancerConf.ROUND_ROBIN_MAX_DUTIES_DELTA_BETWEEN_SHARDS;
+		}
+		protected int getMaxDutiesDeltaBetweenShards() {
+			return this.maxDutiesDeltaBetweenShards;
+		}
+		@Override
+		public String toString() {
+			return "RoundRobin-MaxDutiesDeltaBetweenShards: " + getMaxDutiesDeltaBetweenShards();
+		}
+	}
+	
 	/*
 	 * TODO BUG: no olvidarme de evitar quitarle tareas a los q estan en
 	 * cuarentena la inconsistencia es que si durante un tiempo prolongado se
@@ -57,18 +78,15 @@ public class RoundRobinBalancer implements Balancer {
 	 * no reporto ninguna perdida
 	 */
 	public void balance(final Pallet<?> pallet, final PartitionTable table, final Reallocation realloc,
-			final List<Shard> onlineShards, final Set<ShardEntity> creations, final Set<ShardEntity> deletions,
-			int accounted) {
+			final List<Shard> onlineShards, final Set<ShardEntity> creations, final Set<ShardEntity> deletions, int accounted) {
 
 		// get a fair distribution
 		accounted = table.getDutiesAllByShardState(pallet, ShardState.ONLINE).size();
 		final double sum = accounted + creations.size() - deletions.size(); // dangling.size() + 
 		final int evenSize = (int) Math.ceil(sum / (double) onlineShards.size());
 
-		logger.info(
-				"{}: Even distribution for {} Shards: #{}  duties, for Creations: {}, Deletions: {}, Accounted: {} ",
-				getClass().getSimpleName(), onlineShards.size(), evenSize, creations.size(), deletions.size(),
-				accounted);
+		logger.info("{}: Even distribution for {} Shards: #{}  duties, for Creations: {}, Deletions: {}, Accounted: {} ",
+				getClass().getSimpleName(), onlineShards.size(), evenSize, creations.size(), deletions.size(), accounted);
 
 		// split shards into receptors and emisors while calculating new fair distribution 
 		final Set<Shard> receptors = new HashSet<>();
@@ -94,20 +112,23 @@ public class RoundRobinBalancer implements Balancer {
 			final Set<Shard> emisors, final Map<Shard, Integer> deltas,
 			final CircularCollection<Shard> receptiveCircle) {
 
+		//Migration migra = new Migration(realloc);
 		for (final Shard emisorShard : emisors) {
 			Set<ShardEntity> duties = table.getDutiesByShard(pallet, emisorShard);
 			int i = 0;
 			Iterator<ShardEntity> it = duties.iterator();
 			while (it.hasNext() && i++ < Math.abs(deltas.get(emisorShard))) {
-				final ShardEntity unassigning = it.next();
-				unassigning.registerEvent(EntityEvent.DETACH, PREPARED);
-				realloc.addChange(emisorShard, unassigning);
-				final Shard receptorShard = receptiveCircle.next();
-				ShardEntity assigning = ShardEntity.copy(unassigning);
-				assigning.registerEvent(EntityEvent.ATTACH, PREPARED);
-				realloc.addChange(receptorShard, assigning);
-				logger.info("{}: Migrating from: {} to: {}, Duty: {}", getClass().getSimpleName(),
-						emisorShard.getShardID(), receptorShard.getShardID(), assigning.toString());
+                final ShardEntity unassigning = it.next();
+                unassigning.registerEvent(EntityEvent.DETACH, ShardEntity.State.PREPARED);
+                realloc.addChange(emisorShard, unassigning);
+                final Shard receptorShard = receptiveCircle.next();
+                ShardEntity assigning = ShardEntity.copy(unassigning);
+                assigning.registerEvent(EntityEvent.ATTACH, ShardEntity.State.PREPARED);
+                realloc.addChange(receptorShard, assigning);
+                logger.info("{}: Migrating from: {} to: {}, Duty: {}", getClass().getSimpleName(),
+                                emisorShard.getShardID(), receptorShard.getShardID(), assigning.toString());
+                
+				//migra.add(emisorShard, receptiveCircle.next(), it.next());
 			}
 		}
 	}
@@ -118,7 +139,7 @@ public class RoundRobinBalancer implements Balancer {
 			final Set<Shard> emisors, final Set<ShardEntity> deletions) {
 
 		final Map<Shard, Integer> deltas = new HashMap<>();
-		final int maxDelta = pallet.getBalancerRoundRobinMaxDutiesDeltaBetweenShards();
+		final int maxDelta = ((RoundrobinMetadata)pallet.getStrategy()).getMaxDutiesDeltaBetweenShards();
 		for (final Shard shard : onlineShards) {
 			final Set<ShardEntity> shardedDuties = table.getDutiesByShard(pallet, shard);
 			// check if this shard contains the deleting duties 

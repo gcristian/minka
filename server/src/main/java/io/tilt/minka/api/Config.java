@@ -34,7 +34,7 @@ import com.fasterxml.jackson.datatype.joda.ser.DateTimeSerializer;
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
 import io.tilt.minka.core.leader.distributor.EvenLoadBalancer.PreSortType;
-import io.tilt.minka.core.leader.distributor.SpillOverBalancer.MaxValueUsage;
+import io.tilt.minka.core.leader.distributor.SpillOverBalancer.MaxUnit;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.utils.Defaulter;
 
@@ -350,16 +350,19 @@ public class Config {
 	}
 
 	public static class BalancerConf {
-		protected static final int ROUND_ROBIN_MAX_DUTIES_DELTA_BETWEEN_SHARDS = 1;
-		private int roundRobinMaxDutiesDeltaBetweenShards;
-		protected static final Strategy  STRATEGY = Strategy.EVEN_WEIGHT;
+		public static final Strategy STRATEGY = Strategy.EVEN_WEIGHT;
 		private Strategy strategy;
-		protected static final PreSortType FAIR_LOAD_PRESORT = PreSortType.WEIGHT;
-		private PreSortType fairLoadPresort;
-		protected static final MaxValueUsage SPILL_OVER_STRATEGY = MaxValueUsage.WEIGHT;
-		private MaxValueUsage spillOverStrategy;
-		protected static final long SPILL_OVER_MAX_VALUE = 0;
-		private long spillOverMaxValue;
+
+		public static final int ROUND_ROBIN_MAX_DUTIES_DELTA_BETWEEN_SHARDS = 1;
+		private int roundRobinMaxDutiesDeltaBetweenShards;
+		
+		public static final PreSortType EVEN_LOAD_PRESORT = PreSortType.WEIGHT;
+		private PreSortType evenLoadPresort;
+		
+		public static final MaxUnit SPILL_OVER_MAX_UNIT = MaxUnit.SIZE;
+		private MaxUnit spillOverMaxUnit;
+		public static final double SPILL_OVER_MAX_VALUE = 99999999999d;
+		private double spillOverMaxValue;
 		
 		public int getRoundRobinMaxDutiesDeltaBetweenShards() {
 			return this.roundRobinMaxDutiesDeltaBetweenShards;
@@ -373,22 +376,22 @@ public class Config {
 		public void setStrategy(Strategy distributorbalancerStrategy) {
 			this.strategy = distributorbalancerStrategy;
 		}
-		public PreSortType getFairLoadPresort() {
-			return this.fairLoadPresort;
+		public PreSortType getEvenLoadPresort() {
+			return this.evenLoadPresort;
 		}
-		public void setFairLoadPresort(PreSortType fairLoadPresort) {
-			this.fairLoadPresort = fairLoadPresort; 
+		public void setEvenLoadPresort(PreSortType fairLoadPresort) {
+			this.evenLoadPresort = fairLoadPresort; 
 		}
-		public MaxValueUsage getSpillOverStrategy() {
-			return this.spillOverStrategy;
+		public MaxUnit getSpillOverMaxUnit() {
+			return this.spillOverMaxUnit;
 		}
-		public void setSpillOverStrategy(MaxValueUsage spillOverStrategy) {
-			this.spillOverStrategy = spillOverStrategy;
+		public void setSpillOverStrategy(MaxUnit spillOverStrategy) {
+			this.spillOverMaxUnit = spillOverStrategy;
 		}
-		public long getSpillOverMaxValue() {
+		public double getSpillOverMaxValue() {
 			return this.spillOverMaxValue;
 		}
-		public void setSpillOverMaxValue(long spillOverMaxValue) {
+		public void setSpillOverMaxValue(double spillOverMaxValue) {
 			this.spillOverMaxValue = spillOverMaxValue;
 		}
 		

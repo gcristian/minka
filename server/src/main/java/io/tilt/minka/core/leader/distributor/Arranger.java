@@ -30,6 +30,7 @@ import com.google.common.collect.Sets;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
@@ -86,24 +87,21 @@ public class Arranger {
 		ents.addAll(dutyCreations);
 		ents.addAll(table.getDutiesAllByShardState(null, null));
 		final PalletCollector allCollector = new PalletCollector(ents, table.getPallets());
-
 		final Iterator<Set<ShardEntity>> itPallet = allCollector.getPalletsIterator();
 		while (itPallet.hasNext()) {
 			Iterator<ShardEntity> itDuties = itPallet.next().iterator();
 			final ShardEntity pallet = allCollector.getPallet(itDuties.next().getDuty().getPalletId());
-			//allCollector.
-			final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getPallet().getStrategy()); 
+			final BalancerMetadata meta = pallet.getPallet().getStrategy();
+			final Balancer balancer = Balancer.Directory.getByStrategy(meta.getBalancer()); 
 			if (balancer!=null) {
 				logger.info("{}: using {} on Pallet: {} with Duties: {}", getClass().getSimpleName(),
 					balancer.getClass().getSimpleName(), pallet,
 					ShardEntity.toStringIds(allCollector.getDuties(pallet)));
-			
 				final Set<ShardEntity> creations = creationsCollector.getDuties(pallet);
-
 				balancer.balance(pallet.getPallet(), table, realloc, onlineShards, creations, dutyDeletions, accounted);
 			} else {
-				logger.info("{}: Balancer not found ! {} set on Pallet: {} ", getClass().getSimpleName(), 
-						pallet.getPallet().getStrategy(), pallet);
+				logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(), 
+						pallet.getPallet().getStrategy().getBalancer(), pallet, Balancer.Directory.getAll().size());
 			}
 		}
 

@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 

@@ -70,7 +70,7 @@ public abstract class AbstractBroker extends ServiceImpl implements EventBroker,
 		if (!consumers.isEmpty()) {
 			consumers.forEach(i -> i.accept((Serializable) meta.getPayload()));
 		} else {
-			logger.error("{}: ({}) Unknown incoming event: {} at channel: {}", getClass().getSimpleName(), shardId,
+			logger.error("{}: ({}) No Subscriber for incoming event: {} at channel: {}", getClass().getSimpleName(), shardId,
 					meta.getPayloadType(), meta.getInbox());
 		}
 	}
@@ -97,9 +97,9 @@ public abstract class AbstractBroker extends ServiceImpl implements EventBroker,
 						key);
 				return true;
 			} else {
-				logger.info("{}: ({}) Subscribing channel: {} with Type: {} with Driver: {} ",
-						getClass().getSimpleName(), shardId, channel.getChannel().name(), eventType.getSimpleName(),
-						consumer.getClass().getSimpleName());
+				logger.info("{}: ({}) {} Subscribing channel: {} with Type: {} ",
+						getClass().getSimpleName(), shardId, consumer.getClass().getSimpleName(), channel.getChannel().name(), 
+						eventType.getSimpleName());
 			}
 
 			Collection<String> channeles = channelsPerConsumer.get(consumer);

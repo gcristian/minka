@@ -56,7 +56,36 @@ public class SpillOverBalancer implements Balancer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public enum MaxValueUsage {
+	public static class SpilloverMetadata implements BalancerMetadata {
+		private final MaxUnit maxUnit;
+		private final double maxValue;
+		@Override
+		public Class<? extends Balancer> getBalancer() {
+			return SpillOverBalancer.class;
+		}
+		public SpilloverMetadata(final MaxUnit maxUnit, final double maxValue) {
+			super();
+			this.maxUnit = maxUnit;
+			this.maxValue = maxValue;
+		}
+		public SpilloverMetadata() {
+			super();
+			this.maxUnit = Config.BalancerConf.SPILL_OVER_MAX_UNIT;
+			this.maxValue = Config.BalancerConf.SPILL_OVER_MAX_VALUE;
+		}
+		protected MaxUnit getMaxUnit() {
+			return this.maxUnit;
+		}
+		public double getMaxValue() {
+			return this.maxValue;
+		}
+		@Override
+		public String toString() {
+			return "Spillover-MaxUnit:" + getMaxUnit() + "-MaxValue:" + getMaxValue();
+		}
+	}
+	
+	public enum MaxUnit {
 		/**
 		 * Use the Max value to compare the sum of all running duties's weights 
 		 * and restrict new additions over a full shard 
@@ -74,8 +103,8 @@ public class SpillOverBalancer implements Balancer {
 			final List<Shard> onlineShards, final Set<ShardEntity> creations, final Set<ShardEntity> deletions,
 			final int accounted) {
 
-		final long maxValue = pallet.getBalancerSpillOverMaxValue();
-		if (maxValue <= 0) {
+		final SpilloverMetadata meta = (SpilloverMetadata)pallet.getStrategy();
+		if (meta.getMaxValue() <= 0) {
 			final Shard receptorShard = getAnyReceptorShard(pallet, table, onlineShards);
 			logger.info("{}: For Unbounded duties (max = 0) found Shard receptor: {}", getClass().getSimpleName(),
 					receptorShard);
@@ -84,11 +113,12 @@ public class SpillOverBalancer implements Balancer {
 			Arranger.registerCreations(creations, realloc, new CircularCollection<>(Arrays.asList(receptorShard)));
 		} else {
 			logger.info("{}: Computing Spilling strategy: {} with a Max Value: {}", getClass().getSimpleName(),
-					pallet.getSpillBalancerStrategy(), maxValue);
-			boolean loadStrat = pallet.getSpillBalancerStrategy() == MaxValueUsage.WEIGHT;
+					meta.getMaxUnit(), meta.getMaxValue());
+			
+			boolean loadStrat = meta.getMaxUnit() == MaxUnit.WEIGHT;
 			final Map<Shard, AtomicDouble> spaceByReceptor = new HashMap<>();
 			final SetMultimap<Shard, ShardEntity> trans = collectTransceivers(pallet, table, loadStrat, spaceByReceptor,
-					maxValue);
+					meta.getMaxValue());
 			if (spaceByReceptor.isEmpty() && !trans.isEmpty()) {
 				logger.warn("{}: Couldnt find receptors to spill over to", getClass().getSimpleName());
 			} else {
@@ -104,7 +134,7 @@ public class SpillOverBalancer implements Balancer {
 				}
 				registerNewcomers(realloc, loadStrat, spaceByReceptor, unfitting, dutiesForBalance);
 				// then move those surplussing
-				registerMigrations(realloc, loadStrat, spaceByReceptor, unfitting, trans, maxValue);
+				registerMigrations(realloc, loadStrat, spaceByReceptor, unfitting, trans, meta.getMaxValue());
 				for (ShardEntity unfit : unfitting) {
 					logger.error("{}: Add Shards !! No receptor has space for Duty: {}", getClass().getSimpleName(),
 							unfit);
@@ -136,7 +166,7 @@ public class SpillOverBalancer implements Balancer {
 
 	private void registerMigrations(final Reallocation realloc, final boolean loadStrat,
 			final Map<Shard, AtomicDouble> spaceByReceptor, final List<ShardEntity> unfitting,
-			final SetMultimap<Shard, ShardEntity> trans, final long maxValue) {
+			final SetMultimap<Shard, ShardEntity> trans, final double maxValue) {
 
 		for (final Shard emisor : trans.keys()) {
 			final Set<ShardEntity> emitting = trans.get(emisor);

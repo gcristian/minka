@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
@@ -53,6 +54,30 @@ public class EvenLoadBalancer implements Balancer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
+	
+	public static class EvenLoadMetadata implements BalancerMetadata {
+		private final PreSortType presort;
+		@Override
+		public Class<? extends Balancer> getBalancer() {
+			return EvenLoadBalancer.class;
+		}
+		public EvenLoadMetadata(PreSortType presort) {
+			super();
+			this.presort = presort;
+		}
+		public EvenLoadMetadata() {
+			super();
+			this.presort = Config.BalancerConf.EVEN_LOAD_PRESORT;
+		}
+		protected PreSortType getPresort() {
+			return this.presort;
+		}
+		@Override
+		public String toString() {
+			return "EvenLoad-PreSortType: " + getPresort();
+		}
+	}
+	
 	public enum PreSortType {
 		/**
 		 * Dispose duties with perfect mix between all workload values
@@ -86,7 +111,7 @@ public class EvenLoadBalancer implements Balancer {
 			final int accounted) {
 
 		// order new ones and current ones in order to get a fair distro 
-		final PreSortType presort = pallet.getBalancerFairLoadPresort();
+		final PreSortType presort = ((EvenLoadMetadata)pallet.getStrategy()).getPresort();
 		final Comparator comparator = presort == PreSortType.WEIGHT ? new Duty.WeightComparer()
 				: getShardDutyCreationDateComparator();
 
@@ -133,7 +158,7 @@ public class EvenLoadBalancer implements Balancer {
 			clusters = clusterizer.split(onlineShards.size(), dutiesSorted);
 			logDebug(clusters);
 		} else if (onlineShards.size() == 1) {
-			logger.warn("{}: Add Shards to benefit from the Fair Balancer ! Shards: {}, Duties: {}",
+			logger.warn("{}: Add Shards to benefit from this balancer ! Shards: {}, Duties: {}",
 					getClass().getSimpleName(), onlineShards.size(), dutiesSorted.size());
 			clusters = new ArrayList<>();
 			clusters.add(dutiesSorted);

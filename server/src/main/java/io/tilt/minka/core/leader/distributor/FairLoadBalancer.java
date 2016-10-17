@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 
@@ -44,6 +45,31 @@ public class FairLoadBalancer implements Balancer {
 			Set<ShardEntity> creations, Set<ShardEntity> deletions, int accounted) {
 		// TODO Auto-generated method stub
 
+	}
+	
+	public static class FairLoadMetadata implements BalancerMetadata {
+
+		private final Algorithm algo;
+		@Override
+		public Class<? extends Balancer> getBalancer() {
+			return FairLoadBalancer.class;
+		}
+		public FairLoadMetadata(Algorithm algo) {
+			super();
+			this.algo = algo;
+		}
+		protected Algorithm getAlgorithm(Algorithm algo) {
+			return this.algo;
+		}
+	}
+	
+	enum Algorithm {
+		/* an even load filling so different capacity shards will reach
+		 * their maximum load at the same time. This will make the bigger shards work more than smaller */
+		EVEN,
+		/* a serial filling so smaller shards will fast stop receiving 
+		 * duties and bigger one will still receiving. This will */
+		ROUND_ROBIN
 	}
 
 }

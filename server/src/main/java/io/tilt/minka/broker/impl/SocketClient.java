@@ -18,6 +18,9 @@ package io.tilt.minka.broker.impl;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,24 +60,27 @@ public class SocketClient {
 	/* for client */
 	private EventLoopGroup clientGroup;
 	private SocketClientHandler clientHandler;
-	private boolean alive;
-	private int retry;
+	private final AtomicBoolean alive;
+	private final AtomicInteger retry;
 	private String loggingName;
 
 	private long creation;
 	private long lastUsage;
 	private final long clientExpiration;
+	private final AtomicLong count;
+	private final AtomicBoolean antiflapper;
 
 	protected SocketClient(final BrokerChannel channel, final Scheduler scheduler, final int retryDelay,
 			final int maxRetries, final String loggingName, final Config config) {
 
 		this.loggingName = loggingName;
 		this.clientHandler = new SocketClientHandler();
-		scheduler
-				.schedule(scheduler
-						.getAgentFactory().create(Action.BROKER_CLIENT_START, PriorityLock.HIGH_ISOLATED,
-								Frequency.ONCE, () -> keepConnectedWithRetries(channel, maxRetries, retryDelay))
-						.build());
+		this.count = new AtomicLong();
+		this.antiflapper = new AtomicBoolean(true);
+		this.alive = new AtomicBoolean();
+		this.retry  = new AtomicInteger();
+		scheduler.schedule(scheduler.getAgentFactory().create(Action.BROKER_CLIENT_START, PriorityLock.HIGH_ISOLATED,
+				Frequency.ONCE, () -> keepConnectedWithRetries(channel, maxRetries, retryDelay)).build());
 		this.creation = System.currentTimeMillis();
 		this.clientExpiration = Math.max(config.getShepherd().getDelayMs(), config.getFollower().getClearanceMaxAbsenceMs());
 	}
@@ -99,11 +105,28 @@ public class SocketClient {
 	}
 
 	protected boolean send(final MessageMetadata msg) {
-		if (!alive) {
-			logger.warn("{}: ({}) Not Ready to send messages (enqueuing)", getClass().getSimpleName(), loggingName);
-		}
+		logging(msg);
 		this.lastUsage = System.currentTimeMillis();
 		return this.clientHandler.send(msg);
+	}
+
+	private void logging(final MessageMetadata msg) {
+		int queueSize = this.clientHandler.size();
+		if (!alive.get()) {
+			if (!antiflapper.get() || count.get()==0) {
+				logger.warn("{}: ({}) UNABLE to send SocketChannel Not Ready (enqueuing: {}), {}", getClass().getSimpleName(), 
+					loggingName, queueSize, msg);
+			}
+			antiflapper.set(true);
+		}
+		if (alive.get() && antiflapper.get()) {
+			logger.info("{}: ({}) Back to normal", getClass().getSimpleName(), loggingName);
+			antiflapper.set(false);
+		}
+		count.incrementAndGet();
+		if (queueSize>1) {
+			logger.warn("{}: ({}) LAG of {} (enqueuing: {})", getClass().getSimpleName(), loggingName, queueSize, msg);
+		}
 	}
 
 	/*
@@ -115,9 +138,10 @@ public class SocketClient {
 				new ThreadFactoryBuilder().setNameFormat(Config.SchedulerConf.THREAD_NANE_TCP_BROKER_CLIENT).build());
 
 		boolean wronglyDisconnected = true;
-		while (retry < maxRetries && wronglyDisconnected) {
-			if (retry++ > 0) {
+		while (retry.get() < maxRetries && wronglyDisconnected) {
+			if (retry.incrementAndGet() > 0) {
 				try {
+					logger.info("{}: ({}) Sleeping {} ms before next retry...", getClass().getSimpleName(), loggingName, retryDelay);
 					Thread.sleep(retryDelay);
 				} catch (InterruptedException e) {
 					logger.error("{}: ({}) Unexpected while waiting for next client connection retry",
@@ -143,18 +167,20 @@ public class SocketClient {
 							clientHandler);
 				}
 			});
-			this.alive = true;
+			this.alive.set(true);
 			logger.info("{}: ({}) Binding to broker: {}:{} at channel: {}", getClass().getSimpleName(), loggingName,
 					address, port, channel.getChannel().name());
-			b.connect(channel.getAddress().getInetAddress().getHostAddress(), channel.getAddress().getInetPort()).sync()
-					.channel().closeFuture().sync();
+			b.connect(channel.getAddress().getInetAddress().getHostAddress(), 
+					channel.getAddress().getInetPort())
+				.sync()
+				.channel().closeFuture().sync();
 			wrongDisconnection = false;
 		} catch (InterruptedException ie) {
 			wrongDisconnection = false;
 		} catch (Exception e) {
+			this.alive.set(false);
 			wrongDisconnection = true;
-			logger.error("{}: ({}) Unexpected while contacting shard's broker", getClass().getSimpleName(), loggingName,
-					e);
+			logger.error("{}: ({}) Unexpected while contacting shard's broker", getClass().getSimpleName(), loggingName, e);
 		} finally {
 			logger.info("{}: ({}) Exiting client writing scope", getClass().getSimpleName(), loggingName);
 		}
@@ -172,7 +198,9 @@ public class SocketClient {
 		protected boolean send(final MessageMetadata msg) {
 			return queue.offer(msg);
 		}
-
+		protected int size() {
+			return queue.size();
+		}
 		@Override
 		public void channelActive(final ChannelHandlerContext ctx) {
 			onActiveChannel(ctx);
@@ -219,8 +247,9 @@ public class SocketClient {
 
 	public void close() {
 		if (clientGroup != null && !clientGroup.isShuttingDown()) {
-			logger.info("{}: ({}) Closing connection to server", getClass().getSimpleName(), loggingName);
-			this.alive = false;
+			logger.info("{}: ({}) Closing connection to server (total sent: {}, unsent msgs: {})", getClass().getSimpleName(), loggingName, 
+					count.get(), clientHandler.size());
+			this.alive.set(false);
 			clientGroup.shutdownGracefully();
 		} else {
 			logger.error("{}: ({}) Invalid state to close client: {}", getClass().getSimpleName(), loggingName,
