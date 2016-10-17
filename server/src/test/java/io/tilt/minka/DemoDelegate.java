@@ -14,6 +14,8 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
+import io.tilt.minka.core.leader.distributor.EvenLoadBalancer;
+import io.tilt.minka.core.leader.distributor.RoundRobinBalancer;
 import io.tilt.minka.delegates.BaseSampleDelegate;
 
 public class DemoDelegate extends BaseSampleDelegate {
@@ -41,8 +43,8 @@ public class DemoDelegate extends BaseSampleDelegate {
 		final Set<Pallet<String>> pallets = new HashSet<>();
 		for (int pid = 1; pid <= TOTAL_PALLETS; pid++) {
 			pallets.add(PalletBuilder.build(String.valueOf(pid), String.class,
-					pid != 1 ? Strategy.EVEN_WEIGHT : Strategy.ROUND_ROBIN, Storage.CLIENT_DEFINED,
-					"payload"));
+				pid != 1 ? new EvenLoadBalancer.EvenLoadMetadata(): new RoundRobinBalancer.RoundrobinMetadata(), 
+					Storage.CLIENT_DEFINED, "payload"));
 		}
 		return pallets;
 	}

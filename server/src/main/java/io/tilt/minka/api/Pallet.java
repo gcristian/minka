@@ -6,9 +6,10 @@ package io.tilt.minka.api;
 
 import java.io.Serializable;
 
-import io.tilt.minka.core.leader.distributor.Balancer;
-import io.tilt.minka.core.leader.distributor.EvenLoadBalancer.PreSortType;
-import io.tilt.minka.core.leader.distributor.SpillOverBalancer.MaxValueUsage;
+import org.apache.commons.lang.Validate;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+
+import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
 
 /**
  * A grouping factor for Duties with common and specific treatment requirements. </br> 
@@ -31,6 +32,9 @@ import io.tilt.minka.core.leader.distributor.SpillOverBalancer.MaxValueUsage;
  * As a grouping factor it's just a tag for Duties, they only contain attributes and behaviour configuration. 
  * Once created, duties can have the tag. Then operations on duties can be also handled by using the pallet tag.
  * They're ignored by the distributor when empty.
+ * 
+ * Pallets may also be prioritized at balancing when sharing the same finite resource.
+ * For that matter the Delegate reckoning the pallet's resource and id: must report a biased capacity.   
  * 
  * They will be taken to PartitionDelegate first time they get involved into Shard's lifecycle when distribution 
  * dictates so, so the host app. can access their payload mostly, and be prepare to receive duties of the pallet.
@@ -59,55 +63,73 @@ public interface Pallet<P extends Serializable> extends Entity<P> {
 
 	Storage getStorage();
 
-	/**
-	 * For every distribution ocasion, using the BalanceStrategy for duty workload: pallets are first 
-	 * balanced in as many fragments as shards online.
-	 *   
-	 * @return
-	 */
-	Class<? extends Balancer> getStrategy();
-
-	/*
-	 * TODO refactor all this into a builder for fair and spill balancer config
-	 */
-	default PreSortType getBalancerFairLoadPresort() {
-		return PreSortType.DATE;
+	/** @return the Balancer strategy and metadata to use for the pallet */
+	BalancerMetadata getStrategy();
+	
+	/** @return only informative and user usage: the finite resource (mostly physical) being used */
+	default Resource getResource() {
+		return null;
 	}
 
-	default MaxValueUsage getSpillBalancerStrategy() {
-		return MaxValueUsage.SIZE;
-	}
-
-	default int getBalancerSpillOverMaxValue() {
-		return 99999999;
-	}
-
-	default int getBalancerRoundRobinMaxDutiesDeltaBetweenShards() {
-		return 1;
-	}
-
-	/**
-	 * If applies, after balancing pallet's duties throughout shards,
-	 * pallets are re-located to different shards according different PalletBalanceStrategy
-	 * using the sum of their duties ( duty's workload for FAIR_LOAD and SPILL_OVER ) 
-	 */
-	public enum PalletBalanceStrategy {
-		/* like their BalanceStrategy counter part */
-		EVEN_SIZE,
-		/* like their BalanceStrategy counter part */
-		FAIR_LOAD,
-		/* like their BalanceStrategy counter part */
-		SPILL_OVER,
-		/* others to be designed */
-		PRODUCT_TYPE,
-	}
-
-	default boolean applyPalletBalancing() {
-		return false;
-	}
-
-	default PalletBalanceStrategy getPalletBalanceStrategy() {
-		return PalletBalanceStrategy.EVEN_SIZE;
+	/** Represents the way that Duties inside a Pallet will exhaust a finite resource */
+	public static class Resource implements Serializable {
+		private static final long serialVersionUID = 1L;
+		private final Link link;
+		private final String id;
+		private final String name;
+		public Resource(Link link, String id, String name) {
+			super();
+			Validate.notNull(id);
+			Validate.notNull(name);
+			Validate.notNull(link);
+			this.link = link;
+			this.id = id;
+			this.name = name;
+		}
+		public Link getLink() {
+			return this.link;
+		}
+		public String getId() {
+			return this.id;
+		}
+		public String getName() {
+			return this.name;
+		}
+		@Override
+		public boolean equals(Object obj) {
+			if (obj == null) {
+				return false;
+			} else if (obj == this) { 
+				return true;
+			} else if (!(obj instanceof Pallet)) {
+				return false;
+			} else {
+				return ((Resource)obj).getId().equals(getId());
+			}
+		}
+		@Override
+		public int hashCode() {
+			return getId().hashCode();
+		}
+		
+		public enum Link {
+			/* explicit mathematical computation */
+			CPU_CLOCK,
+			/* parallelism for short-term tasks */
+			CPU_THREADS,
+			/* upload data */
+			NETWORK_OUTBOUND,
+			/* download data */
+			NETWORK_INBOUND,
+			/* take benefit of better position in the network */
+			NETWORK_HIERARCHY,
+			/* allocate transient data */
+			MEMORY,
+			/* disk size */
+			STORAGE_SPACE,
+			/* disk speed */
+			STORAGE_THROUGHPUT
+		}
 	}
 
 }

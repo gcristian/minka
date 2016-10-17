@@ -16,6 +16,9 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
+import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
+
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +61,27 @@ public interface Balancer {
 	void balance(final Pallet<?> pallet, final PartitionTable table, final Reallocation realloc,
 			final List<Shard> onlineShards, final Set<ShardEntity> creations, final Set<ShardEntity> deletions,
 			final int accounted);
+	
+	public static class Migration {
+		private final Logger logger = LoggerFactory.getLogger(getClass());
+		private final Reallocation realloc;
+		
+		public Migration(Reallocation realloc) {
+			super();
+			this.realloc = realloc;
+		}
 
+		public final void add(final Shard source, final Shard target, final ShardEntity entity) {
+			entity.registerEvent(EntityEvent.DETACH, PREPARED);
+			realloc.addChange(source, entity);
+			ShardEntity assigning = ShardEntity.copy(entity);
+			assigning.registerEvent(EntityEvent.ATTACH, PREPARED);
+			realloc.addChange(target, assigning);
+			logger.info("{}: Migrating from: {} to: {}, Duty: {}", getClass().getSimpleName(),
+					source.getShardID(), target.getShardID(), assigning.toString());
+		}
+	}
+	
 	
 	/** So clients can add new balancers */
 	public static class Directory {
@@ -73,6 +96,7 @@ public interface Balancer {
 				logger.error("Unexpected factorying balancer's directory", e);
 			}
 		}
+		/** @todo check other shards have this class in case of leadership reelection */
 		public static void addCustomBalancer(final Balancer b) {
 			Validate.notNull(b);
 			if (directory.values().contains(b)) {
@@ -83,10 +107,13 @@ public interface Balancer {
 		public static Balancer getByStrategy(final Class<? extends Balancer>strategy) {
 			return Directory.directory.get(strategy);
 		}
+		public static Collection<Balancer> getAll() {
+			return Directory.directory.values();
+		}
 	}
 	
-	public static class Metadata {
-		
+	public static interface BalancerMetadata extends java.io.Serializable {
+		Class<? extends Balancer> getBalancer();
 	}
 	
 	public enum Strategy {

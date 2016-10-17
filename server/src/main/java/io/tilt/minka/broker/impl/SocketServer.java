@@ -16,8 +16,10 @@
  */
 package io.tilt.minka.broker.impl;
 
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
+import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,12 +69,15 @@ public class SocketServer {
 	private final String networkInterfase;
 	private final Scheduler scheduler;
 	private int retry;
+	private final AtomicLong count;
 
 	private Runnable shutdownCallback;
 
 	protected SocketServer(Consumer<MessageMetadata> consumer, int connectionHandlerThreads, int serverPort,
 			String serverAddress, String networkInterfase, Scheduler scheduler, int retryDelay, int maxRetries) {
-
+		Validate.notNull(consumer);
+		Validate.notNull(scheduler);
+		
 		this.serverHandler = new SocketServerHandler();
 		this.consumer = consumer;
 		this.connectionHandlerThreads = connectionHandlerThreads;
@@ -80,6 +85,7 @@ public class SocketServer {
 		this.serverAddress = serverAddress;
 		this.networkInterfase = networkInterfase;
 		this.scheduler = scheduler;
+		this.count = new AtomicLong();
 
 		scheduler.schedule(scheduler.getAgentFactory().create(Action.BROKER_SERVER_START, PriorityLock.HIGH_ISOLATED,
 				Frequency.ONCE, () -> keepListeningWithRetries(maxRetries, retryDelay)).build());
@@ -166,7 +172,8 @@ public class SocketServer {
 	}
 
 	public void close() {
-		logger.warn("{}: ({}:{}) Closing connections to client", getClass().getSimpleName(), serverAddress, serverPort);
+		logger.warn("{}: ({}:{}) Closing connections to client (total received: {})", getClass().getSimpleName(), serverAddress, 
+				serverPort, count.get());
 		if (serverWorkerGroup != null) {
 			serverWorkerGroup.shutdownGracefully();
 		}
@@ -190,9 +197,14 @@ public class SocketServer {
 
 		private void consume(Object msg) {
 			try {
-				scheduler.schedule(
-						scheduler.getAgentFactory().create(Action.BROKER_INCOMING_MESSAGE, PriorityLock.HIGH_ISOLATED,
-								Frequency.ONCE, () -> consumer.accept((MessageMetadata) msg)).build());
+				if (msg == null) {
+					logger.error("SocketServerHandler:({}:{}) incoming message came NULL", serverAddress, serverPort);
+				}
+				scheduler.schedule(scheduler.getAgentFactory().create(
+						Action.BROKER_INCOMING_MESSAGE, PriorityLock.HIGH_ISOLATED, Frequency.ONCE, () -> {
+							count.incrementAndGet(); 
+							consumer.accept((MessageMetadata) msg);	
+						}).build());
 			} catch (Exception e) {
 				logger.error("SocketServerHandler: ({}:{}) Unexpected while reading incoming message", serverAddress,
 						serverPort, e);
