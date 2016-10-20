@@ -58,22 +58,52 @@ public interface Journal {
 	}
 
 	public enum Fact {
-		bootstrapper_start, bootstrapper_stop, leader_bootup(Retention.LAST, 1, -1), follower_bootup(Retention.LAST, 1,
-				-1), leadership_candidate(Retention.SERIE, 10, -1), leadership_acquired, leadership_change,
+		bootstrapper_start,
+		bootstrapper_stop,
+		leader_bootup(Retention.LAST, 1, -1),
+		follower_bootup(Retention.LAST, 1, -1),
+		leadership_candidate(Retention.SERIE, 10, -1),
+		leadership_acquired,
+		leadership_change,
 
-		balancing, distribution_reallocation, distribution_reallocation_retry, distribution_reallocation_expired, distribution_duty_lost,
+		balancing,
+		distribution_reallocation,
+		distribution_reallocation_retry,
+		distribution_reallocation_expired,
+		distribution_duty_lost,
 
-		shepherding, shepherd_inbalance, shepherd_shard_online, shepherd_shard_offline, shepherd_shard_changing_state, shard_finding_address,
+		shepherding,
+		shepherd_inbalance,
+		shepherd_shard_online,
+		shepherd_shard_offline,
+		shepherd_shard_changing_state,
+		shard_finding_address,
 
-		auditory_inconsistency, auditory_rebell_shard, auditory_duty_confirmed,
+		auditory_inconsistency,
+		auditory_rebell_shard,
+		auditory_duty_confirmed,
 
-		broker_disconnection, broker_reconection, broker_message_in, broker_message_out,
+		broker_disconnection,
+		broker_reconection,
+		broker_message_in,
+		broker_message_out,
 
-		partition_table_lost, follower_heartbeat, leader_clearance, follower_stuck, follower_polices_on, partition_assignation_lost,
+		partition_table_lost,
+		follower_heartbeat,
+		leader_clearance,
+		follower_stuck,
+		follower_polices_on,
+		partition_assignation_lost,
 
-		scheduler_scheduling, scheduler_run, scheduler_stop, scheduler_forward, scheduler_red,
+		scheduler_scheduling,
+		scheduler_run,
+		scheduler_stop,
+		scheduler_forward,
+		scheduler_red,
 
-		entity_created, entity_removed, entity_event,
+		entity_created,
+		entity_removed,
+		entity_event,
 
 		;
 		Fact(Retention r, int maxSize, int maxAgeMs) {

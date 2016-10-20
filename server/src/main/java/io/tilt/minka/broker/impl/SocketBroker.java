@@ -90,7 +90,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 			this.server = new SocketServer(this, config.getBroker().getConnectionHandlerThreads(),
 					getShardId().getInetPort(), getShardId().getInetAddress().getHostAddress(),
 					config.getBroker().getNetworkInterfase(), scheduler, config.getBroker().getRetryDelayMs(),
-					config.getBroker().getMaxRetries());
+					config.getBroker().getMaxRetries(), getShardId().toString());
 		}
 	}
 
@@ -111,7 +111,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 				final Entry<DirectChannel, SocketClient> ch = it.next();
 				if (ch.getValue().hasExpired()) {
 					logger.warn("{}: ({}) DISCARDING obsolete client: {} for channel: {}", getClass().getSimpleName(),
-							getShardId(), ch.getKey().getAddress(), ch.getKey().getChannel());
+							getShardId(), ch.getKey(), ch.getKey());
 					ch.getValue().close();
 					it.remove();
 				}
@@ -147,11 +147,11 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 
 	private synchronized boolean post(final BrokerChannel channel, final ChannelHint type, final Object event) {
 
-		SocketClient client = this.clients.get(channel);
+		SocketClient client = this.clients.get(channel.getAddress());
 		if (client == null) {
 			logger.info("{}: ({}) CREATING SocketClient for Shard: {}", getClass().getSimpleName(), getShardId(),
 					channel.getAddress());
-			this.clients.put((DirectChannel) channel, client = new SocketClient(channel, scheduler,
+			this.clients.put((DirectChannel)channel, client = new SocketClient(channel, scheduler,
 					config.getBroker().getRetryDelayMs(), config.getBroker().getMaxRetries(), getShardId().toString(), config));
 		}
 

@@ -61,8 +61,7 @@ public abstract class AbstractBroker extends ServiceImpl implements EventBroker,
 
 	@Override
 	public void accept(MessageMetadata meta) {
-		logger.debug("{}: ({}) Consuming {}", getClass().getSimpleName(), shardId,
-				meta.getPayloadType().getSimpleName());
+		logger.info("{}: ({}) Receiving {}", getClass().getSimpleName(), shardId, meta.getPayloadType());
 		String key = meta.getInbox() + meta.getPayloadType().getSimpleName();
 		logger.debug("{}: ({}) Looking subscribed consumer to Key: {}", getClass().getSimpleName(), shardId, key);
 

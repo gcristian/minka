@@ -118,13 +118,13 @@ public class SemaphoreImpl extends ServiceImpl implements Semaphore {
 			final ReentrantLock lock = g(action);
 			if (lock.isHeldByCurrentThread()) {
 				logger.error("{}: {} lock already acquired by YOU ! CHECK YOUR CODE !", getClass().getSimpleName(),
-						action);
+						action, new IllegalStateException());
 				return DENIED;
 				//throw new RuntimeException("Come on check your code consistency pal !");
 			} else if (lock.isLocked()) {
 				logger.error("{}: {} lock already acquired by {} thread ! and holds: {} more",
-						getClass().getSimpleName(), action, lock.isHeldByCurrentThread() ? "current" : "sibling",
-						lock.getQueueLength());
+						getClass().getSimpleName(), action, lock.isHeldByCurrentThread() ? "current" : "may be sibling?",
+						lock.getQueueLength(), new IllegalStateException());
 				return DENIED;
 			}
 		} else if (action.getScope() == Scope.GLOBAL) {

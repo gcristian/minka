@@ -70,11 +70,13 @@ public class SocketServer {
 	private final Scheduler scheduler;
 	private int retry;
 	private final AtomicLong count;
+	private final String loggingName;
 
 	private Runnable shutdownCallback;
 
-	protected SocketServer(Consumer<MessageMetadata> consumer, int connectionHandlerThreads, int serverPort,
-			String serverAddress, String networkInterfase, Scheduler scheduler, int retryDelay, int maxRetries) {
+	protected SocketServer(final Consumer<MessageMetadata> consumer, final int connectionHandlerThreads, final int serverPort,
+			final String serverAddress, final String networkInterfase, final Scheduler scheduler, final int retryDelay, 
+			final int maxRetries, String loggingName) {
 		Validate.notNull(consumer);
 		Validate.notNull(scheduler);
 		
@@ -86,7 +88,7 @@ public class SocketServer {
 		this.networkInterfase = networkInterfase;
 		this.scheduler = scheduler;
 		this.count = new AtomicLong();
-
+		this.loggingName = loggingName;
 		scheduler.schedule(scheduler.getAgentFactory().create(Action.BROKER_SERVER_START, PriorityLock.HIGH_ISOLATED,
 				Frequency.ONCE, () -> keepListeningWithRetries(maxRetries, retryDelay)).build());
 	}
@@ -110,7 +112,7 @@ public class SocketServer {
 					Thread.sleep(retryDelay);
 				} catch (InterruptedException e) {
 					logger.error("{}: ({}) Unexpected while waiting for next server bootup retry",
-							getClass().getSimpleName(), e);
+							getClass().getSimpleName(), loggingName, e);
 				}
 			}
 			disconnected = keepListening();
@@ -122,8 +124,8 @@ public class SocketServer {
 	 */
 	private boolean keepListening() {
 		boolean disconnected;
-		logger.info("{}: ({}:{}) Building server (using i: {}) with up to {} concurrent requests",
-				getClass().getSimpleName(), serverAddress, serverPort, networkInterfase, this.connectionHandlerThreads);
+		logger.info("{}: ({}) Building server (using i: {}) with up to {} concurrent requests",
+				getClass().getSimpleName(), loggingName, networkInterfase, this.connectionHandlerThreads);
 
 		try {
 			final ServerBootstrap b = new ServerBootstrap();
@@ -139,19 +141,17 @@ public class SocketServer {
 			logger.info("{}: Listening for client connections..", getClass().getSimpleName());
 			b.childOption(ChannelOption.SO_KEEPALIVE, true);
 
-			logger.info("{}: ({}:{}) Listening to client connections (using i:{}) with up to {} concurrent requests",
-					getClass().getSimpleName(), serverAddress, serverPort, networkInterfase,
-					this.connectionHandlerThreads);
+			logger.info("{}: ({}) Listening to client connections (using i:{}) with up to {} concurrent requests",
+					getClass().getSimpleName(), loggingName, networkInterfase, this.connectionHandlerThreads);
 
 			b.bind(this.serverAddress, this.serverPort).sync().channel().closeFuture().sync();
 			disconnected = false;
 		} catch (Exception e) {
 			disconnected = true;
-			logger.error("{}: ({}:{}) Unexpected interruption while listening incoming connections",
-					getClass().getSimpleName(), serverAddress, serverPort, e);
+			logger.error("{}: ({}) Unexpected interruption while listening incoming connections",
+					getClass().getSimpleName(), loggingName, e);
 		} finally {
-			logger.info("{}: ({}:{}) Exiting server listening scope", getClass().getSimpleName(), serverAddress,
-					serverPort);
+			logger.info("{}: ({}) Exiting server listening scope", getClass().getSimpleName(), loggingName);
 			shutdown();
 		}
 		return disconnected;
@@ -160,20 +160,19 @@ public class SocketServer {
 	private void shutdown() {
 		if (this.shutdownCallback != null) {
 			try {
-				logger.info("{}: ({}:{}) Executing shutdown callback: {}", getClass().getSimpleName(),
-						shutdownCallback.getClass().getSimpleName(), serverAddress, serverPort);
+				logger.info("{}: ({}) Executing shutdown callback: {}", getClass().getSimpleName(),
+						shutdownCallback.getClass().getSimpleName(), loggingName);
 				shutdownCallback.run();
 			} catch (Exception e) {
-				logger.error("{}: ({}:{}) Unexpected while executing shutdown callback", getClass().getSimpleName(),
-						serverAddress, serverPort, e);
+				logger.error("{}: ({}) Unexpected while executing shutdown callback", getClass().getSimpleName(),
+						loggingName, e);
 			}
 		}
 		close();
 	}
 
 	public void close() {
-		logger.warn("{}: ({}:{}) Closing connections to client (total received: {})", getClass().getSimpleName(), serverAddress, 
-				serverPort, count.get());
+		logger.warn("{}: ({}) Closing connections to client (total received: {})", getClass().getSimpleName(), loggingName, count.get());
 		if (serverWorkerGroup != null) {
 			serverWorkerGroup.shutdownGracefully();
 		}
@@ -198,23 +197,22 @@ public class SocketServer {
 		private void consume(Object msg) {
 			try {
 				if (msg == null) {
-					logger.error("SocketServerHandler:({}:{}) incoming message came NULL", serverAddress, serverPort);
+					logger.error("({}) SocketServerHandler: incoming message came NULL", loggingName);
+					return;
 				}
+				MessageMetadata meta = (MessageMetadata) msg;
+				logger.debug("{}: ({}) Reading: {}", getClass().getSimpleName(), loggingName, meta.getPayloadType());
 				scheduler.schedule(scheduler.getAgentFactory().create(
-						Action.BROKER_INCOMING_MESSAGE, PriorityLock.HIGH_ISOLATED, Frequency.ONCE, () -> {
-							count.incrementAndGet(); 
-							consumer.accept((MessageMetadata) msg);	
-						}).build());
+						Action.BROKER_INCOMING_MESSAGE, PriorityLock.HIGH_ISOLATED, Frequency.ONCE, 
+						() -> consumer.accept(meta)).build());
 			} catch (Exception e) {
-				logger.error("SocketServerHandler: ({}:{}) Unexpected while reading incoming message", serverAddress,
-						serverPort, e);
+				logger.error("({}) SocketServerHandler: Unexpected while reading incoming message", loggingName, e);
 			}
 		}
 
 		@Override
 		public void exceptionCaught(final ChannelHandlerContext ctx, final Throwable e) {
-			logger.error("SocketServerHandler:({}:{}) Unexpected while reading incoming message", serverAddress,
-					serverPort, e);
+			logger.error("({}) SocketServerHandler: Unexpected while reading incoming message", loggingName);
 			ctx.close();
 		}
 	}

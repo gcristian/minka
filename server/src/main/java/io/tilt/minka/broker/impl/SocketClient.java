@@ -69,6 +69,7 @@ public class SocketClient {
 	private final long clientExpiration;
 	private final AtomicLong count;
 	private final AtomicBoolean antiflapper;
+	private final int maxQueueThreshold;
 
 	protected SocketClient(final BrokerChannel channel, final Scheduler scheduler, final int retryDelay,
 			final int maxRetries, final String loggingName, final Config config) {
@@ -83,6 +84,7 @@ public class SocketClient {
 				Frequency.ONCE, () -> keepConnectedWithRetries(channel, maxRetries, retryDelay)).build());
 		this.creation = System.currentTimeMillis();
 		this.clientExpiration = Math.max(config.getShepherd().getDelayMs(), config.getFollower().getClearanceMaxAbsenceMs());
+		this.maxQueueThreshold = config.getBroker().getConnectionHandlerThreads();
 	}
 
 	protected long getCreation() {
@@ -123,9 +125,11 @@ public class SocketClient {
 			logger.info("{}: ({}) Back to normal", getClass().getSimpleName(), loggingName);
 			antiflapper.set(false);
 		}
+		logger.info("{}: ({}) Sending: {}", getClass().getSimpleName(), loggingName, msg.getPayloadType());
 		count.incrementAndGet();
-		if (queueSize>1) {
-			logger.warn("{}: ({}) LAG of {} (enqueuing: {})", getClass().getSimpleName(), loggingName, queueSize, msg);
+		if (queueSize>maxQueueThreshold) {
+			logger.warn("{}: ({}) LAG of {}, threshold {}, increase broker's connection handler threads (enqueuing: {})", getClass().getSimpleName(), loggingName, queueSize, 
+					maxQueueThreshold, msg);
 		}
 	}
 
@@ -212,9 +216,9 @@ public class SocketClient {
 				while (!Thread.interrupted()) {
 					msg = queue.take();
 					if (msg != null) {
-						logger.debug("{}: ({}) Writing: {} ('{}') ({} bytes)", getClass().getSimpleName(), loggingName,
-								msg.getPayloadType().getSimpleName(), msg.getInbox());
-						ctx.writeAndFlush(new MessageMetadata(msg.getPayload(), msg.getInbox()));
+						logger.debug("{}: ({}) Writing: {})", getClass().getSimpleName(), loggingName, msg.getPayloadType());
+						//ctx.writeAndFlush(new MessageMetadata(msg.getPayload(), msg.getInbox()));
+						ctx.writeAndFlush(msg);
 					} else {
 						logger.error("{}: ({}) Waiting for messages to be enqueued: {}", getClass().getSimpleName(),
 								loggingName);
@@ -247,8 +251,8 @@ public class SocketClient {
 
 	public void close() {
 		if (clientGroup != null && !clientGroup.isShuttingDown()) {
-			logger.info("{}: ({}) Closing connection to server (total sent: {}, unsent msgs: {})", getClass().getSimpleName(), loggingName, 
-					count.get(), clientHandler.size());
+			logger.info("{}: ({}) Closing connection to server (total sent: {}, unsent msgs: {})", getClass().getSimpleName(), 
+					loggingName, count.get(), clientHandler.size());
 			this.alive.set(false);
 			clientGroup.shutdownGracefully();
 		} else {
