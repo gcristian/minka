@@ -39,6 +39,7 @@ import com.google.common.util.concurrent.CycleDetectingLockFactory;
 import com.google.common.util.concurrent.CycleDetectingLockFactory.Policies;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.ConsistencyException;
 import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.spectator.Locks;
@@ -61,18 +62,21 @@ public class SemaphoreImpl extends ServiceImpl implements Semaphore {
 	private Locks locks;
 	private final Config config;
 	private final SpectatorSupplier supplier;
+	private final String logName;
 
-	public SemaphoreImpl(final Config config, final SpectatorSupplier supplier, final ShardID shardId) {
+	public SemaphoreImpl(final Config config, final SpectatorSupplier supplier, final String logName) {
 		this.config = config;
 		this.rules = new HashMap<>();
-		getLockingRules().forEach(rule -> this.rules.put(rule.getAction(), rule));
+		this.logName = logName;
 		this.supplier = supplier;
+		
+		getLockingRules().forEach(rule -> this.rules.put(rule.getAction(), rule));
 		locksByAction = new HashMap<>();
 		final CycleDetectingLockFactory lockFactory = CycleDetectingLockFactory.newInstance(Policies.DISABLED);
-		for (Action key : Action.values()) {
-			ReentrantLock lock = lockFactory.newReentrantLock(key.toString());
-			logger.debug("{}: ({}) Creating lock: {} for Action: {}", getClass().getSimpleName(), shardId,
-					lock.getClass().getSimpleName(), key);
+		for (final Action key : Action.values()) {
+			final ReentrantLock lock = lockFactory.newReentrantLock(key.toString());
+			logger.debug("{}: ({}) Creating lock: {} for Action: {}", SemaphoreImpl.class.getSimpleName(), logName,
+				lock.getClass().getSimpleName(), key);
 			locksByAction.put(key, lock);
 			//locksByAction.put(key, new ReentrantLock());
 		}
@@ -89,16 +93,16 @@ public class SemaphoreImpl extends ServiceImpl implements Semaphore {
 	}
 
 	@Override
-	public Permission acquireBlocking(Action ia) {
+	public Permission acquireBlocking(final Action ia) {
 		return acquire_(ia, true);
 	}
 
 	@Override
-	public synchronized Permission acquire(Action e) {
+	public synchronized Permission acquire(final Action e) {
 		return acquire_(e, false);
 	}
 
-	private synchronized Permission acquire_(Action action, boolean blockThread) {
+	private synchronized Permission acquire_(final Action action, boolean blockThread) {
 		Validate.notNull(action);
 		Permission ret = checkState(action);
 		if (ret == null) {
@@ -157,12 +161,11 @@ public class SemaphoreImpl extends ServiceImpl implements Semaphore {
 	 * @return             Fail or Success by acquiring the group and releasing acquired locks if any failed       
 	 */
 	private boolean lockRelated(final Action cause, final boolean threadLock, final List<Action> related) {
-
 		final Action[] rollback = new Action[related.size()];
 		int i = 0;
 		for (final Action action : related) {
 			if (lock(action, threadLock, cause)) {
-				rollback[i] = action;
+				rollback[i++] = action;
 			} else {
 				for (Action e : rollback) {
 					release_(e, cause);
@@ -207,17 +210,17 @@ public class SemaphoreImpl extends ServiceImpl implements Semaphore {
 				return lock.tryLock();
 			}
 		default:
-			logger.error("{}: what the heck ? --> {}", getClass().getSimpleName(), action.getScope());
+			logger.error("{}: ({}) what the heck ? --> {}", SemaphoreImpl.class.getSimpleName(), logName, action.getScope());
 			return false;
 		}
 	}
 
 	@Override
-	public void release(Action action) {
+	public void release(final Action action) {
 		release_(action, null);
 	}
 
-	private void release_(Action action, Action cause) {
+	private void release_(final Action action, final Action cause) {
 		Validate.notNull(action);
 		// first unlock the dependencies so others may start running
 		if (cause == null) { // only when not rolling back to avoid deadlock
@@ -250,7 +253,7 @@ public class SemaphoreImpl extends ServiceImpl implements Semaphore {
 				.append("/").append(action.toString()).append((id == null ? "" : "-" + id)).toString();
 	}
 
-	private ReentrantLock g(Action a) {
+	private ReentrantLock g(final Action a) {
 		return locksByAction.get(a);
 	}
 	

@@ -14,21 +14,25 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
-import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
 import io.tilt.minka.core.leader.distributor.EvenLoadBalancer;
 import io.tilt.minka.core.leader.distributor.RoundRobinBalancer;
 import io.tilt.minka.core.leader.distributor.SpillOverBalancer;
 
 public class MultiPalletRandomSample extends BaseSampleDelegate {
 
+	public MultiPalletRandomSample() throws Exception {
+		super();
+		// TODO Auto-generated constructor stub
+	}
+
 	private static final long serialVersionUID = 305399302612484891L;
 	private static final Random rnd = new Random();
 	
-	private static int dutiesSize = 20; //Math.max(rnd.nextInt(1000), 10);
-	private static int palletsSize = 2; //Math.min(rnd.nextInt(25), (dutiesSize/2)+2);
+	private static int dutiesSize = 500; // Math.max(rnd.nextInt(1000), 10);
+	private static int palletsSize = 50; // Math.min(rnd.nextInt(25), (dutiesSize/2)+2);
 
 	@Override
-	protected Set<Duty<String>> getDuties() {
+	public Set<Duty<String>> buildDuties() {
 		final Set<Duty<String>> duties = new HashSet<>();
 		for (int i = 1; i <= dutiesSize; i++) {
 			final int pid = Math.max(rnd.nextInt(palletsSize), 1);
@@ -39,18 +43,41 @@ public class MultiPalletRandomSample extends BaseSampleDelegate {
 	}
 
 	@Override
-	protected Set<Pallet<String>> getPallets() {
+	public Set<Pallet<String>> buildPallets() {
+		
 		final Set<Pallet<String>> pallets = new HashSet<>();
 		for (int pid = 1; pid <= palletsSize; pid++) {
-			int num = rnd.nextInt(3);
+			int num = rnd.nextInt(3);	
 			BalancerMetadata meta = num==1 ? 
-					new SpillOverBalancer.SpilloverMetadata() : num ==2 ? 
-					new RoundRobinBalancer.RoundrobinMetadata() : 
-					new EvenLoadBalancer.EvenLoadMetadata();
+					new SpillOverBalancer.Metadata() : num ==2 ? 
+					new RoundRobinBalancer.Metadata() : 
+					new EvenLoadBalancer.Metadata();
 			pallets.add(PalletBuilder.build(
 					String.valueOf(pid), String.class, meta, Storage.CLIENT_DEFINED, "payload"));
 		}
 		return pallets;
+	}
+
+	
+	@Override
+	public double getTotalCapacity(Pallet<?> pallet) {
+		if (Long.parseLong(pallet.getId())<=16) {
+			return 500; 
+		} else if (Long.parseLong(pallet.getId())>16 && (Long.parseLong(pallet.getId())<=32)) {
+			return Long.parseLong(pallet.getId()) + 10;
+		} else {
+			return Long.parseLong(pallet.getId()) + 100;
+		}			
+	}
+	
+	public static class TestDataset {
+		
+	}
+
+	@Override
+	public void init() throws Exception {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

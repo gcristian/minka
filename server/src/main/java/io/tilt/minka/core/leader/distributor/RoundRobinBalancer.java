@@ -48,18 +48,18 @@ public class RoundRobinBalancer implements Balancer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public static class RoundrobinMetadata implements BalancerMetadata {
+	public static class Metadata implements BalancerMetadata {
 		private static final long serialVersionUID = -5997759590727184862L;
 		private final int maxDutiesDeltaBetweenShards;
 		@Override
 		public Class<? extends Balancer> getBalancer() {
 			return RoundRobinBalancer.class;
 		}
-		public RoundrobinMetadata(int maxDutiesDeltaBetweenShards) {
+		public Metadata(int maxDutiesDeltaBetweenShards) {
 			super();
 			this.maxDutiesDeltaBetweenShards = maxDutiesDeltaBetweenShards;
 		}
-		public RoundrobinMetadata() {
+		public Metadata() {
 			super();
 			this.maxDutiesDeltaBetweenShards = Config.BalancerConf.ROUND_ROBIN_MAX_DUTIES_DELTA_BETWEEN_SHARDS;
 		}
@@ -79,15 +79,15 @@ public class RoundRobinBalancer implements Balancer {
 	 * no reporto ninguna perdida
 	 */
 	public void balance(final Pallet<?> pallet, final PartitionTable table, final Reallocation realloc,
-			final List<Shard> onlineShards, final Set<ShardEntity> creations, final Set<ShardEntity> deletions, int accounted) {
+			final List<Shard> onlineShards, final Set<ShardEntity> creations, final Set<ShardEntity> deletions) {
 
 		// get a fair distribution
-		accounted = table.getDutiesAllByShardState(pallet, ShardState.ONLINE).size();
-		final double sum = accounted + creations.size() - deletions.size(); // dangling.size() + 
+		final int recount = table.getDutiesAllByShardState(pallet, ShardState.ONLINE).size();
+		final double sum = recount + creations.size() - deletions.size(); // dangling.size() + 
 		final int evenSize = (int) Math.ceil(sum / (double) onlineShards.size());
 
 		logger.info("{}: Even distribution for {} Shards: #{}  duties, for Creations: {}, Deletions: {}, Accounted: {} ",
-				getClass().getSimpleName(), onlineShards.size(), evenSize, creations.size(), deletions.size(), accounted);
+				getClass().getSimpleName(), onlineShards.size(), evenSize, creations.size(), deletions.size(), recount);
 
 		// split shards into receptors and emisors while calculating new fair distribution 
 		final Set<Shard> receptors = new HashSet<>();
@@ -140,7 +140,7 @@ public class RoundRobinBalancer implements Balancer {
 			final Set<Shard> emisors, final Set<ShardEntity> deletions) {
 
 		final Map<Shard, Integer> deltas = new HashMap<>();
-		final int maxDelta = ((RoundrobinMetadata)pallet.getStrategy()).getMaxDutiesDeltaBetweenShards();
+		final int maxDelta = ((Metadata)pallet.getStrategy()).getMaxDutiesDeltaBetweenShards();
 		for (final Shard shard : onlineShards) {
 			final Set<ShardEntity> shardedDuties = table.getDutiesByShard(pallet, shard);
 			// check if this shard contains the deleting duties 

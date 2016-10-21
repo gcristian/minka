@@ -16,7 +16,6 @@
  */
 package io.tilt.minka.core.leader;
 
-import static io.tilt.minka.api.MinkaClient.Command.CLUSTER_CLEAN_SHUTDOWN;
 import static io.tilt.minka.domain.ShardState.ONLINE;
 
 import java.io.Serializable;
@@ -72,7 +71,7 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 	public boolean clusterOperation(final ShardCommand op) {
 		boolean done = false;
 		Runnable lambda = null;
-		if (op.getOperation() == CLUSTER_CLEAN_SHUTDOWN) {
+		if (op.getOperation() == io.tilt.minka.domain.ShardCommand.Command.CLUSTER_CLEAN_SHUTDOWN) {
 			lambda = () -> cleanShutdown(op);
 		}
 		scheduler.run(

@@ -30,15 +30,18 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.api.Config;
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.HeartbeatBuilder;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.AttachedPartition;
+import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Heartbeat;
+import io.tilt.minka.domain.ShardCapacity;
+import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.utils.LogUtils;
 
@@ -48,7 +51,7 @@ import io.tilt.minka.utils.LogUtils;
  * @author Cristian Gonzalez
  * @since Nov 17, 2015
  */
-@SuppressWarnings("rawtypes")
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -57,6 +60,8 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 	private final AttachedPartition partition;
 	private final AtomicLong sequence;
 	private final Config config;
+	
+	private DomainInfo domain; 
 
 	public HeartbeatBuilderImpl(final Config config, final DependencyPlaceholder holder, final AttachedPartition partition,
 			final LeaderShardContainer leaderShardContainer) {
@@ -68,14 +73,12 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 		this.sequence = new AtomicLong();
 	}
 
-	@SuppressWarnings({ "unchecked" })
 	public Heartbeat build() {
 		Set<Duty<?>> reportedDuties;
 		try {
 			reportedDuties = dependencyPlaceholder.getDelegate().reportTaken();
 		} catch (Exception e) {
-			logger.error("{}: ({}) PartitionDelegate failure", getClass().getSimpleName(), config.getLoggingShardId(),
-					e);
+			logger.error("{}: ({}) PartitionDelegate failure", getClass().getSimpleName(), config.getLoggingShardId(), e);
 			reportedDuties = new HashSet();
 		}
 
@@ -100,18 +103,8 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 
 		addAbsentAsDangling(reportedDuties, shardingDuties);
 
-		Map<Pallet<?>, Double> maxWeights = new HashMap<>();
-		partition.getPallets().forEach(p -> {
-				try {
-					maxWeights.put(p.getPallet(), dependencyPlaceholder.getDelegate().getMaxWeight(p.getPallet()));
-				} catch (Exception e) {
-					logger.error("{}: ({}) Error ocurred while asking for Max Weight on Pallet: {}", getClass().getSimpleName(),
-							partition.getId(), p.getPallet());
-				}
-			});
-
-		final Heartbeat hb = Heartbeat.create(shardingDuties, warning, partition.getId(), sequence.getAndIncrement(), 
-				maxWeights);
+		final Heartbeat hb = Heartbeat.create(shardingDuties, warning, partition.getId(), 
+				sequence.getAndIncrement(), buildCapacities());
 		if (logger.isDebugEnabled()) {
 			logDebugNicely(hb);
 		} else {
@@ -119,6 +112,29 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 					LogUtils.HB_CHAR, hb.getSequenceId(), hb.getDuties().size());
 		}
 		return hb;
+	}
+
+	private Map<Pallet<?>, ShardCapacity.Capacity> buildCapacities() {
+		final Map<Pallet<?>, ShardCapacity.Capacity> capacities = new HashMap<>();
+		if (domain!=null && domain.getDomainPallets()!=null) {
+			for (ShardEntity s: domain.getDomainPallets()) {
+				double capacity = 0;
+				try {
+					capacity = dependencyPlaceholder.getDelegate().getTotalCapacity(s.getPallet());
+				} catch (Exception e) {
+					logger.error("{}: ({}) Error ocurred while asking for total capacity on Pallet: {}", getClass().getSimpleName(),
+							partition.getId(), s.getPallet());
+				} finally {
+					final Capacity cap = new Capacity(s.getPallet(), capacity);
+					capacities.put(s.getPallet(), cap);
+				}
+			}
+		}
+		return capacities;
+	}
+
+	public void setDomain(DomainInfo domain) {
+		this.domain = domain;
 	}
 
 	private void addAbsentAsDangling(Set<Duty<?>> reportedDuties, final List<ShardEntity> shardingDuties) {
@@ -149,5 +165,10 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 		logger.debug("{}: ({}) {} SeqID: {}, Duties: {}, Weight: {} = [ {}] {}", getClass().getSimpleName(),
 				hb.getShardId(), LogUtils.HB_CHAR, hb.getSequenceId(), hb.getDuties().size(), totalWeight,
 				sb.toString(), hb.getDuties().isEmpty() ? "" : "WITH CHANGE");
+	}
+
+	@Override
+	public void setDomainInfo(DomainInfo domain) {
+		this.domain = domain;
 	}
 }

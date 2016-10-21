@@ -57,49 +57,6 @@ public class MinkaClient {
 
 	private static MinkaClient instance;
 
-	public enum Command {
-		/**
-		* Cleanly stop the cluster, avoiding further election of leaders
-		* and stopping all the followers in service.
-		*/
-		CLUSTER_CLEAN_SHUTDOWN(Semaphore.Action.CLUSTER_COMPLETE_SHUTDOWN),
-		/**
-		* Performa an entity balance on unbalanced followers
-		*/
-		CLUSTER_BALANCE(Semaphore.Action.DISTRIBUTOR),
-		/**
-		* Perform a reelection of a leader, avoiding the current leader present as candidate
-		*/
-		CLUSTER_LEADER_REELECTION(Semaphore.Action.LEADERSHIP),
-		/**
-		* Take a follower out of the cluster, causing its taken entities to be resharded.
-		*/
-		FOLLOWER_DECOMISSION(Semaphore.Action.PARTITION_TABLE_UPDATE),
-		/**
-		* Take a follower out of the cluster, holding its entities without rebalance
-		*/
-		FOLLOWER_DEACTIVATE(Action.PARTITION_TABLE_UPDATE),
-		/**
-		* Take a follower into the cluster
-		*/
-		FOLLOWER_ACTIVATE(Action.PARTITION_TABLE_UPDATE),
-		/**
-		* Take all entities to a certain follower
-		*/
-		FOLLOWER_HOARD(Action.PARTITION_TABLE_UPDATE);
-
-		final Action action;
-
-		Command(Action action) {
-			this.action = action;
-		}
-
-		public Action getAction() {
-			return this.action;
-		}
-
-	}
-
 	private final Leader leader;
 	private final EventBroker eventBroker;
 	private final ClientEventsHandler clientMediator;
@@ -227,6 +184,7 @@ public class MinkaClient {
 	public String getShardIdentity() {
 		return this.shardId.getStringIdentity();
 	}
+	
 
 	/**
 	* Client should not need to use this method unless is misunderstanding Minka.

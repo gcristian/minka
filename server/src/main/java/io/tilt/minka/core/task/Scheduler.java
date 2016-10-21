@@ -51,7 +51,7 @@ public interface Scheduler extends Semaphore {
 		}
 	}
 
-	/* the way this task will be trated by the coordinator at the semaphore */
+	/* the way this task will be trated by the scheduler at the semaphore */
 	public enum PriorityLock {
 		/* no locks will be acquired to run this */
 		HIGH_ISOLATED,

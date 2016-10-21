@@ -19,10 +19,12 @@ package io.tilt.minka.domain;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 import com.google.common.collect.Lists;
 
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.Pallet;
 
 /**
  * An effectively assigned, running and continuously confirmed 
@@ -90,6 +92,12 @@ public class AttachedPartition {
 		}
 		return null;
 	}
+	
+	public Set<ShardEntity> getDuties(final Pallet<?> pallet) {
+		return this.duties.stream().filter(d->d.getDuty().getPalletId().equals(pallet.getId()))
+				.collect(Collectors.toSet());
+	}
+	
 
 	public Set<ShardEntity> getDuties() {
 		return duties;

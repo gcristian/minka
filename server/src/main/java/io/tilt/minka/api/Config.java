@@ -71,11 +71,11 @@ public class Config {
 	private ConsistencyConf consistency;
 
 	public static class SchedulerConf {
-		public static String PNAME = "Minka-"; // + serviceName;
-		public static String THREAD_NAME_COORDINATOR_IN_BACKGROUND = PNAME + "-Scheduler";
-		public static String THREAD_NAME_BROKER_SERVER_GROUP = PNAME + "-SocketServerThreadGroup";
-		public static String THREAD_NAME_BROKER_SERVER_WORKER = PNAME + "-SocketServerThreadWorker";
-		public static String THREAD_NANE_TCP_BROKER_CLIENT = PNAME + "-SocketClientThread";
+		public static String PNAME = "Minka"; // + serviceName;
+		public static String THREAD_NAME_SCHEDULER = PNAME + "-Sched";
+		public static String THREAD_NAME_BROKER_SERVER_GROUP = PNAME + "-BrokerG";
+		public static String THREAD_NAME_BROKER_SERVER_WORKER = PNAME + "-BrokerW";
+		public static String THREAD_NANE_TCP_BROKER_CLIENT = PNAME + "-BrokerC";
 
 		public static long SEMAPHORE_UNLOCK_RETRY_DELAY_MS = 100l; //50l;
 		private int semaphoreUnlockRetryDelayMs;
@@ -359,7 +359,7 @@ public class Config {
 		public static final PreSortType EVEN_LOAD_PRESORT = PreSortType.WEIGHT;
 		private PreSortType evenLoadPresort;
 		
-		public static final MaxUnit SPILL_OVER_MAX_UNIT = MaxUnit.SIZE;
+		public static final MaxUnit SPILL_OVER_MAX_UNIT = MaxUnit.WEIGHT;
 		private MaxUnit spillOverMaxUnit;
 		public static final double SPILL_OVER_MAX_VALUE = 99999999999d;
 		private double spillOverMaxValue;

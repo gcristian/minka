@@ -14,48 +14,45 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.MinkaClient;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.PartitionMaster;
-import io.tilt.minka.api.MinkaClient;
+import io.tilt.minka.utils.LogUtils;
 import jersey.repackaged.com.google.common.collect.Sets;
 
-public class BaseSampleDelegate implements PartitionMaster<String, String>, Serializable {
+public abstract class BaseSampleDelegate implements PartitionMaster<String, String>, Serializable {
 
 	private static final long serialVersionUID = 1L;
-	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private static final Logger logger = LoggerFactory.getLogger(BaseSampleDelegate.class);
 
 	private Set<Duty<String>> allOriginalDuties = new HashSet<>();
 	private Set<Pallet<String>> allOriginalPallets = new HashSet<>();
 	private Set<Duty<String>> runningDuties = Sets.newHashSet();
 
-	//private MinkaClient minkaClient;
 	private String shardId = "{NN}";
-
-	public BaseSampleDelegate() {
-		allOriginalPallets = getPallets();
-		logger.info("pallets: {}", allOriginalPallets);
-		allOriginalDuties = getDuties();
-		logger.info("duties: {}", allOriginalDuties);
-
+	
+	public BaseSampleDelegate() throws Exception {
+		super();
+		init();
+		this.allOriginalDuties = buildDuties();
+		this.allOriginalPallets = buildPallets();
+		logger.info("{} Loading {} duties: {}", shardId, allOriginalDuties.size(), toStringGroupByPallet(allOriginalDuties));
 	}
 
-	protected Set<Pallet<String>> getPallets() {
-		return new HashSet<>();
+	public abstract Set<Duty<String>> buildDuties() throws Exception ;
+	public abstract Set<Pallet<String>> buildPallets() throws Exception;
+	public abstract void init() throws Exception ;
+	
+	public MinkaClient getMinkaClient() {
+		return MinkaClient.getInstance();
 	}
-
-	protected Set<Duty<String>> getDuties() {
-		return new HashSet<>();
+	public Set<Duty<String>> getDuties() {
+		return this.allOriginalDuties;
 	}
-
-	@Override
-	public void take(Set<Duty<String>> entities) {
-		logger.info("{} taking: {}+ ({})", shardId, entities.size(), toStringIds(entities));
-		if (runningDuties == null) {
-			runningDuties = new HashSet<>();
-		}
-		runningDuties.addAll(entities);
+	public Set<Pallet<String>> getPallets() {
+		return this.allOriginalPallets;
 	}
-
+	
 	@Override
 	public void update(Set<Duty<String>> entities) {
 		logger.info("{} updating: {} ({})", shardId, entities.size(), toStringIds(entities));
@@ -83,8 +80,19 @@ public class BaseSampleDelegate implements PartitionMaster<String, String>, Seri
 	}
 
 	@Override
+	public void take(Set<Duty<String>> entities) {
+		logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "taking"));
+		logger.info("{} # {}+ ({})", shardId, entities.size(), toStringIds(entities));
+		if (runningDuties == null) {
+			runningDuties = new HashSet<>();
+		}
+		runningDuties.addAll(entities);
+	}
+
+	@Override
 	public void release(Set<Duty<String>> entities) {
-		logger.info("{} releasing: -{} ({})", shardId, entities.size(), toStringIds(entities));
+		logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "releasing"));
+		logger.info("{} # -{} ({})", shardId, entities.size(), toStringIds(entities));
 		runningDuties.removeAll(entities);
 	}
 
@@ -98,9 +106,14 @@ public class BaseSampleDelegate implements PartitionMaster<String, String>, Seri
 		if (lastSize != runningDuties.size() || now - lastPrint > 20 * 1000) {
 			lastPrint = now;
 			lastSize = runningDuties.size();
-			logger.info("{} {{}} running: {} ({})", shardId,
-					client != null ? client.isCurrentLeader() ? "l" : "f" : "?", this.runningDuties.size(),
-					toStringGroupByPallet(runningDuties));
+			if (logger.isDebugEnabled()) {
+				logger.debug(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "running"));
+				logger.debug("{} {{}} # {} ({})", shardId, client != null ? client.isCurrentLeader() ? 
+						"leader" : "follower" : "?", this.runningDuties.size(), toStringGroupByPallet(runningDuties));
+			} else {
+				logger.debug("{} {{}} # {} ", shardId, client != null ? client.isCurrentLeader() ? 
+						"leader" : "follower" : "?", this.runningDuties.size());
+			}
 		}
 		return this.runningDuties;
 	}
@@ -138,7 +151,9 @@ public class BaseSampleDelegate implements PartitionMaster<String, String>, Seri
 	}
 
 	@Override
-	public double getMaxWeight(Pallet<?> pallet) {
+	public double getTotalCapacity(Pallet<?> pallet) {
 		return 0d;
 	}
+
+
 }

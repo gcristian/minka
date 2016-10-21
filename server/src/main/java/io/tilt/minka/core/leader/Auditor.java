@@ -99,7 +99,9 @@ public class Auditor {
 			return;
 		}
 		shard.addHeartbeat(hb);
-		shard.setMaxWeights(hb.getMaxWeights());
+		if (hb.getCapacities()!=null) {
+			shard.setCapacities(hb.getCapacities());
+		}
 		if (getCurrentReallocation().isEmpty()) {
 			// believe only when online: to avoid Dirty efects after follower's hangs/stucks
 			// so it clears itself before trusting their HBs

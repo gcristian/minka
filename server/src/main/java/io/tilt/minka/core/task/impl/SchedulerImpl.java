@@ -58,8 +58,8 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	
 	/* for local scope actions */
 	private final Map<Action, Rule> rules;
-	private final ShardID shardId;
 	private long lastCheck;
+	private final String logName;
 
 	/* for global scope actions */
 	private ScheduledThreadPoolExecutor executor;
@@ -70,12 +70,12 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 			final ShardID shardId, 
 			final AgentFactory agentFactory,
 			final SynchronizedFactory syncFactory) {
-		super(config, supplier, shardId);
-		this.shardId = shardId;
+		super(config, supplier, shardId.toString());
+		this.logName = shardId.toString();
 		this.agentFactory = agentFactory;
 		this.syncFactory = syncFactory;
 		this.executor = new ScheduledThreadPoolExecutor(MAX_CONCURRENT_THREADS,
-			new ThreadFactoryBuilder().setNameFormat(Config.SchedulerConf.THREAD_NAME_COORDINATOR_IN_BACKGROUND).build());
+			new ThreadFactoryBuilder().setNameFormat(Config.SchedulerConf.THREAD_NAME_SCHEDULER + "-%d").build());
 		executor.setRemoveOnCancelPolicy(true);
 		executor.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
 		executor.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
@@ -96,7 +96,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 
 	@Override
 	public void forward(Agent agent) {
-		logger.info("{}: ({}) Forwardung task's execution ", getName(), shardId, agent);
+		logger.info("{}: ({}) Forwarding task's execution ", getName(), logName, agent);
 		 stop(agent);        
 		 schedule(getAgentFactory().create(agent.getAction(), agent.getPriority(), Frequency.ONCE,
 		         agent.getTask()).build());

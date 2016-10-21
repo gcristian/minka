@@ -147,7 +147,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 
 	private synchronized boolean post(final BrokerChannel channel, final ChannelHint type, final Object event) {
 
-		SocketClient client = this.clients.get(channel.getAddress());
+		SocketClient client = this.clients.get(channel);
 		if (client == null) {
 			logger.info("{}: ({}) CREATING SocketClient for Shard: {}", getClass().getSimpleName(), getShardId(),
 					channel.getAddress());

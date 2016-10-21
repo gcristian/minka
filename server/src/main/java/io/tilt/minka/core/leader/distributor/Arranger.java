@@ -33,9 +33,11 @@ import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
+import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
 import io.tilt.minka.utils.CircularCollection;
+import io.tilt.minka.utils.LogUtils;
 
 /**
  * Common fixed flow for balancing
@@ -70,11 +72,10 @@ public class Arranger {
 		dutyCreations.addAll(danglingAsCreations);
 		final Set<ShardEntity> dutyDeletions = table.getDutiesCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
 
-		final Set<ShardEntity> palletCreations = table.getPalletsCrudWithFilters(EntityEvent.CREATE, State.PREPARED);
+		//final Set<ShardEntity> palletCreations = table.getPalletsCrudWithFilters(EntityEvent.CREATE, State.PREPARED);
 		dutyCreations.addAll(danglingAsCreations);
-		final Set<ShardEntity> deletfions = table.getPalletsCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
+		//final Set<ShardEntity> deletfions = table.getPalletsCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
 
-		final int accounted = table.getAccountConfirmed();
 		// 1st step: delete all
 		registerDeletions(table, realloc, dutyDeletions);
 		// el unico q ponia las dangling en deletions era el EvenBalancer.. .(?) lo dejo stand-by
@@ -92,13 +93,25 @@ public class Arranger {
 			Iterator<ShardEntity> itDuties = itPallet.next().iterator();
 			final ShardEntity pallet = allCollector.getPallet(itDuties.next().getDuty().getPalletId());
 			final BalancerMetadata meta = pallet.getPallet().getStrategy();
-			final Balancer balancer = Balancer.Directory.getByStrategy(meta.getBalancer()); 
+			final Balancer balancer = Balancer.Directory.getByStrategy(meta.getBalancer());
 			if (balancer!=null) {
-				logger.info("{}: using {} on Pallet: {} with Duties: {}", getClass().getSimpleName(),
-					balancer.getClass().getSimpleName(), pallet,
+				logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "Arranging Pallet: %s for %s", pallet.toBrief(), balancer.getClass().getSimpleName()));
+				final StringBuilder sb = new StringBuilder();
+				double clusterCapacity = 0;
+				for (final Shard node: onlineShards) {
+					final Capacity cap = node.getCapacities().get(pallet.getPallet());
+					final double currTotal = cap == null ? 0 :  cap.getTotal();
+					sb.append(node.toString()).append(": ").append(currTotal).append(", ");
+					clusterCapacity += currTotal;
+				}
+				logger.info("{}: Cluster capacity: {}, Shard Capacities { {} }", getClass().getSimpleName(), clusterCapacity, sb.toString());
+				logger.info("{}: counting #{};+{};-{} duties: {}", getClass().getSimpleName(),
+					table.getAccountConfirmed(pallet.getPallet()), 
+					dutyCreations.stream().filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId())).count(),
+					dutyDeletions.stream().filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId())).count(),
 					ShardEntity.toStringIds(allCollector.getDuties(pallet)));
 				final Set<ShardEntity> creations = creationsCollector.getDuties(pallet);
-				balancer.balance(pallet.getPallet(), table, realloc, onlineShards, creations, dutyDeletions, accounted);
+				balancer.balance(pallet.getPallet(), table, realloc, onlineShards, creations, dutyDeletions);
 			} else {
 				logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(), 
 						pallet.getPallet().getStrategy().getBalancer(), pallet, Balancer.Directory.getAll().size());

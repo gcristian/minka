@@ -59,8 +59,7 @@ public interface Balancer {
 	 * @param accounted     summarization of already running and stable duties 
 	 */
 	void balance(final Pallet<?> pallet, final PartitionTable table, final Reallocation realloc,
-			final List<Shard> onlineShards, final Set<ShardEntity> creations, final Set<ShardEntity> deletions,
-			final int accounted);
+			final List<Shard> onlineShards, final Set<ShardEntity> creations, final Set<ShardEntity> deletions);
 	
 	public static class Migration {
 		private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -143,6 +142,11 @@ public interface Balancer {
 		public Class<? extends Balancer> getBalancer() {
 			return this.balancer;
 		}
+		
+		public BalancerMetadata getBalancerInstance() throws InstantiationException, IllegalAccessException, ClassNotFoundException {
+			return (BalancerMetadata) Class.forName(getBalancer().getName()+"$Metadata").newInstance();
+		}
+		
 
 	}
 

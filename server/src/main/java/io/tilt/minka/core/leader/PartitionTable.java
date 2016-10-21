@@ -25,6 +25,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -38,6 +40,7 @@ import io.tilt.minka.domain.AttachedPartition;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.NetworkShardID;
 import io.tilt.minka.domain.Shard;
+import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
 import io.tilt.minka.domain.ShardID;
@@ -300,12 +303,11 @@ public class PartitionTable {
 		return shardsByID.get(id);
 	}
 
-	public int getAccountConfirmed() {
+	public int getAccountConfirmed(final Pallet<?> filter) {
 		int total = 0;
 		for (Shard shard : partitionsByShard.keySet()) {
 			if (shard.getState() == ONLINE) {
-				AttachedPartition part = partitionsByShard.get(shard);
-				total += part.getDuties().size();
+				total +=partitionsByShard.get(shard).getDuties(filter).size();
 			}
 		}
 		return total;

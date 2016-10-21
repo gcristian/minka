@@ -36,7 +36,7 @@
     <bean id="agentFactory" class="io.tilt.minka.core.task.impl.SynchronizedAgentFactoryImpl"/>
     
     <!-- Semaforo para sincronizar orden y permisos de tareas -->
-    <bean id="coordinator" class="io.tilt.minka.core.task.impl.SchedulerImpl">
+    <bean id="scheduler" class="io.tilt.minka.core.task.impl.SchedulerImpl">
         <constructor-arg ref="config" />
         <constructor-arg ref="spectatorSupplier" />
         <constructor-arg ref="shardId" />
@@ -57,7 +57,7 @@
         <constructor-arg ref="config" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderShardContainer" />
-        <constructor-arg ref="coordinator" />
+        <constructor-arg ref="scheduler" />
     </bean>
     
     <!-- ============================================================================================
@@ -89,8 +89,9 @@
     <bean id="partitionManager" class="io.tilt.minka.core.follower.impl.PartitionManagerImpl">        
         <constructor-arg ref="clientHolder" />
         <constructor-arg ref="partition" />
-        <constructor-arg ref="coordinator" />
+        <constructor-arg ref="scheduler" />
         <constructor-arg ref="leaderShardContainer" />
+        <constructor-arg ref="heartbeatBuilder" />
     </bean>
     
     <!-- Maneja la particion a traves del delegado -->
@@ -100,7 +101,7 @@
         <constructor-arg ref="partition" />
         <constructor-arg ref="partitionManager" />
         <constructor-arg ref="eventBroker" />
-        <constructor-arg ref="coordinator" />
+        <constructor-arg ref="scheduler" />
         <constructor-arg ref="leaderShardContainer" />
     </bean>
     
@@ -110,7 +111,7 @@
         <constructor-arg ref="heartpump" />
         <constructor-arg ref="leaderEventsHandler" />
         <constructor-arg ref="eventBroker" />
-        <constructor-arg ref="coordinator" />
+        <constructor-arg ref="scheduler" />
         <constructor-arg ref="heartbeatBuilder" />
     </bean>
         
@@ -127,7 +128,7 @@
     <!-- Balancea las tareas -->
     <bean id="distributor" class="io.tilt.minka.core.leader.distributor.Distributor">
         <constructor-arg ref="config" />
-        <constructor-arg ref="coordinator" />
+        <constructor-arg ref="scheduler" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="partitionTable" />
         <constructor-arg ref="auditor" />
@@ -140,7 +141,7 @@
     <!-- acceso write-only a la tabla -->
     <bean id="auditor" class="io.tilt.minka.core.leader.Auditor">
         <constructor-arg ref="partitionTable" />
-        <constructor-arg ref="coordinator" />
+        <constructor-arg ref="scheduler" />
     </bean>
     
     <!-- Pastorea los followers -->
@@ -149,7 +150,7 @@
         <constructor-arg ref="partitionTable" />
         <constructor-arg ref="auditor" />
         <constructor-arg ref="eventBroker" />
-        <constructor-arg ref="coordinator" />
+        <constructor-arg ref="scheduler" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderShardContainer" />
     </bean>
@@ -160,7 +161,7 @@
         <constructor-arg ref="partitionTable" />
         <constructor-arg ref="auditor" />
         <constructor-arg ref="eventBroker" />
-        <constructor-arg ref="coordinator" />
+        <constructor-arg ref="scheduler" />
         <constructor-arg ref="shardId" />
     </bean>
     
@@ -169,7 +170,7 @@
     <bean id="clientEventsHandler" class="io.tilt.minka.core.leader.ClientEventsHandler">
         <constructor-arg ref="config" />
         <constructor-arg ref="partitionTable" />
-        <constructor-arg ref="coordinator" />
+        <constructor-arg ref="scheduler" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="auditor" />
         <constructor-arg ref="shardId" />
@@ -186,7 +187,7 @@
                 <ref bean="clientEventsHandler"/>
             </list>
         </constructor-arg>        
-        <constructor-arg ref="coordinator" />
+        <constructor-arg ref="scheduler" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderShardContainer" />
         <constructor-arg ref="eventBroker" />
@@ -220,7 +221,7 @@
         <constructor-arg ref="leader" />
         <constructor-arg ref="follower" />
         <constructor-arg ref="clientHolder" />
-        <constructor-arg ref="coordinator" />
+        <constructor-arg ref="scheduler" />
         <constructor-arg ref="leaderShardContainer" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="eventBroker" />

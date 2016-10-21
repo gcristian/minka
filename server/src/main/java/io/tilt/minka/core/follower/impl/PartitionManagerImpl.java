@@ -28,6 +28,7 @@ import com.google.common.collect.Sets;
 
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.core.follower.HeartbeatBuilder;
 import io.tilt.minka.core.follower.PartitionManager;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
@@ -35,6 +36,7 @@ import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.domain.AttachedPartition;
+import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 
@@ -44,16 +46,21 @@ public class PartitionManagerImpl implements PartitionManager {
 
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final AttachedPartition partition;
+	private final HeartbeatBuilder builder;
 	private final Scheduler scheduler;
 	private final Synchronized releaser;
 
-	public PartitionManagerImpl(DependencyPlaceholder dependencyPlaceholder, AttachedPartition partition, Scheduler scheduler,
-			LeaderShardContainer leaderShardContainer) {
+	private DomainInfo domain;
+	
+	public PartitionManagerImpl(final DependencyPlaceholder dependencyPlaceholder, final AttachedPartition partition, 
+			final Scheduler scheduler, final LeaderShardContainer leaderShardContainer, 
+			final HeartbeatBuilder builder) {
 
 		super();
 		this.dependencyPlaceholder = dependencyPlaceholder;
 		this.partition = partition;
 		this.scheduler = scheduler;
+		this.builder = builder;
 		this.releaser = scheduler.getFactory().build(Action.INSTRUCT_DELEGATE, PriorityLock.MEDIUM_BLOCKING,
 				() -> releaseAll());
 	}
@@ -155,8 +162,8 @@ public class PartitionManagerImpl implements PartitionManager {
 		try {
 			dependencyPlaceholder.getDelegate().take(toSet(duties, null));
 			partition.getDuties().addAll(duties);
-			partition.getPallets().addAll(duties.stream()
-					.map(d->d.getRelatedEntity()).distinct().collect(Collectors.toList()));
+			/*partition.getPallets().addAll(duties.stream()
+					.map(d->d.getRelatedEntity()).distinct().collect(Collectors.toList()));*/
 		} catch (Exception e) {
 			logger.error("{}: ({}) Delegate thrown an Exception while Taking", getClass().getSimpleName(), 
 					partition.getId(), e);
@@ -182,7 +189,7 @@ public class PartitionManagerImpl implements PartitionManager {
 		return set;
 	}
 
-	public Void handleClusterOperation(final ShardCommand op) {
+	public Void command(final ShardCommand op) {
 		return null;
 		/*
 		 * if (op.getOperation() == Command.CLUSTER_CLEAN_SHUTDOWN) { stop();
@@ -192,6 +199,13 @@ public class PartitionManagerImpl implements PartitionManager {
 		 * Channel.HEARTBEATS_TO_LEADER,
 		 * leaderShardContainer.getLeaderShardId()), lastGoodbye); }
 		 */
+	}
+
+	@Override
+	public Void acknowledge(DomainInfo info) {
+		this.domain = info;
+		this.builder.setDomainInfo(domain);
+		return null;
 	}
 
 }

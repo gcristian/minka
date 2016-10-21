@@ -17,6 +17,7 @@
 package io.tilt.minka.domain;
 
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -26,6 +27,7 @@ import org.joda.time.DateTimeZone;
 
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
+import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.utils.SlidingSortedSet;
 
 /**
@@ -44,7 +46,7 @@ public class Shard implements Comparator<Shard> {
 	private DateTime lastStatusChange;
 	private final SlidingSortedSet<Heartbeat> cardiacLapse;
 	private ShardState serviceState;
-	private Map<Pallet<?>, Double> maxWeights;
+	private Map<Pallet<?>, Capacity> capacities;
 
 	public Shard(final BrokerChannel channel, final NetworkShardID memberId) {
 		super();
@@ -54,6 +56,7 @@ public class Shard implements Comparator<Shard> {
 		this.cardiacLapse = new SlidingSortedSet<>(MAX_HEARBEATS_TO_EVALUATE);
 		this.firstTimeSeen = new DateTime(DateTimeZone.UTC);
 		this.lastStatusChange = new DateTime(DateTimeZone.UTC);
+		this.capacities = new HashMap<>();
 	}
 
 	public DateTime getLastStatusChange() {
@@ -72,10 +75,14 @@ public class Shard implements Comparator<Shard> {
 		return this.shardId;
 	}
 	
-	public void setMaxWeights(Map<Pallet<?>, Double> maxWeights) {
-		this.maxWeights = maxWeights;
+	public void setCapacities(Map<Pallet<?>, Capacity> capacities) {
+		this.capacities = capacities;
 	}
 	
+	public Map<Pallet<?>, Capacity> getCapacities() {
+		return this.capacities;
+	}
+
 	public void addHeartbeat(final Heartbeat hb) {
 		if (hb.getStateChange() != null) {
 			this.serviceState = hb.getStateChange();

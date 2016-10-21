@@ -16,6 +16,8 @@
  */
 package io.tilt.minka.utils;
 
+import com.sun.javafx.binding.StringFormatter;
+
 import io.tilt.minka.domain.ShardID;
 
 /**
@@ -45,18 +47,24 @@ public class LogUtils {
 
 	public static String END_LINE = endLine();
 
+	public static String titleLine(final char ch, final String title, Object...params) {
+		return titleLine(ch, String.format(title, params));
+	}
 	public static String titleLine(final String title) {
+		return titleLine(GROSS_CHAR, title);
+	}
+	public static String titleLine(final char ch, final String title) {
 		int dots = LARGE - title.length() - 2;
 		StringBuilder line = new StringBuilder();
-		grossLine(dots, line);
+		grossLine(ch, dots, line);
 		line.append(" ").append(title).append(" ");
-		grossLine(dots, line);
+		grossLine(ch, dots, line);
 		return line.toString();
 	}
 
-	private static void grossLine(int dots, StringBuilder line) {
+	private static void grossLine(final char ch, int dots, StringBuilder line) {
 		for (int i = 0; i < (dots / 2); i++)
-			line.append(GROSS_CHAR);
+			line.append(ch);
 	}
 
 	private static String endLine() {
@@ -69,7 +77,7 @@ public class LogUtils {
 	public static String getGreetings(final ShardID id, final String serviceName) {
 		final String nl = System.getProperty("line.separator");
 		StringBuilder sb = new StringBuilder(nl);
-		grossLine(LARGE * 2, sb);
+		grossLine(GROSS_CHAR, LARGE * 2, sb);
 		sb.append(nl).append(nl);
 		sb.append(logo);
 		sb.append("    Distributing duties since 1438, where no follower has ever got").append(nl).append(nl);

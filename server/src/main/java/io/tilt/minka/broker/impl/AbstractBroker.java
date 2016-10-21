@@ -78,9 +78,11 @@ public abstract class AbstractBroker extends ServiceImpl implements EventBroker,
 			Consumer<Serializable> consumer, long sinceTimestamp);
 
 	@Override
-	public void subscribeEvents(BrokerChannel buildToTarget, Class<? extends Serializable> class1,
-			Consumer<Serializable> driver, long sinceNow) {
-		subscribe(buildToTarget, class1, driver, sinceNow);
+	public void subscribeEvents(BrokerChannel buildToTarget, Consumer<Serializable> driver, long sinceNow, 
+			@SuppressWarnings("unchecked") Class<? extends Serializable>...classes) {
+		for (int i=0;i<classes.length;i++) {
+			subscribe(buildToTarget, classes[i], driver, sinceNow);
+		}
 	}
 
 	@Override

@@ -20,13 +20,18 @@ import io.tilt.minka.delegates.BaseSampleDelegate;
 
 public class DemoDelegate extends BaseSampleDelegate {
 
+	public DemoDelegate() throws Exception {
+		super();
+		// TODO Auto-generated constructor stub
+	}
+
 	private static final long serialVersionUID = 305399302612484891L;
 
 	private static int TOTAL_DUTIES = 30;
 	private static int TOTAL_PALLETS = 5;
 
 	@Override
-	protected Set<Duty<String>> getDuties() {
+	public Set<Duty<String>> buildDuties() {
 		final Random rnd = new Random();
 		final Set<Duty<String>> duties = new HashSet<>();
 		for (int i = 1; i <= TOTAL_DUTIES; i++) {
@@ -39,14 +44,20 @@ public class DemoDelegate extends BaseSampleDelegate {
 	}
 
 	@Override
-	protected Set<Pallet<String>> getPallets() {
+	public Set<Pallet<String>> buildPallets() {
 		final Set<Pallet<String>> pallets = new HashSet<>();
 		for (int pid = 1; pid <= TOTAL_PALLETS; pid++) {
 			pallets.add(PalletBuilder.build(String.valueOf(pid), String.class,
-				pid != 1 ? new EvenLoadBalancer.EvenLoadMetadata(): new RoundRobinBalancer.RoundrobinMetadata(), 
+				pid != 1 ? new EvenLoadBalancer.Metadata(): new RoundRobinBalancer.Metadata(), 
 					Storage.CLIENT_DEFINED, "payload"));
 		}
 		return pallets;
+	}
+
+	@Override
+	public void init() throws Exception {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

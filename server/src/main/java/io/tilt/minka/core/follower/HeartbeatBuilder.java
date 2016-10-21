@@ -16,6 +16,7 @@
  */
 package io.tilt.minka.core.follower;
 
+import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.Heartbeat;
 
 /**
@@ -27,5 +28,6 @@ import io.tilt.minka.domain.Heartbeat;
 public interface HeartbeatBuilder {
 
 	Heartbeat build();
-
+	void setDomainInfo(DomainInfo domain);
+	
 }

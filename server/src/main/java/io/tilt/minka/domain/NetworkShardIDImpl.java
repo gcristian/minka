@@ -25,6 +25,7 @@ import java.util.Enumeration;
 import java.util.Random;
 
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.apache.commons.lang3.Validate;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
@@ -61,11 +62,13 @@ public class NetworkShardIDImpl implements NetworkShardID, Closeable {
 
 	//public NetworkShardIDImpl(final Config config, final Journal journal) throws IOException {
 	public NetworkShardIDImpl(final Config config) throws Exception {
+		final String hostStr = config.getBroker().getHostPort();
+		final String[] brokerStr = hostStr.split(":");
+		Validate.isTrue(brokerStr.length>1, "Bad broker host format: " + hostStr + "([hostname]:[port])");
 		this.creation = new DateTime(DateTimeZone.UTC);
-		this.configuredPort = Integer.parseInt(config.getBroker().getHostPort().split(":")[1]);
+		this.configuredPort = Integer.parseInt(brokerStr[1]);
 		this.port = configuredPort;
-		this.sourceHost = findLANAddress(config.getBroker().getHostPort().split(":")[0],
-				config.getBroker().getNetworkInterfase());
+		this.sourceHost = findLANAddress(brokerStr[0], config.getBroker().getNetworkInterfase());
 		//this.journal = journal;
 		config.setResolvedShardId(this);
 		ensureOpenPort(config.getBroker().isEnablePortFallback());

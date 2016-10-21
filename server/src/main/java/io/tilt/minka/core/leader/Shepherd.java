@@ -19,6 +19,7 @@ package io.tilt.minka.core.leader;
 import static io.tilt.minka.broker.EventBroker.ChannelHint.EVENT_SET;
 import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.STABLE;
 import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.UNSTABLE;
+import static io.tilt.minka.domain.ShardState.ONLINE;
 import static io.tilt.minka.domain.ShardState.QUARANTINE;
 import static io.tilt.minka.utils.LogUtils.HEALTH_DOWN;
 import static io.tilt.minka.utils.LogUtils.HEALTH_UP;
@@ -43,9 +44,11 @@ import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.Clearance;
+import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.NetworkShardID;
 import io.tilt.minka.domain.Shard;
+import io.tilt.minka.domain.ShardCapacity;
 import io.tilt.minka.domain.ShardState;
 import io.tilt.minka.utils.LogUtils;
 
@@ -119,6 +122,16 @@ public class Shepherd extends ServiceImpl {
 			logger.info(LogUtils.END_LINE);
 		}
 	}
+	
+	private void sendDomainInfo() {
+		for (final Shard shard: partitionTable.getShardsByState(null)) {
+			if (!shard.getState().equals(ShardState.GONE)) {
+				final DomainInfo dom = new DomainInfo();
+				dom.setDomainPallets(partitionTable.getPallets()); 
+				eventBroker.postEvent(shard.getBrokerChannel(), EVENT_SET, dom);
+			}
+		}
+	}
 
 	private void analyzeShards() {
 		try {
@@ -154,6 +167,7 @@ public class Shepherd extends ServiceImpl {
 						partitionTable.getVisibilityHealth(), lastUnstableAnalysisId,
 						config.getShepherd().getClusterHealthStabilityDelayPeriods());
 			}
+			sendDomainInfo();
 			if (blessCounter++ > 2) {
 				blessCounter = 0;
 				blessShards();

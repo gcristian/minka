@@ -37,7 +37,7 @@ public class CoalesceBalancer implements Balancer {
 
 	@Override
 	public void balance(Pallet<?> pallet, PartitionTable table, Reallocation realloc, List<Shard> onlineShards,
-			Set<ShardEntity> creations, Set<ShardEntity> deletions, int accounted) {
+			Set<ShardEntity> creations, Set<ShardEntity> deletions) {
 		// TODO Auto-generated method stub
 
 	}

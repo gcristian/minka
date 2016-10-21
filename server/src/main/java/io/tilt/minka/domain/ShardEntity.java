@@ -273,15 +273,15 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	}
 
 	public String toBrief() {
-		final String load = String.valueOf(this.getDuty().getWeight());
-		final String pid = getDuty().getPalletId();
+		final String load = type == Type.DUTY ? String.valueOf(this.getDuty().getWeight()) : "";
+		final String pid = type == Type.DUTY ? getDuty().getPalletId() : getPallet().getId();
 		final String id = getEntity().toString();
 		final StringBuilder sb = new StringBuilder(10 + load.length() + id.length() + pid.length());
+		sb.append("p:").append(pid).append(" ");
 		if (type == Type.DUTY) {
-			sb.append("p:").append(pid).append(" ");
+			sb.append("d:").append(id);
+			sb.append(" w:").append(load);
 		}
-		sb.append("d:").append(id);
-		sb.append(" w:").append(load);
 		return sb.toString();
 	}
 

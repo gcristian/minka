@@ -27,9 +27,9 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 
+import io.tilt.minka.api.Config;
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.EntityPayload;
-import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.task.LeaderShardContainer;
@@ -41,6 +41,8 @@ import io.tilt.minka.core.task.Service;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.AttachedPartition;
 import io.tilt.minka.domain.Clearance;
+import io.tilt.minka.domain.DomainInfo;
+import io.tilt.minka.domain.ShardCapacity;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 
@@ -51,7 +53,6 @@ import io.tilt.minka.domain.ShardEntity;
  * @author Cristian Gonzalez
  * @since Aug 6, 2016
  */
-@SuppressWarnings("rawtypes")
 public class LeaderEventsHandler extends ServiceImpl implements Service, Consumer<Serializable> {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -85,18 +86,20 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 		this.dependencyPlaceholder = dependencyPlaceholder;
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public void start() {
 		this.dependencyPlaceholder.getDelegate().activate();
 		logger.info("{}: ({}) Preparing for leader events", getName(), config.getLoggingShardId());
 		final long sinceNow = System.currentTimeMillis();
-		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()),
-				ShardEntity.class, this, sinceNow);
-		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()),
+		eventBroker.subscribeEvents(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()),
+				this, sinceNow, ShardEntity.class, Clearance.class, ArrayList.class, DomainInfo.class);
+		/*eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()),
 				Clearance.class, this, sinceNow);
 		eventBroker.subscribeEvents(
 				eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()), ArrayList.class,
 				this, sinceNow);
+				*/
 
 	}
 
@@ -116,9 +119,11 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 	@Override
 	@SuppressWarnings("unchecked")
 	public void accept(final Serializable event) {
-		if (event instanceof ShardCommand) {
+		if (event instanceof DomainInfo) {
+			partitionManager.acknowledge((DomainInfo)event);
+		} else if (event instanceof ShardCommand) {
 			logger.info("{}: ({}) Receiving: {}", getName(), config.getLoggingShardId(), event);
-			partitionManager.handleClusterOperation((ShardCommand) event);
+			//partitionManager.handleClusterOperation((ShardCommand) event);
 		} else if (event instanceof ShardEntity) {
 			logger.info("{}: ({}) Receiving: {}", getName(), config.getLoggingShardId(), event);
 			Synchronized handler = scheduler.getFactory().build(Action.INSTRUCT_DELEGATE, PriorityLock.MEDIUM_BLOCKING,

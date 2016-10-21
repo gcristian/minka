@@ -32,7 +32,7 @@ public class CustomDelegateBootstrap extends BootstrapTesting {
 			final MinkaClient cli = MinkaClient.getInstance();
 			sleep(1);
 			logger.info("sending new duties");
-			cli.add(DutyBuilder.build(String.class, "hola", "1"));
+			//cli.add(DutyBuilder.build(String.class, "hola", "1"));
 			int mins = Integer.getInteger("mins", 30);
 			logger.info("sleeping for {} minutes zz.zz.....", mins);
 			sleep(mins);

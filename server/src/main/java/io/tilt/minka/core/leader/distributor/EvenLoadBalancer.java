@@ -54,18 +54,18 @@ public class EvenLoadBalancer implements Balancer {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	
-	public static class EvenLoadMetadata implements BalancerMetadata {
+	public static class Metadata implements BalancerMetadata {
 		public static final long serialVersionUID = -2274456002611675425L;
 		private final PreSortType presort;
 		@Override
 		public Class<? extends Balancer> getBalancer() {
 			return EvenLoadBalancer.class;
 		}
-		public EvenLoadMetadata(PreSortType presort) {
+		public Metadata(PreSortType presort) {
 			super();
 			this.presort = presort;
 		}
-		public EvenLoadMetadata() {
+		public Metadata() {
 			super();
 			this.presort = Config.BalancerConf.EVEN_LOAD_PRESORT;
 		}
@@ -107,11 +107,10 @@ public class EvenLoadBalancer implements Balancer {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public final void balance(final Pallet<?> pallet, final PartitionTable table, final Reallocation realloc,
-			final List<Shard> onlineShards, final Set<ShardEntity> creations, final Set<ShardEntity> deletions,
-			final int accounted) {
+			final List<Shard> onlineShards, final Set<ShardEntity> creations, final Set<ShardEntity> deletions) {
 
 		// order new ones and current ones in order to get a fair distro 
-		final PreSortType presort = ((EvenLoadMetadata)pallet.getStrategy()).getPresort();
+		final PreSortType presort = ((Metadata)pallet.getStrategy()).getPresort();
 		final Comparator comparator = presort == PreSortType.WEIGHT ? new Duty.WeightComparer()
 				: getShardDutyCreationDateComparator();
 

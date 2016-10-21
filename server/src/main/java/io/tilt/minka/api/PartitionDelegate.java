@@ -97,7 +97,7 @@ public interface PartitionDelegate<E extends Serializable, P extends Serializabl
 	 * Report shard's maximum workload capacity for a certain pallet
 	 * @return	a unit in the same measure unit than duty weights reported 
 	 */
-	default double getMaxWeight(Pallet<?> pallet) {
+	default double getTotalCapacity(Pallet<?> pallet) {
 		return -1;
 	}
 
@@ -154,11 +154,6 @@ public interface PartitionDelegate<E extends Serializable, P extends Serializabl
 	*/
 	default void deactivate() {
 		logger.error("{}: this PartitionDelegate has not implemented the de-activation call",
-				getClass().getSimpleName());
-	}
-
-	default void setPartitionService(final MinkaClient service) {
-		logger.error("{}: this PartitionDelegate has not implemented the setPartitionDelegate(..) method",
 				getClass().getSimpleName());
 	}
 

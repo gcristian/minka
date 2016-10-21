@@ -58,6 +58,7 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
+import io.tilt.minka.domain.ShardCapacity;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.utils.LogUtils;
@@ -172,7 +173,7 @@ public class Distributor extends ServiceImpl {
 			logger.info(LogUtils.END_LINE);
 		}
 	}
-
+	
 	private void showStatus() {
 		StringBuilder title = new StringBuilder();
 		title.append("Distributor (i").append(++distributionCounter).append(") with Strategy: ")

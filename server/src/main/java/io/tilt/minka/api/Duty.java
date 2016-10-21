@@ -75,7 +75,9 @@ public interface Duty<T extends Serializable> extends Entity<T> {
 
 		@Override
 		public int compare(final ShardEntity o1, final ShardEntity o2) {
-			return Double.compare(o1.getDuty().getWeight(), o2.getDuty().getWeight());
+			int ret = Double.compare(o1.getDuty().getWeight(), o2.getDuty().getWeight());
+			// break comparator contract about same weight same entity yeah rightttttt
+			return ret == 0 ? -1 : ret;
 		}
 
 	}

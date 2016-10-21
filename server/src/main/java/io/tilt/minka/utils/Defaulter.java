@@ -30,10 +30,18 @@ import org.slf4j.LoggerFactory;
 import javassist.Modifier;
 
 /**
- * Configures an instance object's fields with their default static values if:
- * no key present on passed Properties, no value set to JVM as property, in that order.
- * Searches instance's class static fields as "GOOD_BYE_CRUEL_WORLD" to key1 "goodByeCruelWorld"
- * in the given Properties, if no present: uses static field value to set instance object's field as key1;
+ * Configures an instance object's fields with their default values found 
+ * in order in any of the following sources:
+ * 
+ * 	1) properties file
+ *  2) json config file
+ *  3) command line passed property to JVM like "-Dfield=value"
+ *  4) system environment variable like when "export HOST=hostname" or "echo 'HOST=hostname' >> /etc/default"
+ *  
+ *  fallbacks source 5) static field in the passed object
+ *  
+ *  So it searches object's instance static fields as "GOOD_BYE_CRUEL_WORLD" to key1 "goodByeCruelWorld"
+ * 	if no present in the sources: uses the fallback source
  * 
  * @author Cristian Gonzalez
  * @since Dec 7, 2015
@@ -88,14 +96,15 @@ public class Defaulter {
 		staticField.setAccessible(true);
 		final String name = propPrefix + instanceField.getName();
 		final String staticValue = staticField.get(configurable).toString();
-		final Object propertyOrDefault = props.getProperty(name, System.getProperty(name, staticValue));
+		final Object propertyOrDefault = props.getProperty(name,  System.getProperty(name, 
+				System.getenv(name) == null ? staticValue : System.getenv(name)));
 		final String objName = configurable.getClass().getSimpleName();
 		final PropertyEditor editor = PropertyEditorManager.findEditor(instanceField.getType());
 		final String setLog = "Defaulter: set '{}' to field: {} ({} {})";
 		try {
 			editor.setAsText(propertyOrDefault.toString());
 			logger.info(setLog, editor.getValue(), name,  propertyOrDefault != staticValue ? 
-					" property file / system env." : "static: " + staticField.getName());
+					" custom value)" : "static: " + staticField.getName());
 		} catch (Exception e) {
 			logger.error(
 					"Defaulter: object {} field: {} does not accept property or static "

@@ -18,7 +18,7 @@ package io.tilt.minka.core.follower;
 
 import java.util.Collection;
 
-import io.tilt.minka.domain.ShardCommand;
+import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
@@ -33,14 +33,14 @@ public interface PartitionManager {
 
 	Void releaseAll();
 
-	Void finalized(final Collection<ShardEntity> duty);
+	Void finalized(Collection<ShardEntity> duty);
 
-	Void update(final Collection<ShardEntity> duty);
+	Void update(Collection<ShardEntity> duty);
 
-	Void dettach(final Collection<ShardEntity> duty);
+	Void dettach(Collection<ShardEntity> duty);
 
-	Void attach(final Collection<ShardEntity> duty);
+	Void attach(Collection<ShardEntity> duty);
 
-	Void handleClusterOperation(final ShardCommand op);
+	Void acknowledge(DomainInfo info);
 
 }

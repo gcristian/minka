@@ -122,7 +122,8 @@ public interface EventBroker extends Service {
 		throw new UnsupportedOperationException();
 	}
 
-	void subscribeEvents(BrokerChannel channel, Class<? extends Serializable> class1,
-			final Consumer<Serializable> driver, long sinceNowLapse);
+	@SuppressWarnings("unchecked")
+	void subscribeEvents(BrokerChannel channel, final Consumer<Serializable> driver, long sinceNowLapse, 
+			Class<? extends Serializable>...classes);
 
 }

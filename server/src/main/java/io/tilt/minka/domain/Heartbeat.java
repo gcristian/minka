@@ -29,6 +29,7 @@ import org.joda.time.DateTimeZone;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
+import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.spectator.NodeCacheable.Identifiable;
 
 /**
@@ -43,7 +44,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	private static final long serialVersionUID = 4828220405145911529L;
 
 	private List<ShardEntity> duties;
-	private Map<Pallet<?>, Double> maxWeights;
+	private Map<Pallet<?>, Capacity> capacities;
 	private final NetworkShardID shardId;
 	private final DateTime creation;
 	private DateTime reception;
@@ -54,18 +55,18 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	private ShardState stateChange;
 
 	public static Heartbeat create(final List<ShardEntity> entities, final boolean warning, final NetworkShardID id,
-			long sequenceId, final Map<Pallet<?>, Double> maxWeights) {
-		return new Heartbeat(entities, warning, id, sequenceId, maxWeights);
+			long sequenceId, final Map<Pallet<?>, Capacity> capacities) {
+		return new Heartbeat(entities, warning, id, sequenceId, capacities);
 	}
 
 	private Heartbeat(final List<ShardEntity> duties, final boolean warning, final NetworkShardID id,
-			final long sequenceId, final Map<Pallet<?>, Double> maxWeights) {
+			final long sequenceId, final Map<Pallet<?>, Capacity> capacities) {
 		this.duties = duties;
 		this.warning = warning;
 		this.shardId = id;
 		this.creation = new DateTime(DateTimeZone.UTC);
 		this.sequenceId = sequenceId;
-		this.maxWeights = maxWeights;
+		this.capacities = capacities;
 	}
 
 	public static Heartbeat copy(final Heartbeat hb) {
@@ -73,7 +74,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		for (ShardEntity d : hb.getDuties()) {
 			cloned.add(ShardEntity.copy(d));
 		}
-		return new Heartbeat(cloned, hb.hasWarning(), hb.shardId, hb.sequenceId, hb.maxWeights);
+		return new Heartbeat(cloned, hb.hasWarning(), hb.shardId, hb.sequenceId, hb.capacities);
 	}
 
 	public void cleanDuties() {
@@ -187,7 +188,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		return this.shardId.getStringIdentity();
 	}
 	
-	public Map<Pallet<?>, Double> getMaxWeights() {
-		return this.maxWeights;
+	public Map<Pallet<?>, Capacity> getCapacities() {
+		return this.capacities;
 	}
 }
