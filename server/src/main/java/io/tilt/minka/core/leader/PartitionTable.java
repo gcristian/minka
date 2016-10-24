@@ -341,16 +341,35 @@ public class PartitionTable {
 		} else {
 			for (final Shard shard : shardsByID.values()) {
 				final AttachedPartition partition = partitionsByShard.get(shard);
+				final Map<Pallet<?>, Capacity> capacities = shard.getCapacities();
 				if (partition == null) {
 					logger.info("{}: {} = Empty", getClass().getSimpleName(), shard);
 				} else {
 					if (logger.isInfoEnabled()) {
-						logger.info("{}: Status for Shard: {} = Weight: {} with {} Duties: [ {}]",
-								getClass().getSimpleName(), shard, partition.getWeight(), partition.getDuties().size(),
+						
+						/*StringBuilder sb = new StringBuilder();
+						partition.getDuties().stream().collect(Collectors.groupingBy(new Function<ShardEntity, String>() {
+
+							@Override
+							public String apply(ShardEntity h) {
+								// TODO Auto-generated method stub
+								return null;
+							}
+						}
+								))
+								.entrySet().stream().map(j->sb.append(" Pallet: ").append(j.getKey().getId())
+								.append(" Capacity: ").append(capacities.get(j.getKey()).getTotal())
+								.append(" Weight: ").append(partition.getWeight())
+								.append(" Duties (").append(j.getValue().size()).append("): ")
+								.append(ShardEntity.toStringIds(j.getValue())).append(", "));
+								*/
+						logger.info("{}: Status for Shard: {} = Weight: {}, Capacities: {}, with {} Duties: [ {}]",
+								getClass().getSimpleName(), shard, partition.getWeight(), capacities.toString(), partition.getDuties().size(),
 								partition.toString());
+						//logger.info("{}: Status for Shard: {} = {} ", getClass().getSimpleName(), shard, sb.toString());
 					} else {
-						logger.info("{}: Status for Shard: {} = Weight: {} with {} Duties", getClass().getSimpleName(),
-								shard, partition.getWeight(), partition.getDuties().size());
+						logger.info("{}: Status for Shard: {} = Weight: {}, Capacities: {},  with {} Duties", getClass().getSimpleName(),
+								shard, partition.getWeight(), capacities.toString() , partition.getDuties().size());
 					}
 
 				}

@@ -125,12 +125,12 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 			logger.info("{}: ({}) Receiving: {}", getName(), config.getLoggingShardId(), event);
 			//partitionManager.handleClusterOperation((ShardCommand) event);
 		} else if (event instanceof ShardEntity) {
-			logger.info("{}: ({}) Receiving: {}", getName(), config.getLoggingShardId(), event);
+			logger.info("{}: ({}) Receiving 1: {}", getName(), config.getLoggingShardId(), event);
 			Synchronized handler = scheduler.getFactory().build(Action.INSTRUCT_DELEGATE, PriorityLock.MEDIUM_BLOCKING,
 					() -> handleDuty((ShardEntity) event));
 			scheduler.run(handler);
 		} else if (event instanceof ArrayList) {
-			logger.info("{}: ({}) Receiving: {}", getName(), config.getLoggingShardId(), event);
+			logger.info("{}: ({}) Receiving {}: {}", getName(), config.getLoggingShardId(), ((ArrayList<ShardEntity>) event).size(), event);
 			final List<ShardEntity> list = (ArrayList<ShardEntity>) event;
 			final Synchronized handler = scheduler.getFactory().build(Action.INSTRUCT_DELEGATE,
 					PriorityLock.MEDIUM_BLOCKING, () -> {

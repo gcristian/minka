@@ -216,7 +216,7 @@ public class SocketClient {
 				while (!Thread.interrupted()) {
 					msg = queue.take();
 					if (msg != null) {
-						logger.debug("{}: ({}) Writing: {})", getClass().getSimpleName(), loggingName, msg.getPayloadType());
+						logger.debug("{}: ({}) Writing: {}", getClass().getSimpleName(), loggingName, msg.getPayloadType());
 						//ctx.writeAndFlush(new MessageMetadata(msg.getPayload(), msg.getInbox()));
 						ctx.writeAndFlush(msg);
 					} else {

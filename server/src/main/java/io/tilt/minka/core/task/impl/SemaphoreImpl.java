@@ -121,14 +121,13 @@ public class SemaphoreImpl extends ServiceImpl implements Semaphore {
 		if (action.getScope() == Scope.LOCAL) {
 			final ReentrantLock lock = g(action);
 			if (lock.isHeldByCurrentThread()) {
-				logger.error("{}: {} lock already acquired by YOU ! CHECK YOUR CODE !", getClass().getSimpleName(),
-						action, new IllegalStateException());
+				logger.error("{}: ({}) {} lock already acquired by YOU ! CHECK YOUR CODE !", SemaphoreImpl.class.getSimpleName(),
+					logName, action, new ConsistencyException());
 				return DENIED;
 				//throw new RuntimeException("Come on check your code consistency pal !");
 			} else if (lock.isLocked()) {
-				logger.error("{}: {} lock already acquired by {} thread ! and holds: {} more",
-						getClass().getSimpleName(), action, lock.isHeldByCurrentThread() ? "current" : "may be sibling?",
-						lock.getQueueLength(), new IllegalStateException());
+				logger.error("{}: ({}) {} lock already acquired by {} thread ! and holds: {} more", SemaphoreImpl.class.getSimpleName(), 
+					logName, action, lock.isHeldByCurrentThread() ? "current" : "may be sibling?", lock.getQueueLength(), new ConsistencyException());
 				return DENIED;
 			}
 		} else if (action.getScope() == Scope.GLOBAL) {
@@ -142,15 +141,13 @@ public class SemaphoreImpl extends ServiceImpl implements Semaphore {
 			if (!related.isEmpty()) {
 				if (isLocked(entry.getKey()) && (related.contains(ANY) || related.contains(action))) {
 					if (!rules.get(action).getRelated(CHILD).contains(entry.getKey())) {
-						logger.warn(
-								"{}: {} Cannot be acquired because not Child of previously acquired Parent lock: {}",
-								getClass().getSimpleName(), action, entry.getKey());
+						logger.warn("{}: ({}) {} Cannot be acquired because not Child of previously acquired Parent lock: {}",
+							SemaphoreImpl.class.getSimpleName(), logName, action, entry.getKey());
 						return DENIED;
 					}
 				}
 			}
 		}
-
 		return null;
 	}
 
@@ -190,11 +187,11 @@ public class SemaphoreImpl extends ServiceImpl implements Semaphore {
 
 		if (logger.isDebugEnabled()) {
 			if (cause == null) {
-				logger.debug("{}: {} is {}", getClass().getSimpleName(), action,
-						blockThread ? "Locking" : "TryLocking");
+				logger.debug("{}: ({}) {} is {}", SemaphoreImpl.class.getSimpleName(), logName, action,
+					blockThread ? "Locking" : "TryLocking");
 			} else {
-				logger.debug("{}: {} is {}: {}", getClass().getSimpleName(), cause,
-						blockThread ? "Locking" : "TryLocking", action);
+				logger.debug("{}: ({}) {} is {}: {}", SemaphoreImpl.class.getSimpleName(), logName, cause,
+					blockThread ? "Locking" : "TryLocking", action);
 			}
 		}
 		switch (action.getScope()) {
@@ -234,10 +231,10 @@ public class SemaphoreImpl extends ServiceImpl implements Semaphore {
 			// then unlock the main lock
 			ReentrantLock lock = g(action);
 			if (lock == null) {
-				logger.error("{}: Locks not implemented for action: {} ", getClass().getSimpleName(), action);
+				logger.error("{}: ({}) Locks not implemented for action: {} ", SemaphoreImpl.class.getSimpleName(), logName, action);
 			} else {
 				if (logger.isDebugEnabled() && cause != null) {
-					logger.debug("{}: {} is Releasing: {}", getClass().getSimpleName(), cause, action);
+					logger.debug("{}: ({}) {} is Releasing: {}", SemaphoreImpl.class.getSimpleName(), logName, cause, action);
 				}
 				lock.unlock();
 			}

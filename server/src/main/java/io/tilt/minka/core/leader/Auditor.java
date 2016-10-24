@@ -147,7 +147,7 @@ public class Auditor {
 		confirmAbsences(shard, heartbeatDuties, currentChanges);
 
 		if (currentRealloc.hasCurrentStepFinished() && currentRealloc.hasFinished()) {
-			logger.info("{}: Resetting (all duties confirmed)", getClass().getSimpleName());
+			logger.info("{}: Reallocation finished ! (all duties confirmed)", getClass().getSimpleName());
 			currentRealloc.resetIssues();
 		} else if (currentRealloc.hasCurrentStepFinished()) {
 			//scheduler.forward(scheduler.get(Action.DISTRIBUTOR));

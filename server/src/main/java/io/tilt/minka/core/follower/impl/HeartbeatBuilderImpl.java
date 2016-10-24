@@ -123,7 +123,7 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 					capacity = dependencyPlaceholder.getDelegate().getTotalCapacity(s.getPallet());
 				} catch (Exception e) {
 					logger.error("{}: ({}) Error ocurred while asking for total capacity on Pallet: {}", getClass().getSimpleName(),
-							partition.getId(), s.getPallet());
+							partition.getId(), s.getPallet(), e);
 				} finally {
 					final Capacity cap = new Capacity(s.getPallet(), capacity);
 					capacities.put(s.getPallet(), cap);

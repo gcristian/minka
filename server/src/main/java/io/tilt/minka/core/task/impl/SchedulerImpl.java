@@ -113,7 +113,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 						if (e.getValue().equals(((ScheduledFuture<?>) run))) {
 							Synchronized sync = e.getKey();
 							if (logger.isDebugEnabled()) {
-								logger.debug("{}: ({}) Queue check: {} ({}, {}, {}, {}", getName(), shardId,
+								logger.debug("{}: ({}) Queue check: {} ({}, {}, {}, {}", getName(), logName,
 									sync.getTask().getClass().getSimpleName(),
 									"E: " + sync.getLastException() == null ? "" : sync.getLastException(),
 									"TS:" + (now - sync.getLastExecutionTimestamp()),
@@ -142,24 +142,24 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		ScheduledFuture<?> future = this.futuresBySynchro.get(synchro);
 		boolean dequeued = false;
 		if (runnable != null) {
-			logger.warn("{}: ({}) Removing synchronized {} from registry", getName(), shardId, synchro);
+			logger.warn("{}: ({}) Removing synchronized {} from registry", getName(), logName, synchro);
 			runnablesBySynchro.remove(synchro);
 			dequeued = this.executor.remove(runnable);
 		} else if (callable != null) {
-			logger.warn("{}: ({}) Removing synchronized {} from registry", getName(), shardId, synchro);
+			logger.warn("{}: ({}) Removing synchronized {} from registry", getName(), logName, synchro);
 			callablesBySynchro.remove(synchro);
 		} else {
-			logger.error("{}: ({}) Runnable/Callable {} not found, finished or never scheduled", getName(), shardId,
+			logger.error("{}: ({}) Runnable/Callable {} not found, finished or never scheduled", getName(), logName,
 				synchro.getAction().name());
 			return;
 		}
 
 		if (future != null) {
 			boolean cancelled = future.cancel(withFire);
-			logger.warn("{}: ({}) Stopping - Task {} ({}) Cancelled = {}, Dequeued = {}", getName(), shardId,
+			logger.warn("{}: ({}) Stopping - Task {} ({}) Cancelled = {}, Dequeued = {}", getName(), logName,
 				synchro.getAction().name(), runnable.getClass().getSimpleName(), cancelled, dequeued);
 		} else {
-			logger.error("{}: ({}) Stopping - Task {} ({}) Not found !!", getName(), shardId, synchro.getAction().name(),
+			logger.error("{}: ({}) Stopping - Task {} ({}) Not found !!", getName(), logName, synchro.getAction().name(),
 				runnable.getClass().getSimpleName());
 		}
 		this.executor.purge();
@@ -176,7 +176,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		Validate.notNull(agent);
 		Runnable runnable = null;
 		ScheduledFuture<?> future = null;
-		logger.debug("{}: ({}) Saving Agent = {} ", getName(), shardId, agent.toString());
+		logger.debug("{}: ({}) Saving Agent = {} ", getName(), logName, agent.toString());
 		if (agent.getFrequency() == Frequency.PERIODIC) {
 			future = executor.scheduleWithFixedDelay(runnable = () -> runSynchronized(agent), agent.getDelay(),
 				agent.getPeriodicDelay(), agent.getTimeUnit());
@@ -209,7 +209,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		while (!Thread.interrupted()) {
 			final Permission p = untilGrant ? acquireBlocking(sync.getAction()) : acquire(sync.getAction());
 			if (logger.isDebugEnabled()) {
-				logger.debug("{}: ({}) {} operation {} to {}", getName(), shardId, sync.getAction(), p,
+				logger.debug("{}: ({}) {} operation {} to {}", getName(), logName, sync.getAction(), p,
 					sync.getTask().getClass().getSimpleName());
 			}
 			if (p == GRANTED) {
@@ -217,18 +217,18 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 			} else if (p == RETRY && untilGrant) {
 				if (retries++ < getConfig().getScheduler().getSemaphoreUnlockMaxRetries()) {
 					if (logger.isDebugEnabled()) {
-						logger.warn("{}: ({}) Sleeping while waiting to acquire lock: {}", getName(), shardId,
+						logger.warn("{}: ({}) Sleeping while waiting to acquire lock: {}", getName(), logName,
 							sync.getAction());
 					}
 					// TODO: WTF -> LockSupport.parkUntil(Config.SEMAPHORE_UNLOCK_RETRY_DELAY_MS);
 					try {
 						Thread.sleep(getConfig().getScheduler().getSemaphoreUnlockRetryDelayMs());
 					} catch (InterruptedException e) {
-						logger.error("{}: ({}) While sleeping for unlock delay", getName(), shardId, e);
+						logger.error("{}: ({}) While sleeping for unlock delay", getName(), logName, e);
 					}
 				} else {
 					logger.warn("{}: ({}) Coordination starved ({}) for action: {} too many retries ({})", getName(),
-						shardId, p, sync.getAction(), retries);
+						logName, p, sync.getAction(), retries);
 				}
 			} else {
 				logger.error("{}: Unexpected situation !", getName());
@@ -243,7 +243,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		try {
 			if (sync.getTask() instanceof Runnable) {
 				if (logger.isDebugEnabled()) {
-					logger.debug("{}: ({}) Executing {}", getName(), shardId, sync.toString().toLowerCase());
+					logger.debug("{}: ({}) Executing {}", getName(), logName, sync.toString().toLowerCase());
 				}
 				sync.execute();
 				return (R) new Boolean(true);
@@ -251,11 +251,11 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 				R call = ((Callable<R>) sync.getTask()).call();
 				return call;
 			} else {
-				logger.error("{}: ({}) Cannot execute: {} task: {} IS NOT RUNNABLE NOR CALLABLE", getName(), shardId,
+				logger.error("{}: ({}) Cannot execute: {} task: {} IS NOT RUNNABLE NOR CALLABLE", getName(), logName,
 					sync.getTask().getClass().getName(), sync.getAction());
 			}
 		} catch (Throwable t) {
-			logger.error("{}: ({}) Untrapped task's exception while executing: {} task: {}", getName(), shardId,
+			logger.error("{}: ({}) Untrapped task's exception while executing: {} task: {}", getName(), logName,
 				sync.getTask().getClass().getName(), sync.getAction(), t);
 		} finally {
 		    try {
@@ -263,7 +263,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	                release(sync.getAction());
 	            }
             } catch (Throwable t2) {
-                logger.error("{}: ({}) Untrapped task's exception while Releasing: {} task: {}", getName(), shardId,
+                logger.error("{}: ({}) Untrapped task's exception while Releasing: {} task: {}", getName(), logName,
                         sync.getTask().getClass().getName(), sync.getAction(), t2);
             }
 		}
