@@ -14,8 +14,8 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
-import io.tilt.minka.core.leader.distributor.EvenLoadBalancer;
-import io.tilt.minka.core.leader.distributor.RoundRobinBalancer;
+import io.tilt.minka.core.leader.distributor.EvenWeightBalancer;
+import io.tilt.minka.core.leader.distributor.EvenSizeBalancer;
 import io.tilt.minka.core.leader.distributor.SpillOverBalancer;
 
 public class MultiPalletRandomSample extends BaseSampleDelegate {
@@ -50,8 +50,8 @@ public class MultiPalletRandomSample extends BaseSampleDelegate {
 			int num = rnd.nextInt(3);	
 			BalancerMetadata meta = num==1 ? 
 					new SpillOverBalancer.Metadata() : num ==2 ? 
-					new RoundRobinBalancer.Metadata() : 
-					new EvenLoadBalancer.Metadata();
+					new EvenSizeBalancer.Metadata() : 
+					new EvenWeightBalancer.Metadata();
 			pallets.add(PalletBuilder.build(
 					String.valueOf(pid), String.class, meta, Storage.CLIENT_DEFINED, "payload"));
 		}

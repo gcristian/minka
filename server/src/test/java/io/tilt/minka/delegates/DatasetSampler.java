@@ -5,14 +5,11 @@
 package io.tilt.minka.delegates;
 
 import java.io.FileInputStream;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
+import java.util.StringTokenizer;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.Validate;
@@ -73,18 +70,27 @@ import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
  *
  */
 public class DatasetSampler extends BaseSampleDelegate {
+
+	private static final String DIVISION = "%";
+	private static final String POWER = "*";
+
+	private static final String FIELD_DELIM = ":";
+	private static final String RANGE_DELIM = "~";
+	private static final String TERM_DELIM = ";";
+
 	private static final String sep = "(;[^\\s]|;)";
 	
-	// C:50:1:C:ROUND_ROBIN;
+	// 1d:50:1:C:EVEN_WEIGHT; 1d:/8:188:C:EVEN_WEIGHT;
 	private static final String dutyPalletFrmt = "([^\\s]+):(\\/[0-9]*|[0-9]*):([0-9]*\\~[0-9]*|[0-9]*):([^\\s]+)";
 	private static final Pattern dutyPalletFrmtTermPt = Pattern.compile(dutyPalletFrmt);
 	private static final Pattern dutyPalletFrmtPt = Pattern.compile(dutyPalletFrmt + sep);
 	
-	// 5002:B:*3;
+	// 5002:B:*3; 5002:D33:37;  
 	private static final String shardCapFrmt = "([0-9]*):([^\\s]+):([0-9]*|\\*[0-9]*)";
 	private static final Pattern shardCapFrmtTermPt = Pattern.compile(shardCapFrmt);	
 	private static final Pattern shardCapFrmtPt = Pattern.compile(shardCapFrmt + sep);
 	
+	private static final String DUTIES_SIZE = "duties.size";	
 	private static final String DUTIES_PALLETS = "duties.pallets";
 	private static final String SHARDS_CAPACITIES = "shards.capacities";
 
@@ -93,7 +99,6 @@ public class DatasetSampler extends BaseSampleDelegate {
 
 	private static final String SHARD_CAP_FRMT_EXPLAIN = "bad format on " + SHARDS_CAPACITIES + 
 			": {port:palletId:[fixed int.|*n]} but provided:";
-	
 	
 	private static final Logger logger = LoggerFactory.getLogger(DatasetSampler.class);
 	private static final long serialVersionUID = 305399302612484891L;
@@ -111,7 +116,7 @@ public class DatasetSampler extends BaseSampleDelegate {
 		final FileInputStream fis = new FileInputStream(datasetFilepath);
 		prop.load(fis);
 		fis.close();
-		this.dutySize = Integer.parseInt(prop.getProperty("duties.size"));
+		this.dutySize = Integer.parseInt(prop.getProperty(DUTIES_SIZE));
 		
 		final String dp = prop.getProperty(DUTIES_PALLETS);
 		Validate.isTrue(dutyPalletFrmtPt.matcher(dp).find(), DUTIES_PALLETS_FRMT_EXPLAIN + dp);
@@ -123,21 +128,22 @@ public class DatasetSampler extends BaseSampleDelegate {
 	public Set<Duty<String>> buildDuties() {
 		final Set<Duty<String>> duties = new HashSet<>();
 
-		final List<String> dutPall = Arrays.asList(prop.getProperty(DUTIES_PALLETS).split(";"));
 		int dutyId = 0;
-		for (String dpal: dutPall) {
+		final StringTokenizer tok = new StringTokenizer(prop.getProperty(DUTIES_PALLETS), TERM_DELIM);
+		while (tok.hasMoreTokens()) {
+			String dpal = tok.nextToken();
 			Validate.isTrue(dutyPalletFrmtTermPt.matcher(dpal).find(), DUTIES_PALLETS_FRMT_EXPLAIN + dpal);
-			final String[] parse = dpal.split(":");
+			final String[] parse = dpal.split(FIELD_DELIM);
 			final String pid = parse[0].trim();
 			final String sliceStr = parse[1].trim();
 			final String weightStr = parse[2].trim();
-			final int size =  sliceStr.startsWith("/") ? dutySize / Integer.parseInt(sliceStr.substring(1)) : Integer.parseInt(sliceStr);
-			final int rangePos = weightStr.indexOf('~');
+			final int size =  sliceStr.startsWith(DIVISION) ? dutySize / Integer.parseInt(sliceStr.substring(1)) : Integer.parseInt(sliceStr);
+			final int rangePos = weightStr.indexOf(RANGE_DELIM);
 			int[] range = null;
 			int weight = 0;
-			if (rangePos > 0 ) {
-				range = new int[]{ Integer.parseInt(weightStr.split("~")[0].trim()), 
-						Integer.parseInt(weightStr.split("~")[1].trim()) };
+			if (rangePos > 0) {
+				range = new int[]{ Integer.parseInt(weightStr.trim().split(RANGE_DELIM)[0].trim()), 
+						Integer.parseInt(weightStr.split(RANGE_DELIM)[1].trim()) };
 			} else {
 				weight = Integer.parseInt(weightStr);
 			}
@@ -155,10 +161,11 @@ public class DatasetSampler extends BaseSampleDelegate {
 	@Override
 	public Set<Pallet<String>> buildPallets() throws Exception {
 		final Set<Pallet<String>> pallets = new HashSet<>();
-		final List<String> pallBal = Arrays.asList(prop.getProperty(DUTIES_PALLETS).split(";"));
-		for (String pbal: pallBal) {			
-			final Strategy strat = Strategy.valueOf(pbal.split(":")[3].trim());
-			pallets.add(PalletBuilder.build(String.valueOf(pbal.split(":")[0].trim()), String.class, 
+		final StringTokenizer tok = new StringTokenizer(prop.getProperty(DUTIES_PALLETS), TERM_DELIM);
+		while (tok.hasMoreTokens()) {
+			String pbal = tok.nextToken();			
+			final Strategy strat = Strategy.valueOf(pbal.trim().split(FIELD_DELIM)[3].trim());
+			pallets.add(PalletBuilder.build(String.valueOf(pbal.split(FIELD_DELIM)[0].trim()), String.class, 
 					strat.getBalancerInstance(), Storage.CLIENT_DEFINED, "payload"));
 		}
 		return pallets; 
@@ -169,17 +176,22 @@ public class DatasetSampler extends BaseSampleDelegate {
 	@Override
 	public double getTotalCapacity(Pallet<?> pallet) {
 		double ret = 0;
-		final String port = getMinkaClient().getShardIdentity().split(":")[1];
-		for (final String cap: Arrays.asList(prop.getProperty(SHARDS_CAPACITIES).split(";"))) {
+		final String port = getMinkaClient().getShardIdentity().split(FIELD_DELIM)[1];
+		
+		final StringTokenizer tok = new StringTokenizer(prop.getProperty(SHARDS_CAPACITIES), TERM_DELIM);
+		while (tok.hasMoreTokens()) {
+			final String cap = tok.nextToken();
+			if (cap.trim().isEmpty()) {
+				continue;
+			}
 			Validate.isTrue(shardCapFrmtTermPt.matcher(cap).find(), SHARD_CAP_FRMT_EXPLAIN + cap);
-
-			final String[] capParse = cap.split(":");
+			final String[] capParse = cap.split(FIELD_DELIM);
 			final String portStr = capParse[0].trim();
 			final String pid = capParse[1].trim();
 			final String capacity = capParse[2].trim();
 			
 			if (portStr.equals(port) && pid.equals(pallet.getId())) {
-				if (capacity.startsWith("*")) {
+				if (capacity.startsWith(POWER)) {
 					AtomicDouble accumWeight = new AtomicDouble(0);
 					getDuties().stream().filter(d->d.getPalletId().equals(pid))
 						.forEach(d->accumWeight.addAndGet(d.getWeight()));

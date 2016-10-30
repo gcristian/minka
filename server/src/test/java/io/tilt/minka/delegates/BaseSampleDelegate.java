@@ -20,6 +20,13 @@ import io.tilt.minka.api.PartitionMaster;
 import io.tilt.minka.utils.LogUtils;
 import jersey.repackaged.com.google.common.collect.Sets;
 
+/**
+ * This's a sample delegate that only registers taken and released duties into a Set 
+ *  
+ * @author Cristian Gonzalez
+ * @since Oct 24, 2016
+ *
+ */
 public abstract class BaseSampleDelegate implements PartitionMaster<String, String>, Serializable {
 
 	private static final long serialVersionUID = 1L;
@@ -103,15 +110,15 @@ public abstract class BaseSampleDelegate implements PartitionMaster<String, Stri
 	public Set<Duty<String>> reportTaken() {
 		final MinkaClient client = MinkaClient.getInstance();
 		long now = System.currentTimeMillis();
-		if (lastSize != runningDuties.size() || now - lastPrint > 20 * 1000) {
+		if (lastSize != runningDuties.size() || now - lastPrint > 60000 * 1) {
 			lastPrint = now;
 			lastSize = runningDuties.size();
+			logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "running"));
 			if (logger.isDebugEnabled()) {
-				logger.debug(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "running"));
 				logger.debug("{} {{}} # {} ({})", shardId, client != null ? client.isCurrentLeader() ? 
 						"leader" : "follower" : "?", this.runningDuties.size(), toStringGroupByPallet(runningDuties));
 			} else {
-				logger.debug("{} {{}} # {} ", shardId, client != null ? client.isCurrentLeader() ? 
+				logger.info("{} {{}} # {} ", shardId, client != null ? client.isCurrentLeader() ? 
 						"leader" : "follower" : "?", this.runningDuties.size());
 			}
 		}
