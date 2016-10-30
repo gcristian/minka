@@ -16,7 +16,6 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
-import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
 import static io.tilt.minka.domain.ShardState.ONLINE;
 
 import java.util.ArrayList;
@@ -28,40 +27,39 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
- * Result: equally loaded shards: duties clustering according weights
- * Balances and distributes duties by creating clusters using their processing weight
- * and assigning to Shards in order to have a perfectly balanced workload 
+ * Type balanced.
+ * Purpose: perform an even spread considering duty weights, using a {@linkplain Presort}
+ * to order duties based on their creation date or weight.
+ * This ignores the shard's capacity, an even spread may result in an obliterating shard load.
+ * Effect: equally loaded shards, and many migration when using Presort.DATE
  * 
  * @author Cristian Gonzalez
  * @since Dec 13, 2015
  */
-public class EvenLoadBalancer implements Balancer {
+public class EvenWeightBalancer implements Balancer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	
 	public static class Metadata implements BalancerMetadata {
 		public static final long serialVersionUID = -2274456002611675425L;
-		private final PreSortType presort;
+		private final Balancer.PreSort presort;
 		@Override
 		public Class<? extends Balancer> getBalancer() {
-			return EvenLoadBalancer.class;
+			return EvenWeightBalancer.class;
 		}
-		public Metadata(PreSortType presort) {
+		public Metadata(Balancer.PreSort presort) {
 			super();
 			this.presort = presort;
 		}
@@ -69,7 +67,7 @@ public class EvenLoadBalancer implements Balancer {
 			super();
 			this.presort = Config.BalancerConf.EVEN_LOAD_PRESORT;
 		}
-		protected PreSortType getPresort() {
+		protected Balancer.PreSort getPresort() {
 			return this.presort;
 		}
 		@Override
@@ -78,45 +76,19 @@ public class EvenLoadBalancer implements Balancer {
 		}
 	}
 	
-	public enum PreSortType {
-		/**
-		 * Dispose duties with perfect mix between all workload values
-		 * in order to avoid having two duties of the same workload together
-		 * like: 1,2,3,1,2,3,1,2,3 = perfect 
-		 */
-		DISPERSE,
-		/**
-		 * Use Creation date order, i.e. natural order.
-		 * Use this to keep the migration of duties among shards: to a bare minimum.
-		 * Duty workload weight is considered but natural order restricts the re-accomodation much more.
-		 * Useful when the master list of duties has lot of changes in time, and low migration is required.
-		 * Use this in case your Duties represent Tasks of a short lifecycle.
-		 */
-		DATE,
-		/**
-		 * Use Workload order.
-		 * Use this to maximize the clustering algorithm's effectiveness.
-		 * In presence of frequent variation of workloads, duties will tend to migrate more. 
-		 * Otherwise this's the most optimus strategy.
-		 * Use this in case your Duties represent Data or Entities with a long lifecycle 
-		 */
-		WEIGHT;
-	}
-
 	private final Clusterizer clusterizer = new WeightBasedClusterizer();
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public final void balance(final Pallet<?> pallet, final PartitionTable table, final Reallocation realloc,
-			final List<Shard> onlineShards, final Set<ShardEntity> creations, final Set<ShardEntity> deletions) {
+	public final void balance(final Pallet<?> pallet, final PartitionTable table, 
+			final Reallocation realloc, final List<Shard> onlineShards, final Set<ShardEntity> creations, 
+			final Set<ShardEntity> deletions) {
 
 		// order new ones and current ones in order to get a fair distro 
-		final PreSortType presort = ((Metadata)pallet.getStrategy()).getPresort();
-		final Comparator comparator = presort == PreSortType.WEIGHT ? new Duty.WeightComparer()
-				: getShardDutyCreationDateComparator();
-
+		final Comparator comparator = ((Metadata)pallet.getStrategy()).getPresort().getComparator();
 		final Set<ShardEntity> duties = new TreeSet<>(comparator);
 		duties.addAll(creations); // newcomers have ++priority than table
 		duties.addAll(table.getDutiesAllByShardState(pallet, ONLINE));
+		duties.removeAll(deletions); // delete those marked for deletion
 		final List<ShardEntity> dutiesSorted = new ArrayList<>(duties);
 		logger.debug("{}: Before Balance: {} ({})", getClass().getSimpleName(), ShardEntity.toStringIds(dutiesSorted));
 
@@ -125,26 +97,16 @@ public class EvenLoadBalancer implements Balancer {
 			logger.error("{}: Cluster Partitioneer return empty distro !", getClass().getSimpleName());
 			return;
 		}
+		
+		final Migrator migra = new Migrator(table, realloc);
 		final Iterator<Shard> itShard = onlineShards.iterator();
 		final Iterator<List<ShardEntity>> itCluster = clusters.iterator();
 		while (itShard.hasNext()) {
-			final boolean moreClusters = itCluster.hasNext();
-			final Shard shard = itShard.next();
-			final Set<ShardEntity> currents = table.getDutiesByShard(pallet, shard);
-			registerMigrationsForShard(realloc, moreClusters ? new TreeSet<>(itCluster.next()) : null, shard, currents);
+			migra.transfer(pallet, itShard.next(), itCluster.hasNext() ? new TreeSet<>(itCluster.next()) : null);
 		}
+		migra.execute();
 	}
 
-	private Comparator<ShardEntity> getShardDutyCreationDateComparator() {
-		return new Comparator<ShardEntity>() {
-			@Override
-			public int compare(ShardEntity o1, ShardEntity o2) {
-				int i = o1.getEventDateForPartition(EntityEvent.CREATE)
-						.compareTo(o2.getEventDateForPartition(EntityEvent.CREATE));
-				return i == 0 ? -1 : i;
-			}
-		};
-	}
 
 	private List<List<ShardEntity>> formClusters(final List<Shard> onlineShards, final Set<ShardEntity> duties,
 			final List<ShardEntity> dutiesSorted) {
@@ -174,58 +136,7 @@ public class EvenLoadBalancer implements Balancer {
 		return clusters;
 	}
 
-	private void registerMigrationsForShard(final Reallocation realloc, final Set<ShardEntity> clusterSet,
-			final Shard shard, final Set<ShardEntity> currents) {
-
-		logger.debug("{}: cluster built {}", getClass().getSimpleName(), clusterSet);
-		logger.debug("{}: currents at shard {} ", getClass().getSimpleName(), currents);
-
-		List<ShardEntity> detaching = clusterSet != null
-				? currents.stream().filter(i -> !clusterSet.contains(i)).collect(Collectors.toList())
-				: new ArrayList<>(currents);
-
-		if (detaching.isEmpty() && logger.isDebugEnabled()) {
-			logger.debug("{}: Shard: {} has no Detachings (calculated are all already attached)",
-					getClass().getSimpleName(), shard);
-		}
-
-		StringBuilder log = new StringBuilder();
-		for (ShardEntity detach : detaching) {
-			// copy because in latter cycles this will be assigned
-			// so they're traveling different places
-			final ShardEntity copy = ShardEntity.copy(detach);
-			copy.registerEvent(EntityEvent.DETACH, PREPARED);
-			realloc.addChange(shard, copy);
-			log.append(copy.getEntity().getId()).append(", ");
-		}
-		if (log.length() > 0) {
-			logger.info("{}: Detaching to shard: {}, duties: {}", getClass().getSimpleName(), shard.getShardID(),
-					log.toString());
-		}
-
-		if (clusterSet != null) {
-			final List<ShardEntity> attaching = clusterSet.stream().filter(i -> !currents.contains(i))
-					.collect(Collectors.toList());
-
-			if (attaching.isEmpty() && logger.isDebugEnabled()) {
-				logger.debug("{}: Shard: {} has no New Attachments (calculated are all already attached)",
-						getClass().getSimpleName(), shard);
-			}
-			log = new StringBuilder();
-			for (ShardEntity attach : attaching) {
-				// copy because in latter cycles this will be assigned
-				// so they're traveling different places
-				final ShardEntity copy = ShardEntity.copy(attach);
-				copy.registerEvent(EntityEvent.ATTACH, PREPARED);
-				realloc.addChange(shard, copy);
-				log.append(copy.getEntity().getId()).append(", ");
-			}
-			if (log.length() > 0) {
-				logger.info("{}: Attaching to shard: {}, duty: {}", getClass().getSimpleName(), shard.getShardID(),
-						log.toString());
-			}
-		}
-	}
+	
 
 	private void logDebug(List<List<ShardEntity>> clusters) {
 		if (logger.isDebugEnabled()) {

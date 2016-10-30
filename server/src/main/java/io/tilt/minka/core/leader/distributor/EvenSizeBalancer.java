@@ -36,15 +36,14 @@ import io.tilt.minka.domain.ShardState;
 import io.tilt.minka.utils.CircularCollection;
 
 /**
- * Result: equally sized shards: each one with same amount of entities or almost
- * 
- * Balances and distributes evenly all sharding duties into ONLINE shards.
- * Considering dangling and new unpartitioned duties
+ * Type balanced.
+ * Purpose: a simple balancer using number of duties instead of weight. 
+ * Effect: equally duty-sized shards, same amount of entities to all shards when possible.
  * 
  * @author Cristian Gonzalez
  * @since Dec 13, 2015
  */
-public class RoundRobinBalancer implements Balancer {
+public class EvenSizeBalancer implements Balancer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -53,7 +52,7 @@ public class RoundRobinBalancer implements Balancer {
 		private final int maxDutiesDeltaBetweenShards;
 		@Override
 		public Class<? extends Balancer> getBalancer() {
-			return RoundRobinBalancer.class;
+			return EvenSizeBalancer.class;
 		}
 		public Metadata(int maxDutiesDeltaBetweenShards) {
 			super();
@@ -92,12 +91,11 @@ public class RoundRobinBalancer implements Balancer {
 		// split shards into receptors and emisors while calculating new fair distribution 
 		final Set<Shard> receptors = new HashSet<>();
 		final Set<Shard> emisors = new HashSet<>();
-		//deletions.addAll(dangling);
+		//deletions.addAll(dangling);]
 		final Map<Shard, Integer> deltas = checkDeltas(pallet, table, onlineShards, evenSize, receptors, emisors,
 				deletions);
 		if (deltas.isEmpty()) {
-			logger.info("{}: Evenly distributed already (no sharding deltas out of threshold)",
-					getClass().getSimpleName());
+			logger.info("{}: Evenly distributed already (no sharding deltas out of threshold)", getClass().getSimpleName());
 		} else if (!receptors.isEmpty()) {
 			// 2nd step: assign migrations and creations in serie
 			final CircularCollection<Shard> receptiveCircle = new CircularCollection<>(receptors);

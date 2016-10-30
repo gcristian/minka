@@ -19,6 +19,7 @@ package io.tilt.minka.core.leader.distributor;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +38,8 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
+import io.tilt.minka.domain.Shard.CapacityComparer;
+import io.tilt.minka.domain.Shard.DateComparer;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
@@ -44,11 +47,16 @@ import io.tilt.minka.domain.ShardEntity.StuckCause;
 import io.tilt.minka.utils.CircularCollection;
 
 /**
- * Unbalanced strategy related to distribution.
- * Result: keep minimum usage of shards: until spill then fill another one but keep frugal
- * 
+ * Type unbalanced.
  * Balances and distributes duties by spilling from one shard to another.
- * Useful to save machines without loosing high availability
+ * 
+ * Purpose: progressive usage of the cluster by fully filling a shard at its max capacity
+ * before going to the next shard in an order set by {@linkplain ShardPresort}
+ * The max capacity is taken from one of the following attributes: 
+ * 	  - custom value specified in {@linkplain Metadata} as a measure of Weight or as a Quantity of duties 
+ * 	  - calculated using the {@linkplain Capacity} reported by the shard's {@linkplain PartitionDelegate} 
+ * Effect: controlled growth from smaller to bigger shards, leave empty shards until needed,
+ * without losing high availability.
  * 
  * @author Cristian Gonzalez
  * @since Dec 13, 2015
@@ -61,19 +69,26 @@ public class SpillOverBalancer implements Balancer {
 		private static final long serialVersionUID = 4626080354583725779L;
 		private final MaxUnit maxUnit;
 		private final double maxValue;
+		private final ShardPresort shardPresort;
+		private final boolean ascending;
 		@Override
 		public Class<? extends Balancer> getBalancer() {
 			return SpillOverBalancer.class;
 		}
-		public Metadata(final MaxUnit maxUnit, final double maxValue) {
+		public Metadata(final MaxUnit maxUnit, final double maxValue, 
+				final ShardPresort shardPresort, final boolean ascending) {
 			super();
 			this.maxUnit = maxUnit;
 			this.maxValue = maxValue;
+			this.ascending = ascending;
+			this.shardPresort = shardPresort;
 		}
 		public Metadata() {
 			super();
 			this.maxUnit = Config.BalancerConf.SPILL_OVER_MAX_UNIT;
 			this.maxValue = Config.BalancerConf.SPILL_OVER_MAX_VALUE;
+			this.shardPresort = ShardPresort.BY_CREATION_DATE;
+			this.ascending = true;
 		}
 		protected MaxUnit getMaxUnit() {
 			return this.maxUnit;
@@ -81,22 +96,39 @@ public class SpillOverBalancer implements Balancer {
 		public double getMaxValue() {
 			return this.maxValue;
 		}
+		public ShardPresort getShardPresort() {
+			return this.shardPresort;
+		}
+		public boolean isAscending() {
+			return this.ascending;
+		}
 		@Override
 		public String toString() {
-			return "Spillover-MaxUnit:" + getMaxUnit() + "-MaxValue:" + getMaxValue();
+			return new StringBuilder("Spillover")
+					.append("-MaxUnit:").append(getMaxUnit())
+					.append("-MaxVale:").append(getMaxValue())
+					.append("-ShardPresort:").append(getShardPresort())
+					.append("-Ascending:").append(isAscending())
+					.toString();
 		}
 	}
 	
+	/* Sort criteria to select which shards are fully filled first */ 
+	public enum ShardPresort {
+		/* use date of shard's creation or online mark after being offline */
+		BY_CREATION_DATE,
+		/* use their reported for the specified pallet */
+		BY_WEIGHT_CAPACITY
+	}
+	
 	public enum MaxUnit {
-		/**
-		 * Use the Max value to compare the sum of all running duties's weights 
-		 * and restrict new additions over a full shard 
-		 */
-		WEIGHT,
-		/**
-		 * Use the Max value as max number of duties to fit in one shard 
-		 */
-		SIZE
+		/* Use the Max value to compare the sum of all running duties's weights 
+		 * and restrict new additions over a full shard */
+		DUTY_WEIGHT,
+		/* Use the Max value as max number of duties to fit in one shard */
+		DUTY_SIZE,
+		/* Ignore given value and use Shard's reported capacity as max value */
+		USE_CAPACITY,
 	}
 
 
@@ -113,18 +145,16 @@ public class SpillOverBalancer implements Balancer {
 			registerMigrationFromOthersToOne(pallet, table, realloc, receptorShard);
 			Arranger.registerCreations(creations, realloc, new CircularCollection<>(Arrays.asList(receptorShard)));
 		} else {
-			logger.info("{}: Computing Spilling strategy: {} with a Max Value: {}", getClass().getSimpleName(),
-					meta.getMaxUnit(), meta.getMaxValue());
+			logger.info("{}: Computing Spilling strategy: {} with a Max Value: {}", getClass().getSimpleName(), meta.getMaxUnit(), 
+				meta.getMaxUnit() == MaxUnit.USE_CAPACITY ? "{shard's capacity}" : meta.getMaxValue());
 			
-			boolean loadStrat = meta.getMaxUnit() == MaxUnit.WEIGHT;
+			boolean loadStrat = meta.getMaxUnit() == MaxUnit.DUTY_WEIGHT || meta.getMaxUnit() == MaxUnit.USE_CAPACITY;
 			final Map<Shard, AtomicDouble> spaceByReceptor = new HashMap<>();
-			final SetMultimap<Shard, ShardEntity> trans = collectTransceivers(pallet, table, loadStrat, spaceByReceptor, 
-					meta.getMaxValue());
-			if (spaceByReceptor.isEmpty() && !trans.isEmpty()) {
+			final SetMultimap<Shard, ShardEntity> trans = collectTransceivers(pallet, table, loadStrat, spaceByReceptor, meta);
+			if (trans==null || (spaceByReceptor.isEmpty() && !trans.isEmpty())) {
 				logger.warn("{}: Couldnt find receptors to spill over to", getClass().getSimpleName());
 			} else {
-				logger.info("{}: Shard with space for allocating Duties: {}", getClass().getSimpleName(),
-						spaceByReceptor);
+				logger.info("{}: Shard with space for allocating Duties: {}", getClass().getSimpleName(), spaceByReceptor);
 				final List<ShardEntity> unfitting = new ArrayList<>();
 				final List<ShardEntity> dutiesForBalance = new ArrayList<>();
 				dutiesForBalance.addAll(creations); // priority for new comers
@@ -137,12 +167,10 @@ public class SpillOverBalancer implements Balancer {
 				// then move those surplussing
 				registerMigrations(realloc, loadStrat, spaceByReceptor, unfitting, trans);
 				for (ShardEntity unfit : unfitting) {
-					logger.error("{}: Add Shards !! No receptor has space for Duty: {}", getClass().getSimpleName(),
-							unfit);
+					logger.error("{}: Add Shards !! No receptor has space for Duty: {}", getClass().getSimpleName(), unfit);
 				}
 			}
 		}
-
 	}
 
 	private void registerNewcomers(final Reallocation realloc, final boolean loadStrat,
@@ -208,12 +236,31 @@ public class SpillOverBalancer implements Balancer {
 
 	/* elect duties from emisors and compute receiving size at receptors */
 	private SetMultimap<Shard, ShardEntity> collectTransceivers(final Pallet<?> pallet, final PartitionTable table,
-			boolean loadStrat, final Map<Shard, AtomicDouble> spaceByReceptor, final double defaultMaxValue) {
+			boolean loadStrat, final Map<Shard, AtomicDouble> spaceByReceptor, final Metadata meta) {
 
 		final SetMultimap<Shard, ShardEntity> transmitting = HashMultimap.create();
-		for (final Shard shard : table.getAllImmutable()) {
+		
+		final List<Shard> sortedShards = new ArrayList<>(table.getAllImmutable());
+		final Comparator<Shard> comp = meta.getShardPresort() == ShardPresort.BY_WEIGHT_CAPACITY ? 
+				new CapacityComparer(pallet) : new DateComparer();
+		Collections.sort(sortedShards, meta.isAscending() ? comp : Collections.reverseOrder(comp));
+		
+		for (final Shard shard : sortedShards) {
 			final Capacity cap = shard.getCapacities().get(pallet);
-			final double maxValue = cap == null ? defaultMaxValue : cap.getTotal();
+			double maxValue = 0;
+			if (meta.getMaxUnit() == MaxUnit.USE_CAPACITY) {
+				if (cap!=null) {
+					maxValue = cap.getTotal();
+				} else {
+					logger.error("{}: Aborting balance ! Shard: {} without reported capacity for pallet: {}", 
+							getClass().getSimpleName(), shard, pallet);
+					return null;
+				}
+			} else {
+				maxValue = meta.getMaxValue();
+			}
+
+			
 			final Set<ShardEntity> dutiesByShard = table.getDutiesByShard(pallet, shard);
 			final List<ShardEntity> checkingDuties = new ArrayList<>(dutiesByShard);
 			if (loadStrat) {

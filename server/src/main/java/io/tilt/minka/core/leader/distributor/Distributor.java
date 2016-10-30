@@ -227,10 +227,9 @@ public class Distributor extends ServiceImpl {
 			Set<Duty<?>> duties = reloadDutiesFromStorage();
 			Set<Pallet<?>> pallets = reloadPalletsFromStorage();
 			if (duties == null || duties.isEmpty() || pallets == null || pallets.isEmpty()) {
-				logger.warn("{}: distribution posponed: {} hasn't return any entities (pallets = {}, duties: {})",
-						getName(),
-						config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "Minka storage" : "PartitionMaster",
-						duties, pallets);
+				logger.warn("{}: distribution posponed: {} hasn't return any entities (pallets = {}, duties: {})",getName(),
+					config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "Minka storage" : "PartitionMaster",
+					duties, pallets);
 				return false;
 			} else {
 				try {
@@ -240,8 +239,8 @@ public class Distributor extends ServiceImpl {
 					return false;
 				}
 				logger.info("{}: {} reported {} entities for sharding...", getName(),
-						config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster",
-						duties.size());
+					config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster",
+					duties.size());
 				final List<Pallet<?>> copyP = Lists.newArrayList(pallets);
 				auditor.registerPalletsFromSource(copyP);
 				final List<Duty<?>> copy = Lists.newArrayList(duties);

@@ -56,7 +56,6 @@ public class Arranger {
 	}
 
 	public final Reallocation process(final PartitionTable table, final Reallocation previousChange) {
-
 		final Reallocation realloc = new Reallocation();
 		final List<Shard> onlineShards = table.getShardsByState(ONLINE);
 		// recently fallen shards
@@ -73,7 +72,6 @@ public class Arranger {
 		final Set<ShardEntity> dutyDeletions = table.getDutiesCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
 
 		//final Set<ShardEntity> palletCreations = table.getPalletsCrudWithFilters(EntityEvent.CREATE, State.PREPARED);
-		dutyCreations.addAll(danglingAsCreations);
 		//final Set<ShardEntity> deletfions = table.getPalletsCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
 
 		// 1st step: delete all
@@ -95,30 +93,41 @@ public class Arranger {
 			final BalancerMetadata meta = pallet.getPallet().getStrategy();
 			final Balancer balancer = Balancer.Directory.getByStrategy(meta.getBalancer());
 			if (balancer!=null) {
-				logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "Arranging Pallet: %s for %s", pallet.toBrief(), balancer.getClass().getSimpleName()));
-				final StringBuilder sb = new StringBuilder();
-				double clusterCapacity = 0;
-				for (final Shard node: onlineShards) {
-					final Capacity cap = node.getCapacities().get(pallet.getPallet());
-					final double currTotal = cap == null ? 0 :  cap.getTotal();
-					sb.append(node.toString()).append(": ").append(currTotal).append(", ");
-					clusterCapacity += currTotal;
-				}
-				logger.info("{}: Cluster capacity: {}, Shard Capacities { {} }", getClass().getSimpleName(), clusterCapacity, sb.toString());
-				logger.info("{}: counting #{};+{};-{} duties: {}", getClass().getSimpleName(),
-					table.getAccountConfirmed(pallet.getPallet()), 
-					dutyCreations.stream().filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId())).count(),
-					dutyDeletions.stream().filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId())).count(),
-					ShardEntity.toStringIds(allCollector.getDuties(pallet)));
+				logStatus(table, onlineShards, dutyCreations, dutyDeletions, allCollector, pallet, balancer);
 				final Set<ShardEntity> creations = creationsCollector.getDuties(pallet);
 				balancer.balance(pallet.getPallet(), table, realloc, onlineShards, creations, dutyDeletions);
 			} else {
 				logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(), 
-						pallet.getPallet().getStrategy().getBalancer(), pallet, Balancer.Directory.getAll().size());
+					pallet.getPallet().getStrategy().getBalancer(), pallet, Balancer.Directory.getAll().size());
 			}
 		}
 
 		return realloc;
+	}
+
+	private void logStatus(final PartitionTable table, final List<Shard> onlineShards,
+			final Set<ShardEntity> dutyCreations, final Set<ShardEntity> dutyDeletions,
+			final PalletCollector allCollector, final ShardEntity pallet, final Balancer balancer) {
+		
+		if (!logger.isInfoEnabled()) {
+			return;
+		}
+		
+		logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "Arranging Pallet: %s for %s", pallet.toBrief(), balancer.getClass().getSimpleName()));
+		final StringBuilder sb = new StringBuilder();
+		double clusterCapacity = 0;
+		for (final Shard node: onlineShards) {
+			final Capacity cap = node.getCapacities().get(pallet.getPallet());
+			final double currTotal = cap == null ? 0 :  cap.getTotal();
+			sb.append(node.toString()).append(": ").append(currTotal).append(", ");
+			clusterCapacity += currTotal;
+		}
+		logger.info("{}: Cluster capacity: {}, Shard Capacities { {} }", getClass().getSimpleName(), clusterCapacity, sb.toString());
+		logger.info("{}: counting #{};+{};-{} duties: {}", getClass().getSimpleName(),
+			table.getAccountConfirmed(pallet.getPallet()), 
+			dutyCreations.stream().filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId())).count(),
+			dutyDeletions.stream().filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId())).count(),
+			ShardEntity.toStringIds(allCollector.getDuties(pallet)));
 	}
 
 	protected static void registerMissing(final PartitionTable table, final Reallocation realloc,
