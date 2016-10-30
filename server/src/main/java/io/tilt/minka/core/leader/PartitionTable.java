@@ -25,14 +25,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.AtomicDouble;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
@@ -339,39 +338,29 @@ public class PartitionTable {
 		if (shardsByID.isEmpty()) {
 			logger.warn("{}: Status without Shards", getClass().getSimpleName());
 		} else {
-			for (final Shard shard : shardsByID.values()) {
-				final AttachedPartition partition = partitionsByShard.get(shard);
-				final Map<Pallet<?>, Capacity> capacities = shard.getCapacities();
-				if (partition == null) {
-					logger.info("{}: {} = Empty", getClass().getSimpleName(), shard);
-				} else {
-					if (logger.isInfoEnabled()) {
-						
-						/*StringBuilder sb = new StringBuilder();
-						partition.getDuties().stream().collect(Collectors.groupingBy(new Function<ShardEntity, String>() {
-
-							@Override
-							public String apply(ShardEntity h) {
-								// TODO Auto-generated method stub
-								return null;
-							}
-						}
-								))
-								.entrySet().stream().map(j->sb.append(" Pallet: ").append(j.getKey().getId())
-								.append(" Capacity: ").append(capacities.get(j.getKey()).getTotal())
-								.append(" Weight: ").append(partition.getWeight())
-								.append(" Duties (").append(j.getValue().size()).append("): ")
-								.append(ShardEntity.toStringIds(j.getValue())).append(", "));
-								*/
-						logger.info("{}: Status for Shard: {} = Weight: {}, Capacities: {}, with {} Duties: [ {}]",
-								getClass().getSimpleName(), shard, partition.getWeight(), capacities.toString(), partition.getDuties().size(),
-								partition.toString());
-						//logger.info("{}: Status for Shard: {} = {} ", getClass().getSimpleName(), shard, sb.toString());
+			if (logger.isInfoEnabled()) {
+				for (final Shard shard : shardsByID.values()) {
+					final AttachedPartition partition = partitionsByShard.get(shard);
+					final Map<Pallet<?>, Capacity> capacities = shard.getCapacities();
+					if (partition == null) {
+						logger.info("{}: {} = Empty", getClass().getSimpleName(), shard);
 					} else {
-						logger.info("{}: Status for Shard: {} = Weight: {}, Capacities: {},  with {} Duties", getClass().getSimpleName(),
-								shard, partition.getWeight(), capacities.toString() , partition.getDuties().size());
+						for (ShardEntity p: getPallets()) {
+							StringBuilder sb = new StringBuilder();
+							sb.append(shard).append(" Pallet: ").append(p.getPallet().getId());
+							final Capacity cap = capacities.get(p.getPallet());
+							sb.append(" Size: ").append(partition.getDuties(p.getPallet()).size());
+							sb.append(" Weight/Capacity: ");
+							AtomicDouble weight = new AtomicDouble();
+							partition.getDuties(p.getPallet()).forEach(d->weight.addAndGet(d.getDuty().getWeight()));
+							sb.append(weight.get()).append("/");
+							sb.append(cap!=null ? cap.getTotal(): "Unreported");
+							if (logger.isInfoEnabled()) {
+								sb.append(" Duties: [").append(partition.toString()).append("]");
+							}
+							logger.info("{}: {}", getClass().getSimpleName(), sb.toString());
+						}
 					}
-
 				}
 			}
 		}
