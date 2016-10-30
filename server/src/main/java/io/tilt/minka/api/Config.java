@@ -32,8 +32,9 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.joda.ser.DateTimeSerializer;
 
 import io.tilt.minka.api.Pallet.Storage;
+import io.tilt.minka.core.leader.distributor.Balancer;
+import io.tilt.minka.core.leader.distributor.Balancer.PreSort;
 import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
-import io.tilt.minka.core.leader.distributor.EvenLoadBalancer.PreSortType;
 import io.tilt.minka.core.leader.distributor.SpillOverBalancer.MaxUnit;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.utils.Defaulter;
@@ -71,11 +72,19 @@ public class Config {
 	private ConsistencyConf consistency;
 
 	public static class SchedulerConf {
-		public static String PNAME = "Minka"; // + serviceName;
-		public static String THREAD_NAME_SCHEDULER = PNAME + "-Sched";
-		public static String THREAD_NAME_BROKER_SERVER_GROUP = PNAME + "-BrokerG";
-		public static String THREAD_NAME_BROKER_SERVER_WORKER = PNAME + "-BrokerW";
-		public static String THREAD_NANE_TCP_BROKER_CLIENT = PNAME + "-BrokerC";
+		public static int MAX_CONCURRENCY= 10;
+		private int maxConcurrency; 
+		public int getMaxConcurrency() {
+			return this.maxConcurrency;
+		}
+		public void setMaxConcurrency(int maxConcurrency) {
+			this.maxConcurrency = maxConcurrency;
+		}
+		public static String PNAME = "MK"; // + serviceName;
+		public static String THREAD_NAME_SCHEDULER = PNAME + "S";
+		public static String THREAD_NAME_BROKER_SERVER_GROUP = PNAME + "BG";
+		public static String THREAD_NAME_BROKER_SERVER_WORKER = PNAME + "BW";
+		public static String THREAD_NANE_TCP_BROKER_CLIENT = PNAME + "BC";
 
 		public static long SEMAPHORE_UNLOCK_RETRY_DELAY_MS = 100l; //50l;
 		private int semaphoreUnlockRetryDelayMs;
@@ -356,10 +365,10 @@ public class Config {
 		public static final int ROUND_ROBIN_MAX_DUTIES_DELTA_BETWEEN_SHARDS = 1;
 		private int roundRobinMaxDutiesDeltaBetweenShards;
 		
-		public static final PreSortType EVEN_LOAD_PRESORT = PreSortType.WEIGHT;
-		private PreSortType evenLoadPresort;
+		public static final Balancer.PreSort EVEN_LOAD_PRESORT = Balancer.PreSort.WEIGHT;
+		private Balancer.PreSort evenLoadPresort;
 		
-		public static final MaxUnit SPILL_OVER_MAX_UNIT = MaxUnit.WEIGHT;
+		public static final MaxUnit SPILL_OVER_MAX_UNIT = MaxUnit.USE_CAPACITY;
 		private MaxUnit spillOverMaxUnit;
 		public static final double SPILL_OVER_MAX_VALUE = 99999999999d;
 		private double spillOverMaxValue;
@@ -376,10 +385,10 @@ public class Config {
 		public void setStrategy(Strategy distributorbalancerStrategy) {
 			this.strategy = distributorbalancerStrategy;
 		}
-		public PreSortType getEvenLoadPresort() {
+		public Balancer.PreSort getEvenLoadPresort() {
 			return this.evenLoadPresort;
 		}
-		public void setEvenLoadPresort(PreSortType fairLoadPresort) {
+		public void setEvenLoadPresort(Balancer.PreSort fairLoadPresort) {
 			this.evenLoadPresort = fairLoadPresort; 
 		}
 		public MaxUnit getSpillOverMaxUnit() {

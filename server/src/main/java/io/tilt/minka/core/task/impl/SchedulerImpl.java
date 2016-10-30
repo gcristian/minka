@@ -45,8 +45,6 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	private static final int MAX_CONCURRENT_THREADS = 10;
-
 	/* for scheduling and stopping tasks */
 	private Map<Synchronized, ScheduledFuture<?>> futuresBySynchro;
 	private Map<Synchronized, Runnable> runnablesBySynchro;
@@ -74,7 +72,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		this.logName = shardId.toString();
 		this.agentFactory = agentFactory;
 		this.syncFactory = syncFactory;
-		this.executor = new ScheduledThreadPoolExecutor(MAX_CONCURRENT_THREADS,
+		this.executor = new ScheduledThreadPoolExecutor(config.getScheduler().getMaxConcurrency(),
 			new ThreadFactoryBuilder().setNameFormat(Config.SchedulerConf.THREAD_NAME_SCHEDULER + "-%d").build());
 		executor.setRemoveOnCancelPolicy(true);
 		executor.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
@@ -105,6 +103,9 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	}
 
 	private void checkQueue() {
+		if (!logger.isDebugEnabled()) {
+			return;
+		}
 		try {
 			final long now = System.currentTimeMillis();
 			if (now - this.lastCheck > 5 * 1000) {
@@ -112,14 +113,12 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 					for (final Entry<Synchronized, ScheduledFuture<?>> e : this.futuresBySynchro.entrySet()) {
 						if (e.getValue().equals(((ScheduledFuture<?>) run))) {
 							Synchronized sync = e.getKey();
-							if (logger.isDebugEnabled()) {
-								logger.debug("{}: ({}) Queue check: {} ({}, {}, {}, {}", getName(), logName,
-									sync.getTask().getClass().getSimpleName(),
-									"E: " + sync.getLastException() == null ? "" : sync.getLastException(),
-									"TS:" + (now - sync.getLastExecutionTimestamp()),
-									"Success Lapse: " + (sync.getLastSuccessfulExecutionLapse()),
-									"Success TS:" + (now - sync.getLastSuccessfulExecutionTimestamp()));
-							}
+							logger.debug("{}: ({}) Queue check: {} ({}, {}, {}, {}", getName(), logName,
+								sync.getTask().getClass().getSimpleName(),
+								"E: " + sync.getLastException() == null ? "" : sync.getLastException(),
+								"TS:" + (now - sync.getLastExecutionTimestamp()),
+								"Success Lapse: " + (sync.getLastSuccessfulExecutionLapse()),
+								"Success TS:" + (now - sync.getLastSuccessfulExecutionTimestamp()));
 						}
 					}
 				}
