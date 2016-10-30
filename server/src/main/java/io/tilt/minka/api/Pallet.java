@@ -5,6 +5,7 @@
 package io.tilt.minka.api;
 
 import java.io.Serializable;
+import java.util.Comparator;
 
 import org.apache.commons.lang.Validate;
 import org.apache.commons.lang3.builder.EqualsBuilder;
@@ -68,6 +69,11 @@ public interface Pallet<P extends Serializable> extends Entity<P> {
 	
 	/** @return only informative and user usage: the finite resource (mostly physical) being used */
 	default Resource getResource() {
+		return null;
+	}
+
+	/** @return only to be used for balancers making use of a sorting previous to duty rebalance */
+	default Comparator<Duty<P>> getPreSortComparator() {
 		return null;
 	}
 

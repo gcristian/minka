@@ -98,6 +98,13 @@ public class AttachedPartition {
 				.collect(Collectors.toSet());
 	}
 	
+	public boolean remove(final ShardEntity duty) {
+		return this.duties.remove(duty);
+	}
+
+	public boolean containsDuty(final ShardEntity duty) {
+		return this.duties.contains(duty);
+	} 	
 
 	public Set<ShardEntity> getDuties() {
 		return duties;

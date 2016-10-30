@@ -54,7 +54,9 @@ import io.tilt.minka.utils.LogUtils;
 
 /**
  * Analyze the {@linkplain PartitionTable} defining a shard's {@linkplain ShardState}
- *  
+ * which in turn feeds from the {@linkplain Auditor} receiving {@linkplain Heartbeat}s
+ * Also sends {@linkplain Clearance} messages to authorized {@linkplain Shard}s
+ * and sends {@linkplain DomainInfo} messages to all shards willing to acknowledged them
  * @author Cristian Gonzalez
  * @since Dec 2, 2015
  */
