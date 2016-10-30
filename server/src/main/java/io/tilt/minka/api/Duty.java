@@ -19,6 +19,7 @@ package io.tilt.minka.api;
 import java.io.Serializable;
 import java.util.Comparator;
 
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
@@ -68,18 +69,26 @@ public interface Duty<T extends Serializable> extends Entity<T> {
 
 	/** @return whether of not this Duty cannot be balanced and it must cohabitat all Minka shards */
 	boolean isSynthetic();
-
+	
 	public static class WeightComparer implements Comparator<ShardEntity>, Serializable {
-
 		private static final long serialVersionUID = 2191475545082914908L;
-
 		@Override
 		public int compare(final ShardEntity o1, final ShardEntity o2) {
 			int ret = Double.compare(o1.getDuty().getWeight(), o2.getDuty().getWeight());
 			// break comparator contract about same weight same entity yeah rightttttt
 			return ret == 0 ? -1 : ret;
 		}
-
 	}
+	
+	public static class CreationComparer implements Comparator<ShardEntity>, Serializable {
+		private static final long serialVersionUID = 3709876521530551544L;
+		@Override
+		public int compare(final ShardEntity o1, final ShardEntity o2) {
+			int i = o1.getEventDateForPartition(EntityEvent.CREATE)
+					.compareTo(o2.getEventDateForPartition(EntityEvent.CREATE));
+			return i == 0 ? -1 : i;
+		}
+	}
+
 
 }

@@ -16,7 +16,9 @@
  */
 package io.tilt.minka.domain;
 
+import java.io.Serializable;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +49,7 @@ public class Shard implements Comparator<Shard> {
 	private final SlidingSortedSet<Heartbeat> cardiacLapse;
 	private ShardState serviceState;
 	private Map<Pallet<?>, Capacity> capacities;
-
+	
 	public Shard(final BrokerChannel channel, final NetworkShardID memberId) {
 		super();
 		this.brokerChannel = channel;
@@ -126,4 +128,36 @@ public class Shard implements Comparator<Shard> {
 	public int compare(Shard o1, Shard o2) {
 		return o1.getFirstTimeSeen().compareTo(o2.getFirstTimeSeen());
 	}
+	
+	public static class DateComparer implements Comparator<Shard>, Serializable {
+		private static final long serialVersionUID = -2098725005810996576L;
+		@Override
+		public int compare(final Shard s, final Shard s2) {
+			return s.getFirstTimeSeen().compareTo(s2.getFirstTimeSeen());
+		}
+	}
+
+	
+	public static class CapacityComparer implements Comparator<Shard>, Serializable {
+		private static final long serialVersionUID = 2191475545082914908L;
+		private final Pallet<?> pallet;
+		public CapacityComparer(Pallet<?> pallet) {
+			super();
+			this.pallet = pallet;
+		}
+		@Override
+		public int compare(final Shard s, final Shard s2) {
+			final Capacity cap1 = s.getCapacities().get(pallet);
+			final Capacity cap2 = s2.getCapacities().get(pallet);
+			if (cap1 == null) {
+				return -1;
+			} else if (cap2 == null) {
+				return 1;
+			} else {
+				int ret = Double.compare(cap1.getTotal(), cap2.getTotal());
+				return ret == 0 ? -1 : ret;
+			}
+		}
+	}
+
 }
