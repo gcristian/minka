@@ -1,0 +1,16 @@
+duties.size = 10se 2: Shepherding
+
+loop each follower shard contacts leader
+Follower->+Heart\npump: schedule()
+Heart\npump->-Broker: send\nheartbeats
+end
+Broker->Auditor: analyze
+Auditor->Partition\nTable: new shard
+loop async agent
+Shepherd->Partition\nTable: get shards
+Shepherd->+Shepherd: calculate\nstate
+Shepherd->Broker: send clearance to all good shards
+Shepherd->-Cluster\nState: update()
+end
+Broker->Follower: clearance
+

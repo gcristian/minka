@@ -1,0 +1,16 @@
+title Phase 1: Bootup
+
+Bootstrap->ShardID: get host:ip
+Bootstrap->Broker: START: server and client\nfor connections
+Bootstrap->Scheduler: START: global threadpool
+Bootstrap->+Follower: START
+
+Bootstrap->+Leader: START candidate
+Leader->+ZK: try
+ZK-->-Leader: won !
+Leader->Shepherd: START: analyze hearbeats
+Leader->-Distributor: START: balance and distribute duties
+Follower->ZK: locate leader
+Follower->Heartpump: START: send heartbeats
+Follower->-Policies: START: release duties when no clearance
+

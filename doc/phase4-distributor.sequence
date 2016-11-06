@@ -1,0 +1,31 @@
+
+title Phase 4: Distribution
+
+loop async
+Distributor->Roadmap: start
+Distributor->Broker: send all dettaches
+end
+loop async
+Broker->+Partition\nManager: dettach\nduties
+Partition\nManager->-Partition\nDelegate: release\nduties
+Partition\nDelegate->Partition\nDelegate: stop\nworkers
+end
+loop async agent
+Heart\npump->Partition\nDelegate: report\nduties
+Heart\npump->Broker: send heartbeats
+end
+loop event
+Broker->Auditor: analyze for confirmation
+Auditor->Partition\nTable: write\nremovals
+Auditor->Roadmap: finished
+end
+Distributor->Roadmap: next step
+Distributor->Broker: send all attaches
+Broker->Partition\nManager: attach\nduties
+Partition\nManager->Partition\nDelegate: take\nduties
+Partition\nDelegate->Partition\nDelegate: spawn\nworkers
+Heart\npump->Partition\nDelegate: report\nduties
+Heart\npump->Broker: send heartbeats
+Broker->Auditor: analyze confirmation
+Auditor->Partition\nTable: write\nadditions
+Auditor->Roadmap: reset
