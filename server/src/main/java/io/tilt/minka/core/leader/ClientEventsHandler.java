@@ -83,13 +83,13 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 
 	private void cleanShutdown(final ShardCommand op) {
 		//Locks.stopCandidate(Names.getLeaderName(config.getServiceName()), false);		
-		for (Shard slave : partitionTable.getShardsByState(ONLINE)) {
+		for (Shard slave : partitionTable.getStage().getShardsByState(ONLINE)) {
 			eventBroker.postEvent(slave.getBrokerChannel(), op);
 		}
 		boolean offline = false;
 		while (!offline && !Thread.interrupted()) {
 			LockSupport.parkUntil(5000l);
-			offline = partitionTable.getShardsByState(ONLINE).size() == 0;
+			offline = partitionTable.getStage().getShardsByState(ONLINE).size() == 0;
 		}
 		// only then close subscriptions
 		stop();
@@ -132,7 +132,7 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 	public void mediateOnDuty(final ShardEntity duty) {
 		if (duty.is(EntityEvent.UPDATE)) {
 			// TODO chekear las cuestiones de disponibilidad de esto
-			final Shard location = partitionTable.getDutyLocation(duty);
+			final Shard location = partitionTable.getStage().getDutyLocation(duty);
 			if (location != null && location.getState().isAlive()) {
 				final Serializable payloadType = duty.getUserPayload() != null
 						? duty.getUserPayload().getClass().getSimpleName() : "[empty]";

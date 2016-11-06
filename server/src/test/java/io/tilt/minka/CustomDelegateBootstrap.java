@@ -43,6 +43,11 @@ public class CustomDelegateBootstrap extends BootstrapTesting {
 			e.printStackTrace();
 		}
 	}
+	
+	private void testConsistency() {
+		final MinkaClient cli = MinkaClient.getInstance();
+		
+	}
 
 	private static void sleep(final int mins) throws InterruptedException {
 		for (int i = 0; i < mins; i++) {

@@ -58,13 +58,13 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardCapacity;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.utils.LogUtils;
 
 /**
- * Balances the distribution of entities to the slaves
+ * Periodically runs specified {@linkplain Balancer}'s over {@linkplain Pallet}'s
+ * and drive the {@linkplain Roadmap} object if any, transporting duties.
  * 
  * @author Cristian Gonzalez
  * @since Nov 17, 2015
@@ -140,8 +140,8 @@ public class Distributor extends ServiceImpl {
 				logger.warn("{}: ({}) Posponing distribution: not leader anymore ! ", getName(), shardId);
 				return;
 			}
-			// skip if unstable unless a realloc in progress or expirations will occurr and dismiss
-			if (auditor.getCurrentReallocation().isEmpty()
+			// skip if unstable unless a roadmap in progress or expirations will occurr and dismiss
+			if (auditor.getCurrentRoadmap().isEmpty()
 					&& partitionTable.getVisibilityHealth() == ClusterHealth.UNSTABLE) {
 				logger.warn("{}: ({}) Posponing distribution until reaching cluster stability (", getName(), shardId);
 				return;
@@ -149,17 +149,17 @@ public class Distributor extends ServiceImpl {
 
 			showStatus();
 			final long now = System.currentTimeMillis();
-			final int online = partitionTable.getShardsByState(ONLINE).size();
+			final int online = partitionTable.getStage().getShardsByState(ONLINE).size();
 			final int min = config.getShepherd().getMinShardsOnlineBeforeSharding();
 			if (online >= min) {
 				if (checkWithStorageWhenAllOnlines()) {
-					final Reallocation currentRealloc = auditor.getCurrentReallocation();
-					if (currentRealloc.isEmpty()) {
-						createChangeAndSendIssues(null);
-					} else if (!currentRealloc.hasFinished() && currentRealloc.hasCurrentStepFinished()) {
-						sendNextIssues();
+					final Roadmap currentRoadmap = auditor.getCurrentRoadmap();
+					if (currentRoadmap.isEmpty()) {
+						buildAndDriveRoadmap(null);
+					} else if (!currentRoadmap.hasFinished() && currentRoadmap.hasCurrentStepFinished()) {
+						forwardRoadmap();
 					} else {
-						checkExpiration(now, currentRealloc);
+						checkExpiration(now, currentRoadmap);
 					}
 				}
 			} else {
@@ -176,42 +176,41 @@ public class Distributor extends ServiceImpl {
 	
 	private void showStatus() {
 		StringBuilder title = new StringBuilder();
-		title.append("Distributor (i").append(++distributionCounter).append(") with Strategy: ")
-				.append(config.getBalancer().getStrategy().toString().toUpperCase()).append(" by Leader: ")
-				.append(shardId.toString());
+		title.append("Distributor (i").append(++distributionCounter)
+			.append(" by Leader: ").append(shardId.toString());
 		logger.info(LogUtils.titleLine(title.toString()));
 		partitionTable.logStatus();
 	}
 
-	private void createChangeAndSendIssues(final Reallocation previousChange) {
-		final Reallocation realloc = arranger.process(partitionTable, previousChange);
+	private void buildAndDriveRoadmap(final Roadmap previousChange) {
+		final Roadmap roadmap = arranger.process(partitionTable, previousChange);
 
-		auditor.addReallocation(realloc);
+		auditor.addRoadmap(roadmap);
 		auditor.cleanTemporaryDuties();
-		if (!realloc.isEmpty()) {
+		if (!roadmap.isEmpty()) {
 			this.partitionTable.setWorkingHealth(ClusterHealth.UNSTABLE);
-			sendNextIssues();
-			logger.info("{}: Balancer generated {} issues on change: {}", getName(), realloc.getGroupedIssues().size(),
-					realloc.getId());
+			forwardRoadmap();
+			logger.info("{}: Balancer generated {} issues on change: {}", getName(), roadmap.getGroupedIssues().size(),
+					roadmap.getId());
 		} else {
 			this.partitionTable.setWorkingHealth(ClusterHealth.STABLE);
 			logger.info("{}: {} Balancer without change", getName(), LogUtils.BALANCED_CHAR);
 		}
 	}
 
-	private void checkExpiration(final long now, final Reallocation currentRealloc) {
-		final DateTime created = currentRealloc.getCreation();
+	private void checkExpiration(final long now, final Roadmap currentRoadmap) {
+		final DateTime created = currentRoadmap.getCreation();
 		final int maxSecs = config.getDistributor().getReallocationExpirationSec();
 		final DateTime expiration = created.plusSeconds(maxSecs);
 		if (expiration.isBefore(now)) {
-			if (currentRealloc.getRetryCount() == config.getDistributor().getReallocationMaxRetries()) {
+			if (currentRoadmap.getRetryCount() == config.getDistributor().getReallocationMaxRetries()) {
 				logger.info("{}: Abandoning change expired ! (max secs:{}) ", getName(), maxSecs);
-				createChangeAndSendIssues(currentRealloc);
+				buildAndDriveRoadmap(currentRoadmap);
 			} else {
-				currentRealloc.incrementRetry();
+				currentRoadmap.incrementRetry();
 				logger.info("{}: ReSending change expired: Retry {} (max secs:{}) ", getName(),
-						currentRealloc.getRetryCount(), maxSecs);
-				sendCurrentIssues();
+						currentRoadmap.getRetryCount(), maxSecs);
+				driveRoadmap();
 			}
 		} else {
 			logger.info("{}: balancing posponed: an existing change in progress ({}'s to expire)", getName(),
@@ -247,7 +246,7 @@ public class Distributor extends ServiceImpl {
 				auditor.registerDutiesFromSource(copy);
 				initialAdding = false;
 			}
-			if (partitionTable.getDutiesCrud().isEmpty()) {
+			if (partitionTable.getNextStage().getDutiesCrud().isEmpty()) {
 				logger.warn("{}: Aborting first distribution cause of no duties !", getName());
 				return false;
 			}
@@ -258,16 +257,16 @@ public class Distributor extends ServiceImpl {
 	}
 
 	private void checkConsistencyState() {
-		if (config.getDistributor().isRunConsistencyCheck() && auditor.getCurrentReallocation().isEmpty()) {
+		if (config.getDistributor().isRunConsistencyCheck() && auditor.getCurrentRoadmap().isEmpty()) {
 			// only warn in case there's no reallocation ahead
-			final Set<ShardEntity> currently = partitionTable.getDutiesAllByShardState(null, null);
+			final Set<ShardEntity> currently = partitionTable.getStage().getDutiesAllByShardState(null, null);
 			final Set<ShardEntity> sortedLog = new TreeSet<>();
 			reloadDutiesFromStorage().stream().filter(duty -> !currently.contains(ShardEntity.create(duty)))
 					.forEach(duty -> sortedLog.add(ShardEntity.create(duty)));
 			if (!sortedLog.isEmpty()) {
 				logger.error("{}: Consistency check: Absent duties going as Missing [ {}]", getName(),
 						ShardEntity.toStringIds(sortedLog));
-				partitionTable.getDutiesMissing().addAll(sortedLog);
+				partitionTable.getNextStage().getDutiesMissing().addAll(sortedLog);
 			}
 		}
 	}
@@ -305,12 +304,12 @@ public class Distributor extends ServiceImpl {
 	}
 
 	private void communicateUpdates() {
-		final Set<ShardEntity> updates = partitionTable.getDutiesCrud().stream()
+		final Set<ShardEntity> updates = partitionTable.getNextStage().getDutiesCrud().stream()
 				.filter(i -> i.getDutyEvent() == EntityEvent.UPDATE && i.getState() == PREPARED)
 				.collect(Collectors.toCollection(HashSet::new));
 		if (!updates.isEmpty()) {
 			for (ShardEntity updatedDuty : updates) {
-				Shard location = partitionTable.getDutyLocation(updatedDuty);
+				Shard location = partitionTable.getStage().getDutyLocation(updatedDuty);
 				if (transport(updatedDuty, location)) {
 					updatedDuty.registerEvent(SENT);
 				}
@@ -319,25 +318,25 @@ public class Distributor extends ServiceImpl {
 	}
 
 	/* move to next issue step and send them all */
-	private void sendNextIssues() {
-		auditor.getCurrentReallocation().nextStep();
-		if (auditor.getCurrentReallocation().hasCurrentStepFinished()) {
+	private void forwardRoadmap() {
+		auditor.getCurrentRoadmap().nextStep();
+		if (auditor.getCurrentRoadmap().hasCurrentStepFinished()) {
 			logger.info("{}: Skipping current empty step", getName());
-			auditor.getCurrentReallocation().nextStep();
+			auditor.getCurrentRoadmap().nextStep();
 		}
-		sendCurrentIssues();
+		driveRoadmap();
 	}
 
-	private void sendCurrentIssues() {
-		final Multimap<Shard, ShardEntity> issues = auditor.getCurrentReallocation().getGroupedIssues();
+	private void driveRoadmap() {
+		final Multimap<Shard, ShardEntity> issues = auditor.getCurrentRoadmap().getGroupedIssues();
 		final Iterator<Shard> it = issues.keySet().iterator();
 		while (it.hasNext()) {
 			final Shard shard = it.next();
 			// check it's still in ptable
-			if (partitionTable.getShardsByState(ONLINE).contains(shard)) {
-				final Collection<ShardEntity> duties = auditor.getCurrentReallocation().getGroupedIssues().get(shard);
+			if (partitionTable.getStage().getShardsByState(ONLINE).contains(shard)) {
+				final Collection<ShardEntity> duties = auditor.getCurrentRoadmap().getGroupedIssues().get(shard);
 				if (!duties.isEmpty()) {
-					if (transportMany(duties, shard)) {
+					if (transport(duties, shard)) {
 						// dont mark to wait for those already confirmed (from fallen shards)
 						duties.forEach(duty -> duty.registerEvent((duty.getState() == PREPARED ? SENT : CONFIRMED)));
 					} else {
@@ -357,7 +356,7 @@ public class Distributor extends ServiceImpl {
 		return eventBroker.postEvent(shard.getBrokerChannel(), duty);
 	}
 
-	private boolean transportMany(final Collection<ShardEntity> duties, final Shard shard) {
+	private boolean transport(final Collection<ShardEntity> duties, final Shard shard) {
 		final Set<ShardEntity> sortedLog = new TreeSet<>(duties);
 		logger.info("{}: Transporting to Shard: {} Duties ({}): {}", getName(), shard.getShardID(), duties.size(),
 				ShardEntity.toStringIds(sortedLog));

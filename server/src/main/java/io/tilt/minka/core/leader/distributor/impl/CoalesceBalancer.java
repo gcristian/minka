@@ -14,32 +14,69 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.leader.distributor;
-
-import java.util.List;
-import java.util.Set;
+package io.tilt.minka.core.leader.distributor.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
+import io.tilt.minka.core.leader.distributor.Balancer;
+import io.tilt.minka.core.leader.distributor.Migrator;
 
 /**
  * Unbalanced strategy related to distribution.
- * keep agglutination of duties: move them together wherever they are
+ * Purpose: keep agglutination of duties: move them together wherever they are
+ * 
+ * Effect: a pallet living in one shard at a time, for synchronization matters.
+ * If there's another pallet exhausting the same resource making both unfit in the same shard,
+ * then duties from one of those pallets is going to migrate all-together 
  */
 public class CoalesceBalancer implements Balancer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	@Override
-	public void balance(Pallet<?> pallet, PartitionTable table, Reallocation realloc, List<Shard> onlineShards,
-			Set<ShardEntity> creations, Set<ShardEntity> deletions) {
-		// TODO Auto-generated method stub
 
+	
+	public static class Metadata implements BalancerMetadata {
+		private static final long serialVersionUID = 8411425951224530387L;
+		private final ShardPresort shardPresort;
+		private final PreSort presort;
+		private final Bound bound;
+		
+		@Override
+		public Class<? extends Balancer> getBalancer() {
+			return CoalesceBalancer.class;
+		}
+		public Metadata() {
+			this.bound = Bound.CAPACITY_LIMITED;
+			this.presort = PreSort.DATE;
+			this.shardPresort = ShardPresort.BY_CREATION_DATE;
+		}
+		public Metadata(final Bound bound, final PreSort presort, final ShardPresort shardPresort) {
+			super();
+			this.bound = bound;
+			this.presort = presort;
+			this.shardPresort = shardPresort;
+		}
+		public PreSort getPresort() {
+			return this.presort;
+		}		
+		public ShardPresort getShardPresort() {
+			return this.shardPresort;
+		}
+		public Bound getBound() {
+			return this.bound;
+		}
+
+		enum Bound {
+			UNLIMITED,
+			CAPACITY_LIMITED,
+		}
+	}
+	
+	@Override
+	public Migrator balance(final NextTable next) {
+		return null;
 	}
 
 }

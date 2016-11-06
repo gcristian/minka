@@ -38,7 +38,7 @@ import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
 
 /**
- * A distribution change in progress, created by the {@linkplain Balancer}.
+ * A distribution change in progress, modified indirectly by the {@linkplain Balancer}.
  * analyzing the {@linkplain PartitionTable}.
  * Composed of duties migrations from a shard to another, deletions, creations, etc. 
  * 
@@ -50,14 +50,15 @@ import io.tilt.minka.domain.ShardEntity.State;
  * @author Cristian Gonzalez
  * @since Dec 11, 2015
  */
-public class Reallocation implements Comparable<Reallocation> {
+public class Roadmap implements Comparable<Roadmap> {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private SetMultimap<Shard, ShardEntity> problems;
-	private List<SetMultimap<Shard, ShardEntity>> issues;
 	private SetMultimap<Shard, ShardEntity> currentGroup;
 	private Iterator<SetMultimap<Shard, ShardEntity>> it;
+	private final List<SetMultimap<Shard, ShardEntity>> issues;
+
 	private final long id;
 	private final DateTime creation;
 	private int retryCounter;
@@ -67,8 +68,9 @@ public class Reallocation implements Comparable<Reallocation> {
 	private final static int MAX_STEPS = 2;
 	private final static int STEP_DETACH = 0;
 	private final static int STEP_ATTACH = 1;
+	
 
-	public Reallocation() {
+	public Roadmap() {
 		this.issues = new ArrayList<>(MAX_STEPS);
 		this.currentGroup = null;
 		this.id = sequence.incrementAndGet();
@@ -84,8 +86,8 @@ public class Reallocation implements Comparable<Reallocation> {
 		return retryCounter;
 	}
 
-	public void resetIssues() {
-		this.issues = new ArrayList<>(MAX_STEPS);
+	public void reset() {
+		this.issues.clear();
 	}
 
 	private SetMultimap<Shard, ShardEntity> init(int idx) {
@@ -98,8 +100,8 @@ public class Reallocation implements Comparable<Reallocation> {
 		}
 		return dutyGroup;
 	}
-
-	public void addChange(final Shard shard, final ShardEntity duty) {
+	/** declare a dettaching or attaching step to deliver on a shard */
+	public void ship(final Shard shard, final ShardEntity duty) {
 		if (duty.getDutyEvent().is(EntityEvent.CREATE) || duty.getDutyEvent().is(EntityEvent.ATTACH)) {
 			init(STEP_ATTACH).put(shard, duty);
 		} else if (duty.getDutyEvent().is(EntityEvent.REMOVE) || duty.getDutyEvent().is(EntityEvent.DETACH)) {
@@ -161,7 +163,7 @@ public class Reallocation implements Comparable<Reallocation> {
 	}
 
 	@Override
-	public int compareTo(Reallocation o) {
+	public int compareTo(Roadmap o) {
 		return o.getCreation().compareTo(getCreation());
 	}
 

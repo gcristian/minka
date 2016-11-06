@@ -14,15 +14,11 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.leader.distributor;
+package io.tilt.minka.core.leader.distributor.impl;
 
-import static io.tilt.minka.domain.ShardState.ONLINE;
-
-import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -33,7 +29,9 @@ import org.slf4j.LoggerFactory;
 import com.google.common.util.concurrent.AtomicDouble;
 
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
+import io.tilt.minka.core.leader.distributor.Balancer;
+import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.CapacityComparer;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
@@ -84,6 +82,10 @@ public class FairWeightBalancer implements Balancer {
 		public PreSort getPresort() {
 			return this.presort;
 		}
+		@Override
+		public String toString() {
+			return "FairWeight-PreSort:" + presort + "-Dispersion:" + dispersion;
+		}
 	}
 	
 	enum Dispersion {
@@ -101,74 +103,81 @@ public class FairWeightBalancer implements Balancer {
 	
 
 	@Override
-	public void balance(final Pallet<?> pallet, final PartitionTable table, final Reallocation realloc, 
-			final List<Shard> onlineShards, final Set<ShardEntity> creations, final Set<ShardEntity> deletions) {
-		
-		final Metadata meta = (Metadata)pallet.getStrategy();
+	public Migrator balance(final NextTable next) {
+		final Metadata meta = (Metadata)next.getPallet().getStrategy();
 		// order new ones and current ones in order to get a fair distro 
 		final Set<ShardEntity> duties = new TreeSet<>(meta.getPresort().getComparator());
-		duties.addAll(creations);
-		duties.addAll(table.getDutiesAllByShardState(pallet, ONLINE));
-		duties.removeAll(deletions); // delete those marked for deletion
-		final List<ShardEntity> dutiesSorted = new ArrayList<>(duties);
-		logger.debug("{}: Before Balance: {} ({})", getClass().getSimpleName(), ShardEntity.toStringIds(dutiesSorted));
-
+		duties.addAll(next.getCreations());
+		duties.addAll(next.getDuties());
+		duties.removeAll(next.getDeletions()); // delete those marked for deletion
 		if (meta.getDispersion()==Dispersion.EVEN) {
-			final Map<Shard, Double> fairWeightByShard = getFairWeights(pallet, onlineShards, duties);
-			if (fairWeightByShard==null) {
-				return;
+			final Map<Shard, Double> fairWeightByShard = calculateEvenFairWeights(next.getPallet(), next.getIndex().keySet(), duties);
+			if (fairWeightByShard!=null) {
+				return bundleEvenFairness(next, fairWeightByShard, duties, meta.getPresort().getComparator());
 			}
-			balance_(pallet, table, realloc, onlineShards, duties, fairWeightByShard);
 		} else {
 			logger.error("{}: Strategy yet to code !");
-				return ;
 		}
-
+		return null;
 	}
 
-	private void balance_(final Pallet<?> pallet, final PartitionTable table, final Reallocation realloc,
-			final List<Shard> onlineShards, final Set<ShardEntity> duties, final Map<Shard, Double> fairWeightByShard) {
-		final Migrator migra = new Migrator(table, realloc);
-		final Set<Shard> capacitySortedShards = new TreeSet<>(new CapacityComparer(pallet));
-		capacitySortedShards.addAll(onlineShards);
-		final Iterator<ShardEntity> itDuties =  duties.iterator();
-		for (final Shard shard: capacitySortedShards) {
-			final double fairload = fairWeightByShard.get(shard);
-			double accum = 0;
-			final Set<ShardEntity> tmp = new HashSet<>();
-			while (itDuties.hasNext()) {
-				final ShardEntity duty = itDuties.next();
-				if (accum + duty.getDuty().getWeight() >= fairload || !itDuties.hasNext()) {
-					tmp.add(duty);
-					migra.transfer(pallet, shard, tmp);
-					tmp.clear();
-					accum=0;
-					break;
-				} else {
-					tmp.add(duty);
-					accum+=duty.getDuty().getWeight();
+	private Migrator bundleEvenFairness(final NextTable next, final Map<Shard, Double> fairWeightByShard, 
+			final Set<ShardEntity> duties, final Comparator<ShardEntity> dutyComparator) {
+		final Set<Shard> capacitySortedShards = new TreeSet<>(new CapacityComparer(next.getPallet()));
+		capacitySortedShards.addAll(next.getIndex().keySet());
+		final Iterator<ShardEntity> itDuties = duties.iterator();
+		final Set<ShardEntity> tmp = new TreeSet<>(dutyComparator);
+		final Migrator migra = next.buildMigrator();
+		final Iterator<Shard> itShards = capacitySortedShards.iterator();
+		while (itShards.hasNext()) {
+			final Shard shard = itShards.next();
+			final Double fairload = fairWeightByShard.get(shard);
+			if (fairload !=null && fairload > 0) {
+				double accum = 0;
+				while (itDuties.hasNext()) {
+					final ShardEntity duty = itDuties.next();
+					if (accum + duty.getDuty().getWeight() > fairload || !itDuties.hasNext() || 
+							!itShards.hasNext()) {
+						final boolean fixDivRemainders = !itShards.hasNext() && itDuties.hasNext();
+						if (fixDivRemainders) {
+							tmp.add(duty);
+							while (itDuties.hasNext()) tmp.add(itDuties.next());
+						}
+						migra.override(shard, tmp);
+						tmp.clear();
+						if (!fixDivRemainders) {
+							tmp.add(duty);
+						}
+						accum=0;
+						break;
+					} else {
+						tmp.add(duty);
+						accum+=duty.getDuty().getWeight();
+					}
 				}
 			}
 		}
-		if (itDuties.hasNext()) {
-			logger.error("{}: Aborting balancing ! Almost Full: change balancer's PreSort for Pallet: {} to avoid duty splitting "
-					+ "coefficients grow outside the last shard", getClass().getSimpleName(), pallet);
-			return ;
+		if (!tmp.isEmpty()) {
+			logger.error("{}: Insufficient cluster capacity for Pallet: {}, remaining duties without distribution {}", 
+				getClass().getSimpleName(), next.getPallet(), ShardEntity.toString(tmp));
 		}
-		migra.execute();
+		return migra;
 	}
 
-	private final Map<Shard, Double> getFairWeights(Pallet<?> pallet, List<Shard> onlineShards, final Set<ShardEntity> duties) {
+	private final Map<Shard, Double> calculateEvenFairWeights(Pallet<?> pallet, Set<Shard> onlineShards, final Set<ShardEntity> duties) {
 		final AtomicDouble clusterCapacity = new AtomicDouble();
 		for (final Shard shard: onlineShards) {
 			final Capacity cap = shard.getCapacities().get(pallet);
 			if (cap==null) {
-				logger.error("{}: Aborting balancing ! Shard: {} without reported capacity for Pallet: {}", 
-						getClass().getSimpleName(), shard, pallet);
-				return null;
+				logger.error("{}: Excluding Shard: {} without reported capacity for Pallet: {}", 
+					getClass().getSimpleName(), shard, pallet);
 			} else {
 				clusterCapacity.addAndGet(cap.getTotal());
 			}
+		}
+		if (clusterCapacity.get()<=0) {
+			logger.error("{}: No available or reported capacity for Pallet: {}", getClass().getSimpleName(), pallet);
+			return null;
 		}
 		// check all duties at least fit in some shard
 		final AtomicDouble dutyWeight = new AtomicDouble();
@@ -177,19 +186,19 @@ public class FairWeightBalancer implements Balancer {
 			boolean noFit = true;
 			for (final Shard shard: onlineShards) {
 				final Capacity cap = shard.getCapacities().get(pallet);
-				noFit &= cap.getTotal()<weight;
+				noFit &= cap==null || cap.getTotal()<weight;
 			}
 			if (noFit) {
-				logger.warn("{}: Duty will not be distributed ! no shard with enough capacity: {}", 
+				logger.error("{}: Duty will not be distributed ! no shard with enough capacity: {}", 
 				getClass().getSimpleName(), duty);
+			} else {
+				dutyWeight.addAndGet(weight);
 			}
-			dutyWeight.addAndGet(weight);
 		}
 		
 		if (dutyWeight.get() > clusterCapacity.get()) {
-			logger.error("{}: Aborting balancing ! Cluster capacity (max: {}) Inssuficient (load: {}) for Pallet: {}", 
-					getClass().getSimpleName(), clusterCapacity, dutyWeight, pallet);
-			return null;
+			logger.error("{}: Pallet: {} with Inssuficient cluster capacity (max: {}, required load: {})", 
+					getClass().getSimpleName(), pallet, clusterCapacity, dutyWeight);
 		} else if (dutyWeight.get() == clusterCapacity.get()) {
 			logger.warn("{}: Cluster capacity (max: {}) at Risk (load: {}) for Pallet: {}", 
 					getClass().getSimpleName(), clusterCapacity, dutyWeight, pallet);
@@ -198,12 +207,14 @@ public class FairWeightBalancer implements Balancer {
 		// make distribution
 		final Map<Shard, Double> ret = new HashMap<>();
 		for (final Shard shard: onlineShards) {
-			final double percentual = shard.getCapacities().get(pallet).getTotal() / clusterCapacity.get();
-			final double load = dutyWeight.get() * percentual;
-			logger.info("{}: Shard: {} Fair load: {}, Capacity: {} (Duty weight: {}, Cluster capacity: {})", 
-					getClass().getSimpleName(), shard, load, shard.getCapacities().get(pallet).getTotal(),
-					dutyWeight.get(), clusterCapacity.get());
-			ret.put(shard, load);
+			final Capacity cap = shard.getCapacities().get(pallet);
+			if (cap!=null) {
+				final double maxWeight = cap.getTotal();
+				final double load = Math.min(dutyWeight.get() * (maxWeight / clusterCapacity.get()), maxWeight);
+				logger.info("{}: Shard: {} Fair load: {}, capacity: {} (c.c. {}, d.w. {})", getClass().getSimpleName(), 
+						shard, load, maxWeight, clusterCapacity.get(), dutyWeight.get());
+				ret.put(shard, load);
+			}
 		}
 		return ret;
 	}

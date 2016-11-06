@@ -33,9 +33,8 @@ import com.fasterxml.jackson.datatype.joda.ser.DateTimeSerializer;
 
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.core.leader.distributor.Balancer;
-import io.tilt.minka.core.leader.distributor.Balancer.PreSort;
 import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
-import io.tilt.minka.core.leader.distributor.SpillOverBalancer.MaxUnit;
+import io.tilt.minka.core.leader.distributor.impl.SpillOverBalancer.MaxUnit;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.utils.Defaulter;
 

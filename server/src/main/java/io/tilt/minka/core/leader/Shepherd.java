@@ -19,7 +19,6 @@ package io.tilt.minka.core.leader;
 import static io.tilt.minka.broker.EventBroker.ChannelHint.EVENT_SET;
 import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.STABLE;
 import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.UNSTABLE;
-import static io.tilt.minka.domain.ShardState.ONLINE;
 import static io.tilt.minka.domain.ShardState.QUARANTINE;
 import static io.tilt.minka.utils.LogUtils.HEALTH_DOWN;
 import static io.tilt.minka.utils.LogUtils.HEALTH_UP;
@@ -48,7 +47,6 @@ import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.NetworkShardID;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardCapacity;
 import io.tilt.minka.domain.ShardState;
 import io.tilt.minka.utils.LogUtils;
 
@@ -115,7 +113,7 @@ public class Shepherd extends ServiceImpl {
 
 	private void blessShards() {
 		try {
-			final List<Shard> shards = partitionTable.getShardsByState(ShardState.ONLINE);
+			final List<Shard> shards = partitionTable.getStage().getShardsByState(ShardState.ONLINE);
 			logger.info("{}: Blessing {} shards {}", getName(), shards.size(), shards);
 			shards.forEach(i -> eventBroker.postEvent(i.getBrokerChannel(), EVENT_SET, Clearance.create(shardId)));
 		} catch (Exception e) {
@@ -126,10 +124,10 @@ public class Shepherd extends ServiceImpl {
 	}
 	
 	private void sendDomainInfo() {
-		for (final Shard shard: partitionTable.getShardsByState(null)) {
+		for (final Shard shard: partitionTable.getStage().getShardsByState(null)) {
 			if (!shard.getState().equals(ShardState.GONE)) {
 				final DomainInfo dom = new DomainInfo();
-				dom.setDomainPallets(partitionTable.getPallets()); 
+				dom.setDomainPallets(partitionTable.getStage().getPallets());
 				eventBroker.postEvent(shard.getBrokerChannel(), EVENT_SET, dom);
 			}
 		}
@@ -142,7 +140,7 @@ public class Shepherd extends ServiceImpl {
 			}
 			logger.info(LogUtils
 					.titleLine("Analyzing Shards (i" + analysisCounter++ + ") by Leader: " + shardId.toString()));
-			final List<Shard> shards = partitionTable.getAllImmutable();
+			final List<Shard> shards = partitionTable.getStage().getAllImmutable();
 			if (shards.isEmpty()) {
 				logger.warn("{}: Partition queue empty: no shards emiting heartbeats ?", getName());
 				return;

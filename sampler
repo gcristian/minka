@@ -9,7 +9,7 @@ host='localhost'
 xms='512M'
 delegate='DatasetSampler'
 pp='broker.hostPort'
-dsfp=`pwd`${2:-'./dataset.properties'}
+dsfp=$(pwd)'/'${2:-'dataset.properties'}
 for i in {0..20}; do
 	echo $dsfp
 	i=$(($i+$port_start))

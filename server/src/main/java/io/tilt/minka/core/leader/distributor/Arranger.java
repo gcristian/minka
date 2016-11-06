@@ -19,16 +19,23 @@ package io.tilt.minka.core.leader.distributor;
 import static io.tilt.minka.domain.ShardState.ONLINE;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Sets;
 
+import io.tilt.minka.api.BalancingException;
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
 import io.tilt.minka.domain.EntityEvent;
@@ -36,7 +43,7 @@ import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
-import io.tilt.minka.utils.CircularCollection;
+import io.tilt.minka.domain.ShardState;
 import io.tilt.minka.utils.LogUtils;
 
 /**
@@ -55,95 +62,84 @@ public class Arranger {
 		this.config = config;
 	}
 
-	public final Reallocation process(final PartitionTable table, final Reallocation previousChange) {
-		final Reallocation realloc = new Reallocation();
-		final List<Shard> onlineShards = table.getShardsByState(ONLINE);
+	public final Roadmap process(final PartitionTable table, final Roadmap previousChange) {
+		final Roadmap roadmap = new Roadmap();
+		final List<Shard> onlineShards = table.getStage().getShardsByState(ONLINE);
 		// recently fallen shards
-		final Set<ShardEntity> dangling = table.getDutiesDangling();
-		registerMissing(table, realloc, table.getDutiesMissing());
+		final Set<ShardEntity> dangling = table.getNextStage().getDutiesDangling();
+		registerMissing(table, roadmap, table.getNextStage().getDutiesMissing());
 		// add previous fallen and never confirmed migrations
 		dangling.addAll(restoreUnfinishedBusiness(previousChange));
 		// add danglings as creations prior to migrations
 		final List<ShardEntity> danglingAsCreations = new ArrayList<>();
 		dangling.forEach(i -> danglingAsCreations.add(ShardEntity.copy(i)));
 
-		final Set<ShardEntity> dutyCreations = table.getDutiesCrudWithFilters(EntityEvent.CREATE, State.PREPARED);
+		final Set<ShardEntity> dutyCreations = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.CREATE, State.PREPARED);
 		dutyCreations.addAll(danglingAsCreations);
-		final Set<ShardEntity> dutyDeletions = table.getDutiesCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
+		final Set<ShardEntity> dutyDeletions = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
 
 		//final Set<ShardEntity> palletCreations = table.getPalletsCrudWithFilters(EntityEvent.CREATE, State.PREPARED);
 		//final Set<ShardEntity> deletfions = table.getPalletsCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
 
 		// 1st step: delete all
-		registerDeletions(table, realloc, dutyDeletions);
+		registerDeletions(table, roadmap, dutyDeletions);
 		// el unico q ponia las dangling en deletions era el EvenBalancer.. .(?) lo dejo stand-by
 		// despues todos agregaban las dangling como creations... se vino para aca.
 		// balance per pallet
 
-		final PalletCollector creationsCollector = new PalletCollector(dutyCreations, table.getPallets());
-
-		final Set<ShardEntity> ents = Sets.newHashSet();
+		final Set<ShardEntity> ents = new HashSet<>(table.getStage().getDutiesAttached());
 		ents.addAll(dutyCreations);
-		ents.addAll(table.getDutiesAllByShardState(null, null));
-		final PalletCollector allCollector = new PalletCollector(ents, table.getPallets());
-		final Iterator<Set<ShardEntity>> itPallet = allCollector.getPalletsIterator();
+		final PalletCollector allColl = new PalletCollector(ents, table.getStage().getPallets());
+		final Iterator<Set<ShardEntity>> itPallet = allColl.getPalletsIterator();
 		while (itPallet.hasNext()) {
-			Iterator<ShardEntity> itDuties = itPallet.next().iterator();
-			final ShardEntity pallet = allCollector.getPallet(itDuties.next().getDuty().getPalletId());
-			final BalancerMetadata meta = pallet.getPallet().getStrategy();
-			final Balancer balancer = Balancer.Directory.getByStrategy(meta.getBalancer());
-			if (balancer!=null) {
-				logStatus(table, onlineShards, dutyCreations, dutyDeletions, allCollector, pallet, balancer);
-				final Set<ShardEntity> creations = creationsCollector.getDuties(pallet);
-				balancer.balance(pallet.getPallet(), table, realloc, onlineShards, creations, dutyDeletions);
-			} else {
-				logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(), 
-					pallet.getPallet().getStrategy().getBalancer(), pallet, Balancer.Directory.getAll().size());
+			try {
+				Iterator<ShardEntity> itDuties = itPallet.next().iterator();
+				final ShardEntity pallet = allColl.getPallet(itDuties.next().getDuty().getPalletId());
+				final BalancerMetadata meta = pallet.getPallet().getStrategy();
+				final Balancer balancer = Balancer.Directory.getByStrategy(meta.getBalancer());
+				
+				if (balancer!=null) {
+					final Set<ShardEntity> removes = dutyDeletions.stream().filter(d->d.getDuty().getPalletId()
+							.equals(pallet.getPallet().getId())).collect(Collectors.toSet());
+					final Set<ShardEntity> adds = dutyCreations.stream().filter(d->d.getDuty().getPalletId()
+							.equals(pallet.getPallet().getId())).collect(Collectors.toSet());
+					
+					logStatus(table, onlineShards, dutyCreations, dutyDeletions, allColl, pallet, balancer);
+					final Map<Shard, Set<ShardEntity>> index = new HashMap<>();
+					table.getStage().getShardsByState(ShardState.ONLINE).forEach(
+							s->index.put(s, table.getStage().getDutiesByShard(pallet.getPallet(), s)));
+					
+					final NextTable nextTable = new NextTable(pallet.getPallet(), index, adds, removes, roadmap, table);
+					Migrator migra = balancer.balance(nextTable);
+					if (migra!=null && !migra.isEmpty()) {
+						migra.execute();
+					}
+				} else {
+					logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(), 
+						pallet.getPallet().getStrategy().getBalancer(), pallet, Balancer.Directory.getAll().size());
+				}
+			} catch (Exception e) {
+				logger.error("Unexpected", e);
 			}
 		}
 
-		return realloc;
+		return roadmap;
 	}
 
-	private void logStatus(final PartitionTable table, final List<Shard> onlineShards,
-			final Set<ShardEntity> dutyCreations, final Set<ShardEntity> dutyDeletions,
-			final PalletCollector allCollector, final ShardEntity pallet, final Balancer balancer) {
-		
-		if (!logger.isInfoEnabled()) {
-			return;
-		}
-		
-		logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "Arranging Pallet: %s for %s", pallet.toBrief(), balancer.getClass().getSimpleName()));
-		final StringBuilder sb = new StringBuilder();
-		double clusterCapacity = 0;
-		for (final Shard node: onlineShards) {
-			final Capacity cap = node.getCapacities().get(pallet.getPallet());
-			final double currTotal = cap == null ? 0 :  cap.getTotal();
-			sb.append(node.toString()).append(": ").append(currTotal).append(", ");
-			clusterCapacity += currTotal;
-		}
-		logger.info("{}: Cluster capacity: {}, Shard Capacities { {} }", getClass().getSimpleName(), clusterCapacity, sb.toString());
-		logger.info("{}: counting #{};+{};-{} duties: {}", getClass().getSimpleName(),
-			table.getAccountConfirmed(pallet.getPallet()), 
-			dutyCreations.stream().filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId())).count(),
-			dutyDeletions.stream().filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId())).count(),
-			ShardEntity.toStringIds(allCollector.getDuties(pallet)));
-	}
-
-	protected static void registerMissing(final PartitionTable table, final Reallocation realloc,
+	protected static void registerMissing(final PartitionTable table, final Roadmap realloc,
 			final Set<ShardEntity> missing) {
 		for (final ShardEntity missed : missing) {
-			final Shard lazy = table.getDutyLocation(missed);
-			logger.info("{}: Registering from {}Shard: {}, a dangling Duty: {}", Arranger.class.getSimpleName(),
+			final Shard lazy = table.getStage().getDutyLocation(missed);
+			logger.info("{}: Registering from {} Shard: {}, a dangling Duty: {}", Arranger.class.getSimpleName(),
 					lazy == null ? "fallen " : "", lazy, missed);
 			if (lazy != null) {
 				// missing duties are a confirmation per-se from the very shards,
 				// so the ptable gets fixed right away without a realloc.
 				missed.registerEvent(EntityEvent.REMOVE, State.CONFIRMED);
-				table.confirmDutyAboutShard(missed, lazy);
+				table.getStage().confirmDutyAboutShard(missed, lazy);
 			}
 			missed.registerEvent(EntityEvent.CREATE, State.PREPARED);
-			table.addCrudDuty(missed);
+			table.getNextStage().addCrudDuty(missed);
 		}
 		if (!missing.isEmpty()) {
 			logger.info("{}: Registered {} dangling duties from fallen Shard/s, {}", Arranger.class.getSimpleName(),
@@ -157,7 +153,7 @@ public class Arranger {
 	 * check waiting duties never confirmed (for fallen shards as previous
 	 * target candidates)
 	 */
-	protected List<ShardEntity> restoreUnfinishedBusiness(final Reallocation previousChange) {
+	protected List<ShardEntity> restoreUnfinishedBusiness(final Roadmap previousChange) {
 		List<ShardEntity> unfinishedWaiting = new ArrayList<>();
 		if (previousChange != null && !previousChange.isEmpty() && !previousChange.hasCurrentStepFinished()
 				&& !previousChange.hasFinished()) {
@@ -179,29 +175,14 @@ public class Arranger {
 		return unfinishedWaiting;
 	}
 
-	/**
-	 * put new duties into receptive shards willing to add
-	 */
-	protected static void registerCreations(final Set<ShardEntity> duties, final Reallocation realloc,
-			CircularCollection<Shard> receptiveCircle) {
-
-		for (ShardEntity duty : duties) {
-			Shard target = receptiveCircle.next();
-			realloc.addChange(target, duty);
-			duty.registerEvent(EntityEvent.ATTACH, State.PREPARED);
-			logger.info("{}: Assigning to shard: {}, duty: {}", Arranger.class.getSimpleName(), target.getShardID(),
-					duty.toBrief());
-		}
-	}
-
 	/* by user deleted */
-	private void registerDeletions(final PartitionTable table, final Reallocation realloc,
+	private void registerDeletions(final PartitionTable table, final Roadmap roadmap,
 			final Set<ShardEntity> deletions) {
 
 		for (final ShardEntity deletion : deletions) {
-			Shard shard = table.getDutyLocation(deletion);
+			Shard shard = table.getStage().getDutyLocation(deletion);
 			deletion.registerEvent(EntityEvent.DETACH, State.PREPARED);
-			realloc.addChange(shard, deletion);
+			roadmap.ship(shard, deletion);
 			logger.info("{}: Deleting from: {}, Duty: {}", getClass().getSimpleName(), shard.getShardID(),
 					deletion.toBrief());
 		}
@@ -211,4 +192,99 @@ public class Arranger {
 		return this.config;
 	}
 
+	/**
+	 * A minimalist version of {@linkplain PartitionTable}  
+	 * Creations and duties (table's current assigned duties) must be balanced.
+	 * Note deletions are included in duties but must be ignored and removed from balancing,
+	 * i.e. they must not be included in overrides and transfers.
+	 */	
+	public static class NextTable {
+		private final Pallet<?> pallet;
+		private final Map<Shard, Set<ShardEntity>> dutiesByShard;
+		private final Set<ShardEntity> creations;
+		private final Set<ShardEntity> deletions;
+		private final Roadmap roadmap;
+		private final PartitionTable partitionTable;
+		
+		private Migrator migra;
+		private Set<ShardEntity> duties;
+		
+		protected NextTable(final Pallet<?> pallet, final Map<Shard, Set<ShardEntity>> dutiesByShard, 
+				final Set<ShardEntity> creations, final Set<ShardEntity> deletions, 
+				final Roadmap roadmap, final PartitionTable partitionTable) {
+			super();
+			this.pallet = pallet;
+			this.dutiesByShard = Collections.unmodifiableMap(dutiesByShard);
+			this.creations = Collections.unmodifiableSet(creations);
+			this.deletions = Collections.unmodifiableSet(deletions);
+			this.roadmap = roadmap;
+			this.partitionTable = partitionTable;
+		}
+		public Pallet<?> getPallet() {
+			return this.pallet;
+		}
+		/** @return an immutable map repr. the partition table's duties assigned to shards */
+		public Map<Shard, Set<ShardEntity>> getIndex() {
+			return this.dutiesByShard;
+		}
+		/** @return an immutable duty set representing all indexed contents */
+		public synchronized Set<ShardEntity> getDuties() {
+			if (duties == null) {
+				final Set<ShardEntity> tmp = new HashSet<>();
+				getIndex().values().forEach(set->tmp.addAll(set));
+				duties = Collections.unmodifiableSet(tmp);
+			}
+			return duties;
+		}
+		/** @return an immutable set of new duties that must be distibuted and doesnt exist in table object */
+		public Set<ShardEntity> getCreations() {
+			return this.creations;
+		}
+		/** @return an immutable set of deletions that will cease to exist in the table (already marked)  */
+		public Set<ShardEntity> getDeletions() {
+			return this.deletions;
+		}
+		protected PartitionTable getPartitionTable() {
+			return this.partitionTable;
+		}
+		/** @deprecated */
+		public Roadmap getRoadmap() {
+			return this.roadmap;
+		}
+		/** @return a facility to request modifications for duty assignation for the next distribution */
+		public synchronized Migrator buildMigrator() {
+			if (migra == null) {
+				this.migra = new Migrator(partitionTable, roadmap, pallet); 
+			} else {
+				throw new BalancingException("only one migrator can be built for each pallet's balancing");
+			}
+			return migra;
+		}
+	}
+	
+	private void logStatus(final PartitionTable table, final List<Shard> onlineShards,
+			final Set<ShardEntity> dutyCreations, final Set<ShardEntity> dutyDeletions,
+			final PalletCollector allCollector, final ShardEntity pallet, final Balancer balancer) {
+		
+		if (!logger.isInfoEnabled()) {
+			return;
+		}
+		
+		logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "Arranging Pallet: %s for %s", pallet.toBrief(), balancer.getClass().getSimpleName()));
+		final StringBuilder sb = new StringBuilder();
+		double clusterCapacity = 0;
+		for (final Shard node: onlineShards) {
+			final Capacity cap = node.getCapacities().get(pallet.getPallet());
+			final double currTotal = cap == null ? 0 :  cap.getTotal();
+			sb.append(node.toString()).append(": ").append(currTotal).append(", ");
+			clusterCapacity += currTotal;
+		}
+		logger.info("{}: Cluster capacity: {}, Shard Capacities { {} }", getClass().getSimpleName(), clusterCapacity, sb.toString());
+		logger.info("{}: counting #{};+{};-{} duties: {}", getClass().getSimpleName(),
+			table.getStage().getAccountConfirmed(pallet.getPallet()), 
+			dutyCreations.stream().filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId())).count(),
+			dutyDeletions.stream().filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId())).count(),
+			ShardEntity.toStringIds(allCollector.getDuties(pallet)));
+	}
+	
 }

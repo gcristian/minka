@@ -18,6 +18,7 @@ package io.tilt.minka.domain;
 
 import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -264,7 +265,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 			sb.append(" ev:").append(getDutyEvent());
 			sb.append(" s:").append(getState());
 
-			sb.append(" t:").append(type);
+			sb.append(" c:").append(this.getEventDateForPartition(EntityEvent.CREATE));
 			return sb.toString();
 		} catch (Exception e) {
 			logger.error("tostring", e);
@@ -323,6 +324,40 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	public Type getType() {
 		return this.type;
+	}
+
+	
+	public static class WeightComparer implements Comparator<ShardEntity>, Serializable {
+		private static final long serialVersionUID = 2191475545082914908L;
+		@Override
+		public int compare(final ShardEntity o1, final ShardEntity o2) {
+			int ret = Double.compare(o1.getDuty().getWeight(), o2.getDuty().getWeight());
+			// break comparator contract about same weight same entity yeah rightttttt
+			if (ret == 0) {
+				return altCompare(o1, o2);
+			} 
+			return ret;
+		}
+	}
+	
+	public static class CreationComparer implements Comparator<ShardEntity>, Serializable {
+		private static final long serialVersionUID = 3709876521530551544L;
+		@Override
+		public int compare(final ShardEntity o1, final ShardEntity o2) {
+			int i = o1.getEventDateForPartition(EntityEvent.CREATE)
+					.compareTo(o2.getEventDateForPartition(EntityEvent.CREATE));
+			if (i == 0) {
+				i = altCompare(o1, o2);
+			}
+			return i;
+		}
+	}
+	protected static int altCompare(final ShardEntity o1, final ShardEntity o2) {
+		int i = o1.compare(o1, o2);
+		if (i == 0) {
+			i = Integer.compare(o1.hashCode(), o2.hashCode());
+		}
+		return i;
 	}
 
 }

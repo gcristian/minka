@@ -16,77 +16,49 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
-import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
-
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Duty.CreationComparer;
-import io.tilt.minka.api.Duty.WeightComparer;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
+import io.tilt.minka.core.leader.distributor.impl.CoalesceBalancer;
+import io.tilt.minka.core.leader.distributor.impl.EvenSizeBalancer;
+import io.tilt.minka.core.leader.distributor.impl.EvenWeightBalancer;
+import io.tilt.minka.core.leader.distributor.impl.FairWeightBalancer;
+import io.tilt.minka.core.leader.distributor.impl.ShuffleBalancer;
+import io.tilt.minka.core.leader.distributor.impl.SpillOverBalancer;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
- * Analyze the current {@linkplain PartitionTable} and if neccesary create a {@linkplain Reallocation}
- * registering {@linkplain ShardEntity} with a {@linkplain EntityEvent} and a State.
+ * Analyze the current {@linkplain PartitionTable} and if neccesary modify the {@linkplain Roadmap}
+ * through the {@linkplain Migrator} facility, which registers {@linkplain ShardEntity} 
+ * with a {@linkplain EntityEvent} and a {@linkplain ShardEntity.State}.
  * Representing migrations of duties, deletions, creations, dangling, etc.
- * 
- * Previous change only neccesary if not empty
- * 
+ *
  * @author Cristian Gonzalez
  * @since Jan 6, 2016
- *
  */
 public interface Balancer {
 
 	/**
-	 * Implement according these params:
+	 * Analyze the current and next state of the partition table and 
+	 * apply overrides and transfers on a migrator. 
 	 * 
-	 * @param table         the current situation 
-	 * @param realloc          previous allocation to check for anything of interest
-	 * @param onlineShards  the shards to distribute
-	 * @param dangling      to treat as creations
-	 * @param creations     new additions reported from source or added from partition service to distribute
-	 * @param deletions     already registered: passed only for calculation
-	 * @param accounted     summarization of already running and stable duties 
+	 * @param 	nextTable: the new version of the partition table
+	 * @return	null if no balance at all or a migrator with changes to execute
 	 */
-	void balance(final Pallet<?> pallet, final PartitionTable table, final Reallocation realloc,
-			final List<Shard> onlineShards, final Set<ShardEntity> creations, final Set<ShardEntity> deletions);
-	
-	public static class Migration {
-		private final Logger logger = LoggerFactory.getLogger(getClass());
-		private final Reallocation realloc;
-		
-		public Migration(Reallocation realloc) {
-			super();
-			this.realloc = realloc;
-		}
-
-		public final void add(final Shard source, final Shard target, final ShardEntity entity) {
-			entity.registerEvent(EntityEvent.DETACH, PREPARED);
-			realloc.addChange(source, entity);
-			ShardEntity assigning = ShardEntity.copy(entity);
-			assigning.registerEvent(EntityEvent.ATTACH, PREPARED);
-			realloc.addChange(target, assigning);
-			logger.info("{}: Migrating from: {} to: {}, Duty: {}", getClass().getSimpleName(),
-					source.getShardID(), target.getShardID(), assigning.toString());
-		}
-	}
+	Migrator balance(NextTable nextTable);
 	
 	
-	/** So clients can add new balancers */
+	/** so clients can add new balancers */
 	public static class Directory {
 		private static final Logger logger = LoggerFactory.getLogger(Balancer.class);
 		private final static Map<Class<? extends Balancer>, Balancer> directory = new HashMap<>();
@@ -120,11 +92,23 @@ public interface Balancer {
 		Class<? extends Balancer> getBalancer();
 	}
 	
+	/* Sort criteria to select which shards are fully filled first */ 
+	public enum ShardPresort {
+		/* use date of shard's creation or online mark after being offline */
+		BY_CREATION_DATE(),
+		/* use their reported for the specified pallet */
+		BY_WEIGHT_CAPACITY(),
+		;
+	}
+	
 	enum Type {
+		/* category for balancers who run a fair spread of duties across shards */
 		BALANCED,
+		/* category for balancers that cause a unbalance distribution of duties on shards*/
 		UNBALANCED,
 	}
 	
+	/* category for balancers that makes use of the duty weight*/
 	enum Weighted {
 		YES,
 		NOT
@@ -155,23 +139,25 @@ public interface Balancer {
 			this.type = type;
 			this.weighted = weighted;
 		}
-
+		public Type getType() {
+			return this.type;
+		}
+		public Weighted getWeighted() {
+			return this.weighted;
+		}
 		public Class<? extends Balancer> getBalancer() {
 			return this.balancer;
-		}
-		
+		}		
 		public BalancerMetadata getBalancerInstance() throws InstantiationException, IllegalAccessException, ClassNotFoundException {
 			return (BalancerMetadata) Class.forName(getBalancer().getName()+"$Metadata").newInstance();
 		}
-		
-
 	}
 
 	enum PreSort {
 		/**
 		 * Dispose duties with perfect mix between all workload values
 		 * in order to avoid having two duties of the same workload together
-		 * like: 1,2,3,1,2,3,1,2,3 = perfect 
+		 * like: 1,2,3,1,2,3,1,2,3 = Good for migration reduction while balanced distrib.  
 		 */
 		SAW(null),
 		/**
@@ -181,7 +167,7 @@ public interface Balancer {
 		 * Useful when the master list of duties has lot of changes in time, and low migration is required.
 		 * Use this in case your Duties represent Tasks of a short lifecycle.
 		 */
-		DATE(new Duty.CreationComparer()),
+		DATE(new ShardEntity.CreationComparer()),
 		/**
 		 * Use Workload order.
 		 * Use this to maximize the clustering algorithm's effectiveness.
@@ -189,7 +175,7 @@ public interface Balancer {
 		 * Otherwise this's the most optimus strategy.
 		 * Use this in case your Duties represent Data or Entities with a long lifecycle 
 		 */
-		WEIGHT(new Duty.WeightComparer()),
+		WEIGHT(new ShardEntity.WeightComparer()),
 		
 		/** Use Pallet's custom comparator */
 		CUSTOM(null),

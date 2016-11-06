@@ -136,7 +136,6 @@ public class Shard implements Comparator<Shard> {
 			return s.getFirstTimeSeen().compareTo(s2.getFirstTimeSeen());
 		}
 	}
-
 	
 	public static class CapacityComparer implements Comparator<Shard>, Serializable {
 		private static final long serialVersionUID = 2191475545082914908L;

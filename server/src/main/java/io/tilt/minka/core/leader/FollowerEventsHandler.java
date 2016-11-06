@@ -99,17 +99,17 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 		scheduler.run(scheduler.getFactory().build(Scheduler.Action.PARTITION_TABLE_UPDATE,
 				PriorityLock.MEDIUM_BLOCKING, () -> {
 					// when a shutdownlock acquired then keep receving HB to evaluate all Slaves are down!
-					Shard shard = partitionTable.getShard(hb.getShardId());
+					Shard shard = partitionTable.getStage().getShard(hb.getShardId());
 					if (shard == null) {
 						// new member
-						partitionTable.addShard(shard = new Shard(
+						partitionTable.getStage().addShard(shard = new Shard(
 								eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, hb.getShardId()),
 								hb.getShardId()));
 					}
 					if (hb.getStateChange() == ShardState.QUITTED) {
 						logger.info("{}: ShardID: {} went cleanly: {}", getClass().getSimpleName(), shard,
 								hb.getStateChange());
-						partitionTable.getShard(shard.getShardID()).setState(ShardState.QUITTED);
+						partitionTable.getStage().getShard(shard.getShardID()).setState(ShardState.QUITTED);
 					}
 					auditor.account(hb, shard);
 				}));

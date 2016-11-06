@@ -14,9 +14,9 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
-import io.tilt.minka.core.leader.distributor.EvenWeightBalancer;
-import io.tilt.minka.core.leader.distributor.EvenSizeBalancer;
-import io.tilt.minka.core.leader.distributor.SpillOverBalancer;
+import io.tilt.minka.core.leader.distributor.impl.EvenSizeBalancer;
+import io.tilt.minka.core.leader.distributor.impl.EvenWeightBalancer;
+import io.tilt.minka.core.leader.distributor.impl.SpillOverBalancer;
 
 public class MultiPalletRandomSample extends BaseSampleDelegate {
 

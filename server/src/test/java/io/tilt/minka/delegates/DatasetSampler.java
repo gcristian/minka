@@ -5,7 +5,9 @@
 package io.tilt.minka.delegates;
 
 import java.io.FileInputStream;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
@@ -132,6 +134,7 @@ public class DatasetSampler extends BaseSampleDelegate {
 		final StringTokenizer tok = new StringTokenizer(prop.getProperty(DUTIES_PALLETS), TERM_DELIM);
 		while (tok.hasMoreTokens()) {
 			String dpal = tok.nextToken();
+			logger.info("Parsing {}", dpal);
 			Validate.isTrue(dutyPalletFrmtTermPt.matcher(dpal).find(), DUTIES_PALLETS_FRMT_EXPLAIN + dpal);
 			final String[] parse = dpal.split(FIELD_DELIM);
 			final String pid = parse[0].trim();
@@ -147,7 +150,6 @@ public class DatasetSampler extends BaseSampleDelegate {
 			} else {
 				weight = Integer.parseInt(weightStr);
 			}
-			logger.info("Parsing {}", dpal);
 			logger.info("Building {} duties for pallet: {}", size, pid);
 			for (int i = 0; i < size; i++, dutyId++) {
 				// this's biased as it's most probably to get the min value when given range is smaller than 0~min
@@ -163,7 +165,7 @@ public class DatasetSampler extends BaseSampleDelegate {
 		final Set<Pallet<String>> pallets = new HashSet<>();
 		final StringTokenizer tok = new StringTokenizer(prop.getProperty(DUTIES_PALLETS), TERM_DELIM);
 		while (tok.hasMoreTokens()) {
-			String pbal = tok.nextToken();			
+			String pbal = tok.nextToken();	
 			final Strategy strat = Strategy.valueOf(pbal.trim().split(FIELD_DELIM)[3].trim());
 			pallets.add(PalletBuilder.build(String.valueOf(pbal.split(FIELD_DELIM)[0].trim()), String.class, 
 					strat.getBalancerInstance(), Storage.CLIENT_DEFINED, "payload"));
@@ -173,11 +175,21 @@ public class DatasetSampler extends BaseSampleDelegate {
 	
 	private Set<Pallet<?>> logflags = new HashSet<>();
 
+	private Map<String, Double> capacities = new HashMap<>(); 
+	
 	@Override
 	public double getTotalCapacity(Pallet<?> pallet) {
-		double ret = 0;
 		final String port = getMinkaClient().getShardIdentity().split(FIELD_DELIM)[1];
-		
+		final String key = port + pallet.getId();
+		Double ret = capacities.get(key);
+		if (ret == null ) {
+			capacities.put(key, new Double(ret = retrieveCapacity(pallet, port)));
+		}
+		return ret;
+	}
+
+	private double retrieveCapacity(final Pallet<?> pallet, final String port) {
+		double ret = 0;
 		final StringTokenizer tok = new StringTokenizer(prop.getProperty(SHARDS_CAPACITIES), TERM_DELIM);
 		while (tok.hasMoreTokens()) {
 			final String cap = tok.nextToken();
@@ -193,12 +205,13 @@ public class DatasetSampler extends BaseSampleDelegate {
 			if (portStr.equals(port) && pid.equals(pallet.getId())) {
 				if (capacity.startsWith(POWER)) {
 					AtomicDouble accumWeight = new AtomicDouble(0);
-					getDuties().stream().filter(d->d.getPalletId().equals(pid))
+					loadDuties().stream().filter(d->d.getPalletId().equals(pid))
 						.forEach(d->accumWeight.addAndGet(d.getWeight()));
 					ret = accumWeight.get() * Double.parseDouble(capacity.substring(1));
 				} else {
 					ret = Double.parseDouble(capacity);
 				}
+				break;
 			}
 		}
 		if (!logflags.contains(pallet)) {

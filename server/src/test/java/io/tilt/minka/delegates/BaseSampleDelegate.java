@@ -8,6 +8,7 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -18,7 +19,6 @@ import io.tilt.minka.api.MinkaClient;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.PartitionMaster;
 import io.tilt.minka.utils.LogUtils;
-import jersey.repackaged.com.google.common.collect.Sets;
 
 /**
  * This's a sample delegate that only registers taken and released duties into a Set 
@@ -32,9 +32,10 @@ public abstract class BaseSampleDelegate implements PartitionMaster<String, Stri
 	private static final long serialVersionUID = 1L;
 	private static final Logger logger = LoggerFactory.getLogger(BaseSampleDelegate.class);
 
-	private Set<Duty<String>> allOriginalDuties = new HashSet<>();
-	private Set<Pallet<String>> allOriginalPallets = new HashSet<>();
-	private Set<Duty<String>> runningDuties = Sets.newHashSet();
+	// TreeSet() to enter them in the default minka order: comparator by id   
+	private Set<Duty<String>> allOriginalDuties = new TreeSet<>();
+	private Set<Pallet<String>> allOriginalPallets = new TreeSet<>();
+	private Set<Duty<String>> runningDuties = new TreeSet<>();
 
 	private String shardId = "{NN}";
 	
@@ -52,12 +53,6 @@ public abstract class BaseSampleDelegate implements PartitionMaster<String, Stri
 	
 	public MinkaClient getMinkaClient() {
 		return MinkaClient.getInstance();
-	}
-	public Set<Duty<String>> getDuties() {
-		return this.allOriginalDuties;
-	}
-	public Set<Pallet<String>> getPallets() {
-		return this.allOriginalPallets;
 	}
 	
 	@Override

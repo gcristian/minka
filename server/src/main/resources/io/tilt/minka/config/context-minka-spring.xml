@@ -141,7 +141,6 @@
     <!-- acceso write-only a la tabla -->
     <bean id="auditor" class="io.tilt.minka.core.leader.Auditor">
         <constructor-arg ref="partitionTable" />
-        <constructor-arg ref="scheduler" />
     </bean>
     
     <!-- Pastorea los followers -->
@@ -199,7 +198,7 @@
     ENSAMBLE
       
     ===============================================================================================-->
-        
+    
     <!-- Integracion con el cliente  -->
     <bean id="minkaClient" class="io.tilt.minka.api.MinkaClient">
         <constructor-arg ref="config" />

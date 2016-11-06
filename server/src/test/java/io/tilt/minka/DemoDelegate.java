@@ -14,8 +14,8 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
-import io.tilt.minka.core.leader.distributor.EvenWeightBalancer;
-import io.tilt.minka.core.leader.distributor.EvenSizeBalancer;
+import io.tilt.minka.core.leader.distributor.impl.EvenSizeBalancer;
+import io.tilt.minka.core.leader.distributor.impl.EvenWeightBalancer;
 import io.tilt.minka.delegates.BaseSampleDelegate;
 
 public class DemoDelegate extends BaseSampleDelegate {

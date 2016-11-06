@@ -14,25 +14,19 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.leader.distributor;
-
-import java.util.List;
-import java.util.Set;
+package io.tilt.minka.core.leader.distributor.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
-import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
+import io.tilt.minka.core.leader.distributor.Balancer;
+import io.tilt.minka.core.leader.distributor.Migrator;
 
 /**
- * Result: random lazily spread distribution
+ * Type unbalanced, the most.
  * 
- * Balances and distributes duties by creating clusters using their processing weight
- * and assigning to Shards in order to have a perfectly balanced workload 
+ * Effect: random lazily spread distribution
  * 
  * @author Cristian Gonzalez
  * @since Dec 13, 2015
@@ -42,10 +36,9 @@ public class ShuffleBalancer implements Balancer {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@Override
-	public void balance(Pallet<?> pallet, PartitionTable table, Reallocation realloc, List<Shard> onlineShards,
-			Set<ShardEntity> creations, Set<ShardEntity> deletions) {
+	public Migrator balance(final NextTable next) {
 		// TODO Auto-generated method stub
-
+		return null;
 	}
 
 }

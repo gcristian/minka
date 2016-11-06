@@ -16,6 +16,13 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.domain.ShardEntity;
 
+/**
+ * Collects {@linkplain Pallet}s by gathering {@linkplain Duty}s together on each Pallet.
+ * Allowing processing by groups.
+ * 
+ * @author Cristian Gonzalez
+ * @since Mar 21, 2016
+ */
 public class PalletCollector {
 
 	private static final Logger logger = LoggerFactory.getLogger(Arranger.class);
@@ -72,3 +79,4 @@ public class PalletCollector {
 		return p;
 	}
 }
+
