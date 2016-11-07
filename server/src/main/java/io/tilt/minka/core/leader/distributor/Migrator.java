@@ -82,7 +82,7 @@ public class Migrator {
 		}
 		validateTransfer(source, target, entity);
 		checkDuplicate(entity);
-		log.info("{}: Requesting Transfer: {} from: {} to: {}", getClass().getSimpleName(), entity, 
+		log.info("{}: Requesting Transfer: {} from: {} to: {}", getClass().getSimpleName(), entity.toBrief(), 
 				source==null ? "[new]":source, target);
 		transfers.add(new Transfer(source, target ,entity));
 	}

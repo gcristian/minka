@@ -67,7 +67,7 @@ public class EvenWeightBalancer implements Balancer {
 		}
 		public Metadata() {
 			super();
-			this.presort = Config.BalancerConf.EVEN_LOAD_PRESORT;
+			this.presort = Config.BalancerConf.EVEN_WEIGHT_PRESORT;
 		}
 		protected Balancer.PreSort getPresort() {
 			return this.presort;

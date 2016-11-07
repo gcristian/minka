@@ -21,6 +21,8 @@ import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
 import static io.tilt.minka.domain.ShardEntity.State.SENT;
 import static io.tilt.minka.domain.ShardState.ONLINE;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -30,11 +32,13 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.Validate;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
@@ -48,6 +52,7 @@ import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.Auditor;
 import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.Status;
 import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
@@ -134,6 +139,16 @@ public class Distributor extends ServiceImpl {
 	}
 
 	private void periodicCheck() {
+		try {
+			FileUtils.writeStringToFile(new File("/tmp/algo-"+counter), 
+					Status.toJson(partitionTable), "utf-8", false);
+		} catch (JsonProcessingException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
 		try {
 			// also if this's a de-frozening thread
 			if (!leaderShardContainer.imLeader()) {

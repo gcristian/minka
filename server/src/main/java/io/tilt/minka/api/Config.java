@@ -33,7 +33,9 @@ import com.fasterxml.jackson.datatype.joda.ser.DateTimeSerializer;
 
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.core.leader.distributor.Balancer;
+import io.tilt.minka.core.leader.distributor.Balancer.PreSort;
 import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
+import io.tilt.minka.core.leader.distributor.impl.FairWeightBalancer.Dispersion;
 import io.tilt.minka.core.leader.distributor.impl.SpillOverBalancer.MaxUnit;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.utils.Defaulter;
@@ -361,16 +363,20 @@ public class Config {
 		public static final Strategy STRATEGY = Strategy.EVEN_WEIGHT;
 		private Strategy strategy;
 
-		public static final int ROUND_ROBIN_MAX_DUTIES_DELTA_BETWEEN_SHARDS = 1;
+		public static final int EVEN_SIZE_MAX_DUTIES_DELTA_BETWEEN_SHARDS = 1;
 		private int roundRobinMaxDutiesDeltaBetweenShards;
 		
-		public static final Balancer.PreSort EVEN_LOAD_PRESORT = Balancer.PreSort.WEIGHT;
+		public static final Balancer.PreSort EVEN_WEIGHT_PRESORT = Balancer.PreSort.WEIGHT;
 		private Balancer.PreSort evenLoadPresort;
 		
 		public static final MaxUnit SPILL_OVER_MAX_UNIT = MaxUnit.USE_CAPACITY;
 		private MaxUnit spillOverMaxUnit;
 		public static final double SPILL_OVER_MAX_VALUE = 99999999999d;
 		private double spillOverMaxValue;
+		
+		public static final Dispersion FAIR_WEIGHT_DISPERSION = Dispersion.EVEN;
+		public static final PreSort FAIR_WEIGHT_PRESORT = PreSort.DATE;
+
 		
 		public int getRoundRobinMaxDutiesDeltaBetweenShards() {
 			return this.roundRobinMaxDutiesDeltaBetweenShards;

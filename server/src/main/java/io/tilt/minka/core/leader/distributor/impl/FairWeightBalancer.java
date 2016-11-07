@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.AtomicDouble;
 
+import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
 import io.tilt.minka.core.leader.distributor.Balancer;
@@ -68,8 +69,8 @@ public class FairWeightBalancer implements Balancer {
 			return FairWeightBalancer.class;
 		}
 		public Metadata() {
-			this.dispersion = Dispersion.EVEN;
-			this.presort = PreSort.DATE;
+			this.dispersion = Config.BalancerConf.FAIR_WEIGHT_DISPERSION;
+			this.presort = Config.BalancerConf.FAIR_WEIGHT_PRESORT;
 		}
 		public Metadata(final Dispersion dispersion, final PreSort presort) {
 			super();
@@ -88,7 +89,7 @@ public class FairWeightBalancer implements Balancer {
 		}
 	}
 	
-	enum Dispersion {
+	public enum Dispersion {
 		/* an even load filling so different capacity shards will reach
 		 * their maximum load at the same time. This will make the bigger shards work more than smaller
 		 * 

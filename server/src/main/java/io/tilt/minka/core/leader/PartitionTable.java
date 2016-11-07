@@ -56,7 +56,7 @@ import jersey.repackaged.com.google.common.collect.Sets;
  * Built at leader promotion.
  * 
  * @author Cristian Gonzalez
- * @since Dec 2, 2015
+ * @since Dec 2, 2015<	
  */
 public class PartitionTable {
 
@@ -77,8 +77,48 @@ public class PartitionTable {
 			this.shardsByID = new HashMap<>();
 			this.partitionsByShard = new HashMap<>();
 			this.palletsById = new HashMap<>();
-			
 		}
+		
+		public double getCapacityTotal(final Pallet<?> pallet) {
+			return getCapacity(pallet, null);
+		}
+		public double getCapacity(final Pallet<?> pallet, final Shard quest) {
+			double total = 0;
+			for (final Shard shard: getShards()) {
+				if (quest==null || shard.equals(quest)) {
+					final Capacity cap = shard.getCapacities().get(pallet);
+					total+=cap!=null ? cap.getTotal() : 0;
+				}
+			}
+			return total;
+		}
+		
+		public int getSizeTotal(final Pallet<?> pallet) {
+			return getSize(pallet, null);
+		}
+		public int getSize(final Pallet<?> pallet, final Shard quest) {
+			int total = 0;
+			for (final AttachedPartition part: partitionsByShard.values()) {
+				if (quest==null || part.getId().equals(quest.getShardID())) {
+					total +=part.getDuties(pallet).size();
+				}
+			}
+			return total;
+		}
+		
+		public double getWeightTotal(final Pallet<?> pallet) {
+			return getWeight(pallet, null);
+		}
+		public double getWeight(final Pallet<?> pallet, final Shard quest) {
+			int total = 0;
+			for (final AttachedPartition part: partitionsByShard.values()) {
+				if (quest==null || part.getId().equals(quest.getShardID())) {
+					total +=part.getDuties(pallet).size();
+				}
+			}
+			return total;
+		}
+		
 		/** @return  shards by state filter or all if null */
 		public List<Shard> getShardsByState(final ShardState filter) {
 			return shardsByID.values().stream().filter(i -> i.getState() == filter || filter == null)
@@ -189,7 +229,7 @@ public class PartitionTable {
 			return null;
 		}
 
-		public List<Shard> getAllImmutable() {
+		public List<Shard> getShards() {
 			return Lists.newArrayList(this.shardsByID.values());
 		}
 

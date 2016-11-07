@@ -58,7 +58,7 @@ public class EvenSizeBalancer implements Balancer {
 		}
 		public Metadata() {
 			super();
-			this.maxDutiesDeltaBetweenShards = Config.BalancerConf.ROUND_ROBIN_MAX_DUTIES_DELTA_BETWEEN_SHARDS;
+			this.maxDutiesDeltaBetweenShards = Config.BalancerConf.EVEN_SIZE_MAX_DUTIES_DELTA_BETWEEN_SHARDS;
 		}
 		protected int getMaxDutiesDeltaBetweenShards() {
 			return this.maxDutiesDeltaBetweenShards;

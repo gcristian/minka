@@ -140,7 +140,7 @@ public class Shepherd extends ServiceImpl {
 			}
 			logger.info(LogUtils
 					.titleLine("Analyzing Shards (i" + analysisCounter++ + ") by Leader: " + shardId.toString()));
-			final List<Shard> shards = partitionTable.getStage().getAllImmutable();
+			final List<Shard> shards = partitionTable.getStage().getShards();
 			if (shards.isEmpty()) {
 				logger.warn("{}: Partition queue empty: no shards emiting heartbeats ?", getName());
 				return;
