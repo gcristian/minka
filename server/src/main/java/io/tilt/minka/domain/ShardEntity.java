@@ -31,6 +31,8 @@ import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
@@ -60,7 +62,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	private Map<EntityEvent, DateTime> partitionDates;
 	private Map<State, DateTime> stateDates;
-	private boolean checkForChange;
 	private ShardEntity relatedEntity;
 	
 	public enum Type {
@@ -80,14 +81,14 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		RECEIVED,
 		/* status at leader after the effect is confirmed */
 		CONFIRMED,
-		/* status at leader when a follower falls, and at follower when lack of
-		 * its registry presence
-		 */
+		/* status at leader when a follower falls, and at follower when absent in its delegate's report */
 		DANGLING,
 		/* suddenly stop being reported from follower: no solution yet */
 		MISSING,
 		/* status at a leader or follower when there's no viable solution for a duty */
-		STUCK
+		STUCK,
+		/* status at a follower when absent in delegate's report, only for lazy ones */
+		FINALIZED,
 	}
 
 	public enum StuckCause {
@@ -115,6 +116,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		this.relatedEntity = entity;
 	}
 	
+	@JsonIgnore
 	public ShardEntity getRelatedEntity() {
 		return this.relatedEntity;
 	}
@@ -126,6 +128,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		this.state = state;
 	}
 
+	@JsonIgnore
 	private Map<EntityEvent, DateTime> getPartitionDates() {
 		return this.partitionDates;
 	}
@@ -134,6 +137,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		this.partitionDates = partitionDates;
 	}
 
+	@JsonIgnore
 	private Map<State, DateTime> getStateDates() {
 		return this.stateDates;
 	}
@@ -163,6 +167,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		this.stateDates.put(state, now);
 	}
 
+	@JsonIgnore
 	public Pallet<?> getPallet() {
 		if (this.entity instanceof Pallet<?>) {
 			return (Pallet<?>) this.entity;
@@ -170,11 +175,21 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		throw new IllegalArgumentException("This entity doesnt hold a Pallet !");
 	}
 
+	@JsonIgnore
 	public Entity<?> getEntity() {
 		return this.entity;
 
 	}
 
+	@JsonProperty("id")
+	private String getId_() {
+		if (this.entity instanceof Duty<?>) {
+			return getDuty().getId();
+		}
+		return "[pallet]";
+	}
+	
+	@JsonIgnore
 	public Duty<?> getDuty() {
 		if (this.entity instanceof Duty<?>) {
 			return (Duty<?>) this.entity;
@@ -207,6 +222,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		return this.event == e;
 	}
 
+	@JsonProperty("event")
 	public EntityEvent getDutyEvent() {
 		return this.event;
 	}
@@ -215,6 +231,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		this.userPayload = userPayload;
 	}
 
+	@JsonIgnore
 	public EntityPayload getUserPayload() {
 		return this.userPayload;
 	}
@@ -291,6 +308,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		return this.getEntity().getId().compareTo(o.getEntity().getId());
 	}
 
+	@JsonProperty("state")
 	public State getState() {
 		return this.state;
 	}

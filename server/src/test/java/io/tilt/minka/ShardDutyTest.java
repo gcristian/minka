@@ -11,6 +11,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import io.tilt.minka.api.DutyBuilder;
+import io.tilt.minka.api.Duty;
 import io.tilt.minka.domain.ShardEntity;
 
 public class ShardDutyTest {
@@ -29,10 +30,10 @@ public class ShardDutyTest {
 		Assert.assertTrue(true);
 
 		Set<ShardEntity> set = new HashSet<>();
-		DutyBuilder<String> d2 = DutyBuilder.build(String.class, "0", "p2");
-		set.add(ShardEntity.create(DutyBuilder.build(String.class, "0", "p2")));
+		Duty<String> d2 = DutyBuilder.<String>builder("0", "p2").build();
+		set.add(ShardEntity.create(DutyBuilder.builder("0", "p2").build()));
 		set.add(ShardEntity.create(d2));
-		set.add(ShardEntity.create(DutyBuilder.build(String.class, "0", "p2")));
+		set.add(ShardEntity.create(DutyBuilder.builder("0", "p2").build()));
 		assert (set.size() == 3);
 
 		Assert.assertTrue(set.contains(ShardEntity.create(d2)));

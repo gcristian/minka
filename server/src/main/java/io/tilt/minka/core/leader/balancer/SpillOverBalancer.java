@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.leader.distributor.impl;
+package io.tilt.minka.core.leader.balancer;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -124,14 +124,14 @@ public class SpillOverBalancer implements Balancer {
 
 
 	@Override
-	public Migrator balance(final NextTable next) {
-		final Metadata meta = (Metadata)next.getPallet().getStrategy();
+	public void balance(final NextTable next) {
+		final Metadata meta = (Metadata)next.getPallet().getMetadata();
 		if (meta.getMaxValue() < 0) {
 			final Shard receptorShard = getAnyReceptorShard(next);
 			logger.info("{}: For Unbounded duties (max = -1) found Shard receptor: {}", getClass().getSimpleName(),
 					receptorShard);
 			//creations.addAll(dangling);
-			return moveAllToOne(next, receptorShard);
+			moveAllToOne(next, receptorShard);
 		} else {
 			logger.info("{}: Computing Spilling strategy: {} with a Max Value: {}", getClass().getSimpleName(), meta.getMaxUnit(), 
 				meta.getMaxUnit() == MaxUnit.USE_CAPACITY ? "{shard's capacity}" : meta.getMaxValue());
@@ -141,7 +141,6 @@ public class SpillOverBalancer implements Balancer {
 			final SetMultimap<Shard, ShardEntity> trans = collectTransceivers(next, loadStrat, spaceByReceptor, meta);
 			if (trans==null || (spaceByReceptor.isEmpty() && !trans.isEmpty())) {
 				logger.warn("{}: Couldnt find receptors to spill over to", getClass().getSimpleName());
-				return null;
 			} else {
 				logger.info("{}: Shard with space for allocating Duties: {}", getClass().getSimpleName(), spaceByReceptor);
 				final List<ShardEntity> unfitting = new ArrayList<>();
@@ -157,7 +156,6 @@ public class SpillOverBalancer implements Balancer {
 				final Migrator migra = registerMigrations(next, loadStrat, spaceByReceptor, unfitting, trans);
 				logger.error("{}: Add Shards !! No receptor has space for Duties: {}", getClass().getSimpleName(), 
 						ShardEntity.toStringIds(unfitting));
-				return migra;
 			}
 		}
 	}
@@ -186,7 +184,7 @@ public class SpillOverBalancer implements Balancer {
 			final Map<Shard, AtomicDouble> spaceByReceptor, final List<ShardEntity> unfitting,
 			final SetMultimap<Shard, ShardEntity> trans) {
 
-		final Migrator migra = next.buildMigrator();
+		final Migrator migra = next.getMigrator();
 		for (final Shard emisor : trans.keys()) {
 			final Set<ShardEntity> emitting = trans.get(emisor);
 			for (final ShardEntity emitted : emitting) {
@@ -288,8 +286,8 @@ public class SpillOverBalancer implements Balancer {
 		return null;
 	}
 
-	private Migrator moveAllToOne(final NextTable next, final Shard receptorShard) {
-		final Migrator migra = next.buildMigrator();
+	private void moveAllToOne(final NextTable next, final Shard receptorShard) {
+		final Migrator migra = next.getMigrator();
 		for (final Shard shard : next.getIndex().keySet()) {
 			if (shard != receptorShard) {
 				Set<ShardEntity> dutiesByShard = next.getIndex().get(shard);
@@ -307,7 +305,6 @@ public class SpillOverBalancer implements Balancer {
 		for (ShardEntity creation: next.getCreations()) {
 			migra.transfer(receptorShard, creation);
 		}
-		return migra;
 	}
 
 	private Shard getAnyReceptorShard(final NextTable next) {

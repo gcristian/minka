@@ -17,15 +17,12 @@
 package io.tilt.minka.api;
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.task.Bootstrap;
-import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardState;
 
@@ -41,7 +38,7 @@ import io.tilt.minka.domain.ShardState;
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
  */
-public interface PartitionDelegate<E extends Serializable, P extends Serializable> {
+public interface PartitionDelegate<D extends Serializable, P extends Serializable> {
 
 	Logger logger = LoggerFactory.getLogger(PartitionDelegate.class);
 
@@ -60,26 +57,22 @@ public interface PartitionDelegate<E extends Serializable, P extends Serializabl
 	/**
 	* Instruct the Follower shard to take management responsibilities on these duties
 	*/
-	void take(Set<Duty<E>> duties);
-
-	default void takePallet(Set<Pallet<P>> pallets) {
-	}
+	void take(Set<Duty<D>> duties);
+	void takePallet(Set<Pallet<P>> pallets);
 
 	/**
 	* Instruct the Follower shard to release management 
 	* responsibi﻿lities on these duties.
 	* Not doing so will make Minka apply rules set in {@linkplain Config} about {@linkplain ShardState}
 	*/
-	void release(Set<Duty<E>> duties);
-
-	default void releasePallet(Set<Pallet<P>> pallets) {
-	}
+	void release(Set<Duty<D>> duties);
+	void releasePallet(Set<Pallet<P>> pallets);
 
 	/**
-	 * Instruct the Follower shard to acknowledge an update ocurred on these duties
+	 * Instruct the Follower shard to acknowledge an update ocurred on a duty's payload
 	 * @param duties
 	 */
-	default void update(Set<Duty<E>> duties) {
+	default void update(Duty<D> duties) {
 		logger.error("{}: this PartitionDelegate has not implemented the duty update event",
 				getClass().getSimpleName());
 	}
@@ -88,7 +81,7 @@ public interface PartitionDelegate<E extends Serializable, P extends Serializabl
 	 * Instruct te Follower shard to get a client payload event for a particular duty 
 	 * @param duties
 	 */
-	default void receive(Set<Duty<E>> duty, Serializable clientPayload) {
+	default void deliver(Duty<D> duty, Serializable clientPayload) {
 		logger.error("{}: this PartitionDelegate has not implemented the payload reception event",
 				getClass().getSimpleName());
 	}
@@ -97,25 +90,10 @@ public interface PartitionDelegate<E extends Serializable, P extends Serializabl
 	 * Report shard's maximum workload capacity for a certain pallet
 	 * @return	a unit in the same measure unit than duty weights reported 
 	 */
-	default double getTotalCapacity(Pallet<?> pallet) {
+	default double getTotalCapacity(Pallet<P> pallet) {
 		return -1;
 	}
-
-	/**
-	* Notify the Leader shard of an event over these duties.
-	* Hook facility for the User to know about {@linkplain ShardEntity} CRUD from other {@linkplain Shard}.
-	* 
-	* i.e. shards are workers, they dont know if an assignation is from a recent CRUD event,
-	* or if the duty belonged to a recent fallen shard.
-	* So may be the leader shard needs to have the big picture, because shards are shards.   
-	*  
-	* @param duties
-	*/
-	default void notify(List<Duty<E>> duties, EntityEvent event) {
-		logger.error("{}: this PartitionDelegate has not implemented the duty notification event",
-				getClass().getSimpleName());
-	}
-
+	
 	/**
 	* Report the effectively sharded duties being handled.
 	* The Leader cannot trust that a delegated duty is really held by a shard,
@@ -123,7 +101,7 @@ public interface PartitionDelegate<E extends Serializable, P extends Serializabl
 	* 
 	* @return	a list of handled duties
 	*/
-	Set<Duty<E>> reportTaken();
+	Set<Duty<D>> reportTaken();
 
 	/**
 	* Continue performing actions on already taken duties.

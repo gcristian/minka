@@ -25,15 +25,16 @@ import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Duty;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.balancer.CoalesceBalancer;
+import io.tilt.minka.core.leader.balancer.EvenSizeBalancer;
+import io.tilt.minka.core.leader.balancer.EvenWeightBalancer;
+import io.tilt.minka.core.leader.balancer.FairWeightBalancer;
+import io.tilt.minka.core.leader.balancer.ShuffleBalancer;
+import io.tilt.minka.core.leader.balancer.SpillOverBalancer;
 import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
-import io.tilt.minka.core.leader.distributor.impl.CoalesceBalancer;
-import io.tilt.minka.core.leader.distributor.impl.EvenSizeBalancer;
-import io.tilt.minka.core.leader.distributor.impl.EvenWeightBalancer;
-import io.tilt.minka.core.leader.distributor.impl.FairWeightBalancer;
-import io.tilt.minka.core.leader.distributor.impl.ShuffleBalancer;
-import io.tilt.minka.core.leader.distributor.impl.SpillOverBalancer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
 
@@ -51,11 +52,11 @@ public interface Balancer {
 	/**
 	 * Analyze the current and next state of the partition table and 
 	 * apply overrides and transfers on a migrator. 
+	 * Try to attach as much duties as possible, dont overwhelm: operation is cancelled.
 	 * 
 	 * @param 	nextTable: the new version of the partition table
-	 * @return	null if no balance at all or a migrator with changes to execute
 	 */
-	Migrator balance(NextTable nextTable);
+	void balance(NextTable nextTable);
 	
 	
 	/** so clients can add new balancers */
@@ -89,6 +90,7 @@ public interface Balancer {
 	
 	/* some balancers need configuration */
 	public static interface BalancerMetadata extends java.io.Serializable {
+		@JsonIgnore
 		Class<? extends Balancer> getBalancer();
 	}
 	
@@ -148,8 +150,14 @@ public interface Balancer {
 		public Class<? extends Balancer> getBalancer() {
 			return this.balancer;
 		}		
-		public BalancerMetadata getBalancerInstance() throws InstantiationException, IllegalAccessException, ClassNotFoundException {
-			return (BalancerMetadata) Class.forName(getBalancer().getName()+"$Metadata").newInstance();
+		public BalancerMetadata getBalancerMetadata() {
+			try {
+				return (BalancerMetadata) Class.forName(getBalancer().getName()+"$Metadata").newInstance();
+			} catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				return null;
+			}
 		}
 	}
 

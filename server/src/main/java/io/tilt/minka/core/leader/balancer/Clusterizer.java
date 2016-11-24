@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.leader.distributor.impl;
+package io.tilt.minka.core.leader.balancer;
 
 import java.util.List;
 

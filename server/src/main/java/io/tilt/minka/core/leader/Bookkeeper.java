@@ -43,17 +43,16 @@ import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardState;
-import io.tilt.minka.utils.SlidingSortedSet;
 
 /**
  * Maintainer and only writer of {@linkplain PartitionTable} 
- * Accounts coming heartbeats, detects 
+ * Accounts coming heartbeats, detects anomalies
  * Only write-access to 
  * 
  * @author Cristian Gonzalez
  * @since Jan 4, 2016
  */
-public class Auditor {
+public class Bookkeeper {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -61,27 +60,11 @@ public class Auditor {
 	private static final int MAX_EVENT_DATE_FOR_DIRTY = 10000;
 
 	private final PartitionTable partitionTable;
-	private Roadmap currentRoadmap;
-	private SlidingSortedSet<Roadmap> history;
 
-	public Auditor(final PartitionTable partitionTable) {
+	public Bookkeeper(final PartitionTable partitionTable) {
 		this.partitionTable = partitionTable;
-		this.currentRoadmap = new Roadmap();
-		this.history = new SlidingSortedSet<>(20);
 	}
 
-	public List<Roadmap> getHistory() {
-		return this.history.values();
-	}
-
-	public Roadmap getCurrentRoadmap() {
-		return this.currentRoadmap;
-	}
-
-	public void addRoadmap(Roadmap change) {
-		this.currentRoadmap = change;
-		this.history.add(change);
-	}
 
 	/**
 	 * TODO: sopesar los HBs en una ventana de tiempo para evitar 
@@ -90,7 +73,7 @@ public class Auditor {
 	 * por ejemplo hoy los HBs pueden venir con distinto contenido en fila y no lo chekeo
 	 * osea 1ro con 10 taras, 2do con 9 tareas, 3ro con 10 tareas, etc: eso no lo chekeo  
 	 */
-	public void account(final Heartbeat hb, final Shard shard) {
+	public void check(final Heartbeat hb, final Shard shard) {
 		if (hb.getStateChange() == ShardState.QUITTED) {
 			checkShardChangingState(shard);
 			return;
@@ -99,14 +82,14 @@ public class Auditor {
 		if (hb.getCapacities()!=null) {
 			shard.setCapacities(hb.getCapacities());
 		}
-		if (getCurrentRoadmap().isEmpty()) {
+		if (partitionTable.getCurrentRoadmap().isEmpty()) {
 			// believe only when online: to avoid Dirty efects after follower's hangs/stucks
 			// so it clears itself before trusting their HBs
 			//if (shard.getState()==ShardState.ONLINE || shard.getState() == ShardState.JOINING) {
 			for (final ShardEntity duty : hb.getDuties()) {
 				if (duty.getState() == CONFIRMED) {
 					try {
-						partitionTable.getStage().confirmDutyAboutShard(duty, shard);
+						changeStage(shard, duty);
 					} catch (ConcurrentDutyException cde) {
 						if (partitionTable.getHealth() == ClusterHealth.STABLE) {
 							// TODO 
@@ -123,6 +106,8 @@ public class Auditor {
 					if (duty.getDutyEvent().is(EntityEvent.CREATE)) {
 					} else if (duty.getDutyEvent().is(EntityEvent.REMOVE)) {
 					}
+				} else if (duty.getState() == ShardEntity.State.FINALIZED) {
+					// TODO remove from Stage directly...
 				}
 			}
 			//}
@@ -137,15 +122,15 @@ public class Auditor {
 
 	private void analyzeReportedDuties(final Shard shard, final List<ShardEntity> heartbeatDuties) {
 
-		final Roadmap road = getCurrentRoadmap();
-		final Set<ShardEntity> currentChanges = road.getGroupedIssues().get(shard);
+		final Roadmap road = partitionTable.getCurrentRoadmap();
+		final Set<ShardEntity> currentChanges = road.getGroupedDeliveries().get(shard);
 
 		confirmReallocated(shard, heartbeatDuties, currentChanges);
 		confirmAbsences(shard, heartbeatDuties, currentChanges);
 
 		if (road.hasCurrentStepFinished() && road.hasFinished()) {
-			logger.info("{}: Reallocation finished ! (all duties confirmed)", getClass().getSimpleName());
-			road.reset();
+			logger.info("{}: Roadmap finished ! (all changes in stage)", getClass().getSimpleName());
+			road.close();
 		} else if (road.hasCurrentStepFinished()) {
 			//scheduler.forward(scheduler.get(Action.DISTRIBUTOR));
 		} else {
@@ -208,7 +193,7 @@ public class Auditor {
 						// remove the one holding older State
 						prescriptedDuty.registerEvent(CONFIRMED);
 						currentChanges.remove(prescriptedDuty);
-						partitionTable.getStage().confirmDutyAboutShard(heartbeatDuty, shard);
+						changeStage(shard, heartbeatDuty);
 						break;
 					} else {
 						final DateTime fact = prescriptedDuty.getEventDateForState(prescriptedDuty.getState());
@@ -230,6 +215,14 @@ public class Auditor {
 		}
 	}
 
+	private void changeStage(final Shard shard, final ShardEntity duty) {
+		if (partitionTable.getStage().confirmDutyAboutShard(duty, shard)) {
+			if (!partitionTable.getNextStage().getDutiesCrud().remove(duty)) {
+				
+			}
+		}
+	}
+
 	/* check un-coming as unassign */
 	private void confirmAbsences(final Shard shard, final List<ShardEntity> heartbeatDuties,
 			final Set<ShardEntity> currentChanges) {
@@ -244,7 +237,7 @@ public class Auditor {
 							i -> i.equals(reallocatedDuty) && i.getDutyEvent() != reallocatedDuty.getDutyEvent())) {
 				sortedLog.add(reallocatedDuty);
 				reallocatedDuty.registerEvent(CONFIRMED);
-				partitionTable.getStage().confirmDutyAboutShard(reallocatedDuty, shard);
+				changeStage(shard, reallocatedDuty);
 				it.remove();
 			}
 		}
@@ -301,7 +294,7 @@ public class Auditor {
 	}
 
 	public void cleanTemporaryDuties() {
-		partitionTable.getNextStage().removeCrudDuties();
+		// partitionTable.getNextStage().removeCrudDuties();
 		partitionTable.getNextStage().getDutiesDangling().clear();
 	}
 
@@ -341,7 +334,7 @@ public class Auditor {
 				it.remove();
 			} else {
 				logger.info("{}: Adding New Pallet: {} with Balancer: {}", getClass().getSimpleName(), she, 
-						she.getPallet().getStrategy());
+						she.getPallet().getMetadata());
 				partitionTable.addCrudPallet(she);
 			}
 		}
@@ -352,42 +345,42 @@ public class Auditor {
 	}
 
 	/**
-	 * Check valid actions to client sent duties, 
+	 * Check valid actions to client sent duties/pallets, 
 	 * according their action and the current partition table
 	 */
-	public void registerDutyCRUD(ShardEntity... dutiesFromAction) {
+	public void registerCRUD(ShardEntity... dutiesFromAction) {
 		for (final ShardEntity ent : dutiesFromAction) {
-			final boolean found = presentInPartition(ent);
+			final boolean typeDuty = ent.getType()==ShardEntity.Type.DUTY;
+			final boolean found = (typeDuty && presentInPartition(ent)) || 
+					(!typeDuty && partitionTable.getStage().getPallets().contains(ent));
 			final EntityEvent event = ent.getDutyEvent();
-			if (event.isCrud() && (event == CREATE)) {
-				if (!found) {
-					logger.info("{}: Registering Crud Duty: {}", getClass().getSimpleName(), ent);
-					final ShardEntity pallet = partitionTable.getStage().getPalletById(ent.getDuty().getPalletId());
-					if (pallet!=null) {
-						ent.setRelatedEntity(pallet);
-						partitionTable.getNextStage().addCrudDuty(ent);
+			if (!event.isCrud()) {
+				throw new RuntimeException("Bad call");
+			}
+			if ((!found && event == CREATE) || (found && (event == EntityEvent.REMOVE || event == FINALIZED))) {
+				logger.info("{}: Registering Crud {}: {}", getClass().getSimpleName(), typeDuty ? "Duty": "Pallet", ent);
+				if (typeDuty) {
+					if (event == CREATE) {
+						final ShardEntity pallet = partitionTable.getStage().getPalletById(ent.getDuty().getPalletId());
+						if (pallet!=null) {
+							ent.setRelatedEntity(pallet);
+							partitionTable.getNextStage().addCrudDuty(ent);
+						} else {
+							logger.error("{}: Skipping Crud Event {}: Pallet ID :{} set not found or yet created", getClass().getSimpleName(),
+									event, ent, ent.getDuty().getPalletId());
+						}
 					} else {
-						logger.error("{}: Skipping Crud Event {}: Pallet ID :{} set not found or yet created", getClass().getSimpleName(),
-								event, ent, ent.getDuty().getPalletId());
+						partitionTable.getNextStage().addCrudDuty(ent);
 					}
 				} else {
-					logger.warn("{}: Skipping Crud Event {} already in Partition Table: {}", getClass().getSimpleName(),
-							event, ent);
+					partitionTable.addCrudPallet(ent);
 				}
-			} else if (event.isCrud() && (event == EntityEvent.REMOVE || event == FINALIZED || event == UPDATE)) {
-				if (found) {
-					logger.info("{}: Registering Crud Duty: {}", getClass().getSimpleName(), ent);
-					partitionTable.getNextStage().addCrudDuty(ent);
-				} else {
-					logger.warn("{}: Skipping Crud Event {} Not Found in Partition Table: {}",
-							getClass().getSimpleName(), event, ent);
-				}
-			} else if (!event.isCrud()) {
-				throw new RuntimeException("Bad call");
+			} else {
+				logger.warn("{}: Skipping Crud Event {} {} in Partition Table: {}", 
+						getClass().getSimpleName(), event, found ? "already found": " Not found", ent);
 			}
 		}
 	}
-
 
 	/*
 		private void removeAndRegisterCrudEntities(final List<Entity<?>> sourceEntities, Predicate<?> p, final Set<ShardEntity> currentEntities) {

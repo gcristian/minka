@@ -1,5 +1,5 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
+<12 * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with this
  * work for additional information regarding copyright ownership. The ASF
  * licenses this file to You under the Apache License, Version 2.0 (the
@@ -25,13 +25,14 @@ import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.ClientEventsHandler;
 import io.tilt.minka.core.leader.Leader;
+import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.Status;
 import io.tilt.minka.core.task.LeaderShardContainer;
-import io.tilt.minka.core.task.Semaphore;
-import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.impl.ZookeeperLeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardCommand;
+import io.tilt.minka.domain.ShardCommand.Command;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
 import io.tilt.minka.domain.ShardID;
@@ -63,16 +64,18 @@ public class MinkaClient {
 	private final ShardID shardId;
 	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
+	private final PartitionTable table;
 
 	protected MinkaClient(final Config config, final Leader leader, final EventBroker eventBroker,
-			final ClientEventsHandler mediator, final ShardID shardId,
-			final ZookeeperLeaderShardContainer leaderShardContainer) {
+			final ClientEventsHandler mediator, final ShardID shardId, 
+			final ZookeeperLeaderShardContainer leaderShardContainer, final PartitionTable table) {
 		this.config = config;
 		this.leader = leader;
 		this.eventBroker = eventBroker;
 		this.clientMediator = mediator;
 		this.shardId = shardId;
 		this.leaderShardContainer = leaderShardContainer;
+		this.table = table;
 		instance = this;
 	}
 
@@ -82,11 +85,18 @@ public class MinkaClient {
 	 */
 	public static MinkaClient getInstance() {
 		if (instance == null) {
-			throw new IllegalStateException("Minka service must be fully loaded first !");
+			throw new IllegalStateException("MinkaContextLoader must be fully loaded first !");
 		}
 		return MinkaClient.instance;
 	}
 
+	/**
+	 * A representation Status of Minka's domain objects
+	 * @return a nonempty Status only when the curent shard is the Leader 
+	 */
+	public Status getStatus() {
+		return Status.build(table);
+	}
 	/**
 	* Remove duties already running/distributed by Minka
 	* This causes the duty to be stopped at Minkas's Follower context.
@@ -103,6 +113,9 @@ public class MinkaClient {
 	*/
 	public boolean remove(final Duty<?> duty) {
 		return send(duty, EntityEvent.REMOVE, null);
+	}
+	public boolean remove(final Pallet<?> pallet) {
+		return send(pallet, EntityEvent.REMOVE, null);
 	}
 
 	/**
@@ -140,19 +153,11 @@ public class MinkaClient {
 	}
 
 	/**
-	* Notify Minka of an updated duty so it can notify {@linkplain PartitionDelegate} about it
-	 * @param duty      a duty sharded or to be sharded in the cluster
-	*/
-	public boolean update(final Duty<?> duty) {
-		return send(duty, EntityEvent.UPDATE, null);
-	}
-
-	/**
 	* Enter a notification event for a {@linkplain Duty}
 	* @see PartitionDelegate method receive()
-	 * @see {@linkplain update} but with a payload  
-	 */
-	public boolean notify(final Duty<?> duty, final EntityPayload userPayload) {
+	* @see {@linkplain update} but with a payload  
+	*/
+	public boolean update(final Duty<?> duty, final EntityPayload userPayload) {
 		return send(duty, EntityEvent.UPDATE, userPayload);
 	}
 
@@ -161,9 +166,9 @@ public class MinkaClient {
 		boolean sent = true;
 		final ShardEntity duty;
 		if (raw instanceof Duty) {
-			duty = ShardEntity.create((Duty<?>) raw);
+			duty = ShardEntity.create((Duty<?>)raw);
 		} else {
-			duty = ShardEntity.create((Pallet<?>) raw);
+			duty = ShardEntity.create((Pallet<?>)raw);
 		}
 		duty.registerEvent(event, State.PREPARED);
 		if (userPayload != null) {
@@ -171,7 +176,7 @@ public class MinkaClient {
 		}
 		if (leader.inService()) {
 			logger.info("{}: Recurring to local leader !", getClass().getSimpleName());
-			clientMediator.mediateOnDuty(duty);
+			clientMediator.mediateOnEntity(duty);
 		} else {
 			logger.info("{}: Sending Duty: {} with Event: {} to leader in service", getClass().getSimpleName(), raw,
 					event);

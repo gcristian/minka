@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.leader.distributor.impl;
+package io.tilt.minka.core.leader.balancer;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,7 +35,6 @@ import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
 import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
@@ -81,9 +80,9 @@ public class EvenWeightBalancer implements Balancer {
 	private final Clusterizer clusterizer = new WeightBasedClusterizer();
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public final Migrator balance(final NextTable next) {
+	public final void balance(final NextTable next) {
 		// order new ones and current ones in order to get a fair distro 
-		final Comparator comparator = ((Metadata)next.getPallet().getStrategy()).getPresort().getComparator();
+		final Comparator comparator = ((Metadata)next.getPallet().getMetadata()).getPresort().getComparator();
 		final Set<ShardEntity> duties = new TreeSet<>(comparator);
 		duties.addAll(next.getCreations()); // newcomers have ++priority than table
 		duties.addAll(next.getDuties());
@@ -94,37 +93,28 @@ public class EvenWeightBalancer implements Balancer {
 				.get(next.getPallet())!=null).collect(Collectors.toList());
 		if (availShards.isEmpty()) {
 			logger.error("{}: Still no shard reported capacity for pallet: {}!", getClass().getSimpleName(), next.getPallet());
-			return null;
+			return;
 		}
 		final List<List<ShardEntity>> clusters = formClusters(availShards, duties, dutiesSorted);
 		if (clusters.isEmpty()) {
 			logger.error("{}: Cluster Partitioneer return empty distro !", getClass().getSimpleName());
-			return null;
+			return;
 		}
+		final Migrator migra = next.getMigrator();
 		final Iterator<List<ShardEntity>> itCluster = clusters.iterator();
-		final Migrator migra = next.buildMigrator();
-		for (final Shard shard: availShards) {
-			final Set<ShardEntity> cluster = new TreeSet<>();
-			final Capacity cap = shard.getCapacities().get(next.getPallet());
-			if (itCluster.hasNext()) {
-				double accum = 0;
-				final List<ShardEntity> selection = itCluster.next();
-				for (final ShardEntity duty: selection) {
-					if ((accum+=duty.getDuty().getWeight()) > cap.getTotal()) {
-						logger.error("{}: Discarding duties since: {} on already full shard {}, with only capacity "
-							+ "for {} out of selected {} ", getClass().getSimpleName(), duty, shard, cluster.size(), 
-							selection.size());
-						break;
-					} else {
-						cluster.add(duty);
-					}
-				}
-				if (!cluster.isEmpty()) {
-					migra.override(shard, cluster);
-				}
+		final Iterator<Shard> itShards = availShards.iterator();
+		while(itCluster.hasNext()) {
+			final Shard shard = itShards.next();
+			final List<ShardEntity> selection = itCluster.next();
+			final Bascule<Shard, ShardEntity> bascule = new Bascule(shard, shard.getCapacities().get(next.getPallet()).getTotal());
+			selection.forEach(d->bascule.tryLift(d, d.getDuty().getWeight()));
+			migra.override(bascule.getOwner(), bascule.getCargo());
+			if (!bascule.getDiscarded().isEmpty()) {
+				logger.error("{}: Discarding duties since: {} on already full shard {}, with only capacity "
+					+ "for {} out of selected {} ", getClass().getSimpleName(), bascule.getDiscarded(), shard, 
+					bascule.getCargo().size(), selection.size());
 			}
 		}
-		return migra;
 	}
 
 

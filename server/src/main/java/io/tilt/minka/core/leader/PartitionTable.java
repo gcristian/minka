@@ -36,6 +36,7 @@ import com.google.common.util.concurrent.AtomicDouble;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
+import io.tilt.minka.core.leader.distributor.Roadmap;
 import io.tilt.minka.domain.AttachedPartition;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.NetworkShardID;
@@ -43,12 +44,13 @@ import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
+import io.tilt.minka.utils.SlidingSortedSet;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.domain.ShardState;
 import jersey.repackaged.com.google.common.collect.Sets;
 
 /**
- * Only one modifier allowed: {@linkplain Auditor} with a {@linkplain Roadmap} after a distribution process.
+ * Only one modifier allowed: {@linkplain Bookkeeper} with a {@linkplain Roadmap} after a distribution process.
  * 
  * Contains the relations between {@linkplain Shard} and {@linkplain Duty}.
  * Continuously checked truth in {@linkplain Stage}.
@@ -92,7 +94,9 @@ public class PartitionTable {
 			}
 			return total;
 		}
-		
+		public int getSizeTotal() {
+			return getSize(null, null);
+		}
 		public int getSizeTotal(final Pallet<?> pallet) {
 			return getSize(pallet, null);
 		}
@@ -100,7 +104,7 @@ public class PartitionTable {
 			int total = 0;
 			for (final AttachedPartition part: partitionsByShard.values()) {
 				if (quest==null || part.getId().equals(quest.getShardID())) {
-					total +=part.getDuties(pallet).size();
+					total += (pallet == null ? part.getDuties().size() : part.getDuties(pallet).size());
 				}
 			}
 			return total;
@@ -113,7 +117,7 @@ public class PartitionTable {
 			int total = 0;
 			for (final AttachedPartition part: partitionsByShard.values()) {
 				if (quest==null || part.getId().equals(quest.getShardID())) {
-					total +=part.getDuties(pallet).size();
+					total +=part.getWeight(pallet);
 				}
 			}
 			return total;
@@ -152,21 +156,27 @@ public class PartitionTable {
 				this.shardsByID.put(shard.getShardID(), shard);
 			}
 		}
-		/** confirmation after reallocation phase */
-		public void confirmDutyAboutShard(final ShardEntity duty, final Shard where) {
+		/** @return if there was a Stage change caused by the confirmation after reallocation phase */
+		public boolean confirmDutyAboutShard(final ShardEntity duty, final Shard where) {
 			if (duty.getDutyEvent().is(EntityEvent.ATTACH) || duty.getDutyEvent().is(EntityEvent.CREATE)) {
-				for (Shard sh : partitionsByShard.keySet()) {
-					if (!sh.equals(where) && partitionsByShard.get(sh).getDuties().contains(duty)) {
-						String msg = new StringBuilder().append("Shard ").append(where).append(" tries to Report Duty: ")
-								.append(duty).append(" already in ptable's Shard: ").append(sh).toString();
-						throw new ConcurrentDutyException("Duplication failure: " + msg);
-					}
-				}
+				checkDuplicationFailure(duty, where);
 				getPartition(where).getDuties().add(duty);
+				return true;
 			} else if (duty.getDutyEvent().is(EntityEvent.DETACH) || duty.getDutyEvent().is(EntityEvent.REMOVE)) {
 				if (!getPartition(where).getDuties().remove(duty)) {
 					throw new IllegalStateException("Absence failure. Confirmed deletion actually doesnt exist or it " + 
 							"was already confirmed");
+				}
+				return true;
+			}
+			return false;
+		}
+
+		private void checkDuplicationFailure(final ShardEntity duty, final Shard reporter) {
+			for (Shard sh : partitionsByShard.keySet()) {
+				if (!sh.equals(reporter) && partitionsByShard.get(sh).getDuties().contains(duty)) {
+					throw new ConcurrentDutyException("Duplication failure: Shard %s tries to Report Duty: %s already "
+							+ "in ptable's Shard: %s", reporter, duty, sh);
 				}
 			}
 		}
@@ -182,6 +192,9 @@ public class PartitionTable {
 
 		public Set<ShardEntity> getDutiesAttached() {
 			return getDutiesAllByShardState(null, null);
+		}
+		public Set<ShardEntity> getDutiesAll(final Pallet<?> pallet) {
+			return getDutiesAllByShardState(pallet, null);
 		}
 		public Set<ShardEntity> getDutiesAllByShardState(final Pallet<?> pallet, final ShardState state) {
 			final Set<ShardEntity> allDuties = new HashSet<>();
@@ -237,7 +250,7 @@ public class PartitionTable {
 	
 	/** 
 	 * temporal state of modifications willing to be added to the next stage 
-	 * including inconsistencies detected by the auditor
+	 * including inconsistencies detected by the bookkeeper
 	 * */
 	public static class NextStage {
 		private final Set<ShardEntity> palletCrud;
@@ -285,7 +298,7 @@ public class PartitionTable {
 		private Set<ShardEntity> getEntityCrudWithFilter(final ShardEntity.Type type, final EntityEvent event,
 				final State state) {
 			return (type == ShardEntity.Type.DUTY ? getDutiesCrud() : getPalletsCrud()).stream()
-					.filter(i -> i.getDutyEvent() == event && i.getState() == state)
+					.filter(i -> (event == null || i.getDutyEvent() == event) && (state == null || i.getState() == state))
 					.collect(Collectors.toCollection(HashSet::new));
 		}
 		public Set<ShardEntity> getDutiesCrudWithFilters(final EntityEvent event, final State state) {
@@ -301,6 +314,9 @@ public class PartitionTable {
 	private ClusterCapacity capacity;
 	private final Stage stage;
 	private final NextStage nextStage;
+	private Roadmap currentRoadmap;
+	private SlidingSortedSet<Roadmap> history;
+
 	
 	/**
 	 * status for the cluster taken as Avg. for the last 5 cycles
@@ -335,7 +351,24 @@ public class PartitionTable {
 		this.capacity = ClusterCapacity.IDLE;
 		this.stage = new Stage();
 		this.nextStage = new NextStage();
+		this.currentRoadmap = new Roadmap();
+		this.history = new SlidingSortedSet<>(20);
+
 	}
+	
+	public List<Roadmap> getHistory() {
+		return this.history.values();
+	}
+
+	public Roadmap getCurrentRoadmap() {
+		return this.currentRoadmap;
+	}
+
+	public void addRoadmap(Roadmap change) {
+		this.currentRoadmap = change;
+		this.history.add(change);
+	}
+
 	
 	public NextStage getNextStage() {
 		return this.nextStage;
@@ -392,7 +425,7 @@ public class PartitionTable {
 	}
 
 
-	/* add without considerations (pallets are not distributed per se) */
+	/* add without considerations (they're staged but not distributed per se) */
 	public void addCrudPallet(final ShardEntity pallet) {
 		if (pallet.getDutyEvent().isCrud()) {
 			getStage().palletsById.put(pallet.getPallet().getId(), pallet);

@@ -47,7 +47,7 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 
 	private final Config config;
 	private final PartitionTable partitionTable;
-	private final Auditor auditor;
+	private final Bookkeeper bookkeeper;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
 	private final NetworkShardID shardId;
@@ -57,12 +57,12 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 	 */
 	private final long START_PAST_LAPSE_MS = 1000 * 60 * 10;
 
-	public FollowerEventsHandler(final Config config, final PartitionTable partitionTable, final Auditor accounter,
+	public FollowerEventsHandler(final Config config, final PartitionTable partitionTable, final Bookkeeper bookkeeper,
 			final EventBroker eventBroker, final Scheduler scheduler, final NetworkShardID shardId) {
 
 		this.config = config;
 		this.partitionTable = partitionTable;
-		this.auditor = accounter;
+		this.bookkeeper = bookkeeper;
 		this.eventBroker = eventBroker;
 		this.scheduler = scheduler;
 		this.shardId = shardId;
@@ -111,7 +111,7 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 								hb.getStateChange());
 						partitionTable.getStage().getShard(shard.getShardID()).setState(ShardState.QUITTED);
 					}
-					auditor.account(hb, shard);
+					bookkeeper.check(hb, shard);
 				}));
 	}
 

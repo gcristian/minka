@@ -19,62 +19,41 @@ package io.tilt.minka.api;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.POST;
+import javax.ws.rs.GET;
 import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 import com.wordnik.swagger.annotations.Api;
 
-import io.tilt.minka.domain.NetworkShardIDImpl;
-import io.tilt.minka.domain.ShardCommand;
+import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.Status;
 
 @Api("Minka Endpoint API")
-@Path("/minka/{service}")
-@Produces(MediaType.APPLICATION_JSON)
+@Path("admin")
 @Singleton
+@Component
 public class Endpoint {
 
-	private final MinkaClient minkaClient;
+	@Autowired
+	private  PartitionTable table;
 
-	@Inject
-	public Endpoint(@Named("minkaClient") final MinkaClient minkaClient) {
-		this.minkaClient = minkaClient;
+	
+	@Inject 
+	public Endpoint(@Named("partitionTable") PartitionTable table) {
+		this.table = table;
 	}
 
-	@POST
-	@Path("/{type}")
-	@Consumes(MediaType.APPLICATION_JSON)
-	public Response clusterCommand(@PathParam("service") String service, @PathParam("command") ShardCommand command) {
-
-		if (minkaClient.execute(service, command)) {
-			return Response.accepted().build();
-		} else {
-			return Response.serverError().build();
-		}
+	@GET
+	@Path("/status")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response status() {
+		return Response.accepted(Status.build(table)).build();
 	}
 
-	@POST
-	@Path("/{shardId}/{command}")
-	@Consumes(MediaType.APPLICATION_JSON)
-	/**
-	 * 
-	 * @param service   "mulita" for instance 
-	 * @param shardId   "198.82.123.11" the follower ID
-	 * @param type      
-	 * @return
-	 */
-	public Response shardCommand(@PathParam("service") String service, @PathParam("shardId") NetworkShardIDImpl shardId,
-			@PathParam("command") ShardCommand command) {
-
-		if (minkaClient.execute(service, command)) {
-			return Response.accepted().build();
-		} else {
-			return Response.serverError().build();
-		}
-	}
 
 }

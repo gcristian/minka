@@ -18,9 +18,9 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.AtomicDouble;
 
-import io.tilt.minka.api.BalancingException;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.balancer.BalancingException;
 import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
@@ -82,8 +82,10 @@ public class Migrator {
 		}
 		validateTransfer(source, target, entity);
 		checkDuplicate(entity);
-		log.info("{}: Requesting Transfer: {} from: {} to: {}", getClass().getSimpleName(), entity.toBrief(), 
+		if (log.isInfoEnabled()) {
+			log.info("{}: Requesting Transfer: {} from: {} to: {}", getClass().getSimpleName(), entity.toBrief(), 
 				source==null ? "[new]":source, target);
+		}
 		transfers.add(new Transfer(source, target ,entity));
 	}
 	/** explicitly override a shard's content, client must look after consistency ! */
@@ -95,8 +97,10 @@ public class Migrator {
 		}
 		cluster.forEach(d->checkDuplicate(d));
 		final double remainingCap = validateOverride(shard, cluster);
-		log.info("{}: Requesting Override: {}, remain cap: {}, with {}", getClass().getSimpleName(), shard, remainingCap, 
+		if (log.isInfoEnabled()) {
+			log.info("{}: Requesting Override: {}, remain cap: {}, with {}", getClass().getSimpleName(), shard, remainingCap, 
 				ShardEntity.toStringIds(cluster));
+		}
 		overrides.add(new Override(pallet, shard, new LinkedHashSet<>(cluster), remainingCap));
 	}
 	private double validateOverride(final Shard target, final Set<ShardEntity> cluster) {
@@ -116,8 +120,8 @@ public class Migrator {
 			if (cap!=null) {
 				cluster.forEach(d->accum.addAndGet(d.getDuty().getWeight()));
 				if (cap.getTotal() < accum.get()) {
-					throw new BalancingException("bad override: duties weight: %s are way heavier than shard: %s, capacity: %s", 
-							accum, target, cap.getTotal());
+					throw new BalancingException("bad override: overwhelming weight!: %s (max capacity: %s, shard: %s)", 
+							accum, cap.getTotal(), target);
 				} else {
 					remainingCap = cap.getTotal() - accum.get();
 				}
@@ -129,7 +133,7 @@ public class Migrator {
 	private boolean isWeightedPallet() {
 		if (isWeightedPallet == null) {
 			for (Strategy strat: Balancer.Strategy.values()) {
-				if (strat.getBalancer().equals(pallet.getStrategy().getBalancer()) && 
+				if (strat.getBalancer().equals(pallet.getMetadata().getBalancer()) && 
 						strat.getWeighted()==Balancer.Weighted.YES) {
 					return isWeightedPallet = true;
 				}
@@ -178,13 +182,15 @@ public class Migrator {
 		return overrides==null && transfers==null;
 	}
 	
-	/** effectively write overrided and transfered operations to roadmap object */ 
-	protected final void execute() {
-		if (overrides==null && transfers ==null) {
-			log.warn("{}: nothing to execute: migrator without overrides or transfers !", getClass().getSimpleName());
-			return;
+	/** effectively write overrided and transfered operations to roadmap object 
+	 * @return if the execution effectively generated any changes */ 
+	protected final boolean execute() {
+		boolean anyChange = false;
+		if (isEmpty()) {
+			log.warn("{}: Nothing to execute (empty)", getClass().getSimpleName());
+			return false;
 		}
-		log.info("{}: Evaluating {} transfers and {} overrides", getClass().getSimpleName(), 
+		log.info("{}: Evaluating transfers: {} and overrides: {}", getClass().getSimpleName(), 
 				transfers!=null ? transfers.size() : 0, overrides!=null ? overrides.size() : 0);
 		if (overrides!=null) {
 			checkExclusions(); // balancers using transfers only make delta changes, without reassigning
@@ -194,22 +200,78 @@ public class Migrator {
 					log.debug("{}: cluster built {}", getClass().getSimpleName(), ov.getEntities());
 					log.debug("{}: currents at shard {} ", getClass().getSimpleName(), current);
 				}
-				dettachDelta(ov.getEntities(), ov.getShard(), current);
-				attachDelta(ov.getEntities(), ov.getShard(), current);	
+				anyChange|=dettachDelta(ov.getEntities(), ov.getShard(), current);
+				anyChange|=attachDelta(ov.getEntities(), ov.getShard(), current);	
 			}
 		}
 		if (transfers!=null) {
-			transfers.forEach(t->dettachAttach(t));
+			for (Transfer tr: transfers) {
+				anyChange|=dettachAttach(tr);
+			}
+		}
+		return anyChange;
+	}
+	
+	/* dettach anything living in the shard outside what's coming
+	 * null or empty cluster translates to: dettach all existing */
+	private final boolean dettachDelta(final Set<ShardEntity> clusterSet, final Shard shard, final Set<ShardEntity> currents) {
+		List<ShardEntity> detaching = clusterSet==null ? new ArrayList<>(currents) :
+			currents.stream().filter(i -> !clusterSet.contains(i)).collect(Collectors.toList());
+		if (detaching.isEmpty()) {
+			log.info("{}: Override-dettach shard: {}, no change, has no Detachings (calculated are all already attached)",
+					getClass().getSimpleName(), shard);
+			return false;
+		} else {
+			StringBuilder logg = new StringBuilder();
+			for (ShardEntity detach : detaching) {
+				// copy because in latter cycles this will be assigned
+				// so they're traveling different places
+				final ShardEntity copy = ShardEntity.copy(detach);
+				copy.registerEvent(EntityEvent.DETACH, PREPARED);
+				roadmap.ship(shard, copy);
+				logg.append(copy.getEntity().getId()).append(", ");
+			}
+			log.info("{}: Executing Override-dettach from: {}, duties: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
+				detaching.size(), logg.toString());
+			return true;
 		}
 	}
 
+	/* attach what's not already living in that shard */
+	private final boolean attachDelta(final Set<ShardEntity> clusterSet, final Shard shard, final Set<ShardEntity> currents) {
+		StringBuilder logg;
+		if (clusterSet != null) {
+			final List<ShardEntity> attaching = clusterSet.stream().filter(i -> !currents.contains(i))
+					.collect(Collectors.toList());
+			if (attaching.isEmpty()) {
+				log.info("{}: Override-attach shard: {} no change, has no New Attachments (calculated are all already attached)",
+						getClass().getSimpleName(), shard);
+			} else {
+				logg = new StringBuilder();
+				for (ShardEntity attach : attaching) {
+					// copy because in latter cycles this will be assigned
+					// so they're traveling different places
+					final ShardEntity copy = ShardEntity.copy(attach);
+					copy.registerEvent(EntityEvent.ATTACH, PREPARED);
+					roadmap.ship(shard, copy);
+					logg.append(copy.getEntity().getId()).append(", ");
+				}
+				log.info("{}: Executing Override-attach shard: {}, duty: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
+					attaching.size(), logg.toString());
+				return true;
+			}
+		}
+		return false;
+	}
+	
+
 	/* dettach in prev. source, attach to next target */
-	private void dettachAttach(final Transfer tr) {
+	private boolean dettachAttach(final Transfer tr) {
 		final ShardEntity entity = tr.getEntity();
 		final Shard location = table.getStage().getDutyLocation(entity);
-		if (location!=null && location.equals(tr.getSource())) {
-			// the ptable stays the same
-			return;
+		if (location!=null && location.equals(tr.getTarget())) {
+			log.info("{}: Transfers mean no change for Duty: {}", getClass().getSimpleName(), tr.toString());
+			return false;
 		}
 		if (tr.getSource()!=null) {
 			tr.getEntity().registerEvent(EntityEvent.DETACH, PREPARED);
@@ -220,6 +282,7 @@ public class Migrator {
 		roadmap.ship(tr.getTarget(), assign);
 		log.info("{}: Executing transfer from: {} to: {}, Duty: {}", getClass().getSimpleName(),
 			tr.getSource()!=null ? tr.getSource().getShardID() : "[new]", tr.getTarget().getShardID(), assign.toString());
+		return true;
 	}
 
 	private boolean unfairlyIgnored(ShardEntity duty) {
@@ -227,9 +290,9 @@ public class Migrator {
 			if (overrides!=null) {
 				for (Override ov: overrides) {
 					if (ov.getRemainingCap()>=duty.getDuty().getWeight()) {
-						log.warn("{}: Override of shard: {} has a remaining cap: {} (out of original:{}), enough to lodge "
-								+ "duty weight: {}", getClass().getSimpleName(), ov.getShard(), ov.getRemainingCap(), 
-								ov.getShard().getCapacities().get(pallet).getTotal(), duty.getDuty().getWeight());
+						log.warn("{}: Override on: {} has a remaining cap: {} (out of :{}), enough to lodge "
+								+ "duty: {}", getClass().getSimpleName(), ov.getShard(), ov.getRemainingCap(), 
+								ov.getShard().getCapacities().get(pallet).getTotal(), duty.toBrief());
 						return true;
 					}
 				}
@@ -245,14 +308,14 @@ public class Migrator {
 		for (final ShardEntity duty: table.getNextStage().getDutiesCrudWithFilters(EntityEvent.CREATE, State.PREPARED)) {
 			if (duty.getDuty().getPalletId().equals(pallet.getId()) && !inTransfers(duty) && 
 					!inOverrides(duty) && unfairlyIgnored(duty)) {
-				log.warn("bad exclusion: duty: %s was just marked for creation, it must be balanced !", duty);
+				log.warn("bad exclusion: duty: {} was just marked for creation, it must be balanced !", duty.toBrief());
 			}
 		}
 		Set<ShardEntity> deletions = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
 		for (final ShardEntity curr: table.getStage().getDutiesAttached()) {
 			if (curr.getDuty().getPalletId().equals(pallet.getId()) && !deletions.contains(curr) && 
 					!inTransfers(curr) && !inOverrides(curr) && unfairlyIgnored(curr)) {
-				log.warn("bad exclusion: duty: " + curr + " is in ptable and was excluded from balancing !");
+				log.warn("bad exclusion: duty: " + curr.toBrief() + " is in ptable and was excluded from balancing !");
 			}
 		}
 	}
@@ -310,59 +373,9 @@ public class Migrator {
 		public ShardEntity getEntity() {
 			return this.entity;
 		}
-	}
-
-	/* dettach anything living in the shard outside what's coming
-	 * null or empty cluster translates to: dettach all existing */
-	private final void dettachDelta(final Set<ShardEntity> clusterSet, final Shard shard, final Set<ShardEntity> currents) {
-		List<ShardEntity> detaching = clusterSet==null ? new ArrayList<>(currents) :
-			currents.stream().filter(i -> !clusterSet.contains(i)).collect(Collectors.toList());
-
-		if (detaching.isEmpty() && log.isDebugEnabled()) {
-			log.info("{}: Override-dettach shard: {} has no Detachings (calculated are all already attached)",
-					getClass().getSimpleName(), shard);
-		}
-
-		StringBuilder logg = new StringBuilder();
-		for (ShardEntity detach : detaching) {
-			// copy because in latter cycles this will be assigned
-			// so they're traveling different places
-			final ShardEntity copy = ShardEntity.copy(detach);
-			copy.registerEvent(EntityEvent.DETACH, PREPARED);
-			roadmap.ship(shard, copy);
-			logg.append(copy.getEntity().getId()).append(", ");
-		}
-		if (logg.length() > 0) {
-			log.info("{}: Executing Override-dettach from: {}, duties: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
-				detaching.size(), logg.toString());
+		public String toString() {
+			return entity.toBrief() + source.toString() + " ==> " + target.toString(); 
 		}
 	}
 
-	/* attach what's not already living in that shard */
-	private final void attachDelta(final Set<ShardEntity> clusterSet, final Shard shard, final Set<ShardEntity> currents) {
-		StringBuilder logg;
-		if (clusterSet != null) {
-			final List<ShardEntity> attaching = clusterSet.stream().filter(i -> !currents.contains(i))
-					.collect(Collectors.toList());
-
-			if (attaching.isEmpty() && log.isDebugEnabled()) {
-				log.info("{}: Override-attach shard: {} has no New Attachments (calculated are all already attached)",
-						getClass().getSimpleName(), shard);
-			}
-			logg = new StringBuilder();
-			for (ShardEntity attach : attaching) {
-				// copy because in latter cycles this will be assigned
-				// so they're traveling different places
-				final ShardEntity copy = ShardEntity.copy(attach);
-				copy.registerEvent(EntityEvent.ATTACH, PREPARED);
-				roadmap.ship(shard, copy);
-				logg.append(copy.getEntity().getId()).append(", ");
-			}
-			if (logg.length() > 0) {
-				log.info("{}: Executing Override-attach shard: {}, duty: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
-					attaching.size(), logg.toString());
-			}
-		}
-	}
-	
 }

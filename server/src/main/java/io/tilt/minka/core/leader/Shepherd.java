@@ -52,7 +52,7 @@ import io.tilt.minka.utils.LogUtils;
 
 /**
  * Analyze the {@linkplain PartitionTable} defining a shard's {@linkplain ShardState}
- * which in turn feeds from the {@linkplain Auditor} receiving {@linkplain Heartbeat}s
+ * which in turn feeds from the {@linkplain Bookkeeper} receiving {@linkplain Heartbeat}s
  * Also sends {@linkplain Clearance} messages to authorized {@linkplain Shard}s
  * and sends {@linkplain DomainInfo} messages to all shards willing to acknowledged them
  * @author Cristian Gonzalez
@@ -66,7 +66,7 @@ public class Shepherd extends ServiceImpl {
 
 	private final Config config;
 	private final PartitionTable partitionTable;
-	private final Auditor auditor;
+	private final Bookkeeper bokkeeper;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
 	private final NetworkShardID shardId;
@@ -83,12 +83,12 @@ public class Shepherd extends ServiceImpl {
 	 * Partition Table
 	 */
 
-	public Shepherd(Config config, PartitionTable partitionTable, Auditor accounter, EventBroker eventBroker,
+	public Shepherd(Config config, PartitionTable partitionTable, Bookkeeper bookkeeper, EventBroker eventBroker,
 			Scheduler scheduler, NetworkShardID shardId, LeaderShardContainer leaderShardContainer) {
 
 		this.config = config;
 		this.partitionTable = partitionTable;
-		this.auditor = accounter;
+		this.bokkeeper = bookkeeper;
 		this.eventBroker = eventBroker;
 		this.scheduler = scheduler;
 		this.shardId = shardId;
@@ -134,6 +134,13 @@ public class Shepherd extends ServiceImpl {
 	}
 
 	private void analyzeShards() {
+		/*
+		try {
+			FileUtils.writeStringToFile(new File("/tmp/status"), Status.toJson(partitionTable), "utf-8", false);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		 */
 		try {
 			if (!leaderShardContainer.imLeader()) {
 				return;
@@ -154,7 +161,7 @@ public class Shepherd extends ServiceImpl {
 				if (concludedState != shard.getState()) {
 					lastUnstableAnalysisId = analysisCounter;
 					shard.setState(concludedState);
-					auditor.checkShardChangingState(shard);
+					bokkeeper.checkShardChangingState(shard);
 				}
 				sizeOnline += shard.getState() == ShardState.ONLINE ? 1 : 0;
 			}

@@ -32,17 +32,22 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.joda.ser.DateTimeSerializer;
 
 import io.tilt.minka.api.Pallet.Storage;
+import io.tilt.minka.core.leader.balancer.FairWeightBalancer.Dispersion;
+import io.tilt.minka.core.leader.balancer.SpillOverBalancer.MaxUnit;
 import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Balancer.PreSort;
 import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
-import io.tilt.minka.core.leader.distributor.impl.FairWeightBalancer.Dispersion;
-import io.tilt.minka.core.leader.distributor.impl.SpillOverBalancer.MaxUnit;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.utils.Defaulter;
 
+/**
+ * All there's subject to vary on mika's behaviour
+ * @author Cristian Gonzalez
+ * @since Nov 19, 2016
+ */
 public class Config {
 
-	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger log = LoggerFactory.getLogger(getClass());
 	
 	protected static final ObjectMapper objectMapper = new ObjectMapper();
     static {
@@ -155,7 +160,7 @@ public class Config {
 	}
 
 	public static class BrokerConf {
-		protected final static String HOST_PORT = "127.0.0.1:9090";
+		protected final static String HOST_PORT = "localhost:5748";
 		private String hostPort;
 		protected final static int CONNECTION_HANDLER_THREADS = 10;
 		private int connectionHandlerThreads;
@@ -415,7 +420,7 @@ public class Config {
 		/* each 3 seconds */
 		protected final static long START_DELAY_MS = 500;
 		private long startDelayMs;
-		protected final static long DELAY_MS = 2000;
+		protected final static long DELAY_MS = 1000; // i jhad it on 2000
 		private long delayMs;
 		protected static final int MAX_SHARD_JOINING_STATE_MS = 15000;
 		private int maxShardJoiningStateMs;
@@ -435,7 +440,7 @@ public class Config {
 		private int heartbeatLapseSec;
 		protected static final double HEARTBEAT_MAX_DISTANCE_STANDARD_DEVIATION = 4;
 		private double heartbeatMaxDistanceStandardDeviation;
-		protected static final int CLUSTER_HEALTH_STABILITY_DELAY_PERIODS = 3;
+		protected static final int CLUSTER_HEALTH_STABILITY_DELAY_PERIODS = 1; // i had it on 3
 		private int clusterHealthStabilityDelayPeriods;
 
 		public long getStartDelayMs() {
@@ -524,7 +529,7 @@ public class Config {
 		}
 	}
 
-	public Config(Properties prop) throws Exception {
+	private void init() {
 		this.scheduler = new SchedulerConf();
 		this.bootstrap = new BootstrapConf();
 		this.broker = new BrokerConf();
@@ -532,11 +537,29 @@ public class Config {
 		this.distributor = new DistributorConf();
 		this.shepherd = new ShepherdConf();
 		this.balancer = new BalancerConf();
-		this.consistency = new ConsistencyConf();
-		loadFromPropOrSystem(prop);
-
+		this.consistency = new ConsistencyConf();		
 	}
-	private void loadFromPropOrSystem(Properties prop) throws Exception {
+	public Config() {
+		init();
+		loadFromPropOrSystem(null);
+	}
+	public Config(final Properties prop) {
+		init();
+		loadFromPropOrSystem(prop);
+	}
+	public Config(final String zookeeperHostPort, final String brokerHostPort) {
+		init();
+		loadFromPropOrSystem(null);
+		getBootstrap().setZookeeperHostPort(zookeeperHostPort);
+		getBroker().setHostPort(brokerHostPort);
+	}
+	public Config(final String zookeeperHostPort) {
+		init();
+		loadFromPropOrSystem(null);
+		getBootstrap().setZookeeperHostPort(zookeeperHostPort);
+	}	
+	
+	private void loadFromPropOrSystem(Properties prop) {
 		if (prop == null) {
 			prop = new Properties();
 		}
@@ -548,13 +571,9 @@ public class Config {
 		Defaulter.apply(prop, "follower.", this.getFollower());
 		Defaulter.apply(prop, "scheduler.", this.getScheduler());
 		Defaulter.apply(prop, "shepherd.", this.getShepherd());
-		logger.info("{}: Configuration: {} ", getClass().getSimpleName(), toJson());
+		//logger.info("{}: Configuration: {} ", getClass().getSimpleName(), toJson());
 	}
-	
-	public Config() throws Exception {
-		this(null);
-	}
-	
+
 	public String toJson() throws Exception {
 		return objectMapper.writeValueAsString(this);
 	}
@@ -568,6 +587,9 @@ public class Config {
 	
 	public static Config fromJsonFile(final String filepath) throws Exception {
 		return objectMapper.readValue(filepath, Config.class);
+	}
+	public static Config fromJsonFile(final File jsonFormatConfig) throws Exception {
+		return objectMapper.readValue(jsonFormatConfig, Config.class);
 	}
 
 	@JsonIgnore

@@ -10,9 +10,9 @@ import java.util.List;
 import org.junit.Test;
 import org.springframework.util.Assert;
 
-import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.DutyBuilder;
-import io.tilt.minka.core.leader.distributor.impl.WeightBasedClusterizer;
+import io.tilt.minka.core.leader.balancer.WeightBasedClusterizer;
+import io.tilt.minka.api.Duty;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
@@ -26,7 +26,7 @@ import io.tilt.minka.domain.ShardEntity;
 public class PartitioneerTest {
 
 	public static Duty<String> buildDutyWithWeight(long weight, String idi) {
-		return DutyBuilder.build(String.class, idi, "p1", weight);
+		return DutyBuilder.<String>builder(idi, "1").with(weight).build();
 	}
 
 	@Test

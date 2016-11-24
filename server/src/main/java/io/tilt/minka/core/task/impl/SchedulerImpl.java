@@ -108,22 +108,23 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		}
 		try {
 			final long now = System.currentTimeMillis();
-			if (now - this.lastCheck > 5 * 1000) {
-				for (final Runnable run : this.executor.getQueue()) {
-					for (final Entry<Synchronized, ScheduledFuture<?>> e : this.futuresBySynchro.entrySet()) {
-						if (e.getValue().equals(((ScheduledFuture<?>) run))) {
-							Synchronized sync = e.getKey();
-							logger.debug("{}: ({}) Queue check: {} ({}, {}, {}, {}", getName(), logName,
-								sync.getTask().getClass().getSimpleName(),
-								"E: " + sync.getLastException() == null ? "" : sync.getLastException(),
-								"TS:" + (now - sync.getLastExecutionTimestamp()),
-								"Success Lapse: " + (sync.getLastSuccessfulExecutionLapse()),
-								"Success TS:" + (now - sync.getLastSuccessfulExecutionTimestamp()));
-						}
+			if (now - this.lastCheck < 5 * 1000) {
+				return;
+			}
+			for (final Runnable run : this.executor.getQueue()) {
+				for (final Entry<Synchronized, ScheduledFuture<?>> e : this.futuresBySynchro.entrySet()) {
+					if (e.getValue().equals(((ScheduledFuture<?>) run))) {
+						final Synchronized sync = e.getKey();
+						logger.debug("{}: ({}) Queue check: {} ({}, {}, {}, {}", getName(), logName,
+							sync.getTask().getClass().getSimpleName(),
+							"E: " + sync.getLastException() == null ? "" : sync.getLastException(),
+							"TS:" + (now - sync.getLastExecutionTimestamp()),
+							"Success Lapse: " + (sync.getLastSuccessfulExecutionLapse()),
+							"Success TS:" + (now - sync.getLastSuccessfulExecutionTimestamp()));
 					}
 				}
-				this.lastCheck = now;
 			}
+			this.lastCheck = now;
 		} catch (Throwable t) {
 		}
 	}

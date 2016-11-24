@@ -39,9 +39,7 @@ import com.google.common.util.concurrent.CycleDetectingLockFactory;
 import com.google.common.util.concurrent.CycleDetectingLockFactory.Policies;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.ConsistencyException;
 import io.tilt.minka.core.task.Semaphore;
-import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.spectator.Locks;
 
 /**
@@ -122,12 +120,13 @@ public class SemaphoreImpl extends ServiceImpl implements Semaphore {
 			final ReentrantLock lock = g(action);
 			if (lock.isHeldByCurrentThread()) {
 				logger.error("{}: ({}) {} lock already acquired by YOU ! CHECK YOUR CODE !", SemaphoreImpl.class.getSimpleName(),
-					logName, action, new ConsistencyException());
+					logName, action, new LockerCollideFakeException());
 				return DENIED;
 				//throw new RuntimeException("Come on check your code consistency pal !");
 			} else if (lock.isLocked()) {
 				logger.error("{}: ({}) {} lock already acquired by {} thread ! and holds: {} more", SemaphoreImpl.class.getSimpleName(), 
-					logName, action, lock.isHeldByCurrentThread() ? "current" : "may be sibling?", lock.getQueueLength(), new ConsistencyException());
+					logName, action, lock.isHeldByCurrentThread() ? "current" : "may be sibling?", lock.getQueueLength(), 
+							new LockerCollideFakeException());
 				return DENIED;
 			}
 		} else if (action.getScope() == Scope.GLOBAL) {

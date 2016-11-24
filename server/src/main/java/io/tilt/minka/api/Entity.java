@@ -19,6 +19,9 @@ package io.tilt.minka.api;
 import java.io.Serializable;
 import java.util.Comparator;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * An abstract entity that the host application uses to represent anything able to balance and distribute.  
  * the user MUST guarantee to TAKE and RELEASE responsibilities when the user's {@link PartitionDelegate} 
@@ -51,13 +54,13 @@ public abstract interface Entity<T extends Serializable> extends Comparable<Enti
 	 * 
 	 * @return  any data that can be transported thru TCP-IP
 	 */
-	T get();
+	@JsonIgnore T get();
 
 	/**
 	* Type erasure bans the chance to call a useful equals() on the impl.
 	* @return
 	*/
-	String getId();
+	@JsonProperty("id") String getId();
 
 	@Override
 	default public int compareTo(Entity<T> o) {

@@ -1,7 +1,3 @@
-/**
- * Copyright (c) 2011-2015 Zauber S.A. -- All rights reserved
- */
-
 package io.tilt.minka;
 
 import java.util.ArrayList;
@@ -12,7 +8,7 @@ import org.springframework.util.Assert;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.DutyBuilder;
-import io.tilt.minka.core.leader.distributor.impl.WeightBasedClusterizer;
+import io.tilt.minka.core.leader.balancer.WeightBasedClusterizer;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
@@ -26,7 +22,7 @@ import io.tilt.minka.domain.ShardEntity;
 public class FairWorkloadBalancerTest {
 
 	public static Duty<String> buildDutyWithWeight(long weight, String idi) {
-		return DutyBuilder.build(String.class, idi, "p1", weight);
+		return DutyBuilder.<String>builder(idi,  "1").with(weight).build();
 	}
 
 	@Test

@@ -17,6 +17,7 @@
 package io.tilt.minka.core.follower.impl;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -28,6 +29,7 @@ import com.google.common.collect.Sets;
 
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.HeartbeatBuilder;
 import io.tilt.minka.core.follower.PartitionManager;
 import io.tilt.minka.core.task.LeaderShardContainer;
@@ -55,7 +57,7 @@ public class PartitionManagerImpl implements PartitionManager {
 	public PartitionManagerImpl(final DependencyPlaceholder dependencyPlaceholder, final AttachedPartition partition, 
 			final Scheduler scheduler, final LeaderShardContainer leaderShardContainer, 
 			final HeartbeatBuilder builder) {
-
+		
 		super();
 		this.dependencyPlaceholder = dependencyPlaceholder;
 		this.partition = partition;
@@ -102,13 +104,12 @@ public class PartitionManagerImpl implements PartitionManager {
 				if (duty.getUserPayload() == null) {
 					logger.info("{}: ({}) Instructing PartitionDelegate to UPDATE : {}", getClass().getSimpleName(),
 							partition.getId(), duty.toBrief());
-					dependencyPlaceholder.getDelegate().update(Sets.newHashSet(duty.getEntity()));
+					dependencyPlaceholder.getDelegate().update(duty.getDuty());
 				} else {
 					logger.info("{}: ({}) Instructing PartitionDelegate to RECEIVE: {} with Payload type {}",
 							getClass().getSimpleName(), partition.getId(), duty.toBrief(),
 							duty.getUserPayload().getClass().getName());
-					dependencyPlaceholder.getDelegate().receive(Sets.newHashSet(duty.getEntity()),
-							duty.getUserPayload());
+					dependencyPlaceholder.getDelegate().deliver(duty.getDuty(), duty.getUserPayload());
 				}
 			} else {
 				logger.error("{}: ({}) Unable to UPDATE a never taken Duty !: {}", getClass().getSimpleName(),
@@ -135,11 +136,12 @@ public class PartitionManagerImpl implements PartitionManager {
 			}));
 			duties.forEach(d->partition.getDuties().remove(d));
 			// remove pallets absent in duties
-			partition.getPallets().removeAll(partition.getPallets().stream()
+			final Set<ShardEntity> removing = partition.getPallets().stream()
 				.filter(p->!partition.getDuties().contains(p.getRelatedEntity().getPallet()))
-				.collect(Collectors.toList()));
-			
-			
+				.collect(Collectors.toSet());
+			if (!removing.isEmpty()) {
+				dependencyPlaceholder.getDelegate().releasePallet(removing);
+			}
 		} catch (Exception e) {
 			logger.error("{}: ({}) Exception: {}", getClass().getSimpleName(),
 					partition.getId(), e);
@@ -160,10 +162,14 @@ public class PartitionManagerImpl implements PartitionManager {
 		logger.info("{}: ({}) Instructing PartitionDelegate to TAKE: {}", getClass().getSimpleName(), partition.getId(),
 				ShardEntity.toStringBrief(duties));
 		try {
+			final Set<Pallet<?>> pallets = new HashSet<>();
+			duties.stream().filter(d->partition.getPallets().add(d))
+				.forEach(d->pallets.add(d.getRelatedEntity().getPallet()));
+			if (!pallets.isEmpty()) {
+				dependencyPlaceholder.getDelegate().takePallet(pallets);
+			}
 			dependencyPlaceholder.getDelegate().take(toSet(duties, null));
 			partition.getDuties().addAll(duties);
-			/*partition.getPallets().addAll(duties.stream()
-					.map(d->d.getRelatedEntity()).distinct().collect(Collectors.toList()));*/
 		} catch (Exception e) {
 			logger.error("{}: ({}) Delegate thrown an Exception while Taking", getClass().getSimpleName(), 
 					partition.getId(), e);

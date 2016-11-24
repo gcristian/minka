@@ -18,6 +18,9 @@ package io.tilt.minka.api;
 
 import java.io.Serializable;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * An abstract entity that the host application uses to represent anything able to balance and distribute.  
  * the user MUST guarantee to TAKE and RELEASE responsibilities when the user's {@link PartitionDelegate} 
@@ -33,14 +36,15 @@ import java.io.Serializable;
  * 
  * @param <T>
  */
+@JsonAutoDetect
 public interface Duty<T extends Serializable> extends Entity<T> {
 	/**
 	* @return a representation in the same measure unit than the delegate's pallet capacity 
 	* Required to maintain a fairly load balancing  */
-	double getWeight();
+	@JsonProperty("weight")double getWeight();
 
 	/** @return the pallet id to which this duty must be grouped into. */		
-	String getPalletId();
+	@JsonProperty("palletId") String getPalletId();
 	
 	/** @return not mandatory only for Client usage */ 
 	Pallet<?> getPallet();

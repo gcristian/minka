@@ -21,6 +21,8 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang.Validate;
+
 import com.google.common.collect.Lists;
 
 import io.tilt.minka.api.Duty;
@@ -52,10 +54,19 @@ public class AttachedPartition {
 	/**
 	 * @return  the sum of all weights present in these duties
 	 */
-	public long getWeight() {
-		long weight = 0;
+	public double getWeight() {
+		return getWeight_(null);
+	}
+	public double getWeight(final Pallet<?> pallet) {
+		Validate.notNull(pallet);
+		return getWeight_(pallet);
+	}
+	private double getWeight_(final Pallet<?> p) {
+		double weight = 0;
 		for (final ShardEntity duty : duties) {
-			weight += duty.getDuty().getWeight();
+			if (p==null || p.getId().equals(duty.getDuty().getPalletId())) {
+				weight += duty.getDuty().getWeight();
+			}
 		}
 		return weight;
 	}

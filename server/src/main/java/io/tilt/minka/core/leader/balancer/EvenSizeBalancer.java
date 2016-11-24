@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.leader.distributor.impl;
+package io.tilt.minka.core.leader.balancer;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -77,7 +77,7 @@ public class EvenSizeBalancer implements Balancer {
 	 * mantiene un server en cuarentena: promedio por los onlines, y ese nodo
 	 * no reporto ninguna perdida
 	 */
-	public Migrator balance(final NextTable next) {
+	public void balance(final NextTable next) {
 		// get a fair distribution
 		final int recount = next.getDuties().size();
 		final double sum = recount + next.getCreations().size() - next.getDeletions().size(); // dangling.size() +
@@ -97,7 +97,7 @@ public class EvenSizeBalancer implements Balancer {
 		} else if (!receptors.isEmpty()) {
 			// 2nd step: assign migrations and creations in serie
 			final CircularCollection<Shard> receptiveCircle = new CircularCollection<>(receptors);
-			final Migrator migra = next.buildMigrator();
+			final Migrator migra = next.getMigrator();
 			for (final Shard emisorShard : emisors) {
 				final Set<ShardEntity> duties = next.getIndex().get(emisorShard);
 				int i = 0;
@@ -110,11 +110,9 @@ public class EvenSizeBalancer implements Balancer {
 			for (ShardEntity duty: next.getCreations()) {
 				migra.transfer(receptiveCircle.next(), duty);
 			}
-			return migra;
 		} else {
 			logger.warn("{}: There were no receptors collected to get issues", getClass().getSimpleName());
 		}
-		return null;
 	}
 
 	/* evaluate which shards must emit or receive duties by deltas */
@@ -122,7 +120,7 @@ public class EvenSizeBalancer implements Balancer {
 			final Set<Shard> receptors, final Set<Shard> emisors, final Set<ShardEntity> deletions) {
 
 		final Map<Shard, Integer> deltas = new HashMap<>();
-		final int maxDelta = ((Metadata)next.getPallet().getStrategy()).getMaxDutiesDeltaBetweenShards();
+		final int maxDelta = ((Metadata)next.getPallet().getMetadata()).getMaxDutiesDeltaBetweenShards();
 		for (final Shard shard : next.getIndex().keySet()) {
 			final Set<ShardEntity> shardedDuties = next.getIndex().get(shard);
 			// check if this shard contains the deleting duties 

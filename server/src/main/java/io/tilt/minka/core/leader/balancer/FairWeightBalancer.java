@@ -14,19 +14,15 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.leader.distributor.impl;
+package io.tilt.minka.core.leader.balancer;
 
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.TreeSet;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.util.concurrent.AtomicDouble;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Pallet;
@@ -102,123 +98,85 @@ public class FairWeightBalancer implements Balancer {
 		ROUND_ROBIN
 	}
 	
-
 	@Override
-	public Migrator balance(final NextTable next) {
-		final Metadata meta = (Metadata)next.getPallet().getStrategy();
+	/**
+	 * this algorithm makes the best effort allocating all duties over it's fairness formula
+	 * also fixing division remainders, but without overwhelming shards. 
+	 */
+	public void balance(final NextTable next) {
+		final Metadata meta = (Metadata)next.getPallet().getMetadata();
 		// order new ones and current ones in order to get a fair distro 
 		final Set<ShardEntity> duties = new TreeSet<>(meta.getPresort().getComparator());
 		duties.addAll(next.getCreations());
 		duties.addAll(next.getDuties());
 		duties.removeAll(next.getDeletions()); // delete those marked for deletion
 		if (meta.getDispersion()==Dispersion.EVEN) {
-			final Map<Shard, Double> fairWeightByShard = calculateEvenFairWeights(next.getPallet(), next.getIndex().keySet(), duties);
-			if (fairWeightByShard!=null) {
-				return bundleEvenFairness(next, fairWeightByShard, duties, meta.getPresort().getComparator());
+			final Set<Bascule<Shard, ShardEntity>> bascules = buildBascules(next.getPallet(), next.getIndex().keySet(), duties);
+			if (bascules.isEmpty()) {
+				return;
 			}
-		} else {
-			logger.error("{}: Strategy yet to code !");
-		}
-		return null;
-	}
-
-	private Migrator bundleEvenFairness(final NextTable next, final Map<Shard, Double> fairWeightByShard, 
-			final Set<ShardEntity> duties, final Comparator<ShardEntity> dutyComparator) {
-		final Set<Shard> capacitySortedShards = new TreeSet<>(new CapacityComparer(next.getPallet()));
-		capacitySortedShards.addAll(next.getIndex().keySet());
+		final Migrator migra = next.getMigrator();
+		final Iterator<Bascule<Shard, ShardEntity>> itBascs = bascules.iterator();
 		final Iterator<ShardEntity> itDuties = duties.iterator();
-		final Set<ShardEntity> tmp = new TreeSet<>(dutyComparator);
-		final Migrator migra = next.buildMigrator();
-		final Iterator<Shard> itShards = capacitySortedShards.iterator();
-		while (itShards.hasNext()) {
-			final Shard shard = itShards.next();
-			final Double fairload = fairWeightByShard.get(shard);
-			if (fairload !=null && fairload > 0) {
-				double accum = 0;
-				while (itDuties.hasNext()) {
-					final ShardEntity duty = itDuties.next();
-					if (accum + duty.getDuty().getWeight() > fairload || !itDuties.hasNext() || 
-							!itShards.hasNext()) {
-						final boolean fixDivRemainders = !itShards.hasNext() && itDuties.hasNext();
-						if (fixDivRemainders) {
-							tmp.add(duty);
-							while (itDuties.hasNext()) tmp.add(itDuties.next());
-						}
-						migra.override(shard, tmp);
-						tmp.clear();
-						if (!fixDivRemainders) {
-							tmp.add(duty);
-						}
-						accum=0;
-						break;
-					} else {
-						tmp.add(duty);
-						accum+=duty.getDuty().getWeight();
+		ShardEntity duty = null;
+		boolean lifted = true;
+		while (itBascs.hasNext()) {
+			final Bascule<Shard, ShardEntity> bascule = itBascs.next();
+			while (itDuties.hasNext()) {
+				if (lifted) {
+					duty = itDuties.next();
+				}
+				lifted = bascule.testAndLift(duty, duty.getDuty().getWeight());
+				if (lifted && !itBascs.hasNext() && itDuties.hasNext()) {
+					// without overwhelming we can irrespect the fair-weight-even desire
+					// adding those left aside by division remainders calc
+					while (itDuties.hasNext()) {
+						bascule.tryLift(duty = itDuties.next(), duty.getDuty().getWeight()); 
 					}
+				}
+				if (!lifted || !itBascs.hasNext() || !itDuties.hasNext()) {
+					migra.override(bascule.getOwner(), bascule.getCargo());
+					break;
 				}
 			}
 		}
-		if (!tmp.isEmpty()) {
+		if (itDuties.hasNext()) {
 			logger.error("{}: Insufficient cluster capacity for Pallet: {}, remaining duties without distribution {}", 
-				getClass().getSimpleName(), next.getPallet(), ShardEntity.toString(tmp));
+				getClass().getSimpleName(), next.getPallet(), duty.toBrief());
 		}
-		return migra;
+		} else {
+			logger.error("{}: Out of sleeping budget !");
+		}
 	}
 
-	private final Map<Shard, Double> calculateEvenFairWeights(Pallet<?> pallet, Set<Shard> onlineShards, final Set<ShardEntity> duties) {
-		final AtomicDouble clusterCapacity = new AtomicDouble();
-		for (final Shard shard: onlineShards) {
-			final Capacity cap = shard.getCapacities().get(pallet);
-			if (cap==null) {
-				logger.error("{}: Excluding Shard: {} without reported capacity for Pallet: {}", 
-					getClass().getSimpleName(), shard, pallet);
-			} else {
-				clusterCapacity.addAndGet(cap.getTotal());
-			}
-		}
-		if (clusterCapacity.get()<=0) {
-			logger.error("{}: No available or reported capacity for Pallet: {}", getClass().getSimpleName(), pallet);
-			return null;
-		}
-		// check all duties at least fit in some shard
-		final AtomicDouble dutyWeight = new AtomicDouble();
-		for (ShardEntity duty: duties) {
-			double weight = duty.getDuty().getWeight();
-			boolean noFit = true;
-			for (final Shard shard: onlineShards) {
-				final Capacity cap = shard.getCapacities().get(pallet);
-				noFit &= cap==null || cap.getTotal()<weight;
-			}
-			if (noFit) {
-				logger.error("{}: Duty will not be distributed ! no shard with enough capacity: {}", 
-				getClass().getSimpleName(), duty);
-			} else {
-				dutyWeight.addAndGet(weight);
-			}
-		}
-		
-		if (dutyWeight.get() > clusterCapacity.get()) {
-			logger.error("{}: Pallet: {} with Inssuficient cluster capacity (max: {}, required load: {})", 
-					getClass().getSimpleName(), pallet, clusterCapacity, dutyWeight);
-		} else if (dutyWeight.get() == clusterCapacity.get()) {
-			logger.warn("{}: Cluster capacity (max: {}) at Risk (load: {}) for Pallet: {}", 
-					getClass().getSimpleName(), clusterCapacity, dutyWeight, pallet);
-		}
-		
-		// make distribution
-		final Map<Shard, Double> ret = new HashMap<>();
-		for (final Shard shard: onlineShards) {
+	private final Set<Bascule<Shard, ShardEntity>> buildBascules(Pallet<?> pallet, Set<Shard> onlineShards, final Set<ShardEntity> duties) {
+		final Bascule<Shard, ShardEntity> whole = new Bascule<>();
+		duties.forEach(d->whole.lift(d.getDuty().getWeight()));
+		final Set<Bascule<Shard, ShardEntity>> bascules = new LinkedHashSet<>();
+		final Set<Shard> sorted = new TreeSet<>(new CapacityComparer(pallet));
+		sorted.addAll(onlineShards);
+		for (final Shard shard: sorted) {
 			final Capacity cap = shard.getCapacities().get(pallet);
 			if (cap!=null) {
-				final double maxWeight = cap.getTotal();
-				final double load = Math.min(dutyWeight.get() * (maxWeight / clusterCapacity.get()), maxWeight);
-				logger.info("{}: Shard: {} Fair load: {}, capacity: {} (c.c. {}, d.w. {})", getClass().getSimpleName(), 
-						shard, load, maxWeight, clusterCapacity.get(), dutyWeight.get());
-				ret.put(shard, load);
+				bascules.add(new Bascule<>(shard, cap.getTotal()));
 			}
 		}
-		return ret;
+		double clusterCap = bascules.isEmpty() ? 0 :Bascule.<Shard, ShardEntity>getMaxRealCapacity(bascules);
+		if (clusterCap <=0) {
+			logger.error("{}: No available or reported capacity for Pallet: {}", getClass().getSimpleName(), pallet);
+		} else {
+			if (whole.totalLift() >= clusterCap) {
+				logger.error("{}: Pallet: {} with Inssuficient/Almost cluster capacity (max: {}, required load: {})", 
+					getClass().getSimpleName(), pallet, clusterCap, whole.totalLift());
+			}
+			for (final Bascule<Shard, ShardEntity> b: bascules) {
+				final double fair = Math.min(whole.totalLift() * (b.getMaxRealCapacity() / clusterCap), b.getMaxRealCapacity());
+				logger.info("{}: Shard: {} Fair load: {}, capacity: {} (c.c. {}, d.w. {})", getClass().getSimpleName(), 
+						b.getOwner(), fair, b.getMaxRealCapacity(), clusterCap, whole.totalLift());
+				b.setMaxTestingCapacity(fair);
+			}
+		}
+		return bascules;
 	}
-
 
 }

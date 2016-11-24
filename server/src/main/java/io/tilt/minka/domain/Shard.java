@@ -27,6 +27,9 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
@@ -38,6 +41,7 @@ import io.tilt.minka.utils.SlidingSortedSet;
  * @author Cristian Gonzalez
  * @since Nov 5, 2015
  */
+@JsonAutoDetect
 public class Shard implements Comparator<Shard> {
 
 	private static final int MAX_HEARBEATS_TO_EVALUATE = 50;

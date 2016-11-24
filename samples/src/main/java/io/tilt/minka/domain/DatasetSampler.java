@@ -1,8 +1,5 @@
-/**
- * Copyright (c) 2011-2015 Zauber S.A. -- All rights reserved
- */
 
-package io.tilt.minka.delegates;
+package io.tilt.minka.domain;
 
 import java.io.FileInputStream;
 import java.util.HashMap;
@@ -23,7 +20,6 @@ import com.google.common.util.concurrent.AtomicDouble;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.DutyBuilder;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
 
@@ -71,7 +67,7 @@ import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
  * shards.capacities = 5001:A:5000; 5001:B:*5; 5002:A:*4; 5002:B:*3; 5003:A:7000; 5003:B:7000
  *
  */
-public class DatasetSampler extends BaseSampleDelegate {
+public class DatasetSampler extends AbstractMappingEventsApp {
 
 	private static final String DIVISION = "%";
 	private static final String POWER = "*";
@@ -103,72 +99,82 @@ public class DatasetSampler extends BaseSampleDelegate {
 			": {port:palletId:[fixed int.|*n]} but provided:";
 	
 	private static final Logger logger = LoggerFactory.getLogger(DatasetSampler.class);
-	private static final long serialVersionUID = 305399302612484891L;
 	private static final Random rnd = new Random();
 	private Properties prop;
 	private int dutySize;
 	
+	public static void main(String[] args) throws Exception {
+		new DatasetSampler().startClientApp();
+	}
 	public DatasetSampler() throws Exception {
-		init();
+		super();
 	}
 
 	public void init() throws Exception {
-		final String datasetFilepath = System.getProperty("dataset.filepath");
-		this.prop = new Properties();
-		final FileInputStream fis = new FileInputStream(datasetFilepath);
-		prop.load(fis);
-		fis.close();
-		this.dutySize = Integer.parseInt(prop.getProperty(DUTIES_SIZE));
-		
-		final String dp = prop.getProperty(DUTIES_PALLETS);
-		Validate.isTrue(dutyPalletFrmtPt.matcher(dp).find(), DUTIES_PALLETS_FRMT_EXPLAIN + dp);
-		final String sc = prop.getProperty(SHARDS_CAPACITIES);
-		Validate.isTrue(shardCapFrmtPt.matcher(sc).find(), SHARD_CAP_FRMT_EXPLAIN + sc);
+		if (this.prop == null) {
+			final String datasetFilepath = System.getProperty("dataset.filepath");
+			this.prop = new Properties();
+			final FileInputStream fis = new FileInputStream(datasetFilepath);
+			prop.load(fis);
+			fis.close();
+			this.dutySize = Integer.parseInt(prop.getProperty(DUTIES_SIZE));
+			
+			final String dp = prop.getProperty(DUTIES_PALLETS);
+			Validate.isTrue(dutyPalletFrmtPt.matcher(dp).find(), DUTIES_PALLETS_FRMT_EXPLAIN + dp);
+			final String sc = prop.getProperty(SHARDS_CAPACITIES);
+			Validate.isTrue(shardCapFrmtPt.matcher(sc).find(), SHARD_CAP_FRMT_EXPLAIN + sc);
+		}
 	}
 	
 	@Override
-	public Set<Duty<String>> buildDuties() {
+	public Set<Duty<String>> buildDuties() throws Exception {
+		init();
 		final Set<Duty<String>> duties = new HashSet<>();
-
 		int dutyId = 0;
 		final StringTokenizer tok = new StringTokenizer(prop.getProperty(DUTIES_PALLETS), TERM_DELIM);
 		while (tok.hasMoreTokens()) {
 			String dpal = tok.nextToken();
 			logger.info("Parsing {}", dpal);
 			Validate.isTrue(dutyPalletFrmtTermPt.matcher(dpal).find(), DUTIES_PALLETS_FRMT_EXPLAIN + dpal);
-			final String[] parse = dpal.split(FIELD_DELIM);
-			final String pid = parse[0].trim();
-			final String sliceStr = parse[1].trim();
-			final String weightStr = parse[2].trim();
-			final int size =  sliceStr.startsWith(DIVISION) ? dutySize / Integer.parseInt(sliceStr.substring(1)) : Integer.parseInt(sliceStr);
-			final int rangePos = weightStr.indexOf(RANGE_DELIM);
-			int[] range = null;
-			int weight = 0;
-			if (rangePos > 0) {
-				range = new int[]{ Integer.parseInt(weightStr.trim().split(RANGE_DELIM)[0].trim()), 
-						Integer.parseInt(weightStr.split(RANGE_DELIM)[1].trim()) };
-			} else {
-				weight = Integer.parseInt(weightStr);
-			}
-			logger.info("Building {} duties for pallet: {}", size, pid);
-			for (int i = 0; i < size; i++, dutyId++) {
-				// this's biased as it's most probably to get the min value when given range is smaller than 0~min
-				final long dweight = rangePos > 0 ? Math.max(range[0],rnd.nextInt(range[1])) : weight;
-				duties.add(DutyBuilder.build(String.class, String.valueOf(dutyId), String.valueOf(pid), dweight));
-			}
+			dutyId = parseDutyDefinitionAndBuild(duties, dutyId, dpal);
 		}
 		return duties;
 	}
 
+	private int parseDutyDefinitionAndBuild(final Set<Duty<String>> duties, int dutyId, String dpal) {
+		final String[] parse = dpal.split(FIELD_DELIM);
+		final String pid = parse[0].trim();
+		final String sliceStr = parse[1].trim();
+		final String weightStr = parse[2].trim();
+		final int size =  sliceStr.startsWith(DIVISION) ? dutySize / Integer.parseInt(sliceStr.substring(1)) : Integer.parseInt(sliceStr);
+		final int rangePos = weightStr.indexOf(RANGE_DELIM);
+		int[] range = null;
+		int weight = 0;
+		if (rangePos > 0) {
+			range = new int[]{ Integer.parseInt(weightStr.trim().split(RANGE_DELIM)[0].trim()), 
+					Integer.parseInt(weightStr.split(RANGE_DELIM)[1].trim()) };
+		} else {
+			weight = Integer.parseInt(weightStr);
+		}
+		logger.info("Building {} duties for pallet: {}", size, pid);
+		for (int i = 0; i < size; i++, dutyId++) {
+			// this's biased as it's most probably to get the min value when given range is smaller than 0~min
+			final long dweight = rangePos > 0 ? Math.max(range[0],rnd.nextInt(range[1])) : weight;
+			duties.add(DutyBuilder.<String>builder(String.valueOf(dutyId), String.valueOf(pid)).with(dweight).build());
+		}
+		return dutyId;
+	}
+
 	@Override
 	public Set<Pallet<String>> buildPallets() throws Exception {
+		init();
 		final Set<Pallet<String>> pallets = new HashSet<>();
 		final StringTokenizer tok = new StringTokenizer(prop.getProperty(DUTIES_PALLETS), TERM_DELIM);
 		while (tok.hasMoreTokens()) {
 			String pbal = tok.nextToken();	
 			final Strategy strat = Strategy.valueOf(pbal.trim().split(FIELD_DELIM)[3].trim());
-			pallets.add(PalletBuilder.build(String.valueOf(pbal.split(FIELD_DELIM)[0].trim()), String.class, 
-					strat.getBalancerInstance(), Storage.CLIENT_DEFINED, "payload"));
+			pallets.add(PalletBuilder.<String>builder(String.valueOf(pbal.split(FIELD_DELIM)[0].trim()))
+					.with(strat.getBalancerMetadata()).build());
 		}
 		return pallets; 
 	}
@@ -178,7 +184,7 @@ public class DatasetSampler extends BaseSampleDelegate {
 	private Map<String, Double> capacities = new HashMap<>(); 
 	
 	@Override
-	public double getTotalCapacity(Pallet<?> pallet) {
+	public double getTotalCapacity(Pallet<String> pallet) {
 		final String port = getMinkaClient().getShardIdentity().split(FIELD_DELIM)[1];
 		final String key = port + pallet.getId();
 		Double ret = capacities.get(key);
@@ -205,7 +211,7 @@ public class DatasetSampler extends BaseSampleDelegate {
 			if (portStr.equals(port) && pid.equals(pallet.getId())) {
 				if (capacity.startsWith(POWER)) {
 					AtomicDouble accumWeight = new AtomicDouble(0);
-					loadDuties().stream().filter(d->d.getPalletId().equals(pid))
+					getAllOriginalDuties().stream().filter(d->d.getPalletId().equals(pid))
 						.forEach(d->accumWeight.addAndGet(d.getWeight()));
 					ret = accumWeight.get() * Double.parseDouble(capacity.substring(1));
 				} else {

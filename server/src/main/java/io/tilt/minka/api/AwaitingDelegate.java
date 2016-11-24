@@ -39,7 +39,17 @@ public class AwaitingDelegate implements PartitionMaster<String, String> {
 	}
 
 	@Override
-	public double getTotalCapacity(Pallet<?> pallet) {
+	public double getTotalCapacity(Pallet<String> pallet) {
+		throw new IllegalStateException();
+	}
+
+	@Override
+	public void takePallet(Set<Pallet<String>> pallets) {
+		throw new IllegalStateException();
+	}
+
+	@Override
+	public void releasePallet(Set<Pallet<String>> pallets) {
 		throw new IllegalStateException();
 	}
 

@@ -21,8 +21,6 @@ import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
 import static io.tilt.minka.domain.ShardEntity.State.SENT;
 import static io.tilt.minka.domain.ShardState.ONLINE;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -32,27 +30,24 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.Validate;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.DutyBuilder;
+import io.tilt.minka.api.DutyBuilder.Chore;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.leader.Auditor;
+import io.tilt.minka.core.leader.Bookkeeper;
 import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.core.leader.Status;
 import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
@@ -82,7 +77,7 @@ public class Distributor extends ServiceImpl {
 	private final Scheduler scheduler;
 	private final EventBroker eventBroker;
 	private final PartitionTable partitionTable;
-	private final Auditor auditor;
+	private final Bookkeeper bookkeeper;
 	private final ShardID shardId;
 	private final EntityDao entityDao;
 	private final DependencyPlaceholder dependencyPlaceholder;
@@ -96,7 +91,7 @@ public class Distributor extends ServiceImpl {
 	private final Agent distributor;
 
 	public Distributor(final Config config, final Scheduler scheduler, final EventBroker eventBroker,
-			final PartitionTable partitionTable, final Auditor accounter, final ShardID shardId,
+			final PartitionTable partitionTable, final Bookkeeper bookkeeper, final ShardID shardId,
 			final EntityDao dutyDao, final DependencyPlaceholder dependencyPlaceholder, 
 			final LeaderShardContainer leaderShardContainer) {
 
@@ -104,7 +99,7 @@ public class Distributor extends ServiceImpl {
 		this.scheduler = scheduler;
 		this.eventBroker = eventBroker;
 		this.partitionTable = partitionTable;
-		this.auditor = accounter;
+		this.bookkeeper = bookkeeper;
 		this.shardId = shardId;
 		this.entityDao = dutyDao;
 		this.leaderShardContainer = leaderShardContainer;
@@ -140,35 +135,24 @@ public class Distributor extends ServiceImpl {
 
 	private void periodicCheck() {
 		try {
-			FileUtils.writeStringToFile(new File("/tmp/algo-"+counter), 
-					Status.toJson(partitionTable), "utf-8", false);
-		} catch (JsonProcessingException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
-		try {
 			// also if this's a de-frozening thread
 			if (!leaderShardContainer.imLeader()) {
 				logger.warn("{}: ({}) Posponing distribution: not leader anymore ! ", getName(), shardId);
 				return;
 			}
 			// skip if unstable unless a roadmap in progress or expirations will occurr and dismiss
-			if (auditor.getCurrentRoadmap().isEmpty()
+			if (partitionTable.getCurrentRoadmap().isEmpty()
 					&& partitionTable.getVisibilityHealth() == ClusterHealth.UNSTABLE) {
 				logger.warn("{}: ({}) Posponing distribution until reaching cluster stability (", getName(), shardId);
 				return;
 			}
-
 			showStatus();
 			final long now = System.currentTimeMillis();
 			final int online = partitionTable.getStage().getShardsByState(ONLINE).size();
 			final int min = config.getShepherd().getMinShardsOnlineBeforeSharding();
 			if (online >= min) {
 				if (checkWithStorageWhenAllOnlines()) {
-					final Roadmap currentRoadmap = auditor.getCurrentRoadmap();
+					final Roadmap currentRoadmap = partitionTable.getCurrentRoadmap();
 					if (currentRoadmap.isEmpty()) {
 						buildAndDriveRoadmap(null);
 					} else if (!currentRoadmap.hasFinished() && currentRoadmap.hasCurrentStepFinished()) {
@@ -198,14 +182,13 @@ public class Distributor extends ServiceImpl {
 	}
 
 	private void buildAndDriveRoadmap(final Roadmap previousChange) {
-		final Roadmap roadmap = arranger.process(partitionTable, previousChange);
-
-		auditor.addRoadmap(roadmap);
-		auditor.cleanTemporaryDuties();
+		final Roadmap roadmap = arranger.callForBalance(partitionTable, previousChange);
+		bookkeeper.cleanTemporaryDuties();
 		if (!roadmap.isEmpty()) {
+			partitionTable.addRoadmap(roadmap);
 			this.partitionTable.setWorkingHealth(ClusterHealth.UNSTABLE);
 			forwardRoadmap();
-			logger.info("{}: Balancer generated {} issues on change: {}", getName(), roadmap.getGroupedIssues().size(),
+			logger.info("{}: Balancer generated {} issues on change: {}", getName(), roadmap.getGroupedDeliveries().size(),
 					roadmap.getId());
 		} else {
 			this.partitionTable.setWorkingHealth(ClusterHealth.STABLE);
@@ -238,8 +221,8 @@ public class Distributor extends ServiceImpl {
 		if (initialAdding || (config.getDistributor().isReloadDutiesFromStorage()
 				&& config.getDistributor().getReloadDutiesFromStorageEachPeriods() == counter++)) {
 			counter = 0;
-			Set<Duty<?>> duties = reloadDutiesFromStorage();
-			Set<Pallet<?>> pallets = reloadPalletsFromStorage();
+			final Set<Duty<?>> duties = reloadDutiesFromStorage();
+			final Set<Pallet<?>> pallets = reloadPalletsFromStorage();
 			if (duties == null || duties.isEmpty() || pallets == null || pallets.isEmpty()) {
 				logger.warn("{}: distribution posponed: {} hasn't return any entities (pallets = {}, duties: {})",getName(),
 					config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "Minka storage" : "PartitionMaster",
@@ -247,7 +230,7 @@ public class Distributor extends ServiceImpl {
 				return false;
 			} else {
 				try {
-					duties.forEach(d -> DutyBuilder.validateBuiltParams(d));
+					duties.forEach(d -> Chore.validateBuiltParams(d));
 				} catch (Exception e) {
 					logger.error("{}: Distribution suspended - Duty Built construction problem: ", getName(), e);
 					return false;
@@ -256,9 +239,9 @@ public class Distributor extends ServiceImpl {
 					config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster",
 					duties.size());
 				final List<Pallet<?>> copyP = Lists.newArrayList(pallets);
-				auditor.registerPalletsFromSource(copyP);
+				bookkeeper.registerPalletsFromSource(copyP);
 				final List<Duty<?>> copy = Lists.newArrayList(duties);
-				auditor.registerDutiesFromSource(copy);
+				bookkeeper.registerDutiesFromSource(copy);
 				initialAdding = false;
 			}
 			if (partitionTable.getNextStage().getDutiesCrud().isEmpty()) {
@@ -266,13 +249,13 @@ public class Distributor extends ServiceImpl {
 				return false;
 			}
 		} else {
-			checkConsistencyState();
+			//checkConsistencyState();
 		}
 		return true;
 	}
 
 	private void checkConsistencyState() {
-		if (config.getDistributor().isRunConsistencyCheck() && auditor.getCurrentRoadmap().isEmpty()) {
+		if (config.getDistributor().isRunConsistencyCheck() && partitionTable.getCurrentRoadmap().isEmpty()) {
 			// only warn in case there's no reallocation ahead
 			final Set<ShardEntity> currently = partitionTable.getStage().getDutiesAllByShardState(null, null);
 			final Set<ShardEntity> sortedLog = new TreeSet<>();
@@ -325,7 +308,9 @@ public class Distributor extends ServiceImpl {
 		if (!updates.isEmpty()) {
 			for (ShardEntity updatedDuty : updates) {
 				Shard location = partitionTable.getStage().getDutyLocation(updatedDuty);
-				if (transport(updatedDuty, location)) {
+				logger.info("{}: Transporting (update) Duty: {} to Shard: {}", getName(), updatedDuty.toString(), 
+						location.getShardID());
+				if (eventBroker.postEvent(location.getBrokerChannel(), updatedDuty)) {
 					updatedDuty.registerEvent(SENT);
 				}
 			}
@@ -334,24 +319,27 @@ public class Distributor extends ServiceImpl {
 
 	/* move to next issue step and send them all */
 	private void forwardRoadmap() {
-		auditor.getCurrentRoadmap().nextStep();
-		if (auditor.getCurrentRoadmap().hasCurrentStepFinished()) {
+		partitionTable.getCurrentRoadmap().nextStep();
+		if (partitionTable.getCurrentRoadmap().hasCurrentStepFinished()) {
 			logger.info("{}: Skipping current empty step", getName());
-			auditor.getCurrentRoadmap().nextStep();
+			partitionTable.getCurrentRoadmap().nextStep();
 		}
 		driveRoadmap();
 	}
 
 	private void driveRoadmap() {
-		final Multimap<Shard, ShardEntity> issues = auditor.getCurrentRoadmap().getGroupedIssues();
+		final Multimap<Shard, ShardEntity> issues = partitionTable.getCurrentRoadmap().getGroupedDeliveries();
 		final Iterator<Shard> it = issues.keySet().iterator();
 		while (it.hasNext()) {
 			final Shard shard = it.next();
 			// check it's still in ptable
 			if (partitionTable.getStage().getShardsByState(ONLINE).contains(shard)) {
-				final Collection<ShardEntity> duties = auditor.getCurrentRoadmap().getGroupedIssues().get(shard);
+				final Collection<ShardEntity> duties = partitionTable.getCurrentRoadmap().getGroupedDeliveries().get(shard);
 				if (!duties.isEmpty()) {
-					if (transport(duties, shard)) {
+					final Set<ShardEntity> sortedLog = new TreeSet<>(duties);
+					logger.info("{}: Transporting to Shard: {} Duties ({}): {}", getName(), shard.getShardID(), duties.size(),
+							ShardEntity.toStringIds(sortedLog));
+					if (eventBroker.postEvents(shard.getBrokerChannel(), new ArrayList<>(duties))) {
 						// dont mark to wait for those already confirmed (from fallen shards)
 						duties.forEach(duty -> duty.registerEvent((duty.getState() == PREPARED ? SENT : CONFIRMED)));
 					} else {
@@ -365,17 +353,4 @@ public class Distributor extends ServiceImpl {
 			}
 		}
 	}
-
-	private boolean transport(final ShardEntity duty, final Shard shard) {
-		logger.info("{}: Transporting (update) Duty: {} to Shard: {}", getName(), duty.toString(), shard.getShardID());
-		return eventBroker.postEvent(shard.getBrokerChannel(), duty);
-	}
-
-	private boolean transport(final Collection<ShardEntity> duties, final Shard shard) {
-		final Set<ShardEntity> sortedLog = new TreeSet<>(duties);
-		logger.info("{}: Transporting to Shard: {} Duties ({}): {}", getName(), shard.getShardID(), duties.size(),
-				ShardEntity.toStringIds(sortedLog));
-		return eventBroker.postEvents(shard.getBrokerChannel(), new ArrayList<>(duties));
-	}
-
 }

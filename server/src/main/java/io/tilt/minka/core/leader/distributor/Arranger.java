@@ -31,9 +31,6 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Sets;
-
-import io.tilt.minka.api.BalancingException;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
@@ -62,7 +59,7 @@ public class Arranger {
 		this.config = config;
 	}
 
-	public final Roadmap process(final PartitionTable table, final Roadmap previousChange) {
+	public final Roadmap callForBalance(final PartitionTable table, final Roadmap previousChange) {
 		final Roadmap roadmap = new Roadmap();
 		final List<Shard> onlineShards = table.getStage().getShardsByState(ONLINE);
 		// recently fallen shards
@@ -73,20 +70,15 @@ public class Arranger {
 		// add danglings as creations prior to migrations
 		final List<ShardEntity> danglingAsCreations = new ArrayList<>();
 		dangling.forEach(i -> danglingAsCreations.add(ShardEntity.copy(i)));
-
 		final Set<ShardEntity> dutyCreations = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.CREATE, State.PREPARED);
 		dutyCreations.addAll(danglingAsCreations);
+		
 		final Set<ShardEntity> dutyDeletions = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
-
-		//final Set<ShardEntity> palletCreations = table.getPalletsCrudWithFilters(EntityEvent.CREATE, State.PREPARED);
-		//final Set<ShardEntity> deletfions = table.getPalletsCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
-
-		// 1st step: delete all
+		// lets add those duties of a certain deleting pallet
+		table.getNextStage().getPalletsCrudWithFilters(EntityEvent.REMOVE, State.PREPARED)
+			.forEach(p->dutyDeletions.addAll(table.getStage().getDutiesAll(p.getPallet())));
 		registerDeletions(table, roadmap, dutyDeletions);
-		// el unico q ponia las dangling en deletions era el EvenBalancer.. .(?) lo dejo stand-by
-		// despues todos agregaban las dangling como creations... se vino para aca.
-		// balance per pallet
-
+		
 		final Set<ShardEntity> ents = new HashSet<>(table.getStage().getDutiesAttached());
 		ents.addAll(dutyCreations);
 		final PalletCollector allColl = new PalletCollector(ents, table.getStage().getPallets());
@@ -95,7 +87,7 @@ public class Arranger {
 			try {
 				Iterator<ShardEntity> itDuties = itPallet.next().iterator();
 				final ShardEntity pallet = allColl.getPallet(itDuties.next().getDuty().getPalletId());
-				final BalancerMetadata meta = pallet.getPallet().getStrategy();
+				final BalancerMetadata meta = pallet.getPallet().getMetadata();
 				final Balancer balancer = Balancer.Directory.getByStrategy(meta.getBalancer());
 				
 				if (balancer!=null) {
@@ -110,19 +102,18 @@ public class Arranger {
 							s->index.put(s, table.getStage().getDutiesByShard(pallet.getPallet(), s)));
 					
 					final NextTable nextTable = new NextTable(pallet.getPallet(), index, adds, removes, roadmap, table);
-					Migrator migra = balancer.balance(nextTable);
-					if (migra!=null && !migra.isEmpty()) {
-						migra.execute();
+					balancer.balance(nextTable);
+					if (!nextTable.getMigrator().isEmpty()) {
+						nextTable.getMigrator().execute();
 					}
 				} else {
 					logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(), 
-						pallet.getPallet().getStrategy().getBalancer(), pallet, Balancer.Directory.getAll().size());
+						pallet.getPallet().getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
 				}
 			} catch (Exception e) {
 				logger.error("Unexpected", e);
 			}
 		}
-
 		return roadmap;
 	}
 
@@ -130,8 +121,8 @@ public class Arranger {
 			final Set<ShardEntity> missing) {
 		for (final ShardEntity missed : missing) {
 			final Shard lazy = table.getStage().getDutyLocation(missed);
-			logger.info("{}: Registering from {} Shard: {}, a dangling Duty: {}", Arranger.class.getSimpleName(),
-					lazy == null ? "fallen " : "", lazy, missed);
+			logger.info("{}: Registering {}, dangling Duty: {}", Arranger.class.getSimpleName(),
+					lazy == null ? "unattached" : "from falling Shard: " + lazy, missed);
 			if (lazy != null) {
 				// missing duties are a confirmation per-se from the very shards,
 				// so the ptable gets fixed right away without a realloc.
@@ -142,8 +133,8 @@ public class Arranger {
 			table.getNextStage().addCrudDuty(missed);
 		}
 		if (!missing.isEmpty()) {
-			logger.info("{}: Registered {} dangling duties from fallen Shard/s, {}", Arranger.class.getSimpleName(),
-					missing.size(), missing);
+			logger.info("{}: Registered {} dangling duties {}", Arranger.class.getSimpleName(),
+					missing.size(), ShardEntity.toStringIds(missing));
 		}
 		// clear it or nobody will
 		missing.clear();
@@ -157,13 +148,13 @@ public class Arranger {
 		List<ShardEntity> unfinishedWaiting = new ArrayList<>();
 		if (previousChange != null && !previousChange.isEmpty() && !previousChange.hasCurrentStepFinished()
 				&& !previousChange.hasFinished()) {
-			previousChange.getGroupedIssues().keys()
+			previousChange.getGroupedDeliveries().keys()
 					/*
 					 * .stream() no siempre la NO confirmacion sucede sobre un
 					 * fallen shard .filter(i->i.getServiceState()==QUITTED)
 					 * .collect(Collectors.toList())
 					 */
-					.forEach(i -> previousChange.getGroupedIssues().get(i).stream()
+					.forEach(i -> previousChange.getGroupedDeliveries().get(i).stream()
 							.filter(j -> j.getState() == State.SENT).forEach(j -> unfinishedWaiting.add(j)));
 			if (unfinishedWaiting.isEmpty()) {
 				logger.info("{}: Previous change although unfinished hasnt waiting duties", getClass().getSimpleName());
@@ -252,11 +243,9 @@ public class Arranger {
 			return this.roadmap;
 		}
 		/** @return a facility to request modifications for duty assignation for the next distribution */
-		public synchronized Migrator buildMigrator() {
+		public synchronized Migrator getMigrator() {
 			if (migra == null) {
 				this.migra = new Migrator(partitionTable, roadmap, pallet); 
-			} else {
-				throw new BalancingException("only one migrator can be built for each pallet's balancing");
 			}
 			return migra;
 		}

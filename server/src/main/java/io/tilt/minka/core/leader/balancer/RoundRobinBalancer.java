@@ -14,25 +14,29 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.leader;
+package io.tilt.minka.core.leader.balancer;
 
-public class ConcurrentDutyException extends IllegalStateException {
-	private static final long serialVersionUID = 8190676188841385263L;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-	public ConcurrentDutyException(final String msg, Object...args) {
-		this(String.format(msg, args));
-	}
-	
-	public ConcurrentDutyException(String s) {
-		super(s);
-	}
+import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
+import io.tilt.minka.core.leader.distributor.Balancer;
 
-	public ConcurrentDutyException(Throwable cause) {
-		super(cause);
-	}
+/**
+ * Type unbalanced, the most.
+ * 
+ * Effect: random lazily spread distribution
+ * 
+ * @author Cristian Gonzalez
+ * @since Dec 13, 2015
+ */
+public class RoundRobinBalancer implements Balancer {
 
-	public ConcurrentDutyException(String message, Throwable cause) {
-		super(message, cause);
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	@Override
+	public void balance(final NextTable next) {
+		// TODO Auto-generated method stub
 	}
 
 }

@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,7 +55,7 @@ import io.tilt.minka.utils.LogUtils;
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 
-	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger log = LoggerFactory.getLogger(getClass());
 
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final AttachedPartition partition;
@@ -78,40 +79,117 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 		try {
 			reportedDuties = dependencyPlaceholder.getDelegate().reportTaken();
 		} catch (Exception e) {
-			logger.error("{}: ({}) PartitionDelegate failure", getClass().getSimpleName(), config.getLoggingShardId(), e);
+			log.error("{}: ({}) PartitionDelegate failure", getClass().getSimpleName(), config.getLoggingShardId(), e);
 			reportedDuties = new HashSet();
 		}
 
-		final List<ShardEntity> shardingDuties = new ArrayList<>();
+		final List<ShardEntity> hbDuties = new ArrayList<>();
 		boolean warning = false;
 
 		// add reported: as confirmed if previously assigned, dangling otherwise. 
 		for (final Duty<?> duty : reportedDuties) {
 			ShardEntity shardedDuty = partition.forDuty(duty);
 			if (shardedDuty != null) {
-				shardedDuty.registerEvent(CONFIRMED);
+				final DutyDiff ddiff = new DutyDiff(duty, shardedDuty.getDuty());
+				if (!ddiff.hasDiffs()) {
+					shardedDuty.registerEvent(CONFIRMED);
+				} else {
+					log.error("{}: ({}) Delegate reports a different duty than originally attached ! {}", 
+						getClass().getSimpleName(), partition.getId(), ddiff.getDiff()); 
+				}
 			} else {
 				shardedDuty = ShardEntity.create(duty);
 				// shardedDuty.registerEvent(PartitionEvent.ASSIGN, State.DANGLING);
 				shardedDuty.registerEvent(EntityEvent.CREATE, DANGLING);
-				logger.error("{}: ({}) Reporting a Dangling Duty (by Addition): {}", getClass().getSimpleName(),
+				log.error("{}: ({}) Reporting a Dangling Duty (by Addition): {}", getClass().getSimpleName(),
 						partition.getId(), shardedDuty);
 				warning = true;
 			}
-			shardingDuties.add(shardedDuty);
+			hbDuties.add(shardedDuty);
 		}
 
-		addAbsentAsDangling(reportedDuties, shardingDuties);
+		addAbsents(reportedDuties, hbDuties);
 
-		final Heartbeat hb = Heartbeat.create(shardingDuties, warning, partition.getId(), 
+		final Heartbeat hb = Heartbeat.create(hbDuties, warning, partition.getId(), 
 				sequence.getAndIncrement(), buildCapacities());
-		if (logger.isDebugEnabled()) {
+		if (log.isDebugEnabled()) {
 			logDebugNicely(hb);
 		} else {
-			logger.debug("{}: ({}) {} SeqID: {}, Duties: {}", getClass().getSimpleName(), hb.getShardId(),
+			log.debug("{}: ({}) {} SeqID: {}, Duties: {}", getClass().getSimpleName(), hb.getShardId(),
 					LogUtils.HB_CHAR, hb.getSequenceId(), hb.getDuties().size());
 		}
 		return hb;
+	}
+	public static class DutyDiff {
+		private final Duty duty1;
+		private final Duty duty2;
+		private Map<String, String> diffs;
+		public DutyDiff(final Duty d1, final Duty d2) {
+			super();
+			Validate.notNull(d2);
+			Validate.notNull(d1);
+			this.duty1 = d1;
+			this.duty2 = d2;
+		}
+		public Map<String, String> getDiff() {
+			return diffs;
+		}
+		public boolean hasDiffs() {
+			boolean ret = false;
+			if (duty1==null || duty2==null) {
+				init();
+				diffs.put("duty1", (duty1 == null ? "null" : "notnull"));
+				diffs.put("duty1", (duty1 == null ? "null" : "notnull"));
+				ret = true;
+			} else {
+				ret |=! hashAndMethod(duty1, duty2, "duty");
+				try {
+					ret |=! duty1.getClassType().equals(duty2.getClassType());
+					if (!ret && init()) {
+						diffs.put("class-types", duty1.getClassType() + "<!=>" + duty2.getClassType());
+					}
+				} catch (Exception e) {
+					init();
+					diffs.put("class-types", "duty1.getClassType().equals() fails:" + e.getMessage());
+				}
+				ret |=! hashAndMethod(duty1.get(), duty2.get(), "payload");
+				ret |=! duty1.getPalletId().equals(duty2.getPalletId());
+				if (!ret && init()) {
+					diffs.put("palletId", duty1.getPalletId() + "<!=>" + duty2.getPalletId());
+				}
+				ret |=! hashAndMethod(duty1.get(), duty2.get(), "pallet-payload");
+			}
+			return ret;
+		}
+		private boolean hashAndMethod(final Object o1 , final Object o2, final String prefix ) {
+			boolean ret = true;
+			if (o1!=null && o2!=null) {
+				ret &= o1.hashCode()==o2.hashCode();
+				if (!ret && init()) {
+					diffs.put(prefix + "hash-codes", o1.hashCode() + "<!=>" + o2.hashCode());
+				}
+				try {
+					ret &= o1.equals(o2);
+					if (!ret && init()) {
+						diffs.put(prefix, "equals() fails");
+					}
+				} catch (Exception e) {
+					init();
+					diffs.put(prefix, "duty1.get().equals() fails:" + e.getMessage());
+				}
+			} else {
+				init();
+				diffs.put(prefix + "-duty1", o1==null ? "null" : "notnull");
+				diffs.put(prefix + "-duty2", o2==null ? "null" : "notnull");
+			}
+			return ret;
+		}
+		private boolean init() {
+			if (diffs==null) {
+				diffs = new HashMap<>();
+			}
+			return true;
+		}
 	}
 
 	private Map<Pallet<?>, ShardCapacity.Capacity> buildCapacities() {
@@ -122,7 +200,7 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 				try {
 					capacity = dependencyPlaceholder.getDelegate().getTotalCapacity(s.getPallet());
 				} catch (Exception e) {
-					logger.error("{}: ({}) Error ocurred while asking for total capacity on Pallet: {}", getClass().getSimpleName(),
+					log.error("{}: ({}) Error ocurred while asking for total capacity on Pallet: {}", getClass().getSimpleName(),
 							partition.getId(), s.getPallet(), e);
 				} finally {
 					final Capacity cap = new Capacity(s.getPallet(), capacity);
@@ -133,18 +211,18 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 		return capacities;
 	}
 
-	public void setDomain(DomainInfo domain) {
-		this.domain = domain;
-	}
-
-	private void addAbsentAsDangling(Set<Duty<?>> reportedDuties, final List<ShardEntity> shardingDuties) {
+	private void addAbsents(final Set<Duty<?>> reportedDuties, final List<ShardEntity> hbDuties) {
 		// add non-reported: as dangling
 		for (final ShardEntity existing : partition.getDuties()) {
 			if (!reportedDuties.contains(existing.getEntity())) {
-				existing.registerEvent(EntityEvent.REMOVE, DANGLING);
-				logger.error("{}: ({}) Reporting a Dangling Duty (by Erasure): {}", getClass().getSimpleName(),
+				if (existing.getDuty().isLazyFinalized()) { 
+					existing.registerEvent(EntityEvent.REMOVE, ShardEntity.State.FINALIZED);
+				} else {
+					existing.registerEvent(EntityEvent.REMOVE, DANGLING);
+				}
+				log.error("{}: ({}) Reporting a Dangling Duty (by Erasure): {}", getClass().getSimpleName(),
 						partition.getId(), existing);
-				shardingDuties.add(existing);
+				hbDuties.add(existing);
 			}
 		}
 	}
@@ -162,13 +240,13 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 			totalWeight += i.getDuty().getWeight();
 		}
 
-		logger.debug("{}: ({}) {} SeqID: {}, Duties: {}, Weight: {} = [ {}] {}", getClass().getSimpleName(),
+		log.debug("{}: ({}) {} SeqID: {}, Duties: {}, Weight: {} = [ {}] {}", getClass().getSimpleName(),
 				hb.getShardId(), LogUtils.HB_CHAR, hb.getSequenceId(), hb.getDuties().size(), totalWeight,
 				sb.toString(), hb.getDuties().isEmpty() ? "" : "WITH CHANGE");
 	}
 
 	@Override
-	public void setDomainInfo(DomainInfo domain) {
+	public void setDomainInfo(final DomainInfo domain) {
 		this.domain = domain;
 	}
 }

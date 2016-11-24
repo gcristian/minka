@@ -8,17 +8,14 @@
        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.0.xsd
        http://www.springframework.org/schema/duty http://www.springframework.org/schema/duty/spring-duty-3.0.xsd">
 
+	<context:annotation-config/>
     <context:component-scan base-package="io.tilt.minka"/>
-
-    <util:properties id="minka-properties" 
-        ignore-resource-not-found="true" 
-        location="file://${minka.config.filepath:minka.properties}" />
+    
+    <bean class="org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor" />
     
     <!-- si no hay properties: la configuracion se llena de valores predeterminados -->
-    <bean id="config" class="io.tilt.minka.api.Config">
-        <constructor-arg ref="minka-properties" />
-    </bean>
-    
+    <bean id="config" class="io.tilt.minka.api.Config"/>
+        
     <!--   <bean id="journal" class="io.tilt.minka.core.task.impl.JournalImpl"/> -->
     
     
@@ -131,7 +128,7 @@
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="partitionTable" />
-        <constructor-arg ref="auditor" />
+        <constructor-arg ref="bookkeeper" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="entityDao" />
         <constructor-arg ref="clientHolder" />
@@ -139,7 +136,7 @@
     </bean>
 
     <!-- acceso write-only a la tabla -->
-    <bean id="auditor" class="io.tilt.minka.core.leader.Auditor">
+    <bean id="bookkeeper" class="io.tilt.minka.core.leader.Bookkeeper">
         <constructor-arg ref="partitionTable" />
     </bean>
     
@@ -147,7 +144,7 @@
     <bean id="shepherd" class="io.tilt.minka.core.leader.Shepherd">
         <constructor-arg ref="config" />
         <constructor-arg ref="partitionTable" />
-        <constructor-arg ref="auditor" />
+        <constructor-arg ref="bookkeeper" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="shardId" />
@@ -158,7 +155,7 @@
     <bean id="followerEventsHandler" class="io.tilt.minka.core.leader.FollowerEventsHandler">
         <constructor-arg ref="config" />
         <constructor-arg ref="partitionTable" />
-        <constructor-arg ref="auditor" />
+        <constructor-arg ref="bookkeeper" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="shardId" />
@@ -171,7 +168,7 @@
         <constructor-arg ref="partitionTable" />
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="eventBroker" />
-        <constructor-arg ref="auditor" />
+        <constructor-arg ref="bookkeeper" />
         <constructor-arg ref="shardId" />
     </bean>
     
@@ -207,6 +204,7 @@
         <constructor-arg ref="clientEventsHandler" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderShardContainer" />
+        <constructor-arg ref="partitionTable" />
     </bean>
     
     <bean id="configValidator" class="io.tilt.minka.api.ConfigValidator"/>
@@ -224,7 +222,6 @@
         <constructor-arg ref="leaderShardContainer" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="eventBroker" />
-        <constructor-arg ref="minkaClient" />
     </bean>
     
 </beans>

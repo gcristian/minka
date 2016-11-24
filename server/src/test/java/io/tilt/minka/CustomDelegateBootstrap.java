@@ -5,9 +5,8 @@ package io.tilt.minka;
 
 import org.junit.Test;
 
-import io.tilt.minka.api.DutyBuilder;
 import io.tilt.minka.api.MinkaClient;
-import io.tilt.minka.api.MinkaLoader;
+import io.tilt.minka.api.MinkaContextLoader;
 import io.tilt.minka.api.PartitionMaster;
 
 public class CustomDelegateBootstrap extends BootstrapTesting {
@@ -21,12 +20,12 @@ public class CustomDelegateBootstrap extends BootstrapTesting {
 	public void test() {
 		try {
 			logger.info("loading minka");
-			MinkaLoader loader = new MinkaLoader();
+			MinkaContextLoader loader = new MinkaContextLoader();
 			loader.load();
 			final String clazz = System.getProperty("delegate", "MultiPalletRandomSample");
 			logger.info("creating custom delegate");
-			final PartitionMaster<?, ?> master = (PartitionMaster<?, ?>) Class.forName("io.tilt.minka.delegates." + clazz)
-					.newInstance();
+			final PartitionMaster<?, ?> master = (PartitionMaster<?, ?>) 
+					Class.forName("io.tilt.minka.delegates." + clazz).newInstance();
 			loader.setMaster(master);
 			loader.setDelegate(master);
 			final MinkaClient cli = MinkaClient.getInstance();
@@ -44,17 +43,4 @@ public class CustomDelegateBootstrap extends BootstrapTesting {
 		}
 	}
 	
-	private void testConsistency() {
-		final MinkaClient cli = MinkaClient.getInstance();
-		
-	}
-
-	private static void sleep(final int mins) throws InterruptedException {
-		for (int i = 0; i < mins; i++) {
-			Thread.sleep(60 * 1000l);
-			for (int j = 0; j < 200000; j++)
-				;
-		}
-	}
-
 }

@@ -16,20 +16,15 @@ public class NewConfigTest {
 
 	@Test
 	public void testConfigSerialization() throws Exception {
-
 		final Config conf = new Config();
-		final String json = conf.toJson();
-		System.out.println(json);
-		
+		final String json = conf.toJson();		
 		Config fromString = Config.fromString(json);
 		String toStr = fromString.toJson();
-		System.out.println(toStr);
 		Assert.assertTrue(toStr.equals(json));
 	}
 
 	@Test
 	public void testConfigDefaults() throws Exception {
-
 		final Properties prop = new Properties();
 		Config conf = new Config();
 		Defaulter.apply(prop, "concistency.", conf.getConsistency());
@@ -40,7 +35,5 @@ public class NewConfigTest {
 		Defaulter.apply(prop, "follower.", conf.getFollower());
 		Defaulter.apply(prop, "scheduler.", conf.getScheduler());
 		Defaulter.apply(prop, "shepherd.", conf.getShepherd());
-
-		System.out.println(conf.toJson());
 		
 	}}

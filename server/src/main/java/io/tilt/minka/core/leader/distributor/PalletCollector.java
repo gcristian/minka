@@ -14,6 +14,8 @@ import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.Pallet;
 import io.tilt.minka.domain.ShardEntity;
 
 /**

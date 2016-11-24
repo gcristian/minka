@@ -18,104 +18,130 @@ package io.tilt.minka.api;
 
 import java.io.Serializable;
 
+import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 
+import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
-import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
-import io.tilt.minka.domain.Shard;
 
 /**
- * Representation of a {@linkplain Duty} selected for an action in a {@linkplain Shard}  
- * 
  * @author Cristian Gonzalez
  * @since Nov 5, 2015
  */
-public class PalletBuilder<P extends Serializable> implements Pallet<P>, Serializable {
+public class PalletBuilder<P extends Serializable> {
 
-	private static final long serialVersionUID = 4519763920222729635L;
-
-	private final BalancerMetadata meta;
-	private final Storage storage;
-	private final P value;
-	private final Class<P> type;
 	private final String id;
 
-	private PalletBuilder(final String id, Class<P> clas, final BalancerMetadata meta, 
-			final Pallet.Storage storage, final P payload) {
+	private BalancerMetadata meta;
+	private Storage storage;
+	private Class<?> clazz;
+	private P payload;
+
+	private PalletBuilder(final String id) {
 		super();
-		this.meta = meta;
-		this.storage = storage;
-		this.value = payload;
+		Validate.notNull(id);
+		Validate.isTrue(id.length() < 512);
 		this.id = id;
-		this.type = clas;
 	}
 
-	public static <P extends Serializable> PalletBuilder<P> build(final String id, final Class<P> clas) {
-		return new PalletBuilder<P>(id, clas, null, null, null);
+	public static <P extends Serializable> PalletBuilder<P> builder(final String id) {
+		return new PalletBuilder<>(id);
 	}
 
-	public static <P extends Serializable> PalletBuilder<P> build(final String id, final Class<P> clas, 
-			final P payload) {
-		return new PalletBuilder<P>(id, clas, null, null, payload);
+	public PalletBuilder<P> with(final BalancerMetadata meta) {
+		Validate.notNull(meta);
+		this.meta = meta;
+		return this;
 	}
 
-	public static <P extends Serializable> PalletBuilder<P> build(final String id, final Class<P> clas, 
-			final BalancerMetadata meta, final Storage storage, final P payload) {
-		return new PalletBuilder<P>(id, clas, meta, storage, payload);
+	public PalletBuilder<P> with(final P payload) {
+		Validate.notNull(payload);
+		Validate.notNull(clazz);
+		this.clazz = payload.getClass();
+		this.payload = payload;
+		return this;
 	}
 
-	@Override
-	public Storage getStorage() {
-		return storage;
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public Pallet<P> build() {
+		return new Group(id, meta == null ? Balancer.Strategy.EVEN_SIZE.getBalancerMetadata() : meta,
+				storage == null ? Storage.CLIENT_DEFINED : storage, clazz == null ? String.class : clazz, id);
 	}
 
-	@Override
-	public BalancerMetadata getStrategy() {
-		return meta;
-	}
+	public static class Group<P extends Serializable> implements Pallet<P>, Serializable {
 
-	@Override
-	public String getId() {
-		return id;
-	}
+		private static final long serialVersionUID = 4519763920222729635L;
 
-	@Override
-	public int hashCode() {
-		return new HashCodeBuilder().append(getId()).toHashCode();
-	}
+		private final BalancerMetadata meta;
+		private final Storage storage;
+		private final P value;
+		private final Class<P> type;
+		private final String id;
 
-	@Override
-	public boolean equals(Object obj) {
-		if (obj != null && obj instanceof Entity) {
-			if (obj == this ) {
-				return true;
-			} else {
-				Entity<P> entity = (Entity) obj;
-				return getId().equals(entity.getId());
-			}
-		} else {
-			return false;
+		private Group(final String id, final BalancerMetadata meta, final Pallet.Storage storage, Class<P> clazz,
+				final P payload) {
+			super();
+			Validate.notNull(id);
+			Validate.notNull(storage);
+			this.meta = meta;
+			this.storage = storage;
+			this.value = payload;
+			this.id = id;
+			this.type = clazz;
 		}
-	}
 
-	@Override
-	public Class<P> getClassType() {
-		return type;
-	}
+		@Override
+		public int hashCode() {
+			return new HashCodeBuilder().append(getId()).toHashCode();
+		}
+		@Override
+		public boolean equals(Object obj) {
+			if (obj != null && obj instanceof Entity) {
+				if (obj == this) {
+					return true;
+				} else {
+					Entity<P> entity = (Entity) obj;
+					return getId().equals(entity.getId());
+				}
+			} else {
+				return false;
+			}
+		}
 
-	@Override
-	public P get() {
-		return value;
-	}
+		@Override
+		public Storage getStorage() {
+			return storage;
+		}
 
-	public Class<P> getType() {
-		return this.type;
-	}
+		@Override
+		public BalancerMetadata getMetadata() {
+			return meta;
+		}
 
-	@Override
-	public String toString() {
-		return id;
+		@Override
+		public String getId() {
+			return id;
+		}
+
+		@Override
+		public Class<P> getClassType() {
+			return type;
+		}
+
+		@Override
+		public P get() {
+			return value;
+		}
+
+		public Class<P> getType() {
+			return this.type;
+		}
+
+		@Override
+		public String toString() {
+			return id;
+		}
 	}
 
 }

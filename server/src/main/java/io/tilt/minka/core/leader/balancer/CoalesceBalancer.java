@@ -14,14 +14,13 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.leader.distributor.impl;
+package io.tilt.minka.core.leader.balancer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
 import io.tilt.minka.core.leader.distributor.Balancer;
-import io.tilt.minka.core.leader.distributor.Migrator;
 
 /**
  * Unbalanced strategy related to distribution.
@@ -75,8 +74,7 @@ public class CoalesceBalancer implements Balancer {
 	}
 	
 	@Override
-	public Migrator balance(final NextTable next) {
-		return null;
+	public void balance(final NextTable next) {
 	}
 
 }

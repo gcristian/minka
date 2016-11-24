@@ -167,7 +167,9 @@ public class SocketClient {
 			b.group(clientGroup).channel(NioSocketChannel.class).handler(new ChannelInitializer<SocketChannel>() {
 				@Override
 				public void initChannel(SocketChannel ch) throws Exception {
-					ch.pipeline().addLast(new ObjectEncoder(), new ObjectDecoder(ClassResolvers.cacheDisabled(null)),
+					ch.pipeline().addLast(
+							new ObjectEncoder(), 
+							new ObjectDecoder(ClassResolvers.cacheDisabled(null)),
 							clientHandler);
 				}
 			});

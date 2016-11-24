@@ -8,7 +8,6 @@ import java.io.Serializable;
 import java.util.Comparator;
 
 import org.apache.commons.lang.Validate;
-import org.apache.commons.lang3.builder.EqualsBuilder;
 
 import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
 
@@ -65,7 +64,7 @@ public interface Pallet<P extends Serializable> extends Entity<P> {
 	Storage getStorage();
 
 	/** @return the Balancer strategy and metadata to use for the pallet */
-	BalancerMetadata getStrategy();
+	BalancerMetadata getMetadata();
 	
 	/** @return only informative and user usage: the finite resource (mostly physical) being used */
 	default Resource getResource() {

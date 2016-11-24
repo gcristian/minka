@@ -20,10 +20,9 @@ import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.api.Config;
 import io.tilt.minka.api.ConfigValidator;
 import io.tilt.minka.api.DependencyPlaceholder;
-import io.tilt.minka.api.MinkaClient;
-import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
@@ -59,7 +58,6 @@ public class Bootstrap extends ServiceImpl {
 	private final LeaderShardContainer leaderShardContainer;
 	private final ShardID shardId;
 	private final EventBroker eventBroker;
-	private final MinkaClient minkaClient;
 
 	private final SpectatorSupplier spectatorSupplier;
 	private Locks locks;
@@ -77,8 +75,7 @@ public class Bootstrap extends ServiceImpl {
 	public Bootstrap(final Config config, final ConfigValidator validator, final SpectatorSupplier spectatorSupplier,
 			final boolean autoStart, final Leader leader, final Follower follower,
 			final DependencyPlaceholder dependencyPlaceholder, final Scheduler scheduler,
-			final LeaderShardContainer leaderShardContainer, final ShardID shardId, final EventBroker eventBroker,
-			final MinkaClient minkaClient) {
+			final LeaderShardContainer leaderShardContainer, final ShardID shardId, final EventBroker eventBroker) {
 
 		Validate.notNull(config, "a unique service name is required (within the ZK ensemble)");
 		this.config = config;
@@ -92,7 +89,7 @@ public class Bootstrap extends ServiceImpl {
 		this.leaderShardContainer = leaderShardContainer;
 		this.shardId = shardId;
 		this.eventBroker = eventBroker;
-		this.minkaClient = minkaClient;
+		
 		this.bootLeadershipCandidate = scheduler
 				.getAgentFactory().create(Action.BOOTSTRAP_LEADERSHIP_CANDIDATURE, PriorityLock.HIGH_ISOLATED,
 						Frequency.ONCE_DELAYED, () -> bootLeadershipCandidate())
@@ -115,15 +112,12 @@ public class Bootstrap extends ServiceImpl {
 		// check configuration is valid and not unstable-prone
 		validator.validate(config, dependencyPlaceholder.getMaster());
 		scheduler.start();
-		// all latter services will use it
-		leaderShardContainer.start();
-		// enable the principal service
-		eventBroker.start();
+		leaderShardContainer.start(); // all latter services will use it
+		eventBroker.start(); // enable the principal service
 		// let the client call us
 		//partitionDelegate.setPartitionService(minkaClient);
 		locks = new Locks(spectatorSupplier.get());
-		// start the real thing
-		readyAwareBooting();
+		readyAwareBooting(); // start the real thing
 		// after booting to avoid booting's failure race condition with restart()
 		locks.setConnectionLostCallback(() -> restart());
 		//journal.commit(compose(this.getClass(), Fact.bootstrapper_start).with(Case.SOLVED).build());

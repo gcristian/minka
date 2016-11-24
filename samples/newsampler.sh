@@ -4,20 +4,21 @@
 # broker, starting at port 8000, takes the first one free
 # ------------------------------------------------------------
 
-port_start=${1:-'9000'}
+port_start=9000
 host='localhost'
 xms='512M'
 delegate='DatasetSampler'
 pp='broker.hostPort'
-dsfp=$(pwd)'/'${2:-'dataset.properties'}
+dsfp=$(pwd)'/'${1:-'dataset.properties'}
 for i in {0..20}; do
 	echo $dsfp
 	i=$(($i+$port_start))
-	x=`netstat -ltn | grep $i`
+	x=`netstat -ltn | grep $i | grep -v grep`
 	y=`ps aux | grep "$pp=$host:$i"| grep -v 'grep'`
 	if [ -z "$x" ] && [ -z "$y" ]; then
 		echo "Using port: $i"
-		mvn compile -q -o -DXms$xms -DXmx$xms test -pl server -Dtest=CustomDelegateBootstrap \
+		#mvn -f ../pom.xml  install -pl server;
+		mvn -DXms$xms -DXmx$xms exec:java -Dexec.mainClass=WebServer.main \
 			-Ddelegate=$delegate -Dmins=1440 -D$pp=$host:$i -Ddataset.filepath=$dsfp
 		exit
 	else

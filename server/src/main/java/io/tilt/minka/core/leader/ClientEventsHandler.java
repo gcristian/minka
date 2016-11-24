@@ -53,18 +53,18 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 	private final Config config;
 	private final PartitionTable partitionTable;
 	private final Scheduler scheduler;
-	private final Auditor auditor;
+	private final Bookkeeper bookkeeper;
 	private final EventBroker eventBroker;
 	private final NetworkShardID shardId;
 
 	public ClientEventsHandler(Config config, PartitionTable partitionTable, Scheduler scheduler,
-			EventBroker eventBroker, Auditor auditor, NetworkShardID shardId) {
+			EventBroker eventBroker, Bookkeeper bookkeeper, NetworkShardID shardId) {
 
 		this.config = config;
 		this.partitionTable = partitionTable;
 		this.scheduler = scheduler;
 		this.eventBroker = eventBroker;
-		this.auditor = auditor;
+		this.bookkeeper = bookkeeper;
 		this.shardId = shardId;
 	}
 
@@ -118,8 +118,8 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 	public void accept(Serializable event) {
 		if (inService()) {
 			if (event instanceof ShardEntity) {
-				final ShardEntity duty = (ShardEntity) event;
-				mediateOnDuty(duty);
+				final ShardEntity entity = (ShardEntity) event;
+				mediateOnEntity(entity);
 			} else if (event instanceof ShardCommand) {
 				clusterOperation((ShardCommand) event);
 			}
@@ -129,22 +129,27 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 		}
 	}
 
-	public void mediateOnDuty(final ShardEntity duty) {
-		if (duty.is(EntityEvent.UPDATE)) {
+	public void mediateOnEntity(final ShardEntity entity) {
+		if (entity.is(EntityEvent.UPDATE)) {
 			// TODO chekear las cuestiones de disponibilidad de esto
-			final Shard location = partitionTable.getStage().getDutyLocation(duty);
-			if (location != null && location.getState().isAlive()) {
-				final Serializable payloadType = duty.getUserPayload() != null
-						? duty.getUserPayload().getClass().getSimpleName() : "[empty]";
-				logger.info("{}: Routing event with Payload: {} on {} to Shard: {}", getClass().getSimpleName(),
-						payloadType, duty, location);
-				eventBroker.postEvent(location.getBrokerChannel(), duty);
+			if (entity.getType()==ShardEntity.Type.DUTY) {
+				final Shard location = partitionTable.getStage().getDutyLocation(entity);
+				if (location != null && location.getState().isAlive()) {
+					final Serializable payloadType = entity.getUserPayload() != null
+							? entity.getUserPayload().getClass().getSimpleName() : "[empty]";
+					logger.info("{}: Routing event with Payload: {} on {} to Shard: {}", getClass().getSimpleName(),
+							payloadType, entity, location);
+					eventBroker.postEvent(location.getBrokerChannel(), entity);
+				} else {
+					logger.error("{}: Cannot route event to Duty:{} as Shard:{} is no longer functional",
+							getClass().getSimpleName(), entity.toBrief(), location);
+				}
 			} else {
-				logger.error("{}: Cannot route event to Duty:{} as Shard:{} is no longer functional",
-						getClass().getSimpleName(), duty.toBrief(), location);
+				// this's just for safety: they could really... got to evaluate the consequences
+				logger.error("{}: Pallet cannot receive updates yet ", getClass().getSimpleName(), entity.getPallet().getId());
 			}
 		} else {
-			auditor.registerDutyCRUD(duty);
+			bookkeeper.registerCRUD(entity);
 		}
 	}
 
