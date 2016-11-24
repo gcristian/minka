@@ -18,7 +18,6 @@ package io.tilt.minka.core.leader;
 
 import static io.tilt.minka.domain.EntityEvent.CREATE;
 import static io.tilt.minka.domain.EntityEvent.FINALIZED;
-import static io.tilt.minka.domain.EntityEvent.UPDATE;
 import static io.tilt.minka.domain.ShardEntity.State.CONFIRMED;
 import static io.tilt.minka.domain.ShardEntity.State.DANGLING;
 
@@ -56,7 +55,6 @@ public class Bookkeeper {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	// TODO : este valor -para no generar inconcistencias- lo puedo y debo calcular dinamicamente 
 	private static final int MAX_EVENT_DATE_FOR_DIRTY = 10000;
 
 	private final PartitionTable partitionTable;
@@ -65,14 +63,6 @@ public class Bookkeeper {
 		this.partitionTable = partitionTable;
 	}
 
-
-	/**
-	 * TODO: sopesar los HBs en una ventana de tiempo para evitar 
-	 * inconsistencias de configuracion y que c/u no sea impactante para la tabla
-	 * - agregar validaciones para poner en REBELL al shard
-	 * por ejemplo hoy los HBs pueden venir con distinto contenido en fila y no lo chekeo
-	 * osea 1ro con 10 taras, 2do con 9 tareas, 3ro con 10 tareas, etc: eso no lo chekeo  
-	 */
 	public void check(final Heartbeat hb, final Shard shard) {
 		if (hb.getStateChange() == ShardState.QUITTED) {
 			checkShardChangingState(shard);
@@ -85,7 +75,6 @@ public class Bookkeeper {
 		if (partitionTable.getCurrentRoadmap().isEmpty()) {
 			// believe only when online: to avoid Dirty efects after follower's hangs/stucks
 			// so it clears itself before trusting their HBs
-			//if (shard.getState()==ShardState.ONLINE || shard.getState() == ShardState.JOINING) {
 			for (final ShardEntity duty : hb.getDuties()) {
 				if (duty.getState() == CONFIRMED) {
 					try {
@@ -99,10 +88,6 @@ public class Bookkeeper {
 				} else if (duty.getState() == DANGLING) {
 					logger.error("{}: Shard {} reported Dangling Duty (follower's unconfident: {}): {}",
 							getClass().getSimpleName(), shard.getShardID(), duty.getDutyEvent(), duty);
-					// TODO : x ahora no va a pasar nada
-					// luego tengo q expirar el evento para no generar falsa alarma
-					// o ver de re-"ejecutar" la tarea si continua existiendo
-					// o enviar la baja sin instruir al delegado para que el follower no moleste
 					if (duty.getDutyEvent().is(EntityEvent.CREATE)) {
 					} else if (duty.getDutyEvent().is(EntityEvent.REMOVE)) {
 					}
@@ -110,7 +95,6 @@ public class Bookkeeper {
 					// TODO remove from Stage directly...
 				}
 			}
-			//}
 		} else {
 			analyzeReportedDuties(shard, hb.getDuties());
 		}
@@ -121,7 +105,6 @@ public class Bookkeeper {
 	}
 
 	private void analyzeReportedDuties(final Shard shard, final List<ShardEntity> heartbeatDuties) {
-
 		final Roadmap road = partitionTable.getCurrentRoadmap();
 		final Set<ShardEntity> currentChanges = road.getGroupedDeliveries().get(shard);
 
@@ -133,26 +116,13 @@ public class Bookkeeper {
 			road.close();
 		} else if (road.hasCurrentStepFinished()) {
 			//scheduler.forward(scheduler.get(Action.DISTRIBUTOR));
-		} else {
-
-			/*
-			 * logger.info("{}: Still unfinished ! ({})",
-			 * getClass().getSimpleName(), troubling.toString());
-			 */
 		}
-
 	}
 
-	/*
-	 * this checks partition table looking for missing duties (not declared
-	 * dangling, that's diff)
-	 */
+	 /*this checks partition table looking for missing duties (not declared dangling, that's diff) */
 	private void declareHeartbeatAbsencesAsMissing(final Shard shard, final List<ShardEntity> heartbeatDuties) {
-
-		// TODO : fix in 1 HB this aint possible
 		final Set<ShardEntity> sortedLog = new TreeSet<>();
 		final Map<String, AtomicInteger> absencesPerHeartbeat = new HashMap<>();
-		//final int maxTolerance = 2; // how many erroneous HBs ?
 		for (final ShardEntity duty : partitionTable.getStage().getDutiesByShard(shard)) {
 			boolean found = false;
 			for (ShardEntity hbDuty : heartbeatDuties) {
@@ -166,10 +136,8 @@ public class Bookkeeper {
 				if (ai == null) {
 					absencesPerHeartbeat.put(duty.getEntity().getId(), ai = new AtomicInteger(0));
 				}
-				//if (ai.incrementAndGet()>maxTolerance) {
 				sortedLog.add(duty);
 				partitionTable.getNextStage().getDutiesMissing().add(duty);
-				//}
 			}
 		}
 		if (!sortedLog.isEmpty()) {
@@ -256,7 +224,7 @@ public class Bookkeeper {
 			//} else {
 			// TODO esta situacion estaba contemplada pero aparecio un bug en 
 			// el manejo del transporte por el cambio de broker que permite
-			// resetear el realloc cuando se cayo un shard, antes no pasaba !!!!
+			// resetear el realloc cuando se cayo un shard
 			//}
 			break;
 		case ONLINE:
@@ -382,24 +350,4 @@ public class Bookkeeper {
 		}
 	}
 
-	/*
-		private void removeAndRegisterCrudEntities(final List<Entity<?>> sourceEntities, Predicate<?> p, final Set<ShardEntity> currentEntities) {
-			final Set<ShardEntity> sortedLog = new TreeSet<>();
-			final Iterator<Entity<?>> it = sourceEntities.iterator();
-			while (it.hasNext()) {
-				final ShardEntity she = ShardEntity.create(it.next());
-				if (p.test(she)) {
-					sortedLog.add(she);
-					it.remove();
-				} else {
-					logger.info("{}: Adding Entity: {}", getClass().getSimpleName(), she);
-					currEntities.add(she);
-				}
-			}
-			if (!sortedLog.isEmpty()) {
-				logger.info("{}: Skipping Crud Entity already in Partition Table: {}", getClass().getSimpleName(),
-					ShardEntity.toStringIds(sortedLog));
-			}
-		}
-	*/
 }

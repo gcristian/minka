@@ -115,7 +115,7 @@ public class Distributor extends ServiceImpl {
 		this.initialAdding = true;
 
 		this.distributor = scheduler.getAgentFactory()
-				.create(Action.DISTRIBUTOR, PriorityLock.MEDIUM_BLOCKING, Frequency.PERIODIC, () -> periodicCheck())
+				.create(Action.DISTRIBUTOR, PriorityLock.MEDIUM_BLOCKING, Frequency.PERIODIC, () -> distribute())
 				.delayed(config.getDistributor().getStartDelayMs()).every(config.getDistributor().getDelayMs()).build();
 
 		this.arranger = new Arranger(config);
@@ -133,7 +133,7 @@ public class Distributor extends ServiceImpl {
 		this.scheduler.stop(distributor);
 	}
 
-	private void periodicCheck() {
+	private void distribute() {
 		try {
 			// also if this's a de-frozening thread
 			if (!leaderShardContainer.imLeader()) {
