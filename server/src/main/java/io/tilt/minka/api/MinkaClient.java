@@ -16,6 +16,8 @@
  */
 package io.tilt.minka.api;
 
+import java.io.Serializable;
+
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,16 +33,13 @@ import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.impl.ZookeeperLeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardCommand;
-import io.tilt.minka.domain.ShardCommand.Command;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.domain.ShardState;
 
 /**
- * Client's point of integration.
- * Facility to CRUD {@linkplain ShardEntity} and SysAdmin a {@linkplain Shard} 
+ * Facility to CRUD {@linkplain ShardEntity}
  * 
  * So a {@link Leader} service whoever it is, will receive the event and distribute it
  * to a selected {@link Follower} according their {@link ShardState} and {@link Workload}
@@ -52,11 +51,11 @@ import io.tilt.minka.domain.ShardState;
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
  */
-public class MinkaClient {
+public class MinkaClient<D extends Serializable, P extends Serializable> {
 
 	private static final Logger logger = LoggerFactory.getLogger(MinkaClient.class);
 
-	private static MinkaClient instance;
+	private static MinkaClient<?, ?> instance;
 
 	private final Leader leader;
 	private final EventBroker eventBroker;
@@ -83,11 +82,12 @@ public class MinkaClient {
 	 * Minka service must be fully initialized before being able to obtain an operative client
 	 * @return	an instance of a client   
 	 */
-	public static MinkaClient getInstance() {
+	@SuppressWarnings("unchecked")
+	public static <D extends Serializable, P extends Serializable>MinkaClient<D, P> getInstance() {
 		if (instance == null) {
 			throw new IllegalStateException("MinkaContextLoader must be fully loaded first !");
 		}
-		return MinkaClient.instance;
+		return (MinkaClient<D, P>) MinkaClient.instance;
 	}
 
 	/**
@@ -111,10 +111,10 @@ public class MinkaClient {
 	* @param service	a unique name within a ZK ensemble to identify the shards
 	* @param duty	    a duty sharded or to be sharded in the cluster
 	*/
-	public boolean remove(final Duty<?> duty) {
+	public boolean remove(final Duty<D> duty) {
 		return send(duty, EntityEvent.REMOVE, null);
 	}
-	public boolean remove(final Pallet<?> pallet) {
+	public boolean remove(final Pallet<P> pallet) {
 		return send(pallet, EntityEvent.REMOVE, null);
 	}
 
@@ -129,7 +129,7 @@ public class MinkaClient {
 	* @param duty
 	* @return
 	*/
-	public boolean finalized(final Duty<?> duty) {
+	public boolean finalized(final Duty<D> duty) {
 		return send(duty, EntityEvent.FINALIZED, null);
 	}
 
@@ -144,11 +144,11 @@ public class MinkaClient {
 	 * @param service   a unique name within a ZK ensemble to identify the shards
 	 * @param duty      a duty sharded or to be sharded in the cluster
 	*/
-	public boolean add(final Duty<?> duty) {
+	public boolean add(final Duty<D> duty) {
 		return send(duty, EntityEvent.CREATE, null);
 	}
 
-	public boolean add(final Pallet<?> pallet) {
+	public boolean add(final Pallet<P> pallet) {
 		return send(pallet, EntityEvent.CREATE, null);
 	}
 
@@ -157,31 +157,41 @@ public class MinkaClient {
 	* @see PartitionDelegate method receive()
 	* @see {@linkplain update} but with a payload  
 	*/
-	public boolean update(final Duty<?> duty, final EntityPayload userPayload) {
-		return send(duty, EntityEvent.UPDATE, userPayload);
+	public boolean update(final Duty<D> duty) {
+		return send(duty, EntityEvent.UPDATE, null);
 	}
-
+	public boolean update(final Pallet<P> pallet) {
+		return send(pallet, EntityEvent.UPDATE, null);
+	}
+	public boolean transfer(final Duty<D> duty, final EntityPayload userPayload) {
+		return send(duty, EntityEvent.TRANSFER, userPayload);
+	}
+	public boolean transfer(final Pallet<P> pallet, final EntityPayload userPayload) {
+		return send(pallet, EntityEvent.TRANSFER, userPayload);
+	}
+	
+	@SuppressWarnings("unchecked")
 	private boolean send(final Entity<?> raw, final EntityEvent event, final EntityPayload userPayload) {
 		Validate.notNull(raw, "an entity is required");
 		boolean sent = true;
-		final ShardEntity duty;
+		final ShardEntity entity;
 		if (raw instanceof Duty) {
-			duty = ShardEntity.create((Duty<?>)raw);
+			entity = ShardEntity.create((Duty<D>)raw);
 		} else {
-			duty = ShardEntity.create((Pallet<?>)raw);
+			entity = ShardEntity.create((Pallet<P>)raw);
 		}
-		duty.registerEvent(event, State.PREPARED);
+		entity.registerEvent(event, State.PREPARED);
 		if (userPayload != null) {
-			duty.setUserPayload(userPayload);
+			entity.setUserPayload(userPayload);
 		}
 		if (leader.inService()) {
 			logger.info("{}: Recurring to local leader !", getClass().getSimpleName());
-			clientMediator.mediateOnEntity(duty);
+			clientMediator.mediateOnEntity(entity);
 		} else {
-			logger.info("{}: Sending Duty: {} with Event: {} to leader in service", getClass().getSimpleName(), raw,
-					event);
-			sent = eventBroker.postEvent(eventBroker.buildToTarget(config.getBootstrap().getServiceName(), Channel.CLIENT_TO_LEADER,
-					leaderShardContainer.getLeaderShardId()), duty);
+			logger.info("{}: Sending {}: {} with Event: {} to leader in service", getClass().getSimpleName(), 
+					entity.getType(), raw, event);
+			sent = eventBroker.postEvent(eventBroker.buildToTarget(config.getBootstrap().getServiceName(), Channel.FROM_CLIENT,
+					leaderShardContainer.getLeaderShardId()), entity);
 		}
 		return sent;
 	}
@@ -201,25 +211,6 @@ public class MinkaClient {
 	*/
 	public boolean isCurrentLeader() {
 		return leader.inService();
-	}
-
-	/**
-	* Send an operation to be executed at the leader
-	* 
-	* @param service	a unique name within a ZK ensemble to identify the shards
-	* @param op		an {@link Command} to be sent to the master's duty queue
-	* @return
-	*/
-	public boolean execute(final String service, final ShardCommand op) {
-		boolean done = false;
-		if (leader.inService()) {
-			logger.info("{}: Execute: recurring to local leader in service", getClass().getSimpleName());
-			done = clientMediator.clusterOperation(op);
-		} else {
-			done = eventBroker.postEvent(eventBroker.buildToTarget(service, Channel.CLIENT_TO_LEADER,
-					leaderShardContainer.getLeaderShardId()), op);
-		}
-		return done;
 	}
 
 }

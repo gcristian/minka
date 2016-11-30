@@ -1,7 +1,3 @@
-/**
- * Copyright (c) 2011-2015 Zauber S.A. -- All rights reserved
- */
-
 package io.tilt.minka;
 
 import java.io.Serializable;
@@ -28,7 +24,7 @@ public class SocketBrokerTest extends AbstractBrokerTester {
 		final EventBroker broker = new SocketBroker(config, shard, container,
 				new SchedulerImpl(config, new SpectatorSupplier(config), shard, new SynchronizedAgentFactoryImpl(),
 						new SynchronizedFactoryImpl()));
-		broker.subscribe(broker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, shard), AtomicInteger.class,
+		broker.subscribe(broker.buildToTarget(config, Channel.INSTRUCTIONS, shard), AtomicInteger.class,
 				driver, System.currentTimeMillis());
 		return broker;
 	}

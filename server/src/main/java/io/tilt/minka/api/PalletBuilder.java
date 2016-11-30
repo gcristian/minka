@@ -26,8 +26,12 @@ import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
 
 /**
+ * 
  * @author Cristian Gonzalez
  * @since Nov 5, 2015
+ * 
+ * @param <P>	A bytes serializable payload to carry along the wire from the intake point 
+ * at <code> MinkaClient.getInstance().add(...) </code> to the Shard where the host app will process it 
  */
 public class PalletBuilder<P extends Serializable> {
 
@@ -35,7 +39,6 @@ public class PalletBuilder<P extends Serializable> {
 
 	private BalancerMetadata meta;
 	private Storage storage;
-	private Class<?> clazz;
 	private P payload;
 
 	private PalletBuilder(final String id) {
@@ -45,20 +48,26 @@ public class PalletBuilder<P extends Serializable> {
 		this.id = id;
 	}
 
-	public static <P extends Serializable> PalletBuilder<P> builder(final String id) {
-		return new PalletBuilder<>(id);
+	/**
+	 * <code>PalletBuilder.&lt;String&gt;builder("uniqueIdForPallet")</code>
+	 * @param <P> 	a bytes serializable payload to carry along the wire from the intake point to the processing shard 
+	 * @param palletId	must be unique across the user's domain
+	 * @return		Builder to enter duties to Minka
+	 */
+	public static <P extends Serializable> PalletBuilder<P> builder(final String palletId) {
+		return new PalletBuilder<>(palletId);
 	}
 
+	/** @param meta a configuration for a {@linkplain Balancer} strategy  */
 	public PalletBuilder<P> with(final BalancerMetadata meta) {
 		Validate.notNull(meta);
 		this.meta = meta;
 		return this;
 	}
 
+	/** @param payload	 a bytes seriaizable payload */
 	public PalletBuilder<P> with(final P payload) {
 		Validate.notNull(payload);
-		Validate.notNull(clazz);
-		this.clazz = payload.getClass();
 		this.payload = payload;
 		return this;
 	}
@@ -66,7 +75,8 @@ public class PalletBuilder<P extends Serializable> {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public Pallet<P> build() {
 		return new Group(id, meta == null ? Balancer.Strategy.EVEN_SIZE.getBalancerMetadata() : meta,
-				storage == null ? Storage.CLIENT_DEFINED : storage, clazz == null ? String.class : clazz, id);
+				storage == null ? Storage.CLIENT_DEFINED : storage, 
+				payload == null ? id : payload);
 	}
 
 	public static class Group<P extends Serializable> implements Pallet<P>, Serializable {
@@ -79,8 +89,8 @@ public class PalletBuilder<P extends Serializable> {
 		private final Class<P> type;
 		private final String id;
 
-		private Group(final String id, final BalancerMetadata meta, final Pallet.Storage storage, Class<P> clazz,
-				final P payload) {
+		@SuppressWarnings("unchecked")
+		private Group(final String id, final BalancerMetadata meta, final Pallet.Storage storage, final P payload) {
 			super();
 			Validate.notNull(id);
 			Validate.notNull(storage);
@@ -88,7 +98,7 @@ public class PalletBuilder<P extends Serializable> {
 			this.storage = storage;
 			this.value = payload;
 			this.id = id;
-			this.type = clazz;
+			this.type = (Class<P>) payload.getClass();
 		}
 
 		@Override
@@ -132,10 +142,6 @@ public class PalletBuilder<P extends Serializable> {
 		@Override
 		public P get() {
 			return value;
-		}
-
-		public Class<P> getType() {
-			return this.type;
 		}
 
 		@Override

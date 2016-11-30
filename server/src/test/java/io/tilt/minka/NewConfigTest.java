@@ -1,7 +1,3 @@
-/**
- * TASKS * Copyright (c) 2011-2015 Zauber S.A. -- All rights reserved
- */
-
 package io.tilt.minka;
 
 import java.util.Properties;
@@ -34,6 +30,6 @@ public class NewConfigTest {
 		Defaulter.apply(prop, "distributor.", conf.getDistributor());
 		Defaulter.apply(prop, "follower.", conf.getFollower());
 		Defaulter.apply(prop, "scheduler.", conf.getScheduler());
-		Defaulter.apply(prop, "shepherd.", conf.getShepherd());
+		Defaulter.apply(prop, "proctor.", conf.getProctor());
 		
 	}}

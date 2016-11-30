@@ -23,7 +23,7 @@ import static io.tilt.minka.core.task.Semaphore.Action.HEARTBEAT_REPORT;
 import static io.tilt.minka.core.task.Semaphore.Action.INSTRUCT_DELEGATE;
 import static io.tilt.minka.core.task.Semaphore.Action.LEADERSHIP;
 import static io.tilt.minka.core.task.Semaphore.Action.PARTITION_TABLE_UPDATE;
-import static io.tilt.minka.core.task.Semaphore.Action.SHEPHERD;
+import static io.tilt.minka.core.task.Semaphore.Action.PROCTOR;
 import static io.tilt.minka.core.task.Semaphore.Action.SHUTDOWN;
 import static io.tilt.minka.core.task.Semaphore.Action.STUCK_POLICY;
 import static io.tilt.minka.core.task.Semaphore.Hierarchy.CHILD;
@@ -129,7 +129,7 @@ public interface Semaphore extends Service {
 		 * of shared data both modify the partition table from different
 		 * methods
 		 */
-		DISTRIBUTOR(Scope.LOCAL), SHEPHERD(Scope.LOCAL),
+		DISTRIBUTOR(Scope.LOCAL), PROCTOR(Scope.LOCAL),
 		/*
 		 * we cannot hope for the PartitionDelegate to be thread-safe this
 		 * include Take, Release & Update: they mutually exclude-'emselves one
@@ -230,9 +230,9 @@ public interface Semaphore extends Service {
 
 		// At Leader's
 		rules.add(builder(LEADERSHIP).add(CHILD, asList(Action.BOOTSTRAP)));
-		rules.add(builder(SHEPHERD).add(SIBLING, asList(DISTRIBUTOR, PARTITION_TABLE_UPDATE)));
-		rules.add(builder(DISTRIBUTOR).add(SIBLING, asList(SHEPHERD, PARTITION_TABLE_UPDATE)));
-		rules.add(builder(PARTITION_TABLE_UPDATE).add(SIBLING, asList(SHEPHERD, DISTRIBUTOR)));
+		rules.add(builder(PROCTOR).add(SIBLING, asList(DISTRIBUTOR, PARTITION_TABLE_UPDATE)));
+		rules.add(builder(DISTRIBUTOR).add(SIBLING, asList(PROCTOR, PARTITION_TABLE_UPDATE)));
+		rules.add(builder(PARTITION_TABLE_UPDATE).add(SIBLING, asList(PROCTOR, DISTRIBUTOR)));
 
 		// At Follower's
 		rules.add(builder(INSTRUCT_DELEGATE).add(SIBLING, asList(HEARTBEAT_REPORT)));

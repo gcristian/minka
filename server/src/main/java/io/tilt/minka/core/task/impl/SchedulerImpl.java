@@ -99,36 +99,8 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		 schedule(getAgentFactory().create(agent.getAction(), agent.getPriority(), Frequency.ONCE,
 		         agent.getTask()).build());
 		 schedule(agent); // go back to old
-		 
 	}
-
-	private void checkQueue() {
-		if (!logger.isDebugEnabled()) {
-			return;
-		}
-		try {
-			final long now = System.currentTimeMillis();
-			if (now - this.lastCheck < 5 * 1000) {
-				return;
-			}
-			for (final Runnable run : this.executor.getQueue()) {
-				for (final Entry<Synchronized, ScheduledFuture<?>> e : this.futuresBySynchro.entrySet()) {
-					if (e.getValue().equals(((ScheduledFuture<?>) run))) {
-						final Synchronized sync = e.getKey();
-						logger.debug("{}: ({}) Queue check: {} ({}, {}, {}, {}", getName(), logName,
-							sync.getTask().getClass().getSimpleName(),
-							"E: " + sync.getLastException() == null ? "" : sync.getLastException(),
-							"TS:" + (now - sync.getLastExecutionTimestamp()),
-							"Success Lapse: " + (sync.getLastSuccessfulExecutionLapse()),
-							"Success TS:" + (now - sync.getLastSuccessfulExecutionTimestamp()));
-					}
-				}
-			}
-			this.lastCheck = now;
-		} catch (Throwable t) {
-		}
-	}
-
+	
 	@Override
 	public void stop(final Synchronized synchro) {
 		stop(synchro, true);
@@ -294,6 +266,33 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	@Override
 	public AgentFactory getAgentFactory() {
 		return this.agentFactory;
+	}
+
+	private void checkQueue() {
+		if (!logger.isDebugEnabled()) {
+			return;
+		}
+		try {
+			final long now = System.currentTimeMillis();
+			if (now - this.lastCheck < 5 * 1000) {
+				return;
+			}
+			for (final Runnable run : this.executor.getQueue()) {
+				for (final Entry<Synchronized, ScheduledFuture<?>> e : this.futuresBySynchro.entrySet()) {
+					if (e.getValue().equals(((ScheduledFuture<?>) run))) {
+						final Synchronized sync = e.getKey();
+						logger.debug("{}: ({}) Queue check: {} ({}, {}, {}, {}", getName(), logName,
+							sync.getTask().getClass().getSimpleName(),
+							"E: " + sync.getLastException() == null ? "" : sync.getLastException(),
+							"TS:" + (now - sync.getLastExecutionTimestamp()),
+							"Success Lapse: " + (sync.getLastSuccessfulExecutionLapse()),
+							"Success TS:" + (now - sync.getLastSuccessfulExecutionTimestamp()));
+					}
+				}
+			}
+			this.lastCheck = now;
+		} catch (Throwable t) {
+		}
 	}
 
 }

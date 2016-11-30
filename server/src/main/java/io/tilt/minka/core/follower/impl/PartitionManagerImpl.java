@@ -99,22 +99,35 @@ public class PartitionManagerImpl implements PartitionManager {
 	@SuppressWarnings("unchecked")
 	// TODO refactory
 	public Void update(final Collection<ShardEntity> duties) {
-		for (ShardEntity duty : duties) {
-			if (partition.getDuties().contains(duty)) {
-				if (duty.getUserPayload() == null) {
+		for (ShardEntity entity : duties) {
+			if (entity.getType()==ShardEntity.Type.DUTY) {
+				if (partition.getDuties().contains(entity)) {
+					if (entity.getUserPayload() == null) {
+						logger.info("{}: ({}) Instructing PartitionDelegate to UPDATE : {}", getClass().getSimpleName(),
+								partition.getId(), entity.toBrief());
+						dependencyPlaceholder.getDelegate().update(entity.getDuty());
+					} else {
+						logger.info("{}: ({}) Instructing PartitionDelegate to RECEIVE: {} with Payload type {}",
+								getClass().getSimpleName(), partition.getId(), entity.toBrief(),
+								entity.getUserPayload().getClass().getName());
+						dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), entity.getUserPayload());
+					}
+				} else {
+					logger.error("{}: ({}) Unable to UPDATE a never taken Duty !: {}", getClass().getSimpleName(),
+							partition.getId(), entity.toBrief());
+					// TODO todo mal reportar que no se puede tomar xq alguien la tiene q onda ???
+				}
+			} else if (entity.getType()==ShardEntity.Type.PALLET) {
+				if (entity.getUserPayload() == null) {
 					logger.info("{}: ({}) Instructing PartitionDelegate to UPDATE : {}", getClass().getSimpleName(),
-							partition.getId(), duty.toBrief());
-					dependencyPlaceholder.getDelegate().update(duty.getDuty());
+							partition.getId(), entity.toBrief());
+					dependencyPlaceholder.getDelegate().update(entity.getPallet());
 				} else {
 					logger.info("{}: ({}) Instructing PartitionDelegate to RECEIVE: {} with Payload type {}",
-							getClass().getSimpleName(), partition.getId(), duty.toBrief(),
-							duty.getUserPayload().getClass().getName());
-					dependencyPlaceholder.getDelegate().deliver(duty.getDuty(), duty.getUserPayload());
+							getClass().getSimpleName(), partition.getId(), entity.toBrief(),
+							entity.getUserPayload().getClass().getName());
+					dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), entity.getUserPayload());					
 				}
-			} else {
-				logger.error("{}: ({}) Unable to UPDATE a never taken Duty !: {}", getClass().getSimpleName(),
-						partition.getId(), duty.toBrief());
-				// TODO todo mal reportar que no se puede tomar xq alguien la tiene q onda ???
 			}
 		}
 		return null;
@@ -166,9 +179,9 @@ public class PartitionManagerImpl implements PartitionManager {
 			duties.stream().filter(d->partition.getPallets().add(d))
 				.forEach(d->pallets.add(d.getRelatedEntity().getPallet()));
 			if (!pallets.isEmpty()) {
-				dependencyPlaceholder.getDelegate().takePallet(pallets);
+				dependencyPlaceholder.getDelegate().capturePallet(pallets);
 			}
-			dependencyPlaceholder.getDelegate().take(toSet(duties, null));
+			dependencyPlaceholder.getDelegate().capture(toSet(duties, null));
 			partition.getDuties().addAll(duties);
 		} catch (Exception e) {
 			logger.error("{}: ({}) Delegate thrown an Exception while Taking", getClass().getSimpleName(), 

@@ -92,7 +92,7 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 		this.dependencyPlaceholder.getDelegate().activate();
 		logger.info("{}: ({}) Preparing for leader events", getName(), config.getLoggingShardId());
 		final long sinceNow = System.currentTimeMillis();
-		eventBroker.subscribeEvents(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()),
+		eventBroker.subscribeEvents(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, partition.getId()),
 				this, sinceNow, ShardEntity.class, Clearance.class, ArrayList.class, DomainInfo.class);
 		/*eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()),
 				Clearance.class, this, sinceNow);
@@ -112,7 +112,7 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 		logger.info("{}: ({}) Stopping", getName(), config.getLoggingShardId());
 		partitionManager.releaseAll();
 		this.dependencyPlaceholder.getDelegate().deactivate();
-		eventBroker.unsubscribe(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()),
+		eventBroker.unsubscribe(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, partition.getId()),
 				EntityPayload.class, this);
 	}
 
@@ -172,6 +172,7 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 			case DETACH:
 				partitionManager.dettach(Lists.newArrayList(duties));
 				break;
+			case TRANSFER:
 			case UPDATE:
 				partitionManager.update(Lists.newArrayList(duties));
 				break;

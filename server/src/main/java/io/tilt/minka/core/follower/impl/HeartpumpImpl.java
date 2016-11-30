@@ -69,7 +69,7 @@ public class HeartpumpImpl extends ServiceImpl implements Heartpump {
 			 * thisHb.equalsInContent(lastHeartbeat)) { hbTraveling =
 			 * Heartbeat.copy(thisHb); hbTraveling.cleanDuties(); } */
 
-			if (!eventBroker.postEvent(eventBroker.buildToTarget(config, Channel.HEARTBEATS_TO_LEADER,
+			if (!eventBroker.postEvent(eventBroker.buildToTarget(config, Channel.HEARTBEATS,
 					leaderShardContainer.getLeaderShardId()), arg)) {
 				logger.error("{}: ({}) Broker did not sent Heartbeat !", getClass().getSimpleName(),
 						config.getLoggingShardId());

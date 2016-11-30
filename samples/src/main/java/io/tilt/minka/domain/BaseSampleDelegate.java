@@ -1,6 +1,3 @@
-/**
- * Copyright (c) 2011-2015 Zauber S.A. -- All rights reserved
- */
 
 package io.tilt.minka.domain;
 
@@ -51,7 +48,7 @@ public abstract class BaseSampleDelegate implements PartitionMaster<String, Stri
 	public abstract Set<Pallet<String>> buildPallets() throws Exception;
 	public abstract void init() throws Exception ;
 	
-	public MinkaClient getMinkaClient() {
+	public MinkaClient<String, String> getMinkaClient() {
 		return MinkaClient.getInstance();
 	}
 	
@@ -82,7 +79,7 @@ public abstract class BaseSampleDelegate implements PartitionMaster<String, Stri
 	}
 
 	@Override
-	public void take(Set<Duty<String>> entities) {
+	public void capture(Set<Duty<String>> entities) {
 		logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "taking"));
 		logger.info("{} # {}+ ({})", shardId, entities.size(), toStringIds(entities));
 		if (runningDuties == null) {
@@ -102,8 +99,8 @@ public abstract class BaseSampleDelegate implements PartitionMaster<String, Stri
 	long lastPrint;
 
 	@Override
-	public Set<Duty<String>> reportTaken() {
-		final MinkaClient client = MinkaClient.getInstance();
+	public Set<Duty<String>> reportCapture() {
+		final MinkaClient<String, String> client = MinkaClient.getInstance();
 		long now = System.currentTimeMillis();
 		if (lastSize != runningDuties.size() || now - lastPrint > 60000 * 1) {
 			lastPrint = now;
@@ -137,7 +134,7 @@ public abstract class BaseSampleDelegate implements PartitionMaster<String, Stri
 	}
 
 	@Override
-	public void deliver(Duty<String> duty, Serializable clientPayload) {
+	public void transfer(Duty<String> duty, Serializable clientPayload) {
 		logger.info("receiving delivery: {}", duty.getId());
 	}
 

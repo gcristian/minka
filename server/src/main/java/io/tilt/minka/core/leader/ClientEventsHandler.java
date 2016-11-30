@@ -19,6 +19,7 @@ package io.tilt.minka.core.leader;
 import static io.tilt.minka.domain.ShardState.ONLINE;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 
@@ -96,9 +97,9 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 	}
 
 	private void listenUserEvents() {
-		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.CLIENT_TO_LEADER, shardId), ShardEntity.class,
+		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.FROM_CLIENT, shardId), ShardEntity.class,
 				this, 0);
-		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.CLIENT_TO_LEADER, shardId), ShardCommand.class,
+		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.FROM_CLIENT, shardId), ShardCommand.class,
 				this, 0);
 	}
 
@@ -111,7 +112,7 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 	@Override
 	public void stop() {
 		logger.info("{}: Stopping", getClass().getSimpleName());
-		eventBroker.unsubscribe(eventBroker.build(config, Channel.CLIENT_TO_LEADER), ShardEntity.class, this);
+		eventBroker.unsubscribe(eventBroker.build(config, Channel.FROM_CLIENT), ShardEntity.class, this);
 	}
 
 	@Override
@@ -130,7 +131,7 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 	}
 
 	public void mediateOnEntity(final ShardEntity entity) {
-		if (entity.is(EntityEvent.UPDATE)) {
+		if (entity.is(EntityEvent.UPDATE) || entity.is(EntityEvent.TRANSFER)) {
 			// TODO chekear las cuestiones de disponibilidad de esto
 			if (entity.getType()==ShardEntity.Type.DUTY) {
 				final Shard location = partitionTable.getStage().getDutyLocation(entity);
@@ -139,14 +140,21 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 							? entity.getUserPayload().getClass().getSimpleName() : "[empty]";
 					logger.info("{}: Routing event with Payload: {} on {} to Shard: {}", getClass().getSimpleName(),
 							payloadType, entity, location);
-					eventBroker.postEvent(location.getBrokerChannel(), entity);
 				} else {
 					logger.error("{}: Cannot route event to Duty:{} as Shard:{} is no longer functional",
 							getClass().getSimpleName(), entity.toBrief(), location);
 				}
-			} else {
-				// this's just for safety: they could really... got to evaluate the consequences
-				logger.error("{}: Pallet cannot receive updates yet ", getClass().getSimpleName(), entity.getPallet().getId());
+				eventBroker.postEvent(location.getBrokerChannel(), entity);
+			} else if (entity.getType()==ShardEntity.Type.PALLET) {
+				for (Shard location: partitionTable.getStage().getPalletLocations(entity)) {
+					if (location.getState().isAlive()) {
+						final Serializable payloadType = entity.getUserPayload() != null
+								? entity.getUserPayload().getClass().getSimpleName() : "[empty]";
+						logger.info("{}: Routing event with Payload: {} on {} to Shard: {}", getClass().getSimpleName(),
+								payloadType, entity, location);
+						eventBroker.postEvent(location.getBrokerChannel(), entity);
+					}
+				}
 			}
 		} else {
 			bookkeeper.registerCRUD(entity);

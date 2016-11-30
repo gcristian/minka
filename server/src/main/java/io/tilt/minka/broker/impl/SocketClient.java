@@ -83,7 +83,7 @@ public class SocketClient {
 		scheduler.schedule(scheduler.getAgentFactory().create(Action.BROKER_CLIENT_START, PriorityLock.HIGH_ISOLATED,
 				Frequency.ONCE, () -> keepConnectedWithRetries(channel, maxRetries, retryDelay)).build());
 		this.creation = System.currentTimeMillis();
-		this.clientExpiration = Math.max(config.getShepherd().getDelayMs(), config.getFollower().getClearanceMaxAbsenceMs());
+		this.clientExpiration = Math.max(config.getProctor().getDelayMs(), config.getFollower().getClearanceMaxAbsenceMs());
 		this.maxQueueThreshold = config.getBroker().getConnectionHandlerThreads();
 	}
 

@@ -1,10 +1,7 @@
-/**
- * TASKS * Copyright (c) 2011-2015 Zauber S.A. -- All rights reserved
- */
 
 package io.tilt.minka;
 
-import static io.tilt.minka.broker.EventBroker.Channel.INSTRUCTIONS_TO_FOLLOWER;
+import static io.tilt.minka.broker.EventBroker.Channel.INSTRUCTIONS;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -148,7 +145,7 @@ public abstract class AbstractBrokerTester {
 		msgAtDestiny.set(0);
 
 		Assert.assertTrue(sourceBroker
-				.postEvent(sourceBroker.buildToTarget(config, INSTRUCTIONS_TO_FOLLOWER, targetShard), msgAtOrigin));
+				.postEvent(sourceBroker.buildToTarget(config, INSTRUCTIONS, targetShard), msgAtOrigin));
 		latch.await(5, TimeUnit.SECONDS); // wait for message to bounce loopback
 		Assert.assertEquals(msgAtOrigin.intValue(), msgAtDestiny.get());
 	}

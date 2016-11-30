@@ -15,16 +15,27 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import io.tilt.minka.api.ConsumerDelegate.Event;
+import io.tilt.minka.core.leader.distributor.Balancer;
 
 /**
- * An alternative of starting the Minka service instead of including Minka Spring bean in your context.
- * Enabling programatic customization.
- * The service remains alive while this class stays loaded and non-stopped.
+ * An alternative way of programatically loading Minka  <br>
+ * The service remains alive while this class stays loaded and non-stopped. <br>
+ * Each application instance hosting a Minka shard must create this loader. <br> <br>
+ *  
+ * Minka requires some events to be mapped and others are optional depending client's needs,
+ * strictly related to the usage of {@linkplain MinkaClient}. <br>
+ * Once the context is created, Minka boots-up and waits for all events to be mapped,
+ * unless load() is called which validates for mapped mandatory events. <br>
+ * Client may or not need some pallet events, all duties hold its pallet information as well. <br>
+ * Shard capacities are required if client uses a balancer that depends on duty weights. <br> <br>
  * 
- * 1) create loader with custom json config file
- * 2) load the service with a mocked {@link PartitionDelegate} (never ready)
- * 3) after set another partition delegates or master
- * 4) or use event consumers 
+ * Usually client will map events duty::load(),take(),release(),report() and pallet::load(),
+ * and specify current shard's capacities for pallets thru setCapacity(...)
+ * 
+ * @author Cristian Gonzalez
+ * @since Sept 20, 2016
+ * @param <D>	the duty payload type
+ * @param <P>	the pallet payload type
  */
 @SuppressWarnings("unchecked")
 public class MinkaContextLoader<D extends Serializable, P extends Serializable> {
@@ -69,7 +80,8 @@ public class MinkaContextLoader<D extends Serializable, P extends Serializable> 
 	/**
 	 * Create a Minka server with default configuration. 
 	 * All mandatory events must be mapped to consumers/suppliers.
-	 * Shard will attempt to take a port over 5748, trying increased ports if busy, depending on Config.
+	 * Shard will attempt to take a port over 5748, trying increased ports if busy.
+	 * Rest API will take port 57480
 	 * @param zookeeperConnectionString in the zookeeper form hostname:port/chroot
 	 */
 	public MinkaContextLoader(final String zookeeperConnectionString)  {
@@ -90,6 +102,7 @@ public class MinkaContextLoader<D extends Serializable, P extends Serializable> 
 	}
 
 	private void init(final Config config) {
+		// TODO fix im ignoring config arg.
 		logger.info("{}: Initializing context for service: {}", getClass().getSimpleName(), 
 				service);
 		ClassPathXmlApplicationContext ctx = ctxs.get(service);
@@ -112,13 +125,6 @@ public class MinkaContextLoader<D extends Serializable, P extends Serializable> 
 		start();
 	}
 
-	public boolean isActive() {
-		return ctxs.get(service).isActive();
-	}
-	
-	/**
-	 * load and start Minka service.   
-	 */
 	private void start() {
 		if (!ctxs.get(service).isActive()) {
 			ctxs.get(service).refresh();
@@ -144,7 +150,11 @@ public class MinkaContextLoader<D extends Serializable, P extends Serializable> 
 	private DependencyPlaceholder getDepPlaceholder() {
 		return ctxs.get(service).getBean(DependencyPlaceholder.class);
 	}
-
+	/**
+	 * An alternative way of mapping duty and pallet events, thru an implementation class.
+	 * @param delegate	a fully implementation class of a partition delegate
+	 * @return
+	 */
 	public MinkaContextLoader<D, P> setDelegate(final PartitionDelegate<D, P> delegate) {
 		Validate.notNull(delegate);
 		checkInit();
@@ -156,8 +166,11 @@ public class MinkaContextLoader<D extends Serializable, P extends Serializable> 
 		holder.setDelegate(delegate);
 		return this;
 	}
-
-
+	/**
+	 * An alternative way of mapping duty and pallet events, thru an implementation class.
+	 * @param delegate	a fully implementation class of a partition master
+	 * @return
+	 */
 	public MinkaContextLoader<D, P> setMaster(final PartitionMaster<D, P> master) {
 		Validate.notNull(master);
 		checkInit();
@@ -168,7 +181,6 @@ public class MinkaContextLoader<D extends Serializable, P extends Serializable> 
 		getDepPlaceholder().setMaster(master);
 		return this;
 	}
-	
 	
 	// ---------- consumer delegate usage 
 	
@@ -210,26 +222,37 @@ public class MinkaContextLoader<D extends Serializable, P extends Serializable> 
 	 * @see PartitionDelegate
 	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
 	 */
-	public MinkaContextLoader<D, P> onTake(final Consumer<Set<Duty<D>>> consumer) {
+	public MinkaContextLoader<D, P> onDutyCapture(final Consumer<Set<Duty<D>>> consumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumer(consumer, Event.take);
+		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumer(consumer, Event.capture);
 		return this;
 	}
-	public MinkaContextLoader<D, P> onTakePallet(final Consumer<Set<Pallet<P>>> consumer) {
+	/**
+	 * Required optional. Map pallet assignation responsibilities to a consumer 
+	 * @see PartitionDelegate
+	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
+	 */
+	public MinkaContextLoader<D, P> onPalletCapture(final Consumer<Set<Pallet<P>>> consumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerPallet(consumer, Event.take);
+		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerPallet(consumer, Event.capture);
 		return this;
-	}	/**
+	}	
+	/**
 	 * Mandatory. Map duty release contract to a consumer 
 	 * @see PartitionDelegate
 	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
 	 */
-	public MinkaContextLoader<D, P> onRelease(final Consumer<Set<Duty<D>>> consumer) {
+	public MinkaContextLoader<D, P> onDutyRelease(final Consumer<Set<Duty<D>>> consumer) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumer(consumer, Event.release);
 		return this;
 	}
-	public MinkaContextLoader<D, P> onReleasePallet(final Consumer<Set<Pallet<P>>> consumer) {
+	/**
+	 * Required optional. Map pallet release contract to a consumer 
+	 * @see PartitionDelegate
+	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
+	 */
+	public MinkaContextLoader<D, P> onPalletRelease(final Consumer<Set<Pallet<P>>> consumer) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerPallet(consumer, Event.releasePallet);
 		return this;
@@ -239,7 +262,7 @@ public class MinkaContextLoader<D extends Serializable, P extends Serializable> 
 	 * @see PartitionDelegate
 	 * @param supplier	to be called profusely by the follower process at the current shard
 	 */
-	public MinkaContextLoader<D, P> onReport(final Supplier<Set<Duty<D>>> supplier) {
+	public MinkaContextLoader<D, P> onDutyReport(final Supplier<Set<Duty<D>>> supplier) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addSupplier(Event.report, supplier);
 		return this;
@@ -248,23 +271,46 @@ public class MinkaContextLoader<D extends Serializable, P extends Serializable> 
 	 * Optional. Map an update on the duty's payload to a consumer
 	 * @param consumer	to be called only on client's call thru MinkaClient.update(..)
 	 */
-	public MinkaContextLoader<D, P> onUpdate(final Consumer<Duty<D>> consumer) {
+	public MinkaContextLoader<D, P> onDutyUpdate(final Consumer<Duty<D>> consumer) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerUpdate(consumer);
 		return this;
 	}
 	/**
-	 * Optional. Map duty object's delivery responsibilities to a consumer 
-	 * @see PartitionDelegate
-	 * @param consumer	to be called only on client's call thru MinkaClient.deliver(...)
+	 * Optional. Map an update on the pallet's payload to a consumer
+	 * @param consumer	to be called only on client's call thru MinkaClient.update(..)
 	 */
-	public MinkaContextLoader<D, P> onDeliver(final BiConsumer<Duty<D>, Serializable> biconsumer) {
+	public MinkaContextLoader<D, P> onPalletUpdate(final Consumer<Pallet<P>> consumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addBiConsumerDeliver(biconsumer);
+		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerUpdatePallet(consumer);
 		return this;
 	}
 	/**
-	 * Optional. 
+	 * Optional. Map duty object's transfer responsibilities to a receptionist consumer 
+	 * @see PartitionDelegate
+	 * @param consumer	to be called only on client's call thru MinkaClient.deliver(...)
+	 */
+	public MinkaContextLoader<D, P> onDutyTransfer(final BiConsumer<Duty<D>, Serializable> biconsumer) {
+		initConsumerDelegate();
+		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addBiConsumerTransfer(biconsumer);
+		return this;
+	}
+	public MinkaContextLoader<D, P> onPalletTransfer(final BiConsumer<Pallet<P>, Serializable> biconsumer) {
+		initConsumerDelegate();
+		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addBiConsumerTransferPallet(biconsumer);
+		return this;
+	}
+	/**
+	 * Optional. Adds a custom balancer
+	 * @param balancer
+	 */
+	public MinkaContextLoader<D, P> onBalance(final Balancer balancer) {
+		Validate.notNull(balancer);
+		Balancer.Directory.addCustomBalancer(balancer);
+		return this;
+	}
+	/**
+	 * Optional. Map minka's service start to a consumer
 	 * @param runnable
 	 */
 	public MinkaContextLoader<D, P> onActivation(final Runnable runnable) {
@@ -273,7 +319,7 @@ public class MinkaContextLoader<D extends Serializable, P extends Serializable> 
 		return this;
 	}
 	/**
-	 * Optional. 
+	 * Optional. Map minka's service shutdown to a consumer. 
 	 * @param runnable
 	 */
 	public MinkaContextLoader<D, P> onDeactivation(final Runnable runnable) {
@@ -282,8 +328,8 @@ public class MinkaContextLoader<D extends Serializable, P extends Serializable> 
 		return this;
 	}
 	/**
-	 * Mandatory for pallets using a weighted-balancer to be actually distributed. 
-	 * Explicitly set current shard's capacities for a given Pallet 
+	 * Mandatory for pallets using a weighted-balancer to be actually distributed. <br> 
+	 * Explicitly set current shard's capacity for a given Pallet 
 	 * @param weight 	must be in the same measure than duty weights grouped by this pallet
 	 */
 	public MinkaContextLoader<D, P> setCapacity(final Pallet<P> pallet, final double weight) {
@@ -292,7 +338,7 @@ public class MinkaContextLoader<D extends Serializable, P extends Serializable> 
 		return this;
 	}
 	/**
-	 * Optional. After creating this loader the context is created and the Minka's bootstrap process waits
+	 * Mandatory. After creating this loader the context is created and the Minka's bootstrap process waits
 	 * for all mandatory and optional events to be mapped: before calling load()
 	 * This explicitly releases the bootstrap wait, but not without event's mapping validation.
 	 * The load will also occurr if all optional and mandatory events are mapped.

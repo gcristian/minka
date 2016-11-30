@@ -1,7 +1,3 @@
-/**
- *  Copyright (c) 2011-2015 Zauber S.A.  -- All rights reserved
- */
-
 package io.tilt.minka.core.task;
 
 import java.util.Date;
@@ -72,11 +68,11 @@ public interface Journal {
 		distribution_reallocation_expired,
 		distribution_duty_lost,
 
-		shepherding,
-		shepherd_inbalance,
-		shepherd_shard_online,
-		shepherd_shard_offline,
-		shepherd_shard_changing_state,
+		proctorizing,
+		proctor_inbalance,
+		proctor_shard_online,
+		proctor_shard_offline,
+		proctor_shard_changing_state,
 		shard_finding_address,
 
 		auditory_inconsistency,

@@ -57,8 +57,8 @@ public interface PartitionDelegate<D extends Serializable, P extends Serializabl
 	/**
 	* Instruct the Follower shard to take management responsibilities on these duties
 	*/
-	void take(Set<Duty<D>> duties);
-	void takePallet(Set<Pallet<P>> pallets);
+	void capture(Set<Duty<D>> duties);
+	void capturePallet(Set<Pallet<P>> pallets);
 
 	/**
 	* Instruct the Follower shard to release management 
@@ -73,17 +73,20 @@ public interface PartitionDelegate<D extends Serializable, P extends Serializabl
 	 * @param duties
 	 */
 	default void update(Duty<D> duties) {
-		logger.error("{}: this PartitionDelegate has not implemented the duty update event",
-				getClass().getSimpleName());
+		logger.error("{}: this PartitionDelegate has not implemented the duty update event",getClass().getSimpleName());
 	}
-
+	default void update(Pallet<P> pallets) {
+		logger.error("{}: this PartitionDelegate has not implemented the duty update event",getClass().getSimpleName());
+	}
 	/**
 	 * Instruct te Follower shard to get a client payload event for a particular duty 
 	 * @param duties
 	 */
-	default void deliver(Duty<D> duty, Serializable clientPayload) {
-		logger.error("{}: this PartitionDelegate has not implemented the payload reception event",
-				getClass().getSimpleName());
+	default void transfer(Duty<D> duty, Serializable clientPayload) {
+		logger.error("{}: this PartitionDelegate has not implemented the payload reception event",getClass().getSimpleName());
+	}
+	default void transfer(Pallet<P> duty, Serializable clientPayload) {
+		logger.error("{}: this PartitionDelegate has not implemented the payload reception event",getClass().getSimpleName());
 	}
 
 	/**
@@ -101,7 +104,7 @@ public interface PartitionDelegate<D extends Serializable, P extends Serializabl
 	* 
 	* @return	a list of handled duties
 	*/
-	Set<Duty<D>> reportTaken();
+	Set<Duty<D>> reportCapture();
 
 	/**
 	* Continue performing actions on already taken duties.

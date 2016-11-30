@@ -14,7 +14,7 @@ public class AwaitingDelegate implements PartitionMaster<String, String> {
 	}
 
 	@Override
-	public void take(Set<Duty<String>> duties) {
+	public void capture(Set<Duty<String>> duties) {
 		throw new IllegalStateException();
 	}
 
@@ -24,7 +24,7 @@ public class AwaitingDelegate implements PartitionMaster<String, String> {
 	}
 
 	@Override
-	public Set<Duty<String>> reportTaken() {
+	public Set<Duty<String>> reportCapture() {
 		throw new IllegalStateException();
 	}
 
@@ -44,7 +44,7 @@ public class AwaitingDelegate implements PartitionMaster<String, String> {
 	}
 
 	@Override
-	public void takePallet(Set<Pallet<String>> pallets) {
+	public void capturePallet(Set<Pallet<String>> pallets) {
 		throw new IllegalStateException();
 	}
 

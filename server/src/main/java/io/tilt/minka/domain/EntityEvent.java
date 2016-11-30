@@ -29,6 +29,8 @@ public enum EntityEvent {
 	REMOVE(true),
 	/* user updates something related to the duty that leader must notify the shard */
 	UPDATE(true),
+	/* unrelated to the entity, just a message to it's delegate */
+	TRANSFER(false),
 
 	/* leader assigns to a Shard */
 	ATTACH(false),

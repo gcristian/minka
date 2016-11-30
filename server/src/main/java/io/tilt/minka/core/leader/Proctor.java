@@ -51,14 +51,17 @@ import io.tilt.minka.domain.ShardState;
 import io.tilt.minka.utils.LogUtils;
 
 /**
+ * Basically observes shards behaviour and classifies in States that enables distribution
+ * 
  * Analyze the {@linkplain PartitionTable} defining a shard's {@linkplain ShardState}
  * which in turn feeds from the {@linkplain Bookkeeper} receiving {@linkplain Heartbeat}s
  * Also sends {@linkplain Clearance} messages to authorized {@linkplain Shard}s
- * and sends {@linkplain DomainInfo} messages to all shards willing to acknowledged them
+ * and sends {@linkplain DomainInfo} messages to all shards.
+ * 
  * @author Cristian Gonzalez
  * @since Dec 2, 2015
  */
-public class Shepherd extends ServiceImpl {
+public class Proctor extends ServiceImpl {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -83,8 +86,9 @@ public class Shepherd extends ServiceImpl {
 	 * Partition Table
 	 */
 
-	public Shepherd(Config config, PartitionTable partitionTable, Bookkeeper bookkeeper, EventBroker eventBroker,
-			Scheduler scheduler, NetworkShardID shardId, LeaderShardContainer leaderShardContainer) {
+	public Proctor(final Config config, final PartitionTable partitionTable, final Bookkeeper bookkeeper, 
+			final EventBroker eventBroker, final Scheduler scheduler, final NetworkShardID shardId, 
+			final LeaderShardContainer leaderShardContainer) {
 
 		this.config = config;
 		this.partitionTable = partitionTable;
@@ -95,8 +99,8 @@ public class Shepherd extends ServiceImpl {
 		this.leaderShardContainer = leaderShardContainer;
 
 		this.analyzer = scheduler.getAgentFactory()
-				.create(Action.SHEPHERD, PriorityLock.MEDIUM_BLOCKING, Frequency.PERIODIC, () -> analyzeShards())
-				.delayed(config.getShepherd().getStartDelayMs()).every(config.getShepherd().getDelayMs()).build();
+				.create(Action.PROCTOR, PriorityLock.MEDIUM_BLOCKING, Frequency.PERIODIC, () -> analyzeShards())
+				.delayed(config.getProctor().getStartDelayMs()).every(config.getProctor().getDelayMs()).build();
 	}
 
 	@Override
@@ -166,13 +170,13 @@ public class Shepherd extends ServiceImpl {
 				sizeOnline += shard.getState() == ShardState.ONLINE ? 1 : 0;
 			}
 			final ClusterHealth health = sizeOnline == shards.size()
-					&& analysisCounter - lastUnstableAnalysisId >= config.getShepherd().getClusterHealthStabilityDelayPeriods()
+					&& analysisCounter - lastUnstableAnalysisId >= config.getProctor().getClusterHealthStabilityDelayPeriods()
 							? STABLE : UNSTABLE;
 			if (health != partitionTable.getVisibilityHealth()) {
 				partitionTable.setVisibilityHealth(health);
 				logger.warn("{}: Cluster back to: {} ({}, min unchanged analyses: {})", getName(),
 						partitionTable.getVisibilityHealth(), lastUnstableAnalysisId,
-						config.getShepherd().getClusterHealthStabilityDelayPeriods());
+						config.getProctor().getClusterHealthStabilityDelayPeriods());
 			}
 			sendDomainInfo();
 			if (blessCounter++ > 2) {
@@ -189,7 +193,7 @@ public class Shepherd extends ServiceImpl {
 	private ShardState evaluateStateThruHeartbeats(Shard shard) {
 		final long now = System.currentTimeMillis();
 		final long normalDelay = config.getFollower().getHeartbeatDelayMs();
-		final long configuredLapse = config.getShepherd().getHeartbeatLapseSec() * 1000;
+		final long configuredLapse = config.getProctor().getHeartbeatLapseSec() * 1000;
 		final long lapseStart = now - configuredLapse;
 		//long minMandatoryHBs = configuredLapse / normalDelay;
 
@@ -199,12 +203,12 @@ public class Shepherd extends ServiceImpl {
 		List<Heartbeat> pastLapse = null;
 		String msg = "";
 
-		final int minHealthlyToGoOnline = config.getShepherd().getMinHealthlyHeartbeatsForShardOnline();
-		final int minToBeGone = config.getShepherd().getMaxAbsentHeartbeatsBeforeShardGone();
-		final int maxSickToGoQuarantine = config.getShepherd().getMaxSickHeartbeatsBeforeShardQuarantine();
+		final int minHealthlyToGoOnline = config.getProctor().getMinHealthlyHeartbeatsForShardOnline();
+		final int minToBeGone = config.getProctor().getMaxAbsentHeartbeatsBeforeShardGone();
+		final int maxSickToGoQuarantine = config.getProctor().getMaxSickHeartbeatsBeforeShardQuarantine();
 
 		if (all.size() < minToBeGone) {
-			if (shard.getLastStatusChange().plus(config.getShepherd().getMaxShardJoiningStateMs()).isBeforeNow()) {
+			if (shard.getLastStatusChange().plus(config.getProctor().getMaxShardJoiningStateMs()).isBeforeNow()) {
 				msg = "try joining expired";
 				newState = ShardState.GONE;
 			} else {
@@ -276,10 +280,10 @@ public class Shepherd extends ServiceImpl {
 
 		long stdDeviationDelay = (long) Precision.round(stat.getStandardDeviation(), 2);
 		long permittedStdDeviationDistance = (normalDelay
-				* (long) (config.getShepherd().getHeartbeatMaxDistanceStandardDeviation() * 10d) / 100);
+				* (long) (config.getProctor().getHeartbeatMaxDistanceStandardDeviation() * 10d) / 100);
 		/*
 		 * long permittedBiggestDelay = (normalDelay *
-		 * (long)(config.getShepherdHeartbeatMaxBiggestDistanceFactor()*10d) /
+		 * (long)(config.getProctorHeartbeatMaxBiggestDistanceFactor()*10d) /
 		 * 100);
 		 */
 		final NetworkShardID shardId = onTime.get(0).getShardId();

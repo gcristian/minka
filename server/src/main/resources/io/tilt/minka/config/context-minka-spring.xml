@@ -141,7 +141,7 @@
     </bean>
     
     <!-- Pastorea los followers -->
-    <bean id="shepherd" class="io.tilt.minka.core.leader.Shepherd">
+    <bean id="proctor" class="io.tilt.minka.core.leader.Proctor">
         <constructor-arg ref="config" />
         <constructor-arg ref="partitionTable" />
         <constructor-arg ref="bookkeeper" />
@@ -177,7 +177,7 @@
         <constructor-arg ref="config" />        
         <constructor-arg>
             <list>
-                <ref bean="shepherd"/>
+                <ref bean="proctor"/>
                 <ref bean="distributor"/>
                 <ref bean="followerEventsHandler"/>                
                 <ref bean="clientEventsHandler"/>

@@ -233,8 +233,10 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 		public boolean equals(Object obj) {
 			if (obj != null && obj instanceof DirectChannel) {
 				DirectChannel channel = (DirectChannel) obj;
-				return new EqualsBuilder().append(channel.getAddress(), getAddress())
-						.append(channel.getCreation(), getCreation()).isEquals();
+				return new EqualsBuilder()
+						.append(channel.getAddress(), getAddress())
+						.append(channel.getCreation(), getCreation())
+						.isEquals();
 			} else {
 				return false;
 			}

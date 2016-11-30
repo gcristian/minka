@@ -1,6 +1,3 @@
-/**
- *  Copyright (c) 2011-2015 Zauber S.A.  -- All rights reserved
- */
 
 package io.tilt.minka.core.leader.distributor;
 
@@ -35,10 +32,9 @@ import io.tilt.minka.domain.ShardState;
  * It helps to balancer extensibility.
  * 
  * everything ends up in a: roadmap.ship(...)
- * 
- * In case the duty already exists in target shard, nothing will happen.
- * So if all balancers in all pallets has always the same behaviour, 
- * and there're no CRUD operations, the partitiontable should not change.
+ *
+ * Is a rule that if the balancers have a stable behaviour: this class will keep the 
+ * roadmap unchanged at  execute(), unless there's a CRUD operation from client.
  * 
  * @author Cristian Gonzalez
  * @since Oct 29, 2016

@@ -74,7 +74,7 @@ public class Config {
 	private FollowerConf follower;
 	private BalancerConf balancer;
 	private DistributorConf distributor;
-	private ShepherdConf shepherd;
+	private ProctorConf proctor;
 	private ConsistencyConf consistency;
 
 	public static class SchedulerConf {
@@ -309,7 +309,7 @@ public class Config {
 		private boolean reloadDutiesFromStorage;
 		protected static final int RELOAD_DUTIES_FROM_STORAGE_EACH_PERIODS = 10;
 		private int reloadDutiesFromStorageEachPeriods;
-		/* 10 seconds to let the Shepherd discover all Followers before distributing */
+		/* 10 seconds to let the Proctor discover all Followers before distributing */
 		protected final static long START_DELAY_MS = 10000;
 		private long startDelayMs;
 		protected final static long DELAY_MS = 5000;		
@@ -416,7 +416,7 @@ public class Config {
 		
 	}
 
-	public static class ShepherdConf {
+	public static class ProctorConf {
 		/* each 3 seconds */
 		protected final static long START_DELAY_MS = 500;
 		private long startDelayMs;
@@ -452,8 +452,8 @@ public class Config {
 		public long getDelayMs() {
 			return this.delayMs;
 		}
-		public void setDelayMs(long shepherddDelayMs) {
-			this.delayMs = shepherddDelayMs;
+		public void setDelayMs(long proctordDelayMs) {
+			this.delayMs = proctordDelayMs;
 		}
 		public int getMaxShardJoiningStateMs() {
 			return this.maxShardJoiningStateMs;
@@ -535,7 +535,7 @@ public class Config {
 		this.broker = new BrokerConf();
 		this.follower = new FollowerConf();
 		this.distributor = new DistributorConf();
-		this.shepherd = new ShepherdConf();
+		this.proctor = new ProctorConf();
 		this.balancer = new BalancerConf();
 		this.consistency = new ConsistencyConf();		
 	}
@@ -570,7 +570,7 @@ public class Config {
 		Defaulter.apply(prop, "distributor.", this.getDistributor());
 		Defaulter.apply(prop, "follower.", this.getFollower());
 		Defaulter.apply(prop, "scheduler.", this.getScheduler());
-		Defaulter.apply(prop, "shepherd.", this.getShepherd());
+		Defaulter.apply(prop, "proctor.", this.getProctor());
 		//logger.info("{}: Configuration: {} ", getClass().getSimpleName(), toJson());
 	}
 
@@ -642,12 +642,12 @@ public class Config {
 		this.distributor = distributor;
 	}
 
-	public ShepherdConf getShepherd() {
-		return this.shepherd;
+	public ProctorConf getProctor() {
+		return this.proctor;
 	}
 
-	public void setShepherd(ShepherdConf shepherd) {
-		this.shepherd = shepherd;
+	public void setProctor(ProctorConf proctor) {
+		this.proctor = proctor;
 	}
 
 	public DateTime getLoadTime() {

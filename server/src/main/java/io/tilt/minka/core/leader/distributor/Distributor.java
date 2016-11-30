@@ -149,7 +149,7 @@ public class Distributor extends ServiceImpl {
 			showStatus();
 			final long now = System.currentTimeMillis();
 			final int online = partitionTable.getStage().getShardsByState(ONLINE).size();
-			final int min = config.getShepherd().getMinShardsOnlineBeforeSharding();
+			final int min = config.getProctor().getMinShardsOnlineBeforeSharding();
 			if (online >= min) {
 				if (checkWithStorageWhenAllOnlines()) {
 					final Roadmap currentRoadmap = partitionTable.getCurrentRoadmap();
@@ -326,7 +326,7 @@ public class Distributor extends ServiceImpl {
 		}
 		driveRoadmap();
 	}
-
+	
 	private void driveRoadmap() {
 		final Multimap<Shard, ShardEntity> issues = partitionTable.getCurrentRoadmap().getGroupedDeliveries();
 		final Iterator<Shard> it = issues.keySet().iterator();

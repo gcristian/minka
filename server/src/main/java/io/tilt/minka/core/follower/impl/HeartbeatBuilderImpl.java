@@ -77,7 +77,7 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 	public Heartbeat build() {
 		Set<Duty<?>> reportedDuties;
 		try {
-			reportedDuties = dependencyPlaceholder.getDelegate().reportTaken();
+			reportedDuties = dependencyPlaceholder.getDelegate().reportCapture();
 		} catch (Exception e) {
 			log.error("{}: ({}) PartitionDelegate failure", getClass().getSimpleName(), config.getLoggingShardId(), e);
 			reportedDuties = new HashSet();

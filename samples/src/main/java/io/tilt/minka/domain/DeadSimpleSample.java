@@ -1,6 +1,3 @@
-/**
- *  Copyright (c) 2011-2015 Zauber S.A.  -- All rights reserved
- */
 
 package io.tilt.minka.domain;
 
@@ -38,13 +35,13 @@ public class DeadSimpleSample {
 		// holds the duties to be reported in case this shard becomes the leader  
 		// on production environtment we should build duties loding source data from a database
 		loader.onDutyLoad(()-> newHashSet(helloWorld));
-		
+
 		// map the taking duties action
-		loader.onTake((taking)->myDuties.addAll(taking));
+		loader.onDutyCapture(duties->myDuties.addAll(duties));
 		// map the releasing duties from this shard (hardly as there's no rebalance we can hope here)
-		loader.onRelease((releasing)->myDuties.removeAll(releasing));
+		loader.onDutyRelease(duties->myDuties.removeAll(duties));
 		// minka will continuously ask for those running duties to ensure we havent lost them
-		loader.onReport(()->myDuties);
+		loader.onDutyReport(()->myDuties);
 		// release the bootstrap process so minka can start
 		loader.load();
 		
@@ -54,7 +51,7 @@ public class DeadSimpleSample {
 		
 		// create another one
 		final Duty<String> another = DutyBuilder.<String>builder("another", "group").build();
-		MinkaClient.getInstance().add(another);
+		MinkaClient.<String, String>getInstance().add(another);
 		
 		Thread.sleep(5000);
 		// after a while the distribution process, will deliver it to us

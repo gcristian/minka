@@ -6,15 +6,19 @@ import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 
 /**
- * This builder does not support large binary payloads as duties are loaded into
- * memory and transported
+ * Note this builder does not support large binary payloads as duties are loaded into memory and transported
+ * 
+ * @author Cristian Gonzalez
+ * @since Nov 24, 2016
+ * 
+ * @param <T>	A bytes serializable payload to carry along the wire from the intake point 
+ * at <code> MinkaClient.getInstance().add(...) </code> to the Shard where the host app will process it 
  */
 public class DutyBuilder<T extends Serializable> {
 	private final String id;
 	private final String palletId;
 
-	private T value;
-	private Class<T> type;
+	private T payload;
 	private double weight;
 	private boolean synthetic;
 	private boolean lazy;
@@ -42,11 +46,9 @@ public class DutyBuilder<T extends Serializable> {
 	 * @param payload	must implement Serializable
 	 * @return
 	 */
-	public DutyBuilder<T> with(final Class<T> type, final T payload) {
-		Validate.notNull(type, id + ": You must specify param's class or use overload builder");
+	public DutyBuilder<T> with(final T payload) {
 		Validate.notNull(payload, id + ": You must specify payload param or use overload builder");
-		this.type = type;
-		this.value = payload;
+		this.payload = payload;
 		return this;
 	}
 	/**
@@ -59,14 +61,31 @@ public class DutyBuilder<T extends Serializable> {
 		this.weight = weight;
 		return this;
 	}
+	/** 
+	 * lazy finalization allows a duty to be peacefully considered finished once it's presence 
+	 * ceases to be reported, otherwise the leader will keep trying to restart it, 
+	 * even flagging the shard as rebell if it rejects to take it and report it.
+	 * This's disabled by default */
 	public DutyBuilder<T> withLazyFinalization() {
 		this.lazy = true;
 		return this;
 	}
-	public DutyBuilder<T> asIdempotent() {
+	/**
+	 * idempotency allows the duty to be rebalanced, often migrated (dettached from a shard, and attach at
+	 * a different one), so the distribution, balance and availability Minka policies can be guaranteed.
+	 * Stationary duties are never rebalanced, they're distributed and abandoned.
+	 * Used when duties cannot be paused once started or involve some static coupling to the shard. 
+	 * This's disabled by default.
+	 */
+	public DutyBuilder<T> asStationary() {
 		this.idempotent = false;
 		return this;
 	}
+	/**
+	 * synthetic duties are distributed to all existing shards, without balancing, 
+	 * they're all the same for Minka, all CRUD operations still apply as the duty is only 1.
+	 * Useful for controlling and coordination purposes.
+	 */
 	public DutyBuilder<T> asSynthetic() {
 		this.synthetic = true;;
 		return this;
@@ -76,10 +95,10 @@ public class DutyBuilder<T extends Serializable> {
 		if (weight ==0) {
 			weight = 1;
 		}
-		if (type == null) {
-			return new Chore(String.class, id, id, weight, palletId, synthetic, lazy, idempotent);								
+		if (payload == null) {
+			return new Chore(id, id, weight, palletId, synthetic, lazy, idempotent);								
 		} else {
-			return new Chore<>(type, value, id, weight, palletId, synthetic, lazy, idempotent);
+			return new Chore<>(payload, id, weight, palletId, synthetic, lazy, idempotent);
 		}
 	}
 		
@@ -92,19 +111,20 @@ public class DutyBuilder<T extends Serializable> {
 		/* courtesy: at client assignation the duty has the pallet embedded*/
 		private Pallet<?> pallet;
 		private final double load;
-		private final T value;
+		private final T payload;
 		private Class<T> type;
 		private final boolean synthetic;
 		private final boolean lazy;
 		private final boolean idempotent;
 
-		protected Chore(final Class<T> class1, final T payload, final String id, final double load,
+		@SuppressWarnings("unchecked")
+		protected Chore(final T payload, final String id, final double load,
 				final String palletId, final boolean synthetic, final boolean lazy, final boolean idempotent) {
 			this.id = id;
 			this.palletId = palletId;
 			this.load = load;
-			this.value = payload;
-			this.type = class1;
+			this.payload = payload;
+			this.type = (Class<T>) payload.getClass();
 			this.synthetic = synthetic;
 			this.lazy = lazy;
 			this.idempotent = idempotent;
@@ -153,7 +173,7 @@ public class DutyBuilder<T extends Serializable> {
 
 		@Override
 		public T get() {
-			return value;
+			return payload;
 		}
 
 		@Override

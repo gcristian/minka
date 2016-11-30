@@ -75,7 +75,7 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 
 		final long readQueueSince = System.currentTimeMillis();
 
-		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.HEARTBEATS_TO_LEADER, shardId), Heartbeat.class,
+		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.HEARTBEATS, shardId), Heartbeat.class,
 				(Consumer) this, readQueueSince);
 
 	}
@@ -84,7 +84,7 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void stop() {
 		logger.info("{}: Stopping", getClass().getSimpleName());
-		this.eventBroker.unsubscribe(eventBroker.build(config, Channel.HEARTBEATS_TO_LEADER), Heartbeat.class,
+		this.eventBroker.unsubscribe(eventBroker.build(config, Channel.HEARTBEATS), Heartbeat.class,
 				(Consumer) this);
 	}
 
@@ -103,7 +103,7 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 					if (shard == null) {
 						// new member
 						partitionTable.getStage().addShard(shard = new Shard(
-								eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, hb.getShardId()),
+								eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, hb.getShardId()),
 								hb.getShardId()));
 					}
 					if (hb.getStateChange() == ShardState.QUITTED) {

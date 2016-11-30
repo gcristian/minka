@@ -1,7 +1,3 @@
-/**
- * Copyright (c) 2011-2015 Zauber S.A. -- All rights reserved
- */
-
 package io.tilt.minka.api;
 
 import java.io.InputStream;

@@ -1,7 +1,3 @@
-/**
- * Copyright (c) 2011-2015 Zauber S.A. -- All rights reserved
- */
-
 package io.tilt.minka.domain;
 
 import java.util.Collection;
@@ -60,24 +56,24 @@ public abstract class AbstractMappingEventsApp {
 		loader.onPalletLoad(() -> allOriginalPallets);
 		loader.onDutyLoad(()->allOriginalDuties);
 		
-		loader.onTake((final Set<Duty<String>> t) -> {
+		loader.onDutyCapture((final Set<Duty<String>> t) -> {
 			logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "taking"));
 			logger.info("{} # {}+ ({})", shardId, t.size(), toStringIds(t));
 			runningDuties.addAll(t);
 		});
-		loader.onTakePallet((p)->logger.info("Taking pallet: {}", p.toString()));
+		loader.onPalletCapture((p)->logger.info("Taking pallet: {}", p.toString()));
 		
-		loader.onRelease((final Set<Duty<String>> entities)-> {
+		loader.onDutyRelease((final Set<Duty<String>> entities)-> {
 			logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "releasing"));
 			logger.info("{} # -{} ({})", shardId, entities.size(), toStringIds(entities));
 			runningDuties.removeAll(entities);
 		});
-		loader.onReleasePallet((p)->logger.info("Releasing pallet: {}", p.toString()));
+		loader.onPalletRelease((p)->logger.info("Releasing pallet: {}", p.toString()));
 		
-		loader.onReport(()-> {
+		loader.onDutyReport(()-> {
 			final long now = System.currentTimeMillis();
 			if (timeToLog(now)) {
-				final MinkaClient client = MinkaClient.getInstance();
+				final MinkaClient<String, String> client = MinkaClient.getInstance();
 				lastPrint = now;
 				lastSize = runningDuties.size();
 				logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "running"));
@@ -96,13 +92,14 @@ public abstract class AbstractMappingEventsApp {
 			loader.setCapacity(pallet, getTotalCapacity(pallet));			
 		}
 		
-		loader.onUpdate(d->{});
+		loader.onDutyUpdate(d->{});
 		loader.onActivation(()-> {
 			logger.info("activating");
 			this.shardId = MinkaClient.getInstance().getShardIdentity();
 		});
 		loader.onDeactivation(()->logger.info("de-activating"));
-		loader.onDeliver((d, e)->logger.info("receiving delivery: {}", d));
+		loader.onDutyUpdate(d->logger.info("receiving update: {}", d));
+		loader.onDutyTransfer((d, e)->logger.info("receiving transfer: {}", d));
 		loader.load();
 	}
 	
@@ -122,7 +119,7 @@ public abstract class AbstractMappingEventsApp {
 		}
 	}
 
-	public MinkaClient getMinkaClient() {
+	public MinkaClient<String, String> getMinkaClient() {
 		return MinkaClient.getInstance();
 	}
 	

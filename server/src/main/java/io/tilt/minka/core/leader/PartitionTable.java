@@ -20,6 +20,7 @@ import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.STABLE;
 import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.UNSTABLE;
 import static io.tilt.minka.domain.ShardState.ONLINE;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -36,6 +37,7 @@ import com.google.common.util.concurrent.AtomicDouble;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
+import io.tilt.minka.core.leader.distributor.Distributor;
 import io.tilt.minka.core.leader.distributor.Roadmap;
 import io.tilt.minka.domain.AttachedPartition;
 import io.tilt.minka.domain.EntityEvent;
@@ -44,9 +46,9 @@ import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
-import io.tilt.minka.utils.SlidingSortedSet;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.domain.ShardState;
+import io.tilt.minka.utils.SlidingSortedSet;
 import jersey.repackaged.com.google.common.collect.Sets;
 
 /**
@@ -240,6 +242,20 @@ public class PartitionTable {
 				}
 			}
 			return null;
+		}
+
+		public List<Shard> getPalletLocations(final ShardEntity se) {
+			final List<Shard> ret = new ArrayList<>();
+			for (final Shard shard : partitionsByShard.keySet()) {
+				final AttachedPartition part = partitionsByShard.get(shard);
+				for (ShardEntity st : part.getPallets()) {
+					if (st.equals(se)) {
+						ret.add(shard);
+						break;
+					}
+				}
+			}
+			return ret;
 		}
 
 		public List<Shard> getShards() {
