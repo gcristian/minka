@@ -8,8 +8,7 @@ import java.util.TreeSet;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.DutyBuilder;
-import io.tilt.minka.api.MinkaClient;
-import io.tilt.minka.api.MinkaContextLoader;
+import io.tilt.minka.api.Minka;
 import io.tilt.minka.api.PalletBuilder;
 
 public class DeadSimpleSample {
@@ -28,22 +27,22 @@ public class DeadSimpleSample {
 		final Set<Duty<String>> myDuties = new TreeSet<>();
 		
 		// create a minka server with all default TCP/port values
-		final MinkaContextLoader<String, String> loader = new MinkaContextLoader<>();		
+		final Minka<String, String> minka = new Minka<>();		
 		// create a dummy pallet to group the helloWorld duty
 		// on production environtment we should build duties loding source data from a database
-		loader.onPalletLoad(()-> newHashSet(PalletBuilder.<String>builder("group").build()));		
+		minka.onPalletLoad(()-> newHashSet(PalletBuilder.<String>builder("group").build()));		
 		// holds the duties to be reported in case this shard becomes the leader  
 		// on production environtment we should build duties loding source data from a database
-		loader.onDutyLoad(()-> newHashSet(helloWorld));
+		minka.onDutyLoad(()-> newHashSet(helloWorld));
 
 		// map the taking duties action
-		loader.onDutyCapture(duties->myDuties.addAll(duties));
+		minka.onDutyCapture(duties->myDuties.addAll(duties));
 		// map the releasing duties from this shard (hardly as there's no rebalance we can hope here)
-		loader.onDutyRelease(duties->myDuties.removeAll(duties));
+		minka.onDutyRelease(duties->myDuties.removeAll(duties));
 		// minka will continuously ask for those running duties to ensure we havent lost them
-		loader.onDutyReport(()->myDuties);
+		minka.onDutyReport(()->myDuties);
 		// release the bootstrap process so minka can start
-		loader.load();
+		minka.load();
 		
 		Thread.sleep(5000);
 		// after a while, given this's the only shard, minka will give us the initially loaded duty
@@ -51,13 +50,13 @@ public class DeadSimpleSample {
 		
 		// create another one
 		final Duty<String> another = DutyBuilder.<String>builder("another", "group").build();
-		MinkaClient.<String, String>getInstance().add(another);
+		minka.getClient().add(another);
 		
 		Thread.sleep(5000);
 		// after a while the distribution process, will deliver it to us
 		assert myDuties.contains(another);
 		
-		loader.destroy();
+		minka.destroy();
 		assert myDuties.isEmpty();
 
 	}

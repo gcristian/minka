@@ -10,8 +10,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.Minka;
 import io.tilt.minka.api.MinkaClient;
-import io.tilt.minka.api.MinkaContextLoader;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.utils.LogUtils;
 
@@ -32,7 +32,7 @@ public abstract class AbstractMappingEventsApp {
 	private Set<Pallet<String>> allOriginalPallets = new TreeSet<>();
 	private Set<Duty<String>> runningDuties = new TreeSet<>();
 
-	private MinkaContextLoader<String, String> loader;
+	private Minka<String, String> server;
 
 	private String shardId = "{NN}";
 	
@@ -40,7 +40,7 @@ public abstract class AbstractMappingEventsApp {
 	public abstract Set<Pallet<String>> buildPallets() throws Exception;
 	public abstract double getTotalCapacity(Pallet<String> pallet);
 	
-	public abstract void init() throws Exception ;
+	public abstract void init() throws Exception;
 	
 	public AbstractMappingEventsApp() throws Exception {
 		super();
@@ -52,28 +52,28 @@ public abstract class AbstractMappingEventsApp {
 	public void startClientApp() throws Exception {
 		logger.info("{} Loading {} duties: {}", shardId, allOriginalDuties.size(), toStringGroupByPallet(allOriginalDuties));
 		
-		loader = new MinkaContextLoader<>();
-		loader.onPalletLoad(() -> allOriginalPallets);
-		loader.onDutyLoad(()->allOriginalDuties);
+		server = new Minka<>();
+		server.onPalletLoad(() -> allOriginalPallets);
+		server.onDutyLoad(()->allOriginalDuties);
 		
-		loader.onDutyCapture((final Set<Duty<String>> t) -> {
+		server.onDutyCapture((final Set<Duty<String>> t) -> {
 			logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "taking"));
 			logger.info("{} # {}+ ({})", shardId, t.size(), toStringIds(t));
 			runningDuties.addAll(t);
 		});
-		loader.onPalletCapture((p)->logger.info("Taking pallet: {}", p.toString()));
+		server.onPalletCapture((p)->logger.info("Taking pallet: {}", p.toString()));
 		
-		loader.onDutyRelease((final Set<Duty<String>> entities)-> {
+		server.onDutyRelease((final Set<Duty<String>> entities)-> {
 			logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "releasing"));
 			logger.info("{} # -{} ({})", shardId, entities.size(), toStringIds(entities));
 			runningDuties.removeAll(entities);
 		});
-		loader.onPalletRelease((p)->logger.info("Releasing pallet: {}", p.toString()));
+		server.onPalletRelease((p)->logger.info("Releasing pallet: {}", p.toString()));
 		
-		loader.onDutyReport(()-> {
+		server.onDutyReport(()-> {
 			final long now = System.currentTimeMillis();
 			if (timeToLog(now)) {
-				final MinkaClient<String, String> client = MinkaClient.getInstance();
+				final MinkaClient<String, String> client = server.getClient();
 				lastPrint = now;
 				lastSize = runningDuties.size();
 				logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "running"));
@@ -89,22 +89,22 @@ public abstract class AbstractMappingEventsApp {
 		});
 		
 		for (final Pallet<String> pallet: allOriginalPallets) {
-			loader.setCapacity(pallet, getTotalCapacity(pallet));			
+			server.setCapacity(pallet, getTotalCapacity(pallet));			
 		}
 		
-		loader.onDutyUpdate(d->{});
-		loader.onActivation(()-> {
+		server.onDutyUpdate(d->{});
+		server.onActivation(()-> {
 			logger.info("activating");
-			this.shardId = MinkaClient.getInstance().getShardIdentity();
+			this.shardId = server.getClient().getShardIdentity();
 		});
-		loader.onDeactivation(()->logger.info("de-activating"));
-		loader.onDutyUpdate(d->logger.info("receiving update: {}", d));
-		loader.onDutyTransfer((d, e)->logger.info("receiving transfer: {}", d));
-		loader.load();
+		server.onDeactivation(()->logger.info("de-activating"));
+		server.onDutyUpdate(d->logger.info("receiving update: {}", d));
+		server.onDutyTransfer((d, e)->logger.info("receiving transfer: {}", d));
+		server.load();
 	}
 	
-	public MinkaContextLoader<String, String> getLoader() {
-		return this.loader;
+	public Minka<String, String> getLoader() {
+		return this.server;
 	}
 	private boolean timeToLog(long now) {
 		return lastSize != runningDuties.size() || now - lastPrint > 60000 * 1;
@@ -120,7 +120,7 @@ public abstract class AbstractMappingEventsApp {
 	}
 
 	public MinkaClient<String, String> getMinkaClient() {
-		return MinkaClient.getInstance();
+		return server.getClient();
 	}
 	
 	public Set<Duty<String>> getAllOriginalDuties() {

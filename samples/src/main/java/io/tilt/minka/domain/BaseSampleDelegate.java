@@ -48,10 +48,6 @@ public abstract class BaseSampleDelegate implements PartitionMaster<String, Stri
 	public abstract Set<Pallet<String>> buildPallets() throws Exception;
 	public abstract void init() throws Exception ;
 	
-	public MinkaClient<String, String> getMinkaClient() {
-		return MinkaClient.getInstance();
-	}
-	
 	@Override
 	public void update(Duty<String> duty) {
 		logger.info("{} updating: {}", shardId, duty.getId());
@@ -100,7 +96,7 @@ public abstract class BaseSampleDelegate implements PartitionMaster<String, Stri
 
 	@Override
 	public Set<Duty<String>> reportCapture() {
-		final MinkaClient<String, String> client = MinkaClient.getInstance();
+		final MinkaClient<String, String> client = server.get
 		long now = System.currentTimeMillis();
 		if (lastSize != runningDuties.size() || now - lastPrint > 60000 * 1) {
 			lastPrint = now;

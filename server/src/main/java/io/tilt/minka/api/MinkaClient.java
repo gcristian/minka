@@ -55,8 +55,6 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 
 	private static final Logger logger = LoggerFactory.getLogger(MinkaClient.class);
 
-	private static MinkaClient<?, ?> instance;
-
 	private final Leader leader;
 	private final EventBroker eventBroker;
 	private final ClientEventsHandler clientMediator;
@@ -75,19 +73,6 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 		this.shardId = shardId;
 		this.leaderShardContainer = leaderShardContainer;
 		this.table = table;
-		instance = this;
-	}
-
-	/**
-	 * Minka service must be fully initialized before being able to obtain an operative client
-	 * @return	an instance of a client   
-	 */
-	@SuppressWarnings("unchecked")
-	public static <D extends Serializable, P extends Serializable>MinkaClient<D, P> getInstance() {
-		if (instance == null) {
-			throw new IllegalStateException("MinkaContextLoader must be fully loaded first !");
-		}
-		return (MinkaClient<D, P>) MinkaClient.instance;
 	}
 
 	/**

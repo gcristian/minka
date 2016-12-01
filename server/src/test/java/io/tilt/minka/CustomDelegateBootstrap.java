@@ -3,7 +3,7 @@ package io.tilt.minka;
 import org.junit.Test;
 
 import io.tilt.minka.api.MinkaClient;
-import io.tilt.minka.api.MinkaContextLoader;
+import io.tilt.minka.api.Minka;
 import io.tilt.minka.api.PartitionMaster;
 
 public class CustomDelegateBootstrap extends BootstrapTesting {
@@ -17,15 +17,16 @@ public class CustomDelegateBootstrap extends BootstrapTesting {
 	public void test() {
 		try {
 			logger.info("loading minka");
-			MinkaContextLoader loader = new MinkaContextLoader();
-			loader.load();
+			Minka<String, String> server = new Minka<>();
 			final String clazz = System.getProperty("delegate", "MultiPalletRandomSample");
 			logger.info("creating custom delegate");
-			final PartitionMaster<?, ?> master = (PartitionMaster<?, ?>) 
+			@SuppressWarnings("unchecked")
+			final PartitionMaster<String, String> master = (PartitionMaster<String, String>) 
 					Class.forName("io.tilt.minka.delegates." + clazz).newInstance();
-			loader.setMaster(master);
-			loader.setDelegate(master);
-			final MinkaClient cli = MinkaClient.getInstance();
+			server.setMaster(master);
+			server.setDelegate(master);
+			server.load();
+			final MinkaClient<String, String> cli = server.getClient();
 			sleep(1);
 			logger.info("sending new duties");
 			//cli.add(DutyBuilder.build(String.class, "hola", "1"));
@@ -33,7 +34,7 @@ public class CustomDelegateBootstrap extends BootstrapTesting {
 			logger.info("sleeping for {} minutes zz.zz.....", mins);
 			sleep(mins);
 			logger.info("planned suicide... ");
-			loader.destroy();
+			server.destroy();
 			Thread.sleep(10 * 1000l);
 		} catch (Exception e) {
 			e.printStackTrace();
