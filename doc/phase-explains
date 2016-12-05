@@ -1,0 +1,45 @@
+
+
+The following phases run in this order of hierarchy, and each one relies on the one before.
+
+1st phase: bootup.
+
+after the MinkaContextLoader is loaded, the bootstrap gets the current shard's TCP host address and port, and starts the comunication broker that will be used by all shards alike, to flow messages from leader to followers and from followers to leader.
+it also starts a scheduler that controls agent's tasks so any process can safety run without interferring in other agent's work.
+then will start both a follower and a leader process, there it ends.
+The Leader will register itself as a candidate at the zookeeper ensamble, 
+if it wins it will start two processes: shepherd and distributor.
+The Follower will locate the current leader and start sending heartbeats to it. 
+It will also start an agent to release duties in case the leader doesnt recognizes the follower as such, or it decides it wont make use of it, whether be this by a misbehaviour of the the follower or simple communication problems that make the shard untrusty to the leader.
+
+2nd phase: shepherding
+
+the follower schedules the heartpump agent to run with a predefined configuration frequency, then the Heartpump will create heartbeats containing
+information of the shard's identity, and attached duties reported by the user's delegate, and send them to the leader thru the Broker, which passes all HB's to a Bookkeeper function that analyzes the current cluster state, if there's a roadmap in progress, if it's the first HB of a shard, if it's anything of importance to account it. At first it will add a new Shard entity to the partition table.
+When the Shepherd agent starts will check the partition table's shards and calculate a shard state involving the distance in time between the HBs and a predefined time-window range to rank up the shard, and move it to an ONLINE state, which will make after some periods in that state: to be considered for distribution of duties.
+All shards starts in the JOINING state at the shepherd's ranking, then go ONLINE, if there's some communication interruption strong enough it may cause the QUARANTINE status, and in case the shard orderly shutsdown goes to QUITTED, in case the shard ceases to send HBs or the Shehpherd ceases to see it: goes to OFFLINE.
+The only state direction that shards can go from and to are: JOINING->ONLINE<->QUARANTINE->[ QUITTED | OFFLINE ], the lasts states are urecoverables.
+If there're shards in a state different than ONLINE: the phase doesnt moves ahead.
+When all shards are ONLINE after a number of predefined periods: the phase moves to balancing.
+
+3rd phase: balancing.
+
+the distributor agent checks the cluster state and if all shards are online it proceeds.
+It asks the partition master (usually the partition delegate instance) for pallets and duties, which were defined thru MinkaContextLoader::[onPalletLoad(..)|onDutyLoad(..)], this's the only moment that both domain entities are loaded and kept in partition table's custody thru adding them as a CRUD operation, the same one that can be executed thru MinkaClient::add(..).
+Then an arrangement function detects for duties in the Stage (already distributed) and duties in the NextStage (CRUD ones), detects for missing duties (distributed but recorded as absent by the Bookkeeper), detects offline shards (and subsequently dangling duties to be redistributed).
+The Arranger simply calls a Balancer predefined by the user thru the BalancingMetadata set at the Pallet, for every pallet it currently exists, with a NextTable composed of the Stage, the NextStage, and a Migrator that can be used to affect distribution process.
+All provided Minka balancers will check for the NextTable's Shards and ShardEntities, and operate the Migrator for overriding shard's duties, transferring duties from a shard to another, etc.
+The Migrator validates every operation to be coherent and applies the changes to a Roadmap element that has them already ordered for the transportation process to be correctly and smoothly applied.
+
+
+4th phase: distribution.
+
+the distributor agent has the roadmap plan already built and starts driving it.
+thru the broker sends all duty detachments to their shard locations.
+at the follower, the partition manager invokes the user's partition delegate to
+honor the duty contract: release the duties, stop them, kill them, whatever they mean for the host application.
+So the heartpump continues to send heartbeats thru the broker: but without those released duties. 
+At the leader, the bookkeeper notes the absence as a part of a roadmap plan, 
+after ensuring this is a constant situation, it updates the partition table to reflect the new reality, and moves the roadmap pointer to the next phase: attachments.
+The same control flow applies for attachments.
+After both dettachments and attachments steps conclude, the distribution process starts again, at the 3rd balancing phase
