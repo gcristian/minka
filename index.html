@@ -135,14 +135,12 @@ These are the events the client must listen and react to:</p>
   <td align="left"><code>update</code>, <code>transfer</code></td>
   <td>no</td>
   <td>anytime</td>
-  <td>reaction of an duty or pallet’s payload update or a transferred message, to a duty or pallet previously <em>captured</em>. Entered thru the minka client</td>
+  <td>reaction of a duty or pallet’s payload update or a transferred message, to a duty or pallet previously <em>captured</em>. Entered thru the minka client</td>
 </tr>
 </tbody></table>
 
 
 <p>*see the phases in the server implementation section.</p>
-
-
 
 <h4 id="14-sample">1.4 Sample</h4>
 
@@ -594,11 +592,9 @@ When the <code>Proctor</code> agent starts, checks the partition table’s shard
 <img src="https://k60.kn3.net/4/B/1/5/9/C/563.png" alt="" title=""> <br>
 </center><p></p>
 
-<p>The lasts states are urecoverables. <br>
+<p>The last two states are unrecoverables. <br>
 If there’re shards in a state different than ONLINE: the phase doesnt moves ahead, but no shard is allowed to stay too much time in a temporal state like JOINING or QUARANTINE.  <br>
 When all shards are ONLINE after a number of predefined periods: the phase moves to balancing. In case there’s a roadmap in progress, it goes on even if a shard is not ONLINE.</p>
-
-
 
 <h3 id="43-balancer">4.3 Balancer</h3>
 
