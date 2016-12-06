@@ -10,7 +10,6 @@
 		<module>spectator</module>
 		<module>server</module>
 		<module>samples</module>
-		<module>service</module>
 	</modules>
 	<properties>
 		<jackson.version>1.8.8</jackson.version>
