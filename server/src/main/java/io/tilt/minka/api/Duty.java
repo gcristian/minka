@@ -1,31 +1,30 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * contributor license agreements. See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership. The ASF
+ * licenses this file to You under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 package io.tilt.minka.api;
 
-import java.util.List;
+import java.io.Serializable;
 
-import com.google.common.collect.Lists;
-
-import io.tilt.minka.domain.Workload;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * A distributed duty that the User MUST guarantee to TAKE and RELEASE
- * responsibilities when the user's {@link PartitionDelegate} receives events:
- * {@link ShardDutyEvent.ASSIGNMENT} or {@link ShardDutyEvent.DISASSIGNMENT} respectively.
+ * An abstract entity that the host application uses to represent anything able to balance and distribute.  
+ * the user MUST guarantee to TAKE and RELEASE responsibilities when the user's {@link PartitionDelegate} 
+ * receives events:  {@link ShardDutyEvent.ASSIGNMENT} or {@link ShardDutyEvent.DISASSIGNMENT} respectively.
  * Wrapped to keep generics matters isolated
  * 
  * Conditions:
@@ -37,49 +36,39 @@ import io.tilt.minka.domain.Workload;
  * 
  * @param <T>
  */
-public interface Duty<T> extends Comparable<String> {
+@JsonAutoDetect
+public interface Duty<T extends Serializable> extends Entity<T> {
+	/**
+	* @return a representation in the same measure unit than the delegate's pallet capacity 
+	* Required to maintain a fairly load balancing  */
+	@JsonProperty("weight")double getWeight();
+
+	/** @return the pallet id to which this duty must be grouped into. */		
+	@JsonProperty("palletId") String getPalletId();
 	
-    Class<T> getClassType();
-    
-    /**
-     * @return  the cargo of the duty, any data that can be transported thru TCP-IP
-     */
-	T get();
+	/** @return not mandatory only for Client usage */ 
+	Pallet<?> getPallet();
 	
 	/**
-	 * Required to maintain a fairly load balancing  
-	 * @return
+	 * @return whether or not the absence this duty in the delegate's report
+	 * must be interpreted as a normal finalization. 
+	 * Otherwise it will be missing and schedule for reattachment
 	 */
-	Workload getWeight();
-	
-	/**
-	 * Type erasure bans the chance to call a useful equals() on the impl.
-	 * @return
+	boolean isLazyFinalized();
+
+	/** 
+	 * @return whether or not this duty can migrate for balancing purposes.
+	 * Generally true if the Client doesn't link to local machine resources and
+	 * the duty can be paused and restarted at a different machine, 
+	 * for which it may require a distributed savepoints facility if depends of state
+	 * 
+	 * Minka doesnt yet support in-memory snapshot of the Duty representation for continuos state recording.
+	 * Such a feature depends on stronger partitiontable replication flows and wider CRUD consistency issues.  
 	 */
-	String getId();
-	
-	default List<Attribute> getAttributes() {
-	    return Lists.newArrayList();
-	}
- 
-	/**
-	 * Options to dinamically customize sharding of duties 
-	 */
-	public enum Attribute {
-	    /** 
-	     * Duties that once assigned and started: cannot 
-	     * be migrating for balancing purposes.
-	     * They somewhat rely on local resources or cannot 
-	     * store State to continue working from a savepoint after re-assigned 
-	     */ 
-	    DISABLE_MIGRATION,	    
-	    /**
-	     * Duties that dont need to be removed, once assigned 
-	     * and reported, next time is absent will be interpreted 
-	     * as automatically ended and will not be re-assigned
-	     */
-	    ENABLE_AUTO_FINALIZATION,
-	    ;
-	}
+	boolean isIdempotent();
+
+	/** @return whether of not this Duty cannot be balanced and it must cohabitat all Minka shards */
+	boolean isSynthetic();
+
 
 }

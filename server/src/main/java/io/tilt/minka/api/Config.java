@@ -1,21 +1,22 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * contributor license agreements. See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership. The ASF
+ * licenses this file to You under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 package io.tilt.minka.api;
 
+import java.io.File;
 import java.util.Properties;
 
 import org.joda.time.DateTime;
@@ -23,448 +24,662 @@ import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.datatype.joda.ser.DateTimeSerializer;
+
+import io.tilt.minka.api.Pallet.Storage;
+import io.tilt.minka.core.leader.balancer.FairWeightBalancer.Dispersion;
+import io.tilt.minka.core.leader.balancer.SpillOverBalancer.MaxUnit;
+import io.tilt.minka.core.leader.distributor.Balancer;
+import io.tilt.minka.core.leader.distributor.Balancer.PreSort;
+import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.utils.Defaulter;
 
 /**
- * Global configuration with default values
- * 
+ * All there's subject to vary on mika's behaviour
  * @author Cristian Gonzalez
- * @since Nov 8, 2015
+ * @since Nov 19, 2016
  */
-@SuppressWarnings("unused")
-public class Config extends Properties {
+public class Config {
 
-    private static final long serialVersionUID = 3653003981484000071L;
-
-    private ShardID resolvedShardId;
-    
-    public ShardID getResolvedShardId() {
-        return this.resolvedShardId;
-    }
-
-    public void setResolvedShardId(ShardID resolvedShardId) {
-        this.resolvedShardId = resolvedShardId;
-    }
-
-    private final Logger logger = LoggerFactory.getLogger(getClass());
-    public final DateTime loadTime = new DateTime(DateTimeZone.UTC);
-    // ------------------------------------ common --------------------------------------------
-    
-    private static final String SERVICE_NAME_DEFAULT = ("minka-service");
-	private String serviceName;	
+	private final Logger log = LoggerFactory.getLogger(getClass());
 	
-	private static final String ZOOKEEPER_HOST_PORT_DEFAULT = "localhost:2181";	
-	private String zookeeperHostPort;
+	protected static final ObjectMapper objectMapper = new ObjectMapper();
+    static {
+        objectMapper.configure(SerializationFeature.WRITE_NULL_MAP_VALUES, false);
+        objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        objectMapper.configure(SerializationFeature.CLOSE_CLOSEABLE, true);
+        objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
+        
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
 
-	private final static String BOOTSTRAP_READYNESS_RETRY_DELAY_MS_DEFAULT = "5000";
-	private long bootstrapReadynessRetryDelayMs;
+        final SimpleModule simpleModule = new SimpleModule("module-1");
+        simpleModule.addSerializer(DateTime.class, new DateTimeSerializer());
+        objectMapper.registerModule(simpleModule);
+    }
 	
-    /* not all shards might want to candiate for leader */
-    private final static String BOOTSTRAP_PUBLISH_LEADER_CANDIDATURE_DEFAULT = "true";
-    private boolean bootstrapPublishLeaderCandidature;
-   
-    private static final String BOOTSTRAP_LEADER_SHARD_ALSO_FOLLOWS_DEFAULT = "true";
-    private boolean bootstrapLeaderShardAlsoFollows;
+	@JsonIgnore
+	public final DateTime loadTime = new DateTime(DateTimeZone.UTC);
+	@JsonIgnore
+	private ShardID resolvedShardId;
 
-    /* 5 mins default retaining messages from followers to leader's partition */
-    private final static String QUEUE_PARTITION_RETENTION_LAPSE_MS_DEFAULT = "300000"; 
-    private long queuePartitionRetentionLapseMs;
-    private final static String QUEUE_INBOX_RETENTION_LAPSE_MS_DEFAULT = "300000"; 
-    private long queueInboxRetentionLapseMs;
-    private final static String QUEUE_USER_RETENTION_LAPSE_MS_DEFAULT = "300000"; 
-    private long queueUserRetentionLapseMs;
-    
-    private final static String BROKER_SERVER_PORT_DEFAULT = "13000";
-    private int brokerServerPort;
-    private final static String BROKER_SERVER_HOST_DEFAULT = "127.0.0.1";
-    private String brokerServerHost;
-    private final static String BROKER_SERVER_CONNECTION_HANDLER_THREADS_DEFAULT = "10";
-    private int brokerServerConnectionHandlerThreads;
-    private final static String BROKER_MAX_RETRIES_DEFAULT = "300";
-    private int brokerMaxRetries;
-    private final static String BROKER_RETRY_DELAY_MS_DEFAULT = "3000";
-    private int brokerRetryDelayMs;
+	private SchedulerConf scheduler;
+	private BootstrapConf bootstrap;
+	private BrokerConf broker;
+	private FollowerConf follower;
+	private BalancerConf balancer;
+	private DistributorConf distributor;
+	private ProctorConf proctor;
+	private ConsistencyConf consistency;
 
-    public int getBrokerRetryDelayMs() {
-        return this.brokerRetryDelayMs;
-    }
+	public static class SchedulerConf {
+		public static int MAX_CONCURRENCY= 10;
+		private int maxConcurrency; 
+		public int getMaxConcurrency() {
+			return this.maxConcurrency;
+		}
+		public void setMaxConcurrency(int maxConcurrency) {
+			this.maxConcurrency = maxConcurrency;
+		}
+		public static String PNAME = "MK"; // + serviceName;
+		public static String THREAD_NAME_SCHEDULER = PNAME + "S";
+		public static String THREAD_NAME_BROKER_SERVER_GROUP = PNAME + "BG";
+		public static String THREAD_NAME_BROKER_SERVER_WORKER = PNAME + "BW";
+		public static String THREAD_NANE_TCP_BROKER_CLIENT = PNAME + "BC";
 
-    public int getBrokerMaxRetries() {
-        return this.brokerMaxRetries;
-    }
+		public static long SEMAPHORE_UNLOCK_RETRY_DELAY_MS = 100l; //50l;
+		private int semaphoreUnlockRetryDelayMs;
+		public static int SEMAPHORE_UNLOCK_MAX_RETRIES = 30;
+		private int semaphoreUnlockMaxRetries;
+		
+		public static String TASK_NAME_FOLLOWER_POLICIES_CLEARANCE = "FollowerPolicyClearance";
+		public static String TASK_NAME_FOLLOWER_POLICIES_HEARTATTACK = "FollowerPolicyHeartattack";
+		public int getSemaphoreUnlockRetryDelayMs() {
+			return this.semaphoreUnlockRetryDelayMs;
+		}
+		public void setSemaphoreUnlockRetryDelayMs(int semaphoreUnlockRetryDelayMs) {
+			this.semaphoreUnlockRetryDelayMs = semaphoreUnlockRetryDelayMs;
+		}
+		public int getSemaphoreUnlockMaxRetries() {
+			return this.semaphoreUnlockMaxRetries;
+		}
+		public void setSemaphoreUnlockMaxRetries(int semaphoreUnlockMaxRetries) {
+			this.semaphoreUnlockMaxRetries = semaphoreUnlockMaxRetries;
+		}
 
-    public int getBrokerServerConnectionHandlerThreads() {
-        return this.brokerServerConnectionHandlerThreads;
-    }
+	}
 
-    public String getBrokerServerHost() {
-        return this.brokerServerHost;
-    }
+	public static class BootstrapConf {
+		protected static final String SERVICE_NAME = ("default-name");
+		private static String serviceName;
+		protected static final long READYNESS_RETRY_DELAY_MS = 5000l;
+		private long readynessRetryDelayMs;
+		protected final static boolean PUBLISH_LEADER_CANDIDATURE = true;
+		private boolean publishLeaderCandidature;
+		protected static final boolean LEADER_SHARD_ALSO_FOLLOWS = true;
+		private boolean leaderShardAlsoFollows;
+		protected static final String ZOOKEEPER_HOST_PORT = "localhost:2181";
+		private String zookeeperHostPort;
+		
+		public String getServiceName() {
+			return serviceName;
+		}
+		public void setServiceName(String serviceName) {
+			BootstrapConf.serviceName = serviceName;
+		}
+		public long getReadynessRetryDelayMs() {
+			return this.readynessRetryDelayMs;
+		}
+		public void setReadynessRetryDelayMs(long readynessRetryDelayMs) {
+			this.readynessRetryDelayMs = readynessRetryDelayMs;
+		}
+		public boolean isPublishLeaderCandidature() {
+			return this.publishLeaderCandidature;
+		}
+		public void setPublishLeaderCandidature(boolean publishLeaderCandidature) {
+			this.publishLeaderCandidature = publishLeaderCandidature;
+		}
+		public boolean isLeaderShardAlsoFollows() {
+			return this.leaderShardAlsoFollows;
+		}
+		public void setLeaderShardAlsoFollows(boolean leaderShardAlsoFollows) {
+			this.leaderShardAlsoFollows = leaderShardAlsoFollows;
+		}
+		public String getZookeeperHostPort() {
+			return this.zookeeperHostPort;
+		}
+		public void setZookeeperHostPort(String zookeeperHostPort) {
+			this.zookeeperHostPort = zookeeperHostPort;
+		}
+		
+	}
 
-    public int getBrokerServerPort() {
-        return this.brokerServerPort;
-    }
-    
-    public static final String THREAD_NAME_COORDINATOR_IN_BACKGROUND = "Minka-Coordinator";
-    public static final String THREAD_NAME_BROKER_SERVER_GROUP = "Minka-SocketServerThreadGroup";
-    public static final String THREAD_NAME_BROKER_SERVER_WORKER = "Minka-SocketServerThreadWorker";
-    public static final String THREAD_NANE_TCP_BROKER_CLIENT = "Minka-SocketClientThread";
+	public static class BrokerConf {
+		protected final static String HOST_PORT = "localhost:5748";
+		private String hostPort;
+		protected final static int CONNECTION_HANDLER_THREADS = 10;
+		private int connectionHandlerThreads;
+		protected final static int MAX_RETRIES = 300;
+		private int maxRetries;
+		protected final static int RETRY_DELAY_MS = 3000;
+		private int retryDelayMs;
+		/** True: try number-consecutive open ports if specified is busy, False: break bootup */
+		protected static final boolean ENABLE_PORT_FALLBACK = true;
+		public boolean enablePortFallback;
+		protected static final String SHARD_ID_SUFFIX = "";
+		private String shardIdSuffix;
+		protected static final String NETWORK_INTERFASE = "lo";
+		private String networkInterfase;
+		
+		public String getHostPort() {
+			return this.hostPort;
+		}
+		public void setHostPort(String hostPort) {
+			this.hostPort = hostPort;
+		}
+		public int getConnectionHandlerThreads() {
+			return this.connectionHandlerThreads;
+		}
+		public void setConnectionHandlerThreads(int connectionHandlerThreads) {
+			this.connectionHandlerThreads = connectionHandlerThreads;
+		}
+		public int getMaxRetries() {
+			return this.maxRetries;
+		}
+		public void setMaxRetries(int maxRetries) {
+			this.maxRetries = maxRetries;
+		}
+		public int getRetryDelayMs() {
+			return this.retryDelayMs;
+		}
+		public void setRetryDelayMs(int retryDelayMs) {
+			this.retryDelayMs = retryDelayMs;
+		}
+		public boolean isEnablePortFallback() {
+			return this.enablePortFallback;
+		}
+		public void setEnablePortFallback(boolean enablePortFallback) {
+			this.enablePortFallback = enablePortFallback;
+		}
+		public String getShardIdSuffix() {
+			return this.shardIdSuffix;
+		}
+		public void setShardIdSuffix(String shardIdSuffix) {
+			this.shardIdSuffix = shardIdSuffix;
+		}
+		public String getNetworkInterfase() {
+			return this.networkInterfase;
+		}
+		public void setNetworkInterfase(String networkInterfase) {
+			this.networkInterfase = networkInterfase;
+		}
+	}
 
-    public static final long SEMAPHORE_UNLOCK_RETRY_DELAY_MS = 100l; //50l;
-    public static final int SEMAPHORE_UNLOCK_MAX_RETRIES = 30;
+	public static class FollowerConf {
+		/* each half second */
+		protected static final long HEARTBEAT_START_DELAY_MS = 1000;
+		private long heartbeatDelayMs;
+		protected static final long HEARTBEAT_DELAY_MS = 2000;
+		private long heartbeatStartDelayMs;
+		/* 10 seconds enough to start check and release duties if no HB in x time */
+		protected static final long HEARTATTACK_CHECK_START_DELAY_MS = 10000;
+		private long heartattackCheckStartDelayMs;
+		protected static final long HEARTATTACK_CHECK_DELAY_MS = 10000;
+		private long heartattackCheckDelayMs;
+		/* 20 seconds to let the leader be elected */
+		protected static final long CLEARANCE_CHECK_START_DELAY_MS = 20000;
+		private long clearanceCheckStartDelayMs;
+		protected static final long CLEARANCE_CHECK_DELAY_MS = 10000;
+		private long clearanceCheckDelayMs;
+		/* 30 seconds old max for clearance before releasing duties */
+		protected static final int CLEARANCE_MAX_ABSENCE_MS = 30000;
+		private int clearanceMaxAbsenceMs;
+		protected static final long MAX_HEARTBEAT_ABSENCE_FOR_RELEASE_MS = 10000;
+		private long maxHeartbeatAbsenceForReleaseMs;
+		/* 10 errors tolerant for building HBs from followers */
+		protected static final int MAX_HEARTBEAT_BUILD_FAILS_BEFORE_RELEASING = 1;
+		private int maxHeartbeatBuildFailsBeforeReleasing;
+		
+		public long getHeartbeatDelayMs() {
+			return this.heartbeatDelayMs;
+		}
+		public void setHeartbeatDelayMs(long heartbeatDelayMs) {
+			this.heartbeatDelayMs = heartbeatDelayMs;
+		}
+		public long getHeartbeatStartDelayMs() {
+			return this.heartbeatStartDelayMs;
+		}
+		public void setHeartbeatStartDelayMs(long heartbeatStartDelayMs) {
+			this.heartbeatStartDelayMs = heartbeatStartDelayMs;
+		}
+		public long getHeartattackCheckStartDelayMs() {
+			return this.heartattackCheckStartDelayMs;
+		}
+		public void setHeartattackCheckStartDelayMs(long heartattackCheckStartDelayMs) {
+			this.heartattackCheckStartDelayMs = heartattackCheckStartDelayMs;
+		}
+		public long getHeartattackCheckDelayMs() {
+			return this.heartattackCheckDelayMs;
+		}
+		public void setHeartattackCheckDelayMs(long heartattackCheckDelayMs) {
+			this.heartattackCheckDelayMs = heartattackCheckDelayMs;
+		}
+		public long getClearanceCheckStartDelayMs() {
+			return this.clearanceCheckStartDelayMs;
+		}
+		public void setClearanceCheckStartDelayMs(long clearanceCheckStartDelayMs) {
+			this.clearanceCheckStartDelayMs = clearanceCheckStartDelayMs;
+		}
+		public long getClearanceCheckDelayMs() {
+			return this.clearanceCheckDelayMs;
+		}
+		public void setClearanceCheckDelayMs(long clearanceCheckDelayMs) {
+			this.clearanceCheckDelayMs = clearanceCheckDelayMs;
+		}
+		public int getClearanceMaxAbsenceMs() {
+			return this.clearanceMaxAbsenceMs;
+		}
+		public void setClearanceMaxAbsenceMs(int clearanceMaxAbsenceMs) {
+			this.clearanceMaxAbsenceMs = clearanceMaxAbsenceMs;
+		}
+		public long getMaxHeartbeatAbsenceForReleaseMs() {
+			return this.maxHeartbeatAbsenceForReleaseMs;
+		}
+		public void setMaxHeartbeatAbsenceForReleaseMs(long maxHeartbeatAbsenceForReleaseMs) {
+			this.maxHeartbeatAbsenceForReleaseMs = maxHeartbeatAbsenceForReleaseMs;
+		}
+		public int getMaxHeartbeatBuildFailsBeforeReleasing() {
+			return this.maxHeartbeatBuildFailsBeforeReleasing;
+		}
+		public void setMaxHeartbeatBuildFailsBeforeReleasing(int maxHeartbeatBuildFailsBeforeReleasing) {
+			this.maxHeartbeatBuildFailsBeforeReleasing = maxHeartbeatBuildFailsBeforeReleasing;
+		}
 
-    // ------------------------------------ follower --------------------------------------------
-    private static final String FOLLOWER_SHARD_ID_SUFFIX_DEFAULT = "";
-    private String followerShardIdSuffix;
-    
-    private static final String FOLLOWER_USE_NETWORK_INTERFASE_DEFAULT = "lo";
-    private String followerUseNetworkInterfase;
-    
-    /* each half second */
-    private static final String FOLLOWER_HEARTBEAT_START_DELAY_MS_DEFAULT = "1000";
-    private static final String FOLLOWER_HEARTBEAT_DELAY_MS_DEFAULT = "2000";
-    private long followerHeartbeatDelayMs;
-    private long followerHeartbeatStartDelayMs;
-    
-    /* 10 seconds enough to start check and release duties if no HB in x time */
-    private static final String FOLLOWER_HEARTATTACK_CHECK_START_DELAY_MS_DEFAULT = "10000";
-    private long followerHeartattackCheckStartDelayMs;
-    private static final String FOLLOWER_HEARTATTACK_CHECK_DELAY_MS_DEFAULT = "10000";
-    private long followerHeartattackCheckDelayMs;
-    
-    /* 20 seconds to let the leader be elected */
-    private static final String FOLLOWER_CLEARANCE_CHECK_START_DELAY_MS_DEFAULT = "20000";
-    private long followerClearanceCheckStartDelayMs;
-    private static final String FOLLOWER_CLEARANCE_CHECK_DELAY_MS_DEFAULT = "10000";
-    private long followerClearanceCheckDelayMs;
-    
-    /* 30 seconds old max for clearance before releasing duties */
-    private static final String FOLLOWER_CLEARANCE_MAX_ABSENCE_MS_DEFAULT = "30000";
-    private int followerClearanceMaxAbsenceMs;
-    
-    /* 10 seconds absence to instruct delegate to release duties */ 
-    private static final String FOLLOWER_MAX_HEARTBEAT_ABSENCE_FOR_RELEASE_MS_DEFAULT = "10000";
-    private long followerMaxHeartbeatAbsenceForReleaseMs;
+	}
 
-    /* 10 errors tolerant for building HBs from followers */ 
-    private static final String FOLLOWER_MAX_HEARTBEAT_BUILD_FAILS_BEFORE_RELEASING_DEFAULT = "1";
-    private int followerMaxHeartbeatBuildFailsBeforeReleasing;
+	public static class DistributorConf {
+		protected static final boolean RUN_CONSISTENCY_CHECK = true;
+		private boolean runConsistencyCheck;
+		protected static final boolean RELOAD_DUTIES_FROM_STORAGE = false;
+		private boolean reloadDutiesFromStorage;
+		protected static final int RELOAD_DUTIES_FROM_STORAGE_EACH_PERIODS = 10;
+		private int reloadDutiesFromStorageEachPeriods;
+		/* 10 seconds to let the Proctor discover all Followers before distributing */
+		protected final static long START_DELAY_MS = 10000;
+		private long startDelayMs;
+		protected final static long DELAY_MS = 5000;		
+		private long delayMs;
+		protected static final int REALLOCATION_EXPIRATION_SEC = 15;
+		private int reallocationExpirationSec;
+		protected static final int REALLOCATION_MAX_RETRIES = 3;
+		private int reallocationMaxRetries;
+		
+		public boolean isRunConsistencyCheck() {
+			return this.runConsistencyCheck;
+		}
+		public void setRunConsistencyCheck(boolean runConsistencyCheck) {
+			this.runConsistencyCheck = runConsistencyCheck;
+		}
+		public boolean isReloadDutiesFromStorage() {
+			return this.reloadDutiesFromStorage;
+		}
+		public void setReloadDutiesFromStorage(boolean reloadDutiesFromStorage) {
+			this.reloadDutiesFromStorage = reloadDutiesFromStorage;
+		}
+		public int getReloadDutiesFromStorageEachPeriods() {
+			return this.reloadDutiesFromStorageEachPeriods;
+		}
+		public void setReloadDutiesFromStorageEachPeriods(int reloadDutiesFromStorageEachPeriods) {
+			this.reloadDutiesFromStorageEachPeriods = reloadDutiesFromStorageEachPeriods;
+		}
+		public long getStartDelayMs() {
+			return this.startDelayMs;
+		}
+		public void setStartDelayMs(long startDelayMs) {
+			this.startDelayMs = startDelayMs;
+		}
+		public long getDelayMs() {
+			return this.delayMs;
+		}
+		public void setDelayMs(long delayMs) {
+			this.delayMs = delayMs;
+		}
+		public int getReallocationExpirationSec() {
+			return this.reallocationExpirationSec;
+		}
+		public void setReallocationExpirationSec(int reallocationExpirationSec) {
+			this.reallocationExpirationSec = reallocationExpirationSec;
+		}
+		public int getReallocationMaxRetries() {
+			return this.reallocationMaxRetries;
+		}
+		public void setReallocationMaxRetries(int reallocationMaxRetries) {
+			this.reallocationMaxRetries = reallocationMaxRetries;
+		}
+		
+	}
 
-    public static final String TASK_NAME_FOLLOWER_POLICIES_CLEARANCE = "FollowerPolicyClearance";
-    public static final String TASK_NAME_FOLLOWER_POLICIES_HEARTATTACK = "FollowerPolicyHeartattack";
-    
-    // ------------------------------------ leader --------------------------------------------
+	public static class BalancerConf {
+		public static final Strategy STRATEGY = Strategy.EVEN_WEIGHT;
+		private Strategy strategy;
 
-    private static final String DISTRIBUTOR_RUN_CONSISTENCY_CHECK_DEFAULT = "true";
-    private boolean distributorRunConsistencyCheck;
-    
-    private static final String DISTRIBUTOR_RELOAD_DUTIES_FROM_STORAGE_DEFAULT = "false";
-    private boolean distributorReloadDutiesFromStorage;
-    private static final String DISTRIBUTOR_RELOAD_DUTIES_FROM_STORAGE_EACH_PERIODS_DEFAULT = "10";
-    private int distributorReloadDutiesFromStorageEachPeriods;
+		public static final int EVEN_SIZE_MAX_DUTIES_DELTA_BETWEEN_SHARDS = 1;
+		private int roundRobinMaxDutiesDeltaBetweenShards;
+		
+		public static final Balancer.PreSort EVEN_WEIGHT_PRESORT = Balancer.PreSort.WEIGHT;
+		private Balancer.PreSort evenLoadPresort;
+		
+		public static final MaxUnit SPILL_OVER_MAX_UNIT = MaxUnit.USE_CAPACITY;
+		private MaxUnit spillOverMaxUnit;
+		public static final double SPILL_OVER_MAX_VALUE = 99999999999d;
+		private double spillOverMaxValue;
+		
+		public static final Dispersion FAIR_WEIGHT_DISPERSION = Dispersion.EVEN;
+		public static final PreSort FAIR_WEIGHT_PRESORT = PreSort.DATE;
 
+		
+		public int getRoundRobinMaxDutiesDeltaBetweenShards() {
+			return this.roundRobinMaxDutiesDeltaBetweenShards;
+		}
+		public void setRoundRobinMaxDutiesDeltaBetweenShards(int roundRobinMaxDutiesDeltaBetweenShards) {
+			this.roundRobinMaxDutiesDeltaBetweenShards = roundRobinMaxDutiesDeltaBetweenShards;
+		}
+		public Strategy getStrategy() {
+			return this.strategy;
+		}
+		public void setStrategy(Strategy distributorbalancerStrategy) {
+			this.strategy = distributorbalancerStrategy;
+		}
+		public Balancer.PreSort getEvenLoadPresort() {
+			return this.evenLoadPresort;
+		}
+		public void setEvenLoadPresort(Balancer.PreSort fairLoadPresort) {
+			this.evenLoadPresort = fairLoadPresort; 
+		}
+		public MaxUnit getSpillOverMaxUnit() {
+			return this.spillOverMaxUnit;
+		}
+		public void setSpillOverStrategy(MaxUnit spillOverStrategy) {
+			this.spillOverMaxUnit = spillOverStrategy;
+		}
+		public double getSpillOverMaxValue() {
+			return this.spillOverMaxValue;
+		}
+		public void setSpillOverMaxValue(double spillOverMaxValue) {
+			this.spillOverMaxValue = spillOverMaxValue;
+		}
+		
+	}
 
-    /* 10 seconds to let the Shepherd discover all Followers before Distributing */
-    private final static String DISTRIBUTOR_START_DELAY_MS_DEFAULT = "10000";
-    private final static String DISTRIBUTOR_DELAY_MS_DEFAULT = "5000"; 
-    private long distributorStartDelayMs;
-    private long distributorDelayMs;
+	public static class ProctorConf {
+		/* each 3 seconds */
+		protected final static long START_DELAY_MS = 500;
+		private long startDelayMs;
+		protected final static long DELAY_MS = 1000; // i jhad it on 2000
+		private long delayMs;
+		protected static final int MAX_SHARD_JOINING_STATE_MS = 15000;
+		private int maxShardJoiningStateMs;
+		protected static final int MIN_HEALTHLY_HEARTBEATS_FOR_SHARD_ONLINE = 2;
+		private int minHealthlyHeartbeatsForShardOnline;
+		protected static final int MAX_ABSENT_HEARTBEATS_BEFORE_SHARD_GONE =5;
+		private int maxAbsentHeartbeatsBeforeShardGone;
+		protected static final double MAX_HEARTBEAT_RECEPTION_DELAY_FACTOR_FOR_SICK = 3d;
+		private double maxHeartbeatReceptionDelayFactorForSick;
+		protected static final int MAX_SICK_HEARTBEATS_BEFORE_SHARD_QUARANTINE = 15;
+		private int maxSickHeartbeatsBeforeShardQuarantine;
+		protected static final int MIN_SHARDS_ONLINE_BEFORE_SHARDING = 1;
+		private int minShardsOnlineBeforeSharding;
+		protected static final double HEARTBEAT_MAX_BIGGEST_DISTANCE_FACTOR = 2.5d;
+		private double heartbeatMaxBiggestDistanceFactor;
+		protected static final int HEARTBEAT_LAPSE_SEC = 20;
+		private int heartbeatLapseSec;
+		protected static final double HEARTBEAT_MAX_DISTANCE_STANDARD_DEVIATION = 4;
+		private double heartbeatMaxDistanceStandardDeviation;
+		protected static final int CLUSTER_HEALTH_STABILITY_DELAY_PERIODS = 1; // i had it on 3
+		private int clusterHealthStabilityDelayPeriods;
 
-    private static final String DISTRIBUTOR_REALLOCATION_EXPIRATION_SEC_DEFAULT = "15";
-    private int distributorReallocationExpirationSec;
-    private static final String DISTRIBUTOR_REALLOCATION_MAX_RETRIES_DEFAULT = "3";
-    private int distributorReallocationMaxRetries;
-    
-    private static final String BALANCER_EVEN_SIZE_MAX_DUTIES_DELTA_BETWEEN_SHARDS_DEFAULT = "1";
-    private int balancerEvenSizeMaxDutiesDeltaBetweenShards;
+		public long getStartDelayMs() {
+			return this.startDelayMs;
+		}
+		public void setStartDelayMs(long startDelayMs) {
+			this.startDelayMs = startDelayMs;
+		}
+		public long getDelayMs() {
+			return this.delayMs;
+		}
+		public void setDelayMs(long proctordDelayMs) {
+			this.delayMs = proctordDelayMs;
+		}
+		public int getMaxShardJoiningStateMs() {
+			return this.maxShardJoiningStateMs;
+		}
+		public void setMaxShardJoiningStateMs(int maxShardJoiningStateMs) {
+			this.maxShardJoiningStateMs = maxShardJoiningStateMs;
+		}
+		public int getMinHealthlyHeartbeatsForShardOnline() {
+			return this.minHealthlyHeartbeatsForShardOnline;
+		}
+		public void setMinHealthlyHeartbeatsForShardOnline(int minHealthlyHeartbeatsForShardOnline) {
+			this.minHealthlyHeartbeatsForShardOnline = minHealthlyHeartbeatsForShardOnline;
+		}
+		public int getMaxAbsentHeartbeatsBeforeShardGone() {
+			return this.maxAbsentHeartbeatsBeforeShardGone;
+		}
+		public void setMaxAbsentHeartbeatsBeforeShardGone(int maxAbsentHeartbeatsBeforeShardGone) {
+			this.maxAbsentHeartbeatsBeforeShardGone = maxAbsentHeartbeatsBeforeShardGone;
+		}
+		public double getMaxHeartbeatReceptionDelayFactorForSick() {
+			return this.maxHeartbeatReceptionDelayFactorForSick;
+		}
+		public void setMaxHeartbeatReceptionDelayFactorForSick(double maxHeartbeatReceptionDelayFactorForSick) {
+			this.maxHeartbeatReceptionDelayFactorForSick = maxHeartbeatReceptionDelayFactorForSick;
+		}
+		public int getMaxSickHeartbeatsBeforeShardQuarantine() {
+			return this.maxSickHeartbeatsBeforeShardQuarantine;
+		}
+		public void setMaxSickHeartbeatsBeforeShardQuarantine(int maxSickHeartbeatsBeforeShardQuarantine) {
+			this.maxSickHeartbeatsBeforeShardQuarantine = maxSickHeartbeatsBeforeShardQuarantine;
+		}
+		public int getMinShardsOnlineBeforeSharding() {
+			return this.minShardsOnlineBeforeSharding;
+		}
+		public void setMinShardsOnlineBeforeSharding(int minShardsOnlineBeforeSharding) {
+			this.minShardsOnlineBeforeSharding = minShardsOnlineBeforeSharding;
+		}
+		public double getHeartbeatMaxBiggestDistanceFactor() {
+			return this.heartbeatMaxBiggestDistanceFactor;
+		}
+		public void setHeartbeatMaxBiggestDistanceFactor(double heartbeatMaxBiggestDistanceFactor) {
+			this.heartbeatMaxBiggestDistanceFactor = heartbeatMaxBiggestDistanceFactor;
+		}
+		public int getHeartbeatLapseSec() {
+			return this.heartbeatLapseSec;
+		}
+		public void setHeartbeatLapseSec(int heartbeatLapseSec) {
+			this.heartbeatLapseSec = heartbeatLapseSec;
+		}
+		public double getHeartbeatMaxDistanceStandardDeviation() {
+			return this.heartbeatMaxDistanceStandardDeviation;
+		}
+		public void setHeartbeatMaxDistanceStandardDeviation(double heartbeatMaxDistanceStandardDeviation) {
+			this.heartbeatMaxDistanceStandardDeviation = heartbeatMaxDistanceStandardDeviation;
+		}
+		public int getClusterHealthStabilityDelayPeriods() {
+			return this.clusterHealthStabilityDelayPeriods;
+		}
+		public void setClusterHealthStabilityDelayPeriods(int clusterHealthStabilityDelayPeriods) {
+			this.clusterHealthStabilityDelayPeriods = clusterHealthStabilityDelayPeriods;
+		}
 
+	}
 
-    public enum BalanceStrategy {
-        /* all nodes same amount of entities */
-        EVEN_SIZE,
-        /* duties clustering according weights */
-        FAIR_LOAD,
-        /* fill each node until spill then fill another node */
-        SPILL_OVER;
-    }
+	public static class ConsistencyConf {
+		protected static final Storage DUTY_STORAGE = Storage.CLIENT_DEFINED;
+		private Storage dutyStorage;
+		public Storage getDutyStorage() {
+			return this.dutyStorage;
+		}
+		public void setDutyStorage(Storage dutyStorage) {
+			this.dutyStorage = dutyStorage;
+		}
+	}
 
-    private static final String DISTRIBUTOR_BALANCER_STRATEGY_DEFAULT = "FAIR_LOAD";
-    private BalanceStrategy distributorBalancerStrategy;
+	private void init() {
+		this.scheduler = new SchedulerConf();
+		this.bootstrap = new BootstrapConf();
+		this.broker = new BrokerConf();
+		this.follower = new FollowerConf();
+		this.distributor = new DistributorConf();
+		this.proctor = new ProctorConf();
+		this.balancer = new BalancerConf();
+		this.consistency = new ConsistencyConf();		
+	}
+	public Config() {
+		init();
+		loadFromPropOrSystem(null);
+	}
+	public Config(final Properties prop) {
+		init();
+		loadFromPropOrSystem(prop);
+	}
+	public Config(final String zookeeperHostPort, final String brokerHostPort) {
+		init();
+		loadFromPropOrSystem(null);
+		getBootstrap().setZookeeperHostPort(zookeeperHostPort);
+		getBroker().setHostPort(brokerHostPort);
+	}
+	public Config(final String zookeeperHostPort) {
+		init();
+		loadFromPropOrSystem(null);
+		getBootstrap().setZookeeperHostPort(zookeeperHostPort);
+	}	
+	
+	private void loadFromPropOrSystem(Properties prop) {
+		if (prop == null) {
+			prop = new Properties();
+		}
+		Defaulter.apply(prop, "consistency.", this.getConsistency());
+		Defaulter.apply(prop, "balancer.", this.getBalancer());
+		Defaulter.apply(prop, "bootstrap.", this.getBootstrap());
+		Defaulter.apply(prop, "broker.", this.getBroker());
+		Defaulter.apply(prop, "distributor.", this.getDistributor());
+		Defaulter.apply(prop, "follower.", this.getFollower());
+		Defaulter.apply(prop, "scheduler.", this.getScheduler());
+		Defaulter.apply(prop, "proctor.", this.getProctor());
+		//logger.info("{}: Configuration: {} ", getClass().getSimpleName(), toJson());
+	}
 
-    public enum FairBalancerPreSort {
-        /**
-         * Use Creation date order, i.e. natural order.
-         * Use this to keep the migration of duties among shards: to a bare minimum.
-         * Duty workload weight is considered but natural order restricts the re-accomodation much more.
-         * Useful when the master list of duties has few changes, and low migration is required. 
-         */
-        DATE,
-        /**
-         * Use Workload order.
-         * Use this to maximize the clustering algorithm's effectiveness.
-         * In presence of frequent variation of workloads, duties will tend to migrate more. 
-         */
-        WORKLOAD;
-    }
-    
-    private static final String BALANCER_FAIR_LOAD_PRESORT_DEFAULT = "WORKLOAD";
-    private FairBalancerPreSort balancerFairLoadPresort;
-    
-    public enum SpillBalancerStrategy {
-        /**
-         * Use the Max value to compare the sum of all running duties's weights 
-         * and restrict new additions over a full shard 
-         */ 
-        WORKLOAD,
-        /**
-         * Use the Max value as max number of duties to fit in one shard 
-         */
-        SIZE
-    }
-    
-    private static final String BALANCER_SPILL_OVER_STRATEGY_DEFAULT = "WORKLOAD";
-    private SpillBalancerStrategy balancerSpillOverStrategy;
-    
-    private static final String BALANCER_SPILL_OVER_MAX_VALUE_DEFAULT = "0";
-    private long balancerSpillOverMaxValue;
-    
-    /* each 3 seconds */
-    private final static String SHEPHERD_START_DELAY_MS_DEFAULT = "500";
-    private final static String SHEPHERD_DELAY_MS_DEFAULT = "2000";
-    private long shepherdStartDelayMs;
-    private long shepherdDelayMs;
-    
-    private static final String SHEPHERD_MAX_SHARD_JOINING_STATE_MS_DEFAULT = "15000";
-    private int shepherdMaxShardJoiningStateMs;
-    
-    private static final String SHEPHERD_MIN_HEALTHLY_HEARTBEATS_FOR_SHARD_ONLINE_DEFAULT = "2";
-    private int shepherdMinHealthlyHeartbeatsForShardOnline; 
-    
-    private static final String SHEPHERD_MAX_ABSENT_HEARTBEATS_BEFORE_SHARD_GONE_DEFAULT= "5";
-    private int shepherdMaxAbsentHeartbeatsBeforeShardGone;
-    
-    private static final String SHEPHERD_MAX_HEARTBEAT_RECEPTION_DELAY_FACTOR_FOR_SICK_DEFAULT = "3d";
-    private double shepherdMaxHeartbeatReceptionDelayFactorForSick;
-    
-    private static final String SHEPHERD_MAX_SICK_HEARTBEATS_BEFORE_SHARD_QUARANTINE_DEFAULT = "15";
-    private int shepherdMaxSickHeartbeatsBeforeShardQuarantine;
-    
-    private static final String SHEPHERD_MIN_SHARDS_ONLINE_BEFORE_SHARDING_DEFAULT = "1";   
-    private int shepherdMinShardsOnlineBeforeSharding;
-   
-    private static final String SHEPHERD_HEARTBEAT_MAX_BIGGEST_DISTANCE_FACTOR_DEFAULT = "2.5d";
-    private double shepherdHeartbeatMaxBiggestDistanceFactor;
-    
-    private static final String SHEPHERD_HEARTBEAT_LAPSE_SEC_DEFAULT = "20";
-    private int shepherdHeartbeatLapseSec;
-    private static final String SHEPHERD_HEARTBEAT_MAX_DISTANCE_STANDARD_DEVIATION_DEFAULT = "4";
-    private double shepherdHeartbeatMaxDistanceStandardDeviation;
-    
-    private static final String CLUSTER_HEALTH_STABILITY_DELAY_PERIODS_DEFAULT = "3";
-    private int clusterHealthStabilityDelayPeriods;
-    
-    /* whether using PartitionMaster or PartitionDelegate */
-    private final static String MINKA_STORAGE_DUTIES_DEFAULT = "false";
-    private boolean minkaStorageDuties;
-    
-	public Config(Properties p) {
-	    if (p == null) {
-	        logger.warn("{}: Using all DEFAULT values !", getClass().getSimpleName());
-	        p = new Properties();
-	    }
-	    
-	    Defaulter.apply(p, this);
+	public String toJson() throws Exception {
+		return objectMapper.writeValueAsString(this);
+	}
+	public void toJsonFile(final String filepath) throws Exception {
+		objectMapper.writeValue(new File(filepath), this);
+	}
+	
+	public static Config fromString(final String json) throws Exception {
+		return objectMapper.readValue(json, Config.class);
+	}
+	
+	public static Config fromJsonFile(final String filepath) throws Exception {
+		return objectMapper.readValue(filepath, Config.class);
+	}
+	public static Config fromJsonFile(final File jsonFormatConfig) throws Exception {
+		return objectMapper.readValue(jsonFormatConfig, Config.class);
+	}
+
+	@JsonIgnore
+	public ShardID getLoggingShardId() {
+		return this.resolvedShardId;
+	}
+
+	public void setResolvedShardId(ShardID resolvedShardId) {
+		this.resolvedShardId = resolvedShardId;
 	}
 
 	@Override
 	public String toString() {
-		StringBuilder sb = new StringBuilder();
-		sb.append("Config");
-		return sb.toString();
-	}
-	
-	public String getServiceName() {
-		return this.serviceName;
+		try {
+			return toJson();
+		} catch (Exception e) {
+			return "Config[unseralizable:" + e.getMessage() +"]";
+		}
 	}
 
-	public long getBootstrapReadynessRetryDelayMs() {
-        return this.bootstrapReadynessRetryDelayMs;
-    }
-
-    public long getDistributorStartDelayMs() {
-		return this.distributorStartDelayMs;
+	public BootstrapConf getBootstrap() {
+		return this.bootstrap;
 	}
 
-	public long getDistributorDelayMs() {
-		return this.distributorDelayMs;
-	}
-	
-    public boolean getDistributorRunConsistencyCheck() {
-        return this.distributorRunConsistencyCheck;
-    }
-
-    public boolean distributorReloadsDutiesFromStorage() {
-        return this.distributorReloadDutiesFromStorage;
-    }
-
-    public int getDistributorReloadDutiesFromStorageEachPeriods() {
-        return this.distributorReloadDutiesFromStorageEachPeriods;
-    }
-
-	public long getDistributionStartDelayMs() {
-		return this.distributorStartDelayMs;
-	}
-    
-	public String getFollowerShardIdSuffix() {
-        return this.followerShardIdSuffix;
-    }
-	
-    public String getFollowerUseNetworkInterfase() {
-        return this.followerUseNetworkInterfase;
-    }
-
-	public long getFollowerHeartbeatDelayMs() {
-		return this.followerHeartbeatDelayMs;
+	public void setBootstrap(BootstrapConf bootstrap) {
+		this.bootstrap = bootstrap;
 	}
 
-	public long getFollowerHeartbeatStartDelayMs() {
-		return this.followerHeartbeatStartDelayMs;
+	public BrokerConf getBroker() {
+		return this.broker;
 	}
 
-	public long getFollowerHeartattackCheckStartDelayMs() {
-        return this.followerHeartattackCheckStartDelayMs;
-    }
-
-    public long getFollowerHeartattackCheckDelayMs() {
-        return this.followerHeartattackCheckDelayMs;
-    }
-    
-    public long getFollowerClearanceCheckStartDelayMs() {
-        return this.followerClearanceCheckStartDelayMs;
-    }
-
-    public long getFollowerClearanceCheckDelayMs() {
-        return this.followerClearanceCheckDelayMs;
-    }
-
-    public int getFollowerClearanceMaxAbsenceMs() {
-        return this.followerClearanceMaxAbsenceMs;
-    }
-
-    public long getFollowerMaxHeartbeatAbsenceForReleaseMs() {
-        return this.followerMaxHeartbeatAbsenceForReleaseMs;
-    }
-
-	public String getZookeeperHostPort() {
-		return this.zookeeperHostPort;
+	public void setBroker(BrokerConf broker) {
+		this.broker = broker;
 	}
 
-	public int getFollowerMaxHeartbeatBuildFailsBeforeReleasing() {
-        return this.followerMaxHeartbeatBuildFailsBeforeReleasing;
-    }
+	public FollowerConf getFollower() {
+		return this.follower;
+	}
 
-	public int getShepherdMinHealthlyHeartbeatsForShardOnline() {
-        return this.shepherdMinHealthlyHeartbeatsForShardOnline;
-    }
+	public void setFollower(FollowerConf follower) {
+		this.follower = follower;
+	}
 
-	public int getShepherdMaxAbsentHeartbeatsBeforeShardGone() {
-        return this.shepherdMaxAbsentHeartbeatsBeforeShardGone;
-    }
+	public DistributorConf getDistributor() {
+		return this.distributor;
+	}
 
-	public double getShepherdMaxHeartbeatReceptionDelayFactorForSick() {
-        return this.shepherdMaxHeartbeatReceptionDelayFactorForSick;
-    }
+	public void setDistributor(DistributorConf distributor) {
+		this.distributor = distributor;
+	}
 
-	public int getShepherdMaxSickHeartbeatsBeforeShardQuarantine() {
-        return this.shepherdMaxSickHeartbeatsBeforeShardQuarantine;
-    }
+	public ProctorConf getProctor() {
+		return this.proctor;
+	}
 
-	public int getShepherdMinShardsOnlineBeforeSharding() {
-        return this.shepherdMinShardsOnlineBeforeSharding;
-    }
+	public void setProctor(ProctorConf proctor) {
+		this.proctor = proctor;
+	}
 
-	public BalanceStrategy getBalancerDistributionStrategy() {
-        return this.distributorBalancerStrategy;
-    }
+	public DateTime getLoadTime() {
+		return this.loadTime;
+	}
 
-	public long getShepherdStartDelayMs() {
-        return this.shepherdStartDelayMs;
-    }
+	public ShardID getResolvedShardId() {
+		return this.resolvedShardId;
+	}
 
-	public long getShepherdDelayMs() {
-        return this.shepherdDelayMs;
-    }
+	public BalancerConf getBalancer() {
+		return this.balancer;
+	}
 
-    public boolean bootstrapLeaderShardAlsoFollows() {
-        return this.bootstrapLeaderShardAlsoFollows;
-    }
+	public void setBalancer(BalancerConf balancer) {
+		this.balancer = balancer;
+	}
 
-    public int getShepherdMaxShardJoiningStateMs() {
-        return this.shepherdMaxShardJoiningStateMs;
-    }
+	public SchedulerConf getScheduler() {
+		return scheduler;
+	}
 
-    public int getShepherdHeartbeatLapseSec() {
-        return this.shepherdHeartbeatLapseSec;
-    }
+	public void setScheduler(SchedulerConf scheduler) {
+		this.scheduler = scheduler;
+	}
 
-    public double getShepherdHeartbeatMaxDistanceStandardDeviation() {
-        return this.shepherdHeartbeatMaxDistanceStandardDeviation;
-    }
+	public ConsistencyConf getConsistency() {
+		return this.consistency;
+	}
 
-    public boolean bootstrapPublishLeaderCandidature() {
-        return this.bootstrapPublishLeaderCandidature;
-    }
+	public void setConsistency(ConsistencyConf consistency) {
+		this.consistency = consistency;
+	}
 
-    public boolean minkaStorageDuties() {
-        return this.minkaStorageDuties;
-    }
-
-    public double getShepherdHeartbeatMaxBiggestDistanceFactor() {
-        return this.shepherdHeartbeatMaxBiggestDistanceFactor;
-    }
-    
-    public long getQueuePartitionRetentionLapseMs() {
-        return this.queuePartitionRetentionLapseMs;
-    }
-
-    public long getQueueInboxRetentionLapseMs() {
-        return this.queueInboxRetentionLapseMs;
-    }
-
-    public long getQueueUserRetentionLapseMs() {
-        return this.queueUserRetentionLapseMs;
-    }
-    
-    public int getBalancerEvenSizeMaxDutiesDeltaBetweenShards() {
-        return this.balancerEvenSizeMaxDutiesDeltaBetweenShards;
-    }
-
-    public int getDistributorReallocationExpirationSec() {
-        return this.distributorReallocationExpirationSec;
-    }
-    
-    public int getDistributorReallocationMaxRetries() {
-        return this.distributorReallocationMaxRetries;
-    }
-    
-    public FairBalancerPreSort getBalancerFairLoadPresort() {
-        return this.balancerFairLoadPresort;
-    }
-    
-    public long getBalancerSpillOverMaxValue() {
-        return this.balancerSpillOverMaxValue;
-    }
-    
-    public SpillBalancerStrategy getBalancerSpillOverStrategy() {
-        return this.balancerSpillOverStrategy;
-    }
-    
-    public int getClusterHealthStabilityDelayPeriods() {
-        return this.clusterHealthStabilityDelayPeriods;
-    }
-
-
-
-    
 }

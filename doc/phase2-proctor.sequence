@@ -1,0 +1,16 @@
+duties.size = 10se 2: Proctoring
+
+loop each follower shard contacts leader
+Follower->+Heart\npump: schedule()
+Heart\npump->-Broker: send\nheartbeats
+end
+Broker->Auditor: analyze
+Auditor->Partition\nTable: new shard
+loop async agent
+Proctor->Partition\nTable: get shards
+Proctor->+Proctor: calculate\nstate
+Proctor->Broker: send clearance to all good shards
+Proctor->-Cluster\nState: update()
+end
+Broker->Follower: clearance
+

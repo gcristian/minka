@@ -1,32 +1,35 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * contributor license agreements. See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership. The ASF
+ * licenses this file to You under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 package io.tilt.minka.domain;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
-import io.tilt.minka.business.follower.Follower;
-import io.tilt.minka.business.leader.Leader;
+import io.tilt.minka.api.Pallet;
+import io.tilt.minka.core.follower.Follower;
+import io.tilt.minka.core.leader.Leader;
+import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.spectator.NodeCacheable.Identifiable;
 
 /**
@@ -38,57 +41,54 @@ import io.tilt.minka.spectator.NodeCacheable.Identifiable;
  */
 public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifiable {
 
-    private static final long serialVersionUID = 4828220405145911529L;
-    
-	private List<ShardDuty> duties;
+	private static final long serialVersionUID = 4828220405145911529L;
+
+	private List<ShardEntity> duties;
+	private Map<Pallet<?>, Capacity> capacities;
 	private final NetworkShardID shardId;
 	private final DateTime creation;
 	private DateTime reception;
 	private final boolean warning;
 	private final long sequenceId;
-	
+
 	/* only set when change is owned by follower */
 	private ShardState stateChange;
-	
-	public static Heartbeat create(
-	        final List<ShardDuty> entities, 
-	        final boolean warning, 
-	        final NetworkShardID id, long sequenceId) {
-	        return new Heartbeat(entities, warning, id, sequenceId);
+
+	public static Heartbeat create(final List<ShardEntity> entities, final boolean warning, final NetworkShardID id,
+			long sequenceId, final Map<Pallet<?>, Capacity> capacities) {
+		return new Heartbeat(entities, warning, id, sequenceId, capacities);
 	}
-	
-	private Heartbeat(
-	        final List<ShardDuty> duties, 
-            final boolean warning, 
-            final NetworkShardID id, 
-            final long sequenceId) {
+
+	private Heartbeat(final List<ShardEntity> duties, final boolean warning, final NetworkShardID id,
+			final long sequenceId, final Map<Pallet<?>, Capacity> capacities) {
 		this.duties = duties;
 		this.warning = warning;
 		this.shardId = id;
 		this.creation = new DateTime(DateTimeZone.UTC);
 		this.sequenceId = sequenceId;
+		this.capacities = capacities;
 	}
-	
-	public static Heartbeat copy(final Heartbeat hb) {
-	    final List<ShardDuty> cloned = new ArrayList<>();
-	    for (ShardDuty d :hb.getDuties()) {
-	        cloned.add(ShardDuty.copy(d));
-	    }
-	    return new Heartbeat(cloned, hb.hasWarning(), hb.shardId, hb.sequenceId);
-	}
-	
-	public void cleanDuties() {
-	    this.duties = new ArrayList<>(1);
-	}
-	
-	public DateTime getCreation() {
-        return this.creation;
-    }
 
-    public long getReceptionDelay() {
-	    return reception.getMillis() - creation.getMillis();
+	public static Heartbeat copy(final Heartbeat hb) {
+		final List<ShardEntity> cloned = new ArrayList<>();
+		for (ShardEntity d : hb.getDuties()) {
+			cloned.add(ShardEntity.copy(d));
+		}
+		return new Heartbeat(cloned, hb.hasWarning(), hb.shardId, hb.sequenceId, hb.capacities);
 	}
-	
+
+	public void cleanDuties() {
+		this.duties = new ArrayList<>(1);
+	}
+
+	public DateTime getCreation() {
+		return this.creation;
+	}
+
+	public long getReceptionDelay() {
+		return reception.getMillis() - creation.getMillis();
+	}
+
 	public DateTime getReception() {
 		return this.reception;
 	}
@@ -109,81 +109,86 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		this.stateChange = stateChange;
 	}
 
-	public List<ShardDuty> getDuties() {
+	public List<ShardEntity> getDuties() {
 		return this.duties;
 	}
 
 	public boolean hasWarning() {
-	    return warning;
+		return warning;
 	}
 
 	public long getSequenceId() {
-        return this.sequenceId;
-    }
-	
+		return this.sequenceId;
+	}
+
 	public int hashCode() {
-        return new HashCodeBuilder()
-            .append(getShardId())
-            .append(getCreation())
-            .append(getSequenceId())
-            .toHashCode();
-    }
+		return new HashCodeBuilder()
+				.append(getShardId())
+				.append(getCreation())
+				.append(getSequenceId())
+				.toHashCode();
+	}
 
 	public boolean equalsInContent(Heartbeat hb) {
-	    if (hb==null || !hb.getShardId().equals(getShardId())) {
-	        return false;
-	    } else {
-	        if (hb.getDuties().size()!=getDuties().size()) {
-	            return false;
-	        } else {
-	            for (ShardDuty duty: getDuties()) {
-	                boolean found = false;
-	                for (ShardDuty other: hb.getDuties()) {
-	                    found|=duty.equals(other) && duty.getState()==other.getState() && 
-	                            duty.getDutyEvent()==other.getDutyEvent();
-	                    if (found) {
-	                        break;
-	                    }
-	                }
-	                if (!found) {
-	                    return false;
-	                }
-	            }
-	        }
-	    }
-	    return true;
+		if (hb == null || !hb.getShardId().equals(getShardId())) {
+			return false;
+		} else {
+			if (hb.getDuties().size() != getDuties().size()) {
+				return false;
+			} else {
+				for (ShardEntity duty : getDuties()) {
+					boolean found = false;
+					for (ShardEntity other : hb.getDuties()) {
+						found |= duty.equals(other) && duty.getState() == other.getState()
+								&& duty.getDutyEvent() == other.getDutyEvent();
+						if (found) {
+							break;
+						}
+					}
+					if (!found) {
+						return false;
+					}
+				}
+			}
+		}
+		return true;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (obj instanceof Heartbeat) {
+			Heartbeat other = (Heartbeat) obj;
+			return new EqualsBuilder()
+					.append(getShardId(), other.getShardId())
+					.append(getCreation(), other.getCreation())
+					.append(getSequenceId(), other.getSequenceId())
+					.isEquals();
+		} else {
+			return false;
+		}
+	}
+
+	@Override
+	public String toString() {
+		return new StringBuilder()
+				.append(" Sequence: ").append(sequenceId)
+				.append(" - Created: ").append(getCreation())
+				.append(" - ShardID: ").append(getShardId())
+				.append(" - Duties: ").append(getDuties().size())
+				.toString();
+	}
+
+	@Override
+	public int compareTo(Heartbeat o) {
+		return o.getCreation().compareTo(getCreation());
+	}
+
+	@Override
+	public String getId() {
+		return this.shardId.getStringIdentity();
 	}
 	
-    @Override
-    public boolean equals(Object obj) {
-        if (obj instanceof Heartbeat) {
-            Heartbeat other = (Heartbeat)obj;
-            return new EqualsBuilder()
-                .append(getShardId(), other.getShardId())
-                .append(getCreation(), other.getCreation())
-                .append(getSequenceId(), other.getSequenceId())
-                .isEquals();
-        } else {
-            return false;
-        }
-    }
-
-    @Override
-	public String toString() {
-	   return new StringBuilder()
-	       .append(" Sequence: ").append(sequenceId)
-	       .append(" - Created: ").append(getCreation())
-	       .append(" - ShardID: ").append(getShardId())
-	       .append(" - Duties: ").append(getDuties().size()).toString();
+	public Map<Pallet<?>, Capacity> getCapacities() {
+		return this.capacities;
 	}
-
-    @Override
-    public int compareTo(Heartbeat o) {
-        return o.getCreation().compareTo(getCreation());
-    }
-
-    @Override
-    public String getId() {
-        return this.shardId.getStringID();
-    }
 }

@@ -7,12 +7,10 @@
        http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.0.xsd
        http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task-3.0.xsd">
-
     
-    <import resource="classpath:io/tilt/minka/config/context-minka-spring.xml"/>
-    
-    <bean id="partitionDelegate" class="io.tilt.minka.Delegado"/>
-    <bean name="partitionMaster" class="io.tilt.minka.Delegado"/>
+    <bean id="partitionDelegate" class="io.tilt.minka.${demoDelegate}"/>
+    <alias name="partitionDelegate" alias="partitionMaster"/>
         
+    <import resource="classpath:io/tilt/minka/config/context-minka-spring.xml"/>
 
-</beans>
+</beans> 
