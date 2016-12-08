@@ -18,20 +18,20 @@
 <body><div class="container"><p></p><center><img src="https://k61.kn3.net/4/6/F/B/B/2/02D.png" alt="" title=""> </center><p></p>
 
 <table align="center"><tbody><tr>
-<td><a href="http://gcristian.github.io/index.html">Home</a></td>
+<td><a href="http://gcristian.github.io/minka">Home</a></td>
 <td><a href="http://gcristian.github.io/minka/doc/site/integration.html">Integration</a></td>
 <td><a href="http://gcristian.github.io/minka/doc/site/details.html">Details</a></td>
 <td><a href="http://gcristian.github.io/minka/doc/site/architecture.html">Architecture</a></td>
 <td><a href="http://gcristian.github.io/minka/doc/site/project.html">Project</a></td>
 </tr></tbody></table>
 
-
-
 <h2 id="3-architecture">3. Architecture</h2>
 
 <p>The current section is for developers willing to add features to Minka. This detail is purely about server design from the leader process perspective.</p>
 
 <p>When we create the server:</p>
+
+
 
 <pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">new</span><span class="pln"> </span><span class="typ">Minka</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">Integer</span><span class="pun">&gt;(</span><span class="str">"localhost:2181/minka"</span><span class="pun">);</span></code></pre>
 
@@ -48,6 +48,8 @@ The cluster enroles a Leader and its followers. The leader behaviour is composed
 
 <p>When we integrate the library into our host application and call <code>load()</code>, triggers the Minka spring context, with all the starting agents.</p>
 
+
+
 <pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">new</span><span class="pln"> </span><span class="typ">Minka</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">Integer</span><span class="pun">&gt;(</span><span class="str">"localhost:2181/minka"</span><span class="pun">)</span><span class="pln">
     </span><span class="pun">.</span><span class="pln">load</span><span class="pun">();</span></code></pre>
 
@@ -63,6 +65,8 @@ It will also start a <code>policies</code> agent to release duties in case the f
 <h3 id="32-proctor">3.2 Proctor</h3>
 
 <p>This phase affects the supplier provided on the following events:</p>
+
+
 
 <pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">final</span><span class="pln"> </span><span class="typ">Set</span><span class="pun">&lt;</span><span class="typ">Duty</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;&gt;</span><span class="pln"> myCapture </span><span class="pun">=</span><span class="pln"> </span><span class="kwd">new</span><span class="pln"> </span><span class="typ">HashSet</span><span class="pun">&lt;&gt;();</span><span class="pln">
 server</span><span class="pun">.</span><span class="pln">onDutyReport</span><span class="pun">(()-&gt;</span><span class="pln"> myCapture </span><span class="pun">);</span></code></pre>
@@ -91,6 +95,8 @@ When all shards are ONLINE after a number of predefined periods: the phase moves
 
 <p>The following events occurrs when Minka needs to know the user entities at the first distribution, which happens only once in a leader’s lifetime, and each time a new leader is reelected.</p>
 
+
+
 <pre class="prettyprint prettyprinted"><code class="language-java"><span class="pln">ctx</span><span class="pun">.</span><span class="pln">onPalletLoad</span><span class="pun">(()-&gt;...);</span><span class="pln">
 ctx</span><span class="pun">.</span><span class="pln">onDutyLoad</span><span class="pun">(()-&gt;...);</span></code></pre>
 
@@ -110,6 +116,8 @@ The Migrator validates every operation to be coherent and applies the changes to
 <p></p><center><img src="http://imgh.us/box-distribution.svg" width="30%"> </center><p></p>
 
 <p>this phase affects consumers defined on the following events:</p>
+
+
 
 <pre class="prettyprint prettyprinted"><code class="language-java"><span class="pln">server</span><span class="pun">.</span><span class="pln">onDutyCapture</span><span class="pun">((</span><span class="pln">d</span><span class="pun">)-&gt;...);</span><span class="pln">
 server</span><span class="pun">.</span><span class="pln">onPalletCapture</span><span class="pun">((</span><span class="pln">d</span><span class="pun">)-&gt;...);</span><span class="pln">
