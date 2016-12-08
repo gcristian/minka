@@ -33,10 +33,8 @@
 
 <h3 id="21-duties">2.1 Duties</h3>
 
-<p>A duty is the Minka’s minimum processing unit. <br>
-It’s a generic entity, wrapping anything transportable with significance only to the client. It might mean a signal for a process to start, input data for a function, a task name, a mesage, or simply data to be requested, uploaded, saved, analyzed, etc.</p>
-
-
+<p>Duties are the smaller processing unit. It’s a generic entity, wrapping anything transportable with significance only to the client. It might mean a signal for a process to start, input data for a function, a task name, a mesage, or simply data to be requested, uploaded, saved, analyzed, etc. <br>
+In the current version, Minka loads them once and keeps them always assigned to shards.</p>
 
 <h4 id="211-creation-attributes">2.1.1 Creation attributes</h4>
 
@@ -94,13 +92,17 @@ For proper desired management, this’s a concern to tell minka about your dutie
 
 <h4 id="212-weights">2.1.2 Weights</h4>
 
-<p>The duty weight is set at duty creation time by the Delegate. It must be calculated once and then change only in case of need. If the weight changes: a rebalance may occurr, and the duty may migrate among shards.</p>
+<p>Three things to note about duty weights:</p>
 
-<p>Weights are used by the Balancers to measure a pallet’s weight at a certain shard, determining  the result of balancing algorithms.</p>
+<ol>
+<li><p>Duties have a weight, so the client can achieve a significant distribution order in their own meaning.</p>
 
-<p>Shards report to the leader their current weight capacities on the created pallets, in order for the balancers to know how to organize distribution. </p>
+<ul><li>The duty weight is set at duty creation time by the Delegate. It must be calculated once and then change only in case of need. If the weight changes: a rebalance may occurr, and the duty may migrate among shards. </li></ul></li>
+<li><p>Shards report their weighing capacities to the Leader</p>
 
-<p>For this is required the Delegate to call <code>minka.setCapacity(Pallet, double)</code> in order for Minka to know in forehand how are shard’s enabled to receive pallets and duties, before balancing phase, <em>which will fail to run if there’re shards not reporting their capacities.</em></p>
+<ul><li>For this is required the Delegate to call <code>minka.setCapacity(Pallet, double)</code> in order for Minka to know in forehand how are shard’s enabled to receive pallets and duties, before balancing phase, <em>which will fail to run if there’re shards not reporting their capacities.</em> This <code>double</code> value should represent total capacity regardless of the weight already distributed by Minka. Know that this’s subject to change, the effect may make Minka to reduce or increase duty load on the specific changing shard.</li></ul></li>
+<li><p>Weights are used by the Balancers to measure a pallet’s weight at a certain shard, determining the result of the algorithm, see the <em>Balancer’s</em> section below.</p></li>
+</ol>
 
 <p>For example:</p>
 
@@ -131,10 +133,8 @@ For proper desired management, this’s a concern to tell minka about your dutie
 
 
 <blockquote>
-  <p>It’s recommented the estimation to be more safe than accurate, and free of any factor subject to realtime variation, to avoid continuous redistribution by the balancers, causing a counter-productive effect on short-term duties.</p>
+  <p>It’s recommented that the duty weight value to be estimated: be more safe than accurate, and free of any factor subject to realtime variation, to avoid continuous redistribution by the balancers, causing a counter-productive effect on short-term duties.</p>
 </blockquote>
-
-
 
 <h4 id="213-duty-life-cycle">2.1.3 Duty life-cycle</h4>
 
@@ -251,12 +251,12 @@ Pallets must be created before duties.</li>
 </tr>
 </thead>
 <tbody><tr>
-  <td><code>Even size</code> (unweighted balanced)<br><br> function in the round-robin style, using a circular collection of shards, keeping an even number of duties among the shards. Useful when duties represent other than resource exhaustion <br><br> <img src="http://imgh.us/box-evensize.svg" height="60%"> <br><br></td>
-  <td><code>Spill over</code> (weighted unbalanced)<br><br> function that fills a shard to its limits, before going to the next shard, and so on. Useful to incrementally grow usage of shards as they’re really needed. <br><br> <img src="http://imgh.us/box-spillover.svg" height="60%"><br><br></td>
+  <td><code>Even size</code> (balanced)<br><br> function in the round-robin style, using a circular collection of shards, keeping an even number of duties among the shards. Useful when duties represent other than resource exhaustion <br><br> <img src="http://imgh.us/box-evensize.svg" height="60%"> <br><br></td>
+  <td><code>Fair weight</code> (balanced) <br><br> function that assigns -in terms of duty weight- a heavier  load to bigger reported capacity shards, and lighter load to lesser ones. Useful for elasticity or variable shard sizes. <br><br><img src="http://imgh.us/box-fairweight.svg" height="60%"></td>
 </tr>
 <tr>
-  <td><code>Fair weight</code> (weighted balanced) <br><br> function that assigns -in terms of duty weight- a heavier  load to bigger reported capacity shards, and lighter load to lesser ones. Useful for elasticity or variable shard sizes. <br><br><img src="http://imgh.us/box-fairweight.svg" height="60%"></td>
-  <td><code>Even weight</code> <br><br> function that keeps same weight load on the same pallets at different shards. Useful for duties representing coordination tasks or business logics <br><br> <img height="60%" src="http://imgh.us/box-evenweight.svg"></td>
+  <td><code>Spill over</code> (unbalanced)<br><br> function that fills a shard to its limits, before going to the next shard, and so on. Useful to incrementally grow usage of shards as they’re really needed. <br><br> <img src="http://imgh.us/box-spillover.svg" height="60%"><br><br></td>
+  <td><code>Even weight</code> (balanced) <br><br> function that keeps same weight load on the same pallets at different shards. Useful for duties representing coordination tasks or business logics <br><br> <img height="60%" src="http://imgh.us/box-evenweight.svg"></td>
 </tr>
 </tbody></table>
 
@@ -301,8 +301,6 @@ Pallets must be created before duties.</li>
 
 <p>Then there’s a White synthetic duty (id’ed 55), it’s only one but it’s present in all shards. <br>
 </p><center><img src="http://imgh.us/box-allbalancers.svg" width="80%"></center><p></p>
-
-
 
 <h3 id="23-shards">2.3 Shards</h3>
 
