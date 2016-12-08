@@ -34,8 +34,9 @@
 <h3 id="21-duties">2.1 Duties</h3>
 
 <p>A duty is the Minka’s minimum processing unit. <br>
-It’s a generic entity, wrapping anything transportable with significance only to the client. It might mean a signal for a process to start, input data for a function, a task name, a mesage, or simply data to be requested, uploaded, saved, analyzed, etc. <br>
-Duties are the 1st-level order to our processing units. Pallets can be used to group together similar duties, that we might need to react with the same <code>function()</code> </p>
+It’s a generic entity, wrapping anything transportable with significance only to the client. It might mean a signal for a process to start, input data for a function, a task name, a mesage, or simply data to be requested, uploaded, saved, analyzed, etc.</p>
+
+
 
 <h4 id="211-creation-attributes">2.1.1 Creation attributes</h4>
 
@@ -65,7 +66,7 @@ Duties are the 1st-level order to our processing units. Pallets can be used to g
 <tr>
   <td>weight</td>
   <td>double</td>
-  <td>the cost of performance of processing this duty at a shard. Must be in the same measure unit as the weight reported for the pallet at the shards. It may or not be related with the payload</td>
+  <td>the cost of performance of processing this duty at a shard. <em>Must be in the same measure unit as the weight reported for the pallet at the shards.</em> It may or not be related with the payload</td>
 </tr>
 <tr>
   <td></td>
@@ -88,6 +89,8 @@ For proper desired management, this’s a concern to tell minka about your dutie
 </ol>
 
 <p>All this conditions translate to duties being re-located, without impact if they represent static information having few dynamic impact. But if they represent some sort of input for a long-term job composed of ordered tasks, then your processes must be prepared for savepoints. This’s due to its distributed resilient behaviour, and the multi-purpose nature of Minka, i.e. <em>what you do with it</em>. </p>
+
+
 
 <h4 id="212-weights">2.1.2 Weights</h4>
 
@@ -130,6 +133,8 @@ For proper desired management, this’s a concern to tell minka about your dutie
 <blockquote>
   <p>It’s recommented the estimation to be more safe than accurate, and free of any factor subject to realtime variation, to avoid continuous redistribution by the balancers, causing a counter-productive effect on short-term duties.</p>
 </blockquote>
+
+
 
 <h4 id="213-duty-life-cycle">2.1.3 Duty life-cycle</h4>
 
@@ -226,6 +231,8 @@ Pallets must be created before duties.</li>
   <td>one of 4 currently provided balancers to run on every balancing phase, to distribute duties on shards, with optional execution parameters.</td>
 </tr>
 </tbody></table>
+
+
 
 
 <h3 id="22-balancers">2.2 Balancers</h3>
