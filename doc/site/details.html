@@ -25,15 +25,17 @@
 <td><a href="http://gcristian.github.io/minka/doc/site/project.html">Project</a></td>
 </tr></tbody></table>
 
+
+
 <h2 id="2-details">2. Details</h2>
 
 
 
 <h3 id="21-duties">2.1 Duties</h3>
 
-<p>A core and generic entity, wrapping anything transportable with significance only to the client. It might mean a signal for a process to start, input data for a function, a task name, a mesage, or simply data to be requested, uploaded, saved, analyzed, etc.</p>
-
-
+<p>A duty is the Minka’s minimum processing unit. <br>
+It’s a generic entity, wrapping anything transportable with significance only to the client. It might mean a signal for a process to start, input data for a function, a task name, a mesage, or simply data to be requested, uploaded, saved, analyzed, etc. <br>
+Duties are the 1st-level order to our processing units. Pallets can be used to group together similar duties, that we might need to react with the same <code>function()</code> </p>
 
 <h4 id="211-creation-attributes">2.1.1 Creation attributes</h4>
 
@@ -87,13 +89,17 @@ For proper desired management, this’s a concern to tell minka about your dutie
 
 <p>All this conditions translate to duties being re-located, without impact if they represent static information having few dynamic impact. But if they represent some sort of input for a long-term job composed of ordered tasks, then your processes must be prepared for savepoints. This’s due to its distributed resilient behaviour, and the multi-purpose nature of Minka, i.e. <em>what you do with it</em>. </p>
 
-
-
 <h4 id="212-weights">2.1.2 Weights</h4>
 
-<p>The weight is reported by the Delegate. It must be calculated once and then change only in case of need. If the weight changes: a rebalance may occurr, and the duty may migrate among shards.</p>
+<p>The duty weight is set at duty creation time by the Delegate. It must be calculated once and then change only in case of need. If the weight changes: a rebalance may occurr, and the duty may migrate among shards.</p>
 
-<p>Table of duty weight samples:</p>
+<p>Weights are used by the Balancers to measure a pallet’s weight at a certain shard, determining  the result of balancing algorithms.</p>
+
+<p>Shards report to the leader their current weight capacities on the created pallets, in order for the balancers to know how to organize distribution. </p>
+
+<p>For this is required the Delegate to call <code>minka.setCapacity(Pallet, double)</code> in order for Minka to know in forehand how are shard’s enabled to receive pallets and duties, before balancing phase, <em>which will fail to run if there’re shards not reporting their capacities.</em></p>
+
+<p>For example:</p>
 
 <table>
 <thead>
@@ -124,8 +130,6 @@ For proper desired management, this’s a concern to tell minka about your dutie
 <blockquote>
   <p>It’s recommented the estimation to be more safe than accurate, and free of any factor subject to realtime variation, to avoid continuous redistribution by the balancers, causing a counter-productive effect on short-term duties.</p>
 </blockquote>
-
-
 
 <h4 id="213-duty-life-cycle">2.1.3 Duty life-cycle</h4>
 
@@ -183,6 +187,45 @@ For proper desired management, this’s a concern to tell minka about your dutie
 </tbody></table>
 
 
+
+
+<h4 id="214-pallets">2.1.4 Pallets</h4>
+
+<p>A pallet is a 2nd-level order into which we can granularize our processing needs. Pallets can be used to group together similar duties, that we might need to react with the same <code>function()</code> , or with the same pallet’s payload, or at the same pallet’s shard (in case we use the appropiate balancers for this). <br>
+Like with duties, Minka ignores what pallets are used for, but applies the following rules:</p>
+
+<ul>
+<li>when a shard receives a duty of a certain pallet for the first time, it must call first the event <code>onPalletCapture</code> if it wasnt there before. At removal or dettachment of the last duty on a shard, it will call the event <code>onPalletRelease</code>, so the Delegate is allowed to open or close resources or run any contextual task.</li>
+<li>Minka provided Balancers knows that pallets in different shards must contain different duties of the same pallet.</li>
+<li>Weighted balancers also knows that the appropriate shard’s weight is to be measured from pallets, and duties in the same pallet increase the pallet’s weight at the located shard.  <br>
+Pallets must be created before duties.</li>
+<li>When a pallet’s deletion request thru <code>MinkaClient</code> is performed, all distributed duties are going to be dettached from shards before the pallet.</li>
+</ul>
+
+<table>
+<thead>
+<tr>
+  <th>name</th>
+  <th>type</th>
+  <th>note</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>id</td>
+  <td>string</td>
+  <td>Max: 256 length, a unique identifier across the application instances.</td>
+</tr>
+<tr>
+  <td>payload</td>
+  <td>bytes</td>
+  <td>optional, serializable object representing pallet’s constant data or cargo for a function or process</td>
+</tr>
+<tr>
+  <td>balancer metadata</td>
+  <td>strategy</td>
+  <td>one of 4 currently provided balancers to run on every balancing phase, to distribute duties on shards, with optional execution parameters.</td>
+</tr>
+</tbody></table>
 
 
 <h3 id="22-balancers">2.2 Balancers</h3>
