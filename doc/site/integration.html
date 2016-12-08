@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>minka-integration</title>
+<link rel="stylesheet" href="https://stackedit.io/res-min/themes/base.css" />
+<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"></script>
+<script>e
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-88637530-1', 'auto');
+  ga('send', 'pageview');
+</script>
+</head>
+<body><div class="container"><p></p><center><img src="https://k61.kn3.net/4/6/F/B/B/2/02D.png" alt="" title=""> </center><p></p>
+
+<table align="center"><tbody><tr>
+<td><a href="http://gcristian.github.io/index.html">Home</a></td>
+<td><a href="http://gcristian.github.io/minka/doc/site/integration.html">Integration</a></td>
+<td><a href="http://gcristian.github.io/minka/doc/site/details.html">Details</a></td>
+<td><a href="http://gcristian.github.io/minka/doc/site/architecture.html">Architecture</a></td>
+<td><a href="http://gcristian.github.io/minka/doc/site/project.html">Project</a></td>
+</tr></tbody></table>
+
+
+
+<h3 id="1-integration">1. Integration</h3>
+
+
+
+<h4 id="11-artifact">1.1 Artifact</h4>
+
+<pre><code>&lt;dependency&gt;
+    &lt;artifactId&gt;minka-parent&lt;/artifactId&gt;
+    &lt;groupId&gt;io.tilt.minka&lt;/groupId&gt;
+    &lt;version&gt;0.2-SNAPSHOT&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+
+
+
+<h4 id="12-requirements">1.2 Requirements</h4>
+
+<ul>
+<li>a Zookeeper cluster, used for leader election.</li>
+<li>a host JVM system, where the server runs embedded.</li>
+</ul>
+
+
+
+<h4 id="12-library">1.2 Library</h4>
+
+<p>Minka provides a compact API at <code>io.tilt.minka.api</code> to do really few things:</p>
+
+<ul>
+<li>class <code>DutyBuilder/PalletBuilder</code> to wrap and internalize user entities</li>
+<li>class <code>MinkaClient</code> to input CRUD duties &amp; pallets, after first balance.</li>
+<li>class <code>Minka</code> to start the server and listen for events.</li>
+</ul>
+
+
+
+<h4 id="13-events">1.3 Events</h4>
+
+<p>Minka is designed to embrace incidents, that unfolds an event-driven architecture, which also applies its API.  <br>
+These are the events the client must listen and react to:</p>
+
+<table>
+<thead>
+<tr>
+  <th align="left">event</th>
+  <th>required</th>
+  <th>when</th>
+  <th>what for</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="left"><code>load</code></td>
+  <td>yes</td>
+  <td>balance *phase</td>
+  <td>input the initial duties and pallets to minka, only called at the first balancing phase of a new elected leader.</td>
+</tr>
+<tr>
+  <td align="left"><code>capture</code>, <code>release</code></td>
+  <td>yes</td>
+  <td>distribution phase</td>
+  <td>honour the <em>Inversion of Control</em> contract about taking or discarding duties and pallets to perform a certain action, these are the core events.</td>
+</tr>
+<tr>
+  <td align="left"><code>report</code></td>
+  <td>yes</td>
+  <td>proctor phase</td>
+  <td>the captured duties, in permanent custody</td>
+</tr>
+<tr>
+  <td align="left"><code>update</code>, <code>transfer</code></td>
+  <td>no</td>
+  <td>anytime</td>
+  <td>reaction of an duty or pallet’s payload update or a transferred message, to a duty or pallet previously <em>captured</em>. Entered thru the minka client</td>
+</tr>
+</tbody></table>
+
+
+<p>*see the phases in the server implementation section.</p>
+
+
+
+<h4 id="14-sample">1.4 Sample</h4>
+
+<p>This creates a Minka server shard, starting with 1 pallet with a fair weight balancer, and 1 duty  weighing 200. When Minka yields control of the duty to us: we simply add it to <em>myDuties</em> set. <br>
+In a real use case all application instances must reuse the same routine and behave identically approaching Minka.</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">final</span><span class="pln"> </span><span class="typ">Pallet</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln"> p </span><span class="pun">=</span><span class="pln"> </span><span class="typ">PalletBuilder</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln">
+    builder</span><span class="pun">(</span><span class="str">"pal"</span><span class="pun">).</span><span class="pln">with</span><span class="pun">(</span><span class="typ">Balancer</span><span class="pun">.</span><span class="typ">Strategy</span><span class="pun">.</span><span class="pln">FAIR_WEIGHT</span><span class="pun">).</span><span class="pln">build</span><span class="pun">();</span><span class="pln">
+</span><span class="kwd">final</span><span class="pln"> </span><span class="typ">Set</span><span class="pun">&lt;</span><span class="typ">Duty</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;&gt;</span><span class="pln"> myDuties </span><span class="pun">=</span><span class="pln"> </span><span class="kwd">new</span><span class="pln"> </span><span class="typ">TreeSet</span><span class="pun">&lt;&gt;();</span><span class="pln">
+
+</span><span class="kwd">new</span><span class="pln"> </span><span class="typ">Minka</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">String</span><span class="pun">&gt;(</span><span class="str">"localhost:2181"</span><span class="pun">)</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">onPalletLoad</span><span class="pun">(()-&gt;</span><span class="pln"> newHashSet</span><span class="pun">(</span><span class="pln">p</span><span class="pun">))</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">onDutyLoad</span><span class="pun">(()-&gt;</span><span class="pln"> newHashSet</span><span class="pun">(</span><span class="typ">DutyBuilder</span><span class="pun">.&lt;</span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln">
+        builder</span><span class="pun">(</span><span class="str">"aDuty"</span><span class="pun">,</span><span class="pln"> </span><span class="str">"pal"</span><span class="pun">).</span><span class="pln">with</span><span class="pun">(</span><span class="lit">200d</span><span class="pun">).</span><span class="pln">build</span><span class="pun">()))</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">onDutyCapture</span><span class="pun">(</span><span class="pln">duties</span><span class="pun">-&gt;</span><span class="pln">myDuties</span><span class="pun">.</span><span class="pln">addAll</span><span class="pun">(</span><span class="pln">duties</span><span class="pun">))</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">onDutyRelease</span><span class="pun">(</span><span class="pln">duties</span><span class="pun">-&gt;</span><span class="pln">myDuties</span><span class="pun">.</span><span class="pln">removeAll</span><span class="pun">(</span><span class="pln">duties</span><span class="pun">))</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">onDutyReport</span><span class="pun">(()-&gt;</span><span class="pln">myDuties</span><span class="pun">)</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">setCapacity</span><span class="pun">(</span><span class="pln">p</span><span class="pun">,</span><span class="pln"> </span><span class="lit">3000d</span><span class="pun">)</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">load</span><span class="pun">();</span><span class="pln">
+    </span><span class="com">// and we're distributed !</span></code></pre>
+
+<p>Every Minka class instance is a <em>Shard</em>, and can define which cluster is member of, by default is <em>unnamed</em>. In case we plan to share the zookeeper cluster with other minka-enabled applications: we must provide a custom name, or use a zookeeper’s chroot folder. </p>
+
+<p>Every JVM should only have one member, only for testing we could specify different TCP ports, and under the same cluster name (<em>unnamed</em> is fine) or zk’s chroot folder: we’ll have a “standalone” cluster, communicating thru loopback interfase.</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">final</span><span class="pln"> </span><span class="typ">Config</span><span class="pln"> custom </span><span class="pun">=</span><span class="pln"> </span><span class="kwd">new</span><span class="pln"> </span><span class="typ">Config</span><span class="pun">();</span><span class="pln">
+</span><span class="com">// if we're sharing ZK</span><span class="pln">
+custom</span><span class="pun">.</span><span class="pln">getBootstrapConf</span><span class="pun">().</span><span class="pln">setServiceName</span><span class="pun">(</span><span class="str">"sampleApp"</span><span class="pun">);</span><span class="pln">
+</span><span class="com">// if we're shooting several servers in the same machine</span><span class="pln">
+custom</span><span class="pun">.</span><span class="pln">getBrokerConfg</span><span class="pun">().</span><span class="pln">setHostPort</span><span class="pun">(</span><span class="str">"localhost:5749"</span><span class="pun">);</span><span class="pln">
+</span><span class="kwd">new</span><span class="pln"> </span><span class="typ">Minka</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">String</span><span class="pun">&gt;(</span><span class="pln">custom</span><span class="pun">);</span></code></pre>
+
+
+
+<h4 id="15-operations">1.5 Operations</h4>
+
+<blockquote>
+  <p>As in current version Minka lacks of a distributed-transactional storage, CRUD requests operate only in the current leader’s lifecycle. At the event of a new leader reelection, all previous CRUD requests rely on their inclusion in the suppliers provided at the new elected leader, in the events <code>onPalletLoad</code> and <code>onDutyLoad</code>.</p>
+</blockquote>
+
+<p>These are the CRUD requests that can be performed thru <code>io.tilt.minka.api.MinkaClient</code> class:</p>
+
+<table>
+<thead>
+<tr>
+  <th>method</th>
+  <th>action</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>add</td>
+  <td>adds a new pallet or duty to the system, in order for a shard to capture it and process it.</td>
+</tr>
+<tr>
+  <td>remove</td>
+  <td>remove an existing pallet or duty, for the shard that captured it: to release it.</td>
+</tr>
+<tr>
+  <td>update</td>
+  <td>update the pallet or duty payload at the shard held in custody</td>
+</tr>
+<tr>
+  <td>transfer</td>
+  <td>send a message to a pallet or duty, at the shard held in custody</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h4 id="1-6-sample">1. 6 Sample</h4>
+
+<p>This enters a newly created duty to the system, on the same existing pallet, and removes the previous one.</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="typ">MinkaClient</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln"> cli </span><span class="pun">=</span><span class="pln"> server</span><span class="pun">.</span><span class="pln">getClient</span><span class="pun">();</span><span class="pln">
+cli</span><span class="pun">.</span><span class="pln">add</span><span class="pun">(</span><span class="typ">DutyBuilder</span><span class="pun">.&lt;</span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln">builder</span><span class="pun">(</span><span class="str">"other"</span><span class="pun">,</span><span class="pln"> </span><span class="str">"pal"</span><span class="pun">).</span><span class="pln">build</span><span class="pun">());</span><span class="pln">
+cli</span><span class="pun">.</span><span class="pln">remove</span><span class="pun">(</span><span class="pln">aDuty</span><span class="pun">);</span></code></pre>
+
+
+
+<h3 id="2-limitations">2. Limitations</h3>
+
+<ul>
+<li>Minka lacks of a storage of its own in the *current version, for duties, pallets and CRUD requests, the client must use a database to store input data, in case a new leader reelection occurrs (prepare for it),  because all elements beside those loaded at first: are held in memory by the leader itself. </li>
+<li>every minka host application must behave identically, they run code that reacts to duties.</li>
+<li>host layer ignores distribution plumbing, states and environment, cannot rely on physical resources on the machine it runs.</li>
+</ul>
+
+<p>What happens if your application is not subtled to process granularity ?</p>
+
+<ul>
+<li>Leaving out cases of bad modularization, scattered components or cluttered layers, big-coarsed grained applications arent good candidates for Minka integration, as we rely on it for external input of data or signals, and their balanced distribution for our own processing purposes. </li>
+</ul>
+
+<p>*see the roadmap</p></div></body>
+</html>
