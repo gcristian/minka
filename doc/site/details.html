@@ -18,7 +18,7 @@
 <body><div class="container"><p></p><center><img src="https://k61.kn3.net/4/6/F/B/B/2/02D.png" alt="" title=""> </center><p></p>
 
 <table align="center"><tbody><tr>
-<td><a href="http://gcristian.github.io/index.html">Home</a></td>
+<td><a href="http://gcristian.github.io/minka">Home</a></td>
 <td><a href="http://gcristian.github.io/minka/doc/site/integration.html">Integration</a></td>
 <td><a href="http://gcristian.github.io/minka/doc/site/details.html">Details</a></td>
 <td><a href="http://gcristian.github.io/minka/doc/site/architecture.html">Architecture</a></td>
@@ -27,9 +27,13 @@
 
 <h2 id="2-details">2. Details</h2>
 
+
+
 <h3 id="21-duties">2.1 Duties</h3>
 
 <p>A core and generic entity, wrapping anything transportable with significance only to the client. It might mean a signal for a process to start, input data for a function, a task name, a mesage, or simply data to be requested, uploaded, saved, analyzed, etc.</p>
+
+
 
 <h4 id="211-creation-attributes">2.1.1 Creation attributes</h4>
 
@@ -83,6 +87,8 @@ For proper desired management, this’s a concern to tell minka about your dutie
 
 <p>All this conditions translate to duties being re-located, without impact if they represent static information having few dynamic impact. But if they represent some sort of input for a long-term job composed of ordered tasks, then your processes must be prepared for savepoints. This’s due to its distributed resilient behaviour, and the multi-purpose nature of Minka, i.e. <em>what you do with it</em>. </p>
 
+
+
 <h4 id="212-weights">2.1.2 Weights</h4>
 
 <p>The weight is reported by the Delegate. It must be calculated once and then change only in case of need. If the weight changes: a rebalance may occurr, and the duty may migrate among shards.</p>
@@ -118,6 +124,8 @@ For proper desired management, this’s a concern to tell minka about your dutie
 <blockquote>
   <p>It’s recommented the estimation to be more safe than accurate, and free of any factor subject to realtime variation, to avoid continuous redistribution by the balancers, causing a counter-productive effect on short-term duties.</p>
 </blockquote>
+
+
 
 <h4 id="213-duty-life-cycle">2.1.3 Duty life-cycle</h4>
 
@@ -175,9 +183,13 @@ For proper desired management, this’s a concern to tell minka about your dutie
 </tbody></table>
 
 
+
+
 <h3 id="22-balancers">2.2 Balancers</h3>
 
 <p>Balancers move duties from a source shard to a target shard with a functional criteria, by means of migration or creation. They have a fixed behaviour and continuously perform the same task no matter what cycle are in. There’re four balancers that can be used for each individual pallet, at creation time thru:</p>
+
+
 
 <pre class="prettyprint prettyprinted"><code class="language-java"><span class="typ">PalletBuilder</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;.</span><span class="pln">builder</span><span class="pun">(</span><span class="str">"pal"</span><span class="pun">).</span><span class="pln">with</span><span class="pun">(</span><span class="typ">Balancer</span><span class="pun">.</span><span class="typ">Strategy</span><span class="pun">.</span><span class="pln">FAIR_WEIGHT</span><span class="pun">).</span><span class="pln">build</span><span class="pun">()</span></code></pre>
 
@@ -263,11 +275,15 @@ For proper desired management, this’s a concern to tell minka about your dutie
 
 <p></p><center><img src="http://svgshare.com/i/Nx.svg" width="80%"> </center><p></p>
 
+
+
 <h3 id="23-communication">2.3 Communication</h3>
 
 <p>Minka has a TCP socket event broker to asynchronously interchange messages between shards, built with Netty. <br>
  Although brokers are directly connected, they dont talk, i.e., broker clients don’t wait for an answer and broker servers don’t produce it. They both serve a contract, staying functionally asynchronous for fluid though slow-paced orchestration, leveraging damage contention. <br>
 Only a TCP port is needed to which brokers connect each other.</p>
+
+
 
 <h4 id="resiliency">Resiliency</h4>
 
