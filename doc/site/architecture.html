@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>minka-architecture</title>
+<link rel="stylesheet" href="https://stackedit.io/res-min/themes/base.css" />
+<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"></script>
+<script>e
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-88637530-1', 'auto');
+  ga('send', 'pageview');
+</script>
+</head>
+<body><div class="container"><p></p><center><img src="https://k61.kn3.net/4/6/F/B/B/2/02D.png" alt="" title=""> </center><p></p>
+
+<table align="center"><tbody><tr>
+<td><a href="http://gcristian.github.io/index.html">Home</a></td>
+<td><a href="http://gcristian.github.io/minka/doc/site/integration.html">Integration</a></td>
+<td><a href="http://gcristian.github.io/minka/doc/site/details.html">Details</a></td>
+<td><a href="http://gcristian.github.io/minka/doc/site/architecture.html">Architecture</a></td>
+<td><a href="http://gcristian.github.io/minka/doc/site/project.html">Project</a></td>
+</tr></tbody></table>
+
+
+
+<h2 id="3-architecture">3. Architecture</h2>
+
+<p>The current section is for developers willing to add features to Minka. This detail is purely about server design from the leader process perspective.</p>
+
+<p>When we create the server:</p>
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">new</span><span class="pln"> </span><span class="typ">Minka</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">Integer</span><span class="pun">&gt;(</span><span class="str">"localhost:2181/minka"</span><span class="pun">);</span></code></pre>
+
+<p>Minka starts an embedded tcp server on port 5748, and communicates with other instances of the same host application: to organize distribution and balance of user entities. <br>
+</p><center><img src="https://k60.kn3.net/C/D/2/7/F/C/6AC.png" alt="" title=""></center> <br>
+The cluster enroles a Leader and its followers. The leader behaviour is composed of cyclic phases that work in order of hierarchy, and each one relies on the one before: <br>
+<center><img src="https://k60.kn3.net/C/1/6/E/B/A/4CA.png" alt="" title=""></center><p></p>
+
+<hr>
+
+
+
+<h3 id="31-bootstrap">3.1 Bootstrap</h3>
+
+<p>When we integrate the library into our host application and call <code>load()</code>, triggers the Minka spring context, with all the starting agents.</p>
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">new</span><span class="pln"> </span><span class="typ">Minka</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">Integer</span><span class="pun">&gt;(</span><span class="str">"localhost:2181/minka"</span><span class="pun">)</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">load</span><span class="pun">();</span></code></pre>
+
+<p></p><center><img src="https://k61.kn3.net/C/6/1/9/4/2/E71.png" alt="" title="">ba</center><p></p>
+
+<p>So the <code>bootstrap</code> resolves the current shard’s host address and port, and starts the  <code>broker</code> that will be used for communication. It also starts a <code>scheduler</code> that control agents so they can safety run without interferring in other’s work. Then starts both a <code>follower</code> and a <code>leader</code> process. <br>
+The Leader will register itself as a candidate at the <code>zookeeper</code> ensemble, if it wins it will start two agents: <code>proctor</code> and <code>distributor</code>, otherwise it will remain dormant until the last elected leader fails or shutsdown. <br>
+The Follower locates the current leader and thru the <code>heartpump</code> sends heartbeats to it.  <br>
+It will also start a <code>policies</code> agent to release duties in case the follower ceases to receive clearance from the leader.</p>
+
+
+
+<h3 id="32-proctor">3.2 Proctor</h3>
+
+<p>This phase affects the supplier provided on the following events:</p>
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">final</span><span class="pln"> </span><span class="typ">Set</span><span class="pun">&lt;</span><span class="typ">Duty</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;&gt;</span><span class="pln"> myCapture </span><span class="pun">=</span><span class="pln"> </span><span class="kwd">new</span><span class="pln"> </span><span class="typ">HashSet</span><span class="pun">&lt;&gt;();</span><span class="pln">
+server</span><span class="pun">.</span><span class="pln">onDutyReport</span><span class="pun">(()-&gt;</span><span class="pln"> myCapture </span><span class="pun">);</span></code></pre>
+
+<p></p><center> <br>
+<img src="https://k60.kn3.net/C/5/6/E/7/D/F68.png" alt="" title=""> <br>
+</center> <br>
+The follower schedules the <code>heartpump</code> agent with a predefined frequency, which creates heartbeats containing information of the shard’s identity, capacity, location, and attached duties reported by the user’s delegate, and send them to the leader thru the <code>Broker</code>. <br>
+At the leader, all HB’s passes to a <code>bookkeeper</code> function that analyzes the current cluster state, if there’s a roadmap in progress, if it’s the first HB of a shard, or anything of importance to account it. At first it will add a new Shard entity to the <code>partition table</code>. <br>
+When the <code>Proctor</code> agent starts, checks the partition table’s shards and calculates a shard state involving the distance in time between the HBs and a predefined time-window range to rank up the shard, and move it to an ONLINE state, which will make after some periods in that state: to be considered for distribution of duties.<p></p>
+
+<p>All shards starts in the JOINING state at the proctor’s ranking, then go ONLINE, if there’s some communication interruption strong enough it may cause the QUARANTINE status, and in case the shard orderly shutsdown goes to QUITTED, in case the shard ceases to send HBs or the Proctor ceases to see it: goes to OFFLINE. <br>
+</p><center> <br>
+<img src="https://k60.kn3.net/4/B/1/5/9/C/563.png" alt="" title=""> <br>
+</center><p></p>
+
+<p>The lasts states are urecoverables. <br>
+If there’re shards in a state different than ONLINE: the phase doesnt moves ahead, but no shard is allowed to stay too much time in a temporal state like JOINING or QUARANTINE.  <br>
+When all shards are ONLINE after a number of predefined periods: the phase moves to balancing. In case there’s a roadmap in progress, it goes on even if a shard is not ONLINE.</p>
+
+
+
+<h3 id="33-balancer">3.3 Balancer</h3>
+
+<p></p><center><img src="http://imgh.us/box-balance.svg" width="35%"> </center><p></p>
+
+<p>The following events occurrs when Minka needs to know the user entities at the first distribution, which happens only once in a leader’s lifetime, and each time a new leader is reelected.</p>
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="pln">ctx</span><span class="pun">.</span><span class="pln">onPalletLoad</span><span class="pun">(()-&gt;...);</span><span class="pln">
+ctx</span><span class="pun">.</span><span class="pln">onDutyLoad</span><span class="pun">(()-&gt;...);</span></code></pre>
+
+<p></p><center><img src="https://k60.kn3.net/B/3/1/0/A/2/B8F.png" alt="" title=""></center><p></p>
+
+<p>The <code>distributor</code> agent checks the <code>cluster state</code> and if all shards are online it proceeds. <br>
+It asks the <code>partition master</code> (usually the partition delegate instance) for pallets and duties, which were defined thru <code>Minka::[onPalletLoad(..)|onDutyLoad(..)]</code>, this’s the only moment that both domain entities are loaded and kept in partition table’s custody thru adding them as a CRUD operation, the same one that can be executed thru <code>MinkaClient::add()</code>. <br>
+Then an <code>arrangement</code> function reads duties in the <em>Stage</em> (already distributed) and duties in the <em>NextStage</em> (CRUD ones), detects for missing duties (distributed but recorded as absent by the <em>Bookkeeper</em>), detects offline shards (and subsequently dangling duties to be redistributed). <br>
+The Arranger traverses all pallets with a <code>Balancer</code> predefined by the user thru the <em>BalancingMetadata</em> set at Pallet creation: with a <em>NextTable</em> composed of the Stage, the NextStage, and a <code>Migrator</code> that can be used to affect distribution process. <br>
+All provided Minka balancers will check for the NextTable’s Shards and ShardEntities, and operate the Migrator for overriding shard’s duties, transferring duties between shards, etc. <br>
+The Migrator validates every operation to be coherent and applies the changes to a <code>Roadmap</code> element that properly organizes them for the transportation process to be safety and smoothly applied.</p>
+
+
+
+<h3 id="34-distributor">3.4 Distributor</h3>
+
+<p></p><center><img src="http://imgh.us/box-distribution.svg" width="30%"> </center><p></p>
+
+<p>this phase affects consumers defined on the following events:</p>
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="pln">server</span><span class="pun">.</span><span class="pln">onDutyCapture</span><span class="pun">((</span><span class="pln">d</span><span class="pun">)-&gt;...);</span><span class="pln">
+server</span><span class="pun">.</span><span class="pln">onPalletCapture</span><span class="pun">((</span><span class="pln">d</span><span class="pun">)-&gt;...);</span><span class="pln">
+server</span><span class="pun">.</span><span class="pln">onDutyRelease</span><span class="pun">((</span><span class="pln">d</span><span class="pun">)-&gt;...);</span><span class="pln">
+server</span><span class="pun">.</span><span class="pln">onPalletRelease</span><span class="pun">((</span><span class="pln">d</span><span class="pun">)-&gt;...);</span></code></pre>
+
+<p>The <code>distributor</code> agent has the <code>roadmap</code> plan already built and starts driving it. <br>
+Thru the <code>broker</code> sends all duty detachments to their shard locations. <br>
+At the follower, the <code>partition manager</code> invokes the user’s <code>partition delegate</code> to honor the duty contract: release the duties, stop them, kill them, whatever they mean for the host application. <br>
+So the <code>heartpump</code> continues to send heartbeats thru the broker: but without those released duties.  <br>
+At the leader, the <code>bookkeeper</code> notes the absence as a part of a roadmap plan, after ensuring this is a constant situation, it updates the <code>partition table</code> to reflect the new reality, and moves the roadmap pointer to the next phase: attachments. The same control flow applies for this step. <br>
+After both dettachments and attachments steps conclude, the distribution process starts again, after the proctor phase. <br>
+</p><center><img src="https://k61.kn3.net/9/1/8/7/A/6/E79.png" alt="" title=""></center><p></p></div></body>
+</html>
