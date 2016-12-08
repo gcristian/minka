@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>minka-syncmaster</title>
+<link rel="stylesheet" href="https://stackedit.io/res-min/themes/base.css" />
+<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"></script>
+<script>e
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-88637530-1', 'auto');
+  ga('send', 'pageview');
+</script>
+</head>
+<body><div class="container"><p></p><center><img src="https://k61.kn3.net/4/6/F/B/B/2/02D.png" alt="" title=""> </center><p></p>
+
+<table align="center"><tbody><tr>
+<td><a href="http://gcristian.github.io/doc/site/index.html">Home</a></td>
+<td><a href="http://www.lanacion.com.ar">Integration</a></td>
+<td><a href="http://www.lanacion.com.ar">Doc</a></td>
+<td><a href="http://www.lanacion.com.ar">Dev</a></td>
+<td><a href="http://www.lanacion.com.ar">Project</a></td>
+</tr></tbody></table>
+
+<h3 id="minka-is-a-java8-library-for-distribution-and-balance-of-backend-systems-through-sharding-of-user-defined-duties">Minka is a Java8 library for distribution and balance of backend systems through sharding of user-defined duties.</h3>
+
+
+
+<h4 id="used-to-horizontally-scale-up-usage-of-physical-resources-by-splitting-processing-workload-into-application-instances-and-keeping-a-dynamic-distribution-and-balancing-of-input-signals-minka-brings-isolation-of-scaling-concerns-out-of-the-business-layer-by-encapsulation-with-a-simple-ioc-multi-purpose-integration-model">Used to horizontally scale up usage of physical resources by splitting processing workload into application instances, and keeping a dynamic distribution and balancing of input signals. Minka brings isolation of scaling concerns out of the business layer by encapsulation, with a simple IoC multi-purpose integration model.</h4>
+
+
+
+<h3 id="usage-and-backend-model">Usage and backend model</h3>
+
+<table>
+<thead>
+<tr>
+  <th align="left">Duties</th>
+  <th align="left">Pallets</th>
+  <th align="left">Delegates</th>
+  <th align="left">Shards</th>
+  <th align="left">Leader</th>
+  <th align="left">Followers</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="left"><img src="https://k61.kn3.net/F/C/A/5/9/C/6B5.png" alt="" title=""></td>
+  <td align="left"><img src="https://k60.kn3.net/C/4/E/3/4/F/4D6.png" alt="" title=""></td>
+  <td align="left"><img src="https://k60.kn3.net/0/A/F/E/2/B/008.png" alt="" title=""></td>
+  <td align="left"><img src="https://k61.kn3.net/1/6/6/8/0/5/58F.png" alt="" title=""></td>
+  <td align="left"><img src="https://k61.kn3.net/6/0/5/7/2/1/AA0.png" alt="" title=""></td>
+  <td align="left"><img src="https://k60.kn3.net/5/B/7/4/E/9/837.png" alt="" title=""></td>
+</tr>
+<tr>
+  <td align="left">user-defined distributable entities, representing input data or signal to user functions.</td>
+  <td align="left">group duties, with specific balancing strategies based on lifecycle, costs and performance.</td>
+  <td align="left">the API client applying the contract of reacting on distribution events sent to the shard</td>
+  <td align="left">fragments of the duty universe, each machine in the cluster.</td>
+  <td align="left">coordinates client CRUD requests. Controls everything.</td>
+  <td align="left">receives duties and pallets from the leader, to invoke delegate’s contract.</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h3 id="implementation-flow">Implementation flow</h3>
+
+<p>Thru the <em>inversion of control</em> pattern, the host application yields to Minka the creation, update, deletion, shard selection,  and transportation of duties. The following three-steps flow takes place:</p>
+
+<table>
+<thead>
+<tr>
+  <th>request</th>
+  <th>reception</th>
+  <th>transport</th>
+  <th>available</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>client builds a duty and the CRUD request thru API</td>
+  <td>minka routes request to the current leader</td>
+  <td>leader ensures consistency and distributes duty to the shard</td>
+  <td>follower process invokes delegate’s contract onCapture or onRelease</td>
+</tr>
+</tbody></table>
+
+
+<table align="center"><tbody><tr><td align="center">
+<br><img src="http://svgshare.com/i/MG.svg" height="70%">
+</td></tr></tbody></table>
+
+
+
+<h3 id="1-integration">1. Integration</h3>
+
+
+
+<h4 id="11-artifact">1.1 Artifact</h4>
+
+<pre><code>&lt;dependency&gt;
+    &lt;artifactId&gt;minka-parent&lt;/artifactId&gt;
+    &lt;groupId&gt;io.tilt.minka&lt;/groupId&gt;
+    &lt;version&gt;0.2-SNAPSHOT&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+
+
+
+<h4 id="12-requirements">1.2 Requirements</h4>
+
+<ul>
+<li>a Zookeeper cluster, used for leader election.</li>
+<li>a host JVM system, where the server runs embedded.</li>
+</ul>
+
+
+
+<h4 id="12-library">1.2 Library</h4>
+
+<p>Minka provides a compact API at <code>io.tilt.minka.api</code> to do really few things:</p>
+
+<ul>
+<li>class <code>DutyBuilder/PalletBuilder</code> to wrap and internalize user entities</li>
+<li>class <code>MinkaClient</code> to input CRUD duties &amp; pallets, after first balance.</li>
+<li>class <code>Minka</code> to start the server and listen for events.</li>
+</ul>
+
+
+
+<h4 id="13-events">1.3 Events</h4>
+
+<p>Minka is designed to embrace incidents, that unfolds an event-driven architecture, which also applies its API.  <br>
+These are the events the client must listen and react to:</p>
+
+<table>
+<thead>
+<tr>
+  <th align="left">event</th>
+  <th>required</th>
+  <th>when</th>
+  <th>what for</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="left"><code>load</code></td>
+  <td>yes</td>
+  <td>balance *phase</td>
+  <td>input the initial duties and pallets to minka, only called at the first balancing phase of a new elected leader.</td>
+</tr>
+<tr>
+  <td align="left"><code>capture</code>, <code>release</code></td>
+  <td>yes</td>
+  <td>distribution phase</td>
+  <td>honour the <em>Inversion of Control</em> contract about taking or discarding duties and pallets to perform a certain action, these are the core events.</td>
+</tr>
+<tr>
+  <td align="left"><code>report</code></td>
+  <td>yes</td>
+  <td>proctor phase</td>
+  <td>the captured duties, in permanent custody</td>
+</tr>
+<tr>
+  <td align="left"><code>update</code>, <code>transfer</code></td>
+  <td>no</td>
+  <td>anytime</td>
+  <td>reaction of an duty or pallet’s payload update or a transferred message, to a duty or pallet previously <em>captured</em>. Entered thru the minka client</td>
+</tr>
+</tbody></table>
+
+
+<p>*see the phases in the server implementation section.</p>
+
+
+
+<h4 id="14-sample">1.4 Sample</h4>
+
+<p>This creates a Minka server shard, starting with 1 pallet with a fair weight balancer, and 1 duty  weighing 200. When Minka yields control of the duty to us: we simply add it to <em>myDuties</em> set. <br>
+In a real use case all application instances must reuse the same routine and behave identically approaching Minka.</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">final</span><span class="pln"> </span><span class="typ">Pallet</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln"> p </span><span class="pun">=</span><span class="pln"> </span><span class="typ">PalletBuilder</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln">
+    builder</span><span class="pun">(</span><span class="str">"pal"</span><span class="pun">).</span><span class="pln">with</span><span class="pun">(</span><span class="typ">Balancer</span><span class="pun">.</span><span class="typ">Strategy</span><span class="pun">.</span><span class="pln">FAIR_WEIGHT</span><span class="pun">).</span><span class="pln">build</span><span class="pun">();</span><span class="pln">
+</span><span class="kwd">final</span><span class="pln"> </span><span class="typ">Set</span><span class="pun">&lt;</span><span class="typ">Duty</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;&gt;</span><span class="pln"> myDuties </span><span class="pun">=</span><span class="pln"> </span><span class="kwd">new</span><span class="pln"> </span><span class="typ">TreeSet</span><span class="pun">&lt;&gt;();</span><span class="pln">
+
+</span><span class="kwd">new</span><span class="pln"> </span><span class="typ">Minka</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">String</span><span class="pun">&gt;(</span><span class="str">"localhost:2181"</span><span class="pun">)</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">onPalletLoad</span><span class="pun">(()-&gt;</span><span class="pln"> newHashSet</span><span class="pun">(</span><span class="pln">p</span><span class="pun">))</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">onDutyLoad</span><span class="pun">(()-&gt;</span><span class="pln"> newHashSet</span><span class="pun">(</span><span class="typ">DutyBuilder</span><span class="pun">.&lt;</span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln">
+        builder</span><span class="pun">(</span><span class="str">"aDuty"</span><span class="pun">,</span><span class="pln"> </span><span class="str">"pal"</span><span class="pun">).</span><span class="pln">with</span><span class="pun">(</span><span class="lit">200d</span><span class="pun">).</span><span class="pln">build</span><span class="pun">()))</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">onDutyCapture</span><span class="pun">(</span><span class="pln">duties</span><span class="pun">-&gt;</span><span class="pln">myDuties</span><span class="pun">.</span><span class="pln">addAll</span><span class="pun">(</span><span class="pln">duties</span><span class="pun">))</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">onDutyRelease</span><span class="pun">(</span><span class="pln">duties</span><span class="pun">-&gt;</span><span class="pln">myDuties</span><span class="pun">.</span><span class="pln">removeAll</span><span class="pun">(</span><span class="pln">duties</span><span class="pun">))</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">onDutyReport</span><span class="pun">(()-&gt;</span><span class="pln">myDuties</span><span class="pun">)</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">setCapacity</span><span class="pun">(</span><span class="pln">p</span><span class="pun">,</span><span class="pln"> </span><span class="lit">3000d</span><span class="pun">)</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">load</span><span class="pun">();</span><span class="pln">
+    </span><span class="com">// and we're distributed !</span></code></pre>
+
+<p>Every Minka class instance is a <em>Shard</em>, and can define which cluster is member of, by default is <em>unnamed</em>. In case we plan to share the zookeeper cluster with other minka-enabled applications: we must provide a custom name, or use a zookeeper’s chroot folder. </p>
+
+<p>Every JVM should only have one member, only for testing we could specify different TCP ports, and under the same cluster name (<em>unnamed</em> is fine) or zk’s chroot folder: we’ll have a “standalone” cluster, communicating thru loopback interfase.</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">final</span><span class="pln"> </span><span class="typ">Config</span><span class="pln"> custom </span><span class="pun">=</span><span class="pln"> </span><span class="kwd">new</span><span class="pln"> </span><span class="typ">Config</span><span class="pun">();</span><span class="pln">
+</span><span class="com">// if we're sharing ZK</span><span class="pln">
+custom</span><span class="pun">.</span><span class="pln">getBootstrapConf</span><span class="pun">().</span><span class="pln">setServiceName</span><span class="pun">(</span><span class="str">"sampleApp"</span><span class="pun">);</span><span class="pln">
+</span><span class="com">// if we're shooting several servers in the same machine</span><span class="pln">
+custom</span><span class="pun">.</span><span class="pln">getBrokerConfg</span><span class="pun">().</span><span class="pln">setHostPort</span><span class="pun">(</span><span class="str">"localhost:5749"</span><span class="pun">);</span><span class="pln">
+</span><span class="kwd">new</span><span class="pln"> </span><span class="typ">Minka</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">String</span><span class="pun">&gt;(</span><span class="pln">custom</span><span class="pun">);</span></code></pre>
+
+
+
+<h4 id="15-operations">1.5 Operations</h4>
+
+<blockquote>
+  <p>As in current version Minka lacks of a distributed-transactional storage, CRUD requests operate only in the current leader’s lifecycle. At the event of a new leader reelection, all previous CRUD requests rely on their inclusion in the suppliers provided at the new elected leader, in the events <code>onPalletLoad</code> and <code>onDutyLoad</code>.</p>
+</blockquote>
+
+<p>These are the CRUD requests that can be performed thru <code>io.tilt.minka.api.MinkaClient</code> class:</p>
+
+<table>
+<thead>
+<tr>
+  <th>method</th>
+  <th>action</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>add</td>
+  <td>adds a new pallet or duty to the system, in order for a shard to capture it and process it.</td>
+</tr>
+<tr>
+  <td>remove</td>
+  <td>remove an existing pallet or duty, for the shard that captured it: to release it.</td>
+</tr>
+<tr>
+  <td>update</td>
+  <td>update the pallet or duty payload at the shard held in custody</td>
+</tr>
+<tr>
+  <td>transfer</td>
+  <td>send a message to a pallet or duty, at the shard held in custody</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h4 id="1-6-sample">1. 6 Sample</h4>
+
+<p>This enters a newly created duty to the system, on the same existing pallet, and removes the previous one.</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="typ">MinkaClient</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln"> cli </span><span class="pun">=</span><span class="pln"> server</span><span class="pun">.</span><span class="pln">getClient</span><span class="pun">();</span><span class="pln">
+cli</span><span class="pun">.</span><span class="pln">add</span><span class="pun">(</span><span class="typ">DutyBuilder</span><span class="pun">.&lt;</span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln">builder</span><span class="pun">(</span><span class="str">"other"</span><span class="pun">,</span><span class="pln"> </span><span class="str">"pal"</span><span class="pun">).</span><span class="pln">build</span><span class="pun">());</span><span class="pln">
+cli</span><span class="pun">.</span><span class="pln">remove</span><span class="pun">(</span><span class="pln">aDuty</span><span class="pun">);</span></code></pre>
+
+
+
+<h3 id="2-limitations">2. Limitations</h3>
+
+<ul>
+<li>Minka lacks of a storage of its own in the *current version, for duties, pallets and CRUD requests, the client must use a database to store input data, in case a new leader reelection occurrs (prepare for it),  because all elements beside those loaded at first: are held in memory by the leader itself. </li>
+<li>every minka host application must behave identically, they run code that reacts to duties.</li>
+<li>host layer ignores distribution plumbing, states and environment, cannot rely on physical resources on the machine it runs.</li>
+</ul>
+
+<p>What happens if your application is not subtled to process granularity ?</p>
+
+<ul>
+<li>Leaving out cases of bad modularization, scattered components or cluttered layers, big-coarsed grained applications arent good candidates for Minka integration, as we rely on it for external input of data or signals, and their balanced distribution for our own processing purposes. </li>
+</ul>
+
+<p>*see the roadmap</p>
+
+<hr>
+
+
+
+<h2 id="3-documentation">3. Documentation</h2>
+
+
+
+<h3 id="31-duties">3.1 Duties</h3>
+
+<p>A core and generic entity, wrapping anything transportable with significance only to the client. It might mean a signal for a process to start, input data for a function, a task name, a mesage, or simply data to be requested, uploaded, saved, analyzed, etc.</p>
+
+
+
+<h4 id="311-creation-attributes">3.1.1 Creation attributes</h4>
+
+<table>
+<thead>
+<tr>
+  <th>name</th>
+  <th>type</th>
+  <th>note</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>id</td>
+  <td>string</td>
+  <td>Max: 256 length, a unique identifier across the application instances.</td>
+</tr>
+<tr>
+  <td>pallet id</td>
+  <td>string</td>
+  <td>Max: 256  length, required to link both entities inside the minka domain.</td>
+</tr>
+<tr>
+  <td>payload</td>
+  <td>bytes</td>
+  <td>optional, serializable object representing input data or cargo for a function or process.</td>
+</tr>
+<tr>
+  <td>weight</td>
+  <td>double</td>
+  <td>the cost of performance of processing this duty at a shard. Must be in the same measure unit as the weight reported for the pallet at the shards. It may or not be related with the payload</td>
+</tr>
+<tr>
+  <td></td>
+  <td></td>
+  <td></td>
+</tr>
+</tbody></table>
+
+
+<p>Considering the life-cycle of a duty there are two types of duties: Idempotent or <em>Stationary. (not supported in current version)</em> <br>
+For proper desired management, this’s a concern to tell minka about your duties. Because Minka can attach or dettach them to/from shards in any moment, as there’re many reasons subject but not limited to:</p>
+
+<ol>
+<li>cluster health states variation</li>
+<li>different new duty weights creates unbalanced cluster nodes, </li>
+<li>your application instances may be manually stopped or started, </li>
+<li>you add new shards and delete others,</li>
+<li>network partitioning may occur, </li>
+<li>unexpected hardware or software failure, making the shard fall</li>
+</ol>
+
+<p>All this conditions translate to duties being re-located, without impact if they represent static information having few dynamic impact. But if they represent some sort of input for a long-term job composed of ordered tasks, then your processes must be prepared for savepoints. This’s due to its distributed resilient behaviour, and the multi-purpose nature of Minka, i.e. <em>what you do with it</em>. </p>
+
+
+
+<h4 id="312-weights">3.1.2 Weights</h4>
+
+<p>The weight is reported by the Delegate. It must be calculated once and then change only in case of need. If the weight changes: a rebalance may occurr, and the duty may migrate among shards.</p>
+
+<p>Table of duty weight samples:</p>
+
+<table>
+<thead>
+<tr>
+  <th>if a duty represents…</th>
+  <th>the weight might be measured</th>
+  <th>and shards reported capacity might reflect…</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>a file to save in harddisk</td>
+  <td>in bytes</td>
+  <td>the total harddisk space for that pallet</td>
+</tr>
+<tr>
+  <td>a file to upload at discretized locations</td>
+  <td>in a coefficient of bytes and network latency</td>
+  <td>the network uplink bandwidth with a coefficient of location in the network, that we want for that pallet</td>
+</tr>
+<tr>
+  <td>an image to analyze</td>
+  <td>in a coefficient between bytes and file format</td>
+  <td>might reflect a derivative of cpu clock speed and threads, that we want to assign to that pallet</td>
+</tr>
+</tbody></table>
+
+
+<blockquote>
+  <p>It’s recommented the estimation to be more safe than accurate, and free of any factor subject to realtime variation, to avoid continuous redistribution by the balancers, causing a counter-productive effect on short-term duties.</p>
+</blockquote>
+
+
+
+<h4 id="313-duty-life-cycle">3.1.3 Duty life-cycle</h4>
+
+<p>The lifecycle of a duty starts at creation and ends at removal. For both client requests to end up as attaching/dettaching events in a shard, among other events that also requires consistency management: there’s a state flow that Minka follows: <br>
+</p><center><img src="http://svgshare.com/i/M_.svg" width="100%"></center><p></p>
+
+<table>
+<thead>
+<tr>
+  <th align="left">name</th>
+  <th>type</th>
+  <th align="left">desc</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td align="left"><code>create</code>, <code>remove</code></td>
+  <td>client action</td>
+  <td align="left">request sent thru <code>MinkaClient</code> methods that triggers minka events</td>
+</tr>
+<tr>
+  <td align="left"><code>rebalance</code></td>
+  <td>minka event</td>
+  <td align="left">occurrs when the <code>Migrate</code> function effectively changes distribution</td>
+</tr>
+<tr>
+  <td align="left"><code>attach</code>, <code>dettach</code></td>
+  <td>minka event</td>
+  <td align="left">translates to follower events: <em>capture</em> and <em>release</em>, caused by create, remove and rebalance</td>
+</tr>
+<tr>
+  <td align="left"><code>prepared</code></td>
+  <td>duty state</td>
+  <td align="left">developed at balance phase, before being sent</td>
+</tr>
+<tr>
+  <td align="left"><code>sent</code></td>
+  <td>duty state</td>
+  <td align="left">after the duty operation is transported to the follower, in pending state</td>
+</tr>
+<tr>
+  <td align="left"><code>confirmed</code></td>
+  <td>duty state</td>
+  <td align="left">after the previous operation transport is confirmed by the follower</td>
+</tr>
+<tr>
+  <td align="left"><code>dangling</code></td>
+  <td>duty state</td>
+  <td align="left">lost duty detected after dissapparition of a shard. Causes a rebalance.</td>
+</tr>
+<tr>
+  <td align="left"><code>missing</code></td>
+  <td>duty state</td>
+  <td align="left">detected difference between partition table and a follower’s heartbeat. Causes a rebalance.</td>
+</tr>
+</tbody></table>
+
+
+
+
+<h3 id="32-balancers">3.2 Balancers</h3>
+
+<p>Balancers move duties from a source shard to a target shard with a functional criteria, by means of migration or creation. They have a fixed behaviour and continuously perform the same task no matter what cycle are in. There’re four balancers that can be used for each individual pallet, at creation time thru:</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="typ">PalletBuilder</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;.</span><span class="pln">builder</span><span class="pun">(</span><span class="str">"pal"</span><span class="pun">).</span><span class="pln">with</span><span class="pun">(</span><span class="typ">Balancer</span><span class="pun">.</span><span class="typ">Strategy</span><span class="pun">.</span><span class="pln">FAIR_WEIGHT</span><span class="pun">).</span><span class="pln">build</span><span class="pun">()</span></code></pre>
+
+<table>
+<thead>
+<tr>
+  <th>Unweighted</th>
+  <th>Weighted</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td><code>Even size</code> (unweighted balanced)<br><br> function in the round-robin style, using a circular collection of shards, keeping an even number of duties among the shards. Useful when duties represent other than resource exhaustion <br><br> <img src="http://imgh.us/box-evensize.svg" height="60%"> <br><br></td>
+  <td><code>Spill over</code> (weighted unbalanced)<br><br> function that fills a shard to its limits, before going to the next shard, and so on. Useful to incrementally grow usage of shards as they’re really needed. <br><br> <img src="http://imgh.us/box-spillover.svg" height="60%"><br><br></td>
+</tr>
+<tr>
+  <td><code>Fair weight</code> (weighted balanced) <br><br> function that assigns -in terms of duty weight- a heavier  load to bigger reported capacity shards, and lighter load to lesser ones. Useful for elasticity or variable shard sizes. <br><br><img src="http://imgh.us/box-fairweight.svg" height="60%"></td>
+  <td><code>Even weight</code> <br><br> function that keeps same weight load on the same pallets at different shards. Useful for duties representing coordination tasks or business logics <br><br> <img height="60%" src="http://imgh.us/box-evenweight.svg"></td>
+</tr>
+</tbody></table>
+
+
+<p>Sample of an application using all available balancers on different pallets</p>
+
+<table>
+<thead>
+<tr>
+  <th>pallet</th>
+  <th>size</th>
+  <th>balancer</th>
+  <th>note…</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td>Green</td>
+  <td>26</td>
+  <td><em>fair weight</em></td>
+  <td>it can fit only in two shards. One shard responded zero allocation for this pallet.</td>
+</tr>
+<tr>
+  <td>Red</td>
+  <td>15</td>
+  <td><em>even weight</em></td>
+  <td>it’s present in all shards with the same weight.</td>
+</tr>
+<tr>
+  <td>Blue</td>
+  <td>13</td>
+  <td><em>spillover</em></td>
+  <td>It filled the 1st shard now is coming for the 3rd. <br><br></td>
+</tr>
+<tr>
+  <td>Purple</td>
+  <td>6</td>
+  <td><em>even size</em></td>
+  <td>It’s present in all shards with the same number of duties.</td>
+</tr>
+</tbody></table>
+
+
+<p>Then there’s a White synthetic duty (id’ed 55), it’s only one but it’s present in all shards. <br>
+</p><center><img src="http://imgh.us/box-allbalancers.svg" alt="" title=""></center><p></p>
+
+
+
+<h3 id="33-shards">3.3 Shards</h3>
+
+<p>Minka takes common known lessons on clustering like data replication, dynamically interchanging leader and follower roles, data sharding, asynchronous communication between nodes, etc. The following is an interaction diagram driven by its  main actors.</p>
+
+<p>They represent the union of the host application and the Minka library, which encompases these major ideas:</p>
+
+<ul>
+<li>a <em>follower</em> process that: <br>
+<ul><li>sends heartbeats to the leader, and receives clearance from it.</li>
+<li>receives from the leader: actions on duties  to apply over the host application’s <em>delegate</em></li></ul></li>
+<li>a <em>leader</em> process running or dormant candidate, that: <br>
+<ul><li>coordinates CRUD operations from the client API</li>
+<li>distributes duties and keeps balance of the cluster</li>
+<li>monitors followers for guaranteeing service policies</li>
+<li>keeps up to date the leader’s partition-table</li></ul></li>
+</ul>
+
+<p>The leader election relies on Zookeeper, thru apache curator framework. When a leader fails, other ISR shard becomes the new leader. </p>
+
+<p></p><center><img src="http://svgshare.com/i/Nx.svg" width="100%"> </center><p></p>
+
+
+
+<h3 id="33-communication">3.3 Communication</h3>
+
+<p>Minka has a TCP socket event broker to asynchronously interchange messages between shards, built with Netty. <br>
+ Although brokers are directly connected, they dont talk, i.e., broker clients don’t wait for an answer and broker servers don’t produce it. They both serve a contract, staying functionally asynchronous for fluid though slow-paced orchestration, leveraging damage contention. <br>
+Only a TCP port is needed to which brokers connect each other.</p>
+
+
+
+<h4 id="resiliency">Resiliency</h4>
+
+<p><em>Cluster member restart</em> <br>
+At the event of a clean restart, that is, the host application’s JVM ordered shutdown. <br>
+If the shard has leadership on the cluster, any other member of the partition’s table in-sync-replica will won leadership. <br>
+Duties held by the temporarily restarted member will be released before shutdown, and the leader will reattach them at other shards. This depends on the balancing rules of the pallets holding the duties.</p>
+
+<p><em>Cluster member partitioned</em> <br>
+At the event of a split of the ensemble, those still connected to the leader will keep working and  <br>
+those unseen by the leader will release their duties waiting for the leader’s clearance.  <br>
+The leader will left those shards at the shadow and redistribute their duties into the members still inside the leader’s subnet. <br>
+In case the leader is left alone at a subnet while all others still see each other, and all network partitions are still connected to a working zookeeper ensemble: the leader will consider itself as ghost and will decline leadership, provoking the followers still connected to zookeeper to reelect a new leader as usual. <br>
+In case the cluster is fully splitted, that is no shard has connection to others, no leader will trust stability.</p>
+
+<p><em>SPOF</em> <br>
+Minka has a single point of failure related to its dependency using Zookeeper (ZK) for leader election. <br>
+At the event of leadership election, that is the first time the cluster boots up, or when the leader have just went off, and a reelection takes place. <br>
+ZK must be available or all shards will release their duties an no entity will be assigned. <br>
+When a leader exists, ZK can fail without affecting Minka. If ZK and the current Leader fail at the same time: the Spof applies.</p>
+
+<p><em>Leader-Follower health rules</em> <br>
+If a follower ceases to receive or flaps the clearance from the Leader, which is a proof of communication, it releases its duties. <br>
+If a leader ceases to receive heartbeats from followers, their duties are re-attached to other followers, and the follower set in quarantine, until its beahaviour allows it to get back to the ensemble and receive duties. <br>
+If a follower flaps its heartbeats to the leader or like before they’re unseen, health ranking goes down, and the shard is set to offline and the follower will lack of clearance, which will make the follower to release held duties. </p>
+
+
+
+<h2 id="4-server-implementation-detail">4. Server implementation detail</h2>
+
+<p>The current section is for developers willing to add features to Minka. This detail is purely about server design from the leader process perspective.</p>
+
+<p>When we create the server:</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">new</span><span class="pln"> </span><span class="typ">Minka</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">Integer</span><span class="pun">&gt;(</span><span class="str">"localhost:2181/minka"</span><span class="pun">);</span></code></pre>
+
+<p>Minka starts an embedded tcp server on port 5748, and communicates with other instances of the same host application: to organize distribution and balance of user entities. <br>
+</p><center><img src="https://k60.kn3.net/C/D/2/7/F/C/6AC.png" alt="" title=""></center> <br>
+The cluster enroles a Leader and its followers. The leader behaviour is composed of cyclic phases that work in order of hierarchy, and each one relies on the one before: <br>
+<center><img src="https://k60.kn3.net/C/1/6/E/B/A/4CA.png" alt="" title=""></center><p></p>
+
+<hr>
+
+
+
+<h3 id="41-bootstrap">4.1 Bootstrap</h3>
+
+<p>When we integrate the library into our host application and call <code>load()</code>, triggers the Minka spring context, with all the starting agents.</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">new</span><span class="pln"> </span><span class="typ">Minka</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">Integer</span><span class="pun">&gt;(</span><span class="str">"localhost:2181/minka"</span><span class="pun">)</span><span class="pln">
+    </span><span class="pun">.</span><span class="pln">load</span><span class="pun">();</span></code></pre>
+
+<p></p><center><img src="https://k61.kn3.net/C/6/1/9/4/2/E71.png" alt="" title="">ba</center><p></p>
+
+<p>So the <code>bootstrap</code> resolves the current shard’s host address and port, and starts the  <code>broker</code> that will be used for communication. It also starts a <code>scheduler</code> that control agents so they can safety run without interferring in other’s work. Then starts both a <code>follower</code> and a <code>leader</code> process. <br>
+The Leader will register itself as a candidate at the <code>zookeeper</code> ensemble, if it wins it will start two agents: <code>proctor</code> and <code>distributor</code>, otherwise it will remain dormant until the last elected leader fails or shutsdown. <br>
+The Follower locates the current leader and thru the <code>heartpump</code> sends heartbeats to it.  <br>
+It will also start a <code>policies</code> agent to release duties in case the follower ceases to receive clearance from the leader.</p>
+
+
+
+<h3 id="42-proctor">4.2 Proctor</h3>
+
+<p>This phase affects the supplier provided on the following events:</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">final</span><span class="pln"> </span><span class="typ">Set</span><span class="pun">&lt;</span><span class="typ">Duty</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;&gt;</span><span class="pln"> myCapture </span><span class="pun">=</span><span class="pln"> </span><span class="kwd">new</span><span class="pln"> </span><span class="typ">HashSet</span><span class="pun">&lt;&gt;();</span><span class="pln">
+server</span><span class="pun">.</span><span class="pln">onDutyReport</span><span class="pun">(()-&gt;</span><span class="pln"> myCapture </span><span class="pun">);</span></code></pre>
+
+<p></p><center> <br>
+<img src="https://k60.kn3.net/C/5/6/E/7/D/F68.png" alt="" title=""> <br>
+</center> <br>
+The follower schedules the <code>heartpump</code> agent with a predefined frequency, which creates heartbeats containing information of the shard’s identity, capacity, location, and attached duties reported by the user’s delegate, and send them to the leader thru the <code>Broker</code>. <br>
+At the leader, all HB’s passes to a <code>bookkeeper</code> function that analyzes the current cluster state, if there’s a roadmap in progress, if it’s the first HB of a shard, or anything of importance to account it. At first it will add a new Shard entity to the <code>partition table</code>. <br>
+When the <code>Proctor</code> agent starts, checks the partition table’s shards and calculates a shard state involving the distance in time between the HBs and a predefined time-window range to rank up the shard, and move it to an ONLINE state, which will make after some periods in that state: to be considered for distribution of duties.<p></p>
+
+<p>All shards starts in the JOINING state at the proctor’s ranking, then go ONLINE, if there’s some communication interruption strong enough it may cause the QUARANTINE status, and in case the shard orderly shutsdown goes to QUITTED, in case the shard ceases to send HBs or the Proctor ceases to see it: goes to OFFLINE. <br>
+</p><center> <br>
+<img src="https://k60.kn3.net/4/B/1/5/9/C/563.png" alt="" title=""> <br>
+</center><p></p>
+
+<p>The lasts states are urecoverables. <br>
+If there’re shards in a state different than ONLINE: the phase doesnt moves ahead, but no shard is allowed to stay too much time in a temporal state like JOINING or QUARANTINE.  <br>
+When all shards are ONLINE after a number of predefined periods: the phase moves to balancing. In case there’s a roadmap in progress, it goes on even if a shard is not ONLINE.</p>
+
+
+
+<h3 id="43-balancer">4.3 Balancer</h3>
+
+<p></p><center><img src="http://imgh.us/box-balance.svg" width="35%"> </center><p></p>
+
+<p>The following events occurrs when Minka needs to know the user entities at the first distribution, which happens only once in a leader’s lifetime, and each time a new leader is reelected.</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="pln">ctx</span><span class="pun">.</span><span class="pln">onPalletLoad</span><span class="pun">(()-&gt;...);</span><span class="pln">
+ctx</span><span class="pun">.</span><span class="pln">onDutyLoad</span><span class="pun">(()-&gt;...);</span></code></pre>
+
+<p></p><center><img src="https://k60.kn3.net/B/3/1/0/A/2/B8F.png" alt="" title=""></center><p></p>
+
+<p>The <code>distributor</code> agent checks the <code>cluster state</code> and if all shards are online it proceeds. <br>
+It asks the <code>partition master</code> (usually the partition delegate instance) for pallets and duties, which were defined thru <code>Minka::[onPalletLoad(..)|onDutyLoad(..)]</code>, this’s the only moment that both domain entities are loaded and kept in partition table’s custody thru adding them as a CRUD operation, the same one that can be executed thru <code>MinkaClient::add()</code>. <br>
+Then an <code>arrangement</code> function reads duties in the <em>Stage</em> (already distributed) and duties in the <em>NextStage</em> (CRUD ones), detects for missing duties (distributed but recorded as absent by the <em>Bookkeeper</em>), detects offline shards (and subsequently dangling duties to be redistributed). <br>
+The Arranger traverses all pallets with a <code>Balancer</code> predefined by the user thru the <em>BalancingMetadata</em> set at Pallet creation: with a <em>NextTable</em> composed of the Stage, the NextStage, and a <code>Migrator</code> that can be used to affect distribution process. <br>
+All provided Minka balancers will check for the NextTable’s Shards and ShardEntities, and operate the Migrator for overriding shard’s duties, transferring duties between shards, etc. <br>
+The Migrator validates every operation to be coherent and applies the changes to a <code>Roadmap</code> element that properly organizes them for the transportation process to be safety and smoothly applied.</p>
+
+
+
+<h3 id="44-distributor">4.4 Distributor</h3>
+
+<p></p><center><img src="http://imgh.us/box-distribution.svg" width="30%"> </center><p></p>
+
+<p>this phase affects consumers defined on the following events:</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code class="language-java"><span class="pln">server</span><span class="pun">.</span><span class="pln">onDutyCapture</span><span class="pun">((</span><span class="pln">d</span><span class="pun">)-&gt;...);</span><span class="pln">
+server</span><span class="pun">.</span><span class="pln">onPalletCapture</span><span class="pun">((</span><span class="pln">d</span><span class="pun">)-&gt;...);</span><span class="pln">
+server</span><span class="pun">.</span><span class="pln">onDutyRelease</span><span class="pun">((</span><span class="pln">d</span><span class="pun">)-&gt;...);</span><span class="pln">
+server</span><span class="pun">.</span><span class="pln">onPalletRelease</span><span class="pun">((</span><span class="pln">d</span><span class="pun">)-&gt;...);</span></code></pre>
+
+<p>The <code>distributor</code> agent has the <code>roadmap</code> plan already built and starts driving it. <br>
+Thru the <code>broker</code> sends all duty detachments to their shard locations. <br>
+At the follower, the <code>partition manager</code> invokes the user’s <code>partition delegate</code> to honor the duty contract: release the duties, stop them, kill them, whatever they mean for the host application. <br>
+So the <code>heartpump</code> continues to send heartbeats thru the broker: but without those released duties.  <br>
+At the leader, the <code>bookkeeper</code> notes the absence as a part of a roadmap plan, after ensuring this is a constant situation, it updates the <code>partition table</code> to reflect the new reality, and moves the roadmap pointer to the next phase: attachments. The same control flow applies for this step. <br>
+After both dettachments and attachments steps conclude, the distribution process starts again, after the proctor phase. <br>
+</p><center><img src="https://k61.kn3.net/9/1/8/7/A/6/E79.png" alt="" title=""></center><p></p>
+
+
+
+<h2 id="5-project">5. Project</h2>
+
+
+
+<h3 id="51-scope">5.1 Scope</h3>
+
+<p>Minka is a simple and abstract model for shardig, balancing and distributing minimal data. <br>
+It’s provided with no orientation, that’s why is also reduced in complexity and features.</p>
+
+<blockquote>
+  <p>Minka is not about routing http web requests for online realtime responses, but more about keeping a stable number of entities always balanced and available at a cluster of application instances. </p>
+</blockquote>
+
+<p>Minka is not a database or filesystem</p>
+
+<ul>
+<li>it doesnt gives any facility to model data structures or articulate data flows, far from being related to.</li>
+<li>Although it supports data persistance and replication for high availability of service, and it can be used to store information.</li>
+</ul>
+
+<p>Minka is not a processing framework</p>
+
+<ul>
+<li>it doesnt executes processes, nor gives synchronization primitives for coding, it doesnt handle threads</li>
+<li>But it allows to articulate an entity assignation policy, that can be used to distribute input data or signals.</li>
+</ul>
+
+<p>Minka is not a deployment or containerization tool</p>
+
+<ul>
+<li>it ignores the relation between the host application and the hardware where its held</li>
+<li>Although it supports hot topology changes, multitenancy, failure resilience.</li>
+</ul>
+
+
+
+<h3 id="52-roadmap">5.2 Roadmap</h3>
+
+<ol>
+<li><p>Release 0.1</p>
+
+<p>1.2. <code>done</code>: balancing and distribution flows <br>
+1.2. <code>done</code>: initial leader’s load of entities from DB and CRUD operations on duties <br>
+1.3. <code>to-do</code>:  stationary and synthetic duties, for non-idempotent processes and coordination signals <br>
+1.4. <code>to-do</code>: capture event marked with creation or migration, delegate might need it <br>
+1.5. <code>to-do</code>: enforce unique ids validation across input methods.</p></li>
+<li><p>Release 0.2</p>
+
+<ol><li><code>to-do</code>: enable usage of MinkaClient outside the JVM running the shard</li>
+<li><code>to-do</code>: native storage for entities to support CRUD requests</li></ol></li>
+</ol>
+
+
+
+<h3 id="53-about">5.3 About</h3>
+
+<p>I started Minka as a hobbie after-hour, nights became months. But it’s still a baby framework under 15K LOC. </p>
+
+<p>Today it’s used in the company I work for: <a href="https://github.com/gcristian/minka/blob/master">Flowics</a>, allowing distribution of fetching schedules that feed our intake processing pipeline, whose main concern is to serve a social activity amplification SaaS, on platforms: facebook, twitter, instagram, etc. There we use a parafarnalia of technology like Kafka, Storm, Rabbit, Mongo, Elasticsearch, Postgres, we build our platform, avoid reinventing the wheel, and innovate where there’re no elegant or simple repeatable solutions yet.</p>
+
+<p>I believe Minka can be used for average critical achievements. For more intensive or streaming usage, it may require further unit testing, among features as well. <br>
+I focused on keeping a very comprehensive model and code, for what it is complex problem that it’s easy to isolate of the business layer, with common sense in balancing algorithms.</p>
+
+<p>You can reach me at <a href="https://www.linkedin.com/in/gcristian">linkedin</a> for any doubts. </p>
+
+<p>Cristian A. Gonzalez <br>
+Buenos Aires, 2016</p></div></body>
+</html>
