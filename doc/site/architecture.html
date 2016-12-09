@@ -25,13 +25,13 @@
 <td><a href="http://gcristian.github.io/minka/doc/site/project.html">Project</a></td>
 </tr></tbody></table>
 
+
+
 <h2 id="3-architecture">3. Architecture</h2>
 
-<p>The current section is for developers willing to add features to Minka. This detail is purely about server design from the leader process perspective.</p>
+<p>This section is about how are designed the most significant interaction flows, between the roles leader and follower, trying to be brief and code-accurate as well.</p>
 
 <p>When we create the server:</p>
-
-
 
 <pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">new</span><span class="pln"> </span><span class="typ">Minka</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">Integer</span><span class="pun">&gt;(</span><span class="str">"localhost:2181/minka"</span><span class="pun">);</span></code></pre>
 
