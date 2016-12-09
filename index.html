@@ -1,9 +1,7 @@
-<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>minka-distribution-balancer</title>
 <link rel="stylesheet" href="https://stackedit.io/res-min/themes/base.css" />
 <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"></script>
 <script>e
@@ -15,7 +13,8 @@
   ga('send', 'pageview');
 </script>
 </head>
-<body><div class="container"><p></p><center><img src="https://k61.kn3.net/4/6/F/B/B/2/02D.png" alt="" title=""> </center><p></p>
+
+<body><div class="container" width="70%"><p></p><center><img src="https://k61.kn3.net/4/6/F/B/B/2/02D.png" alt="" title=""> </center><p></p>
 
 <table align="center"><tbody><tr>
 <td><a href="http://gcristian.github.io/minka">Home</a></td>
@@ -25,13 +24,15 @@
 <td><a href="http://gcristian.github.io/minka/doc/site/project.html">Project</a></td>
 </tr></tbody></table>
 
+
+
 <h3 id="minka-is-a-java-library-for-distribution-and-balance-of-backend-systems-through-sharding-of-user-defined-duties">Minka is a Java library for distribution and balance of backend systems through sharding of user-defined duties.</h3>
 
 
 
-<h4 id="used-to-horizontally-scale-up-usage-of-physical-resources-by-splitting-processing-workload-into-application-instances-and-keeping-a-dynamic-distribution-and-balancing-of-input-signals-minka-brings-isolation-of-scaling-concerns-out-of-the-business-layer-by-encapsulation-with-a-simple-ioc-multi-purpose-integration-model">Used to horizontally scale up usage of physical resources by splitting processing workload into application instances, and keeping a dynamic distribution and balancing of input signals. Minka brings isolation of scaling concerns out of the business layer by encapsulation, with a simple IoC multi-purpose integration model.</h4>
+<h3 id="what-for">What for ?</h3>
 
-
+<p>Used to horizontally scale up usage of physical resources by splitting processing workload into application instances, and keeping a dynamic distribution and balancing of input data. </p>
 
 <h3 id="usage-and-backend-model">Usage and backend model</h3>
 
@@ -67,6 +68,15 @@
 
 
 
+<h3 id="features">Features</h3>
+
+<ul>
+<li>Highly available service of distribution of duties and Resilient to failure</li>
+<li>Several weighted balancers to achieve flexible and continuous dynamic task distribution</li>
+<li>Mutipurpose abstract model with an Inversion of Control non-intrusive integration</li>
+<li>Isolation of scaling concerns out of the business layer by encapsulation</li>
+</ul>
+
 <h3 id="implementation-flow">Implementation flow</h3>
 
 <p>Thru the <em>inversion of control</em> pattern, the host application yields the creation, update, deletion, shard selection, and transportation of duties to Minka. The following implementation flow takes place:</p>
@@ -91,5 +101,38 @@
 
 <table align="center"><tbody><tr><td align="center">
 <br><img src="http://svgshare.com/i/MG.svg" height="70%">
-</td></tr></tbody></table></div></body>
+</td></tr></tbody></table>
+
+<h3 id="why">Why</h3>
+
+
+
+<h4 id="our-path">Our path…</h4>
+
+<p>What happens when you’re exhausting a physical resource while processing input data ? <br>
+The need to horizontally scale </p>
+
+<ul>
+<li>may be you start writing tasks into some DB from where you’ll be taking tasks from.</li>
+<li>and sooner or later you’ll need to coordinate those poller processes</li>
+<li>then you’ll change the storage for some sort of queue… <br>
+<ul><li>So you’ll be limited for “realtime” consumption of events</li></ul></li>
+<li>what if you always have the same tasks that you need to be running all day long ?</li>
+<li>what if you don’t have tasks, but only data to be distributed ?</li>
+<li>what if your input data causes very different processing loads ? <br>
+<ul><li>You’ll end-up having very unbalanced nodes,</li>
+<li>or big bottlenecks when heavy tasks appear with the corresponding downtime</li></ul></li>
+<li>So your producer must prevent it by knowing some sort of sensus on your application’s workload</li>
+<li>Which may lead to have weighted processing queues for different requirements,</li>
+<li>so then you’re needing again some kind of RDBMS/Queue with lot of flags and preconditions</li>
+</ul>
+
+<p>OK you’re doing an ad-hoc distributed processing solution, lot of complexity will keep arising. And the What ifs could get funnier:</p>
+
+<ul>
+<li>WIF you need to keep only data distributed not processes ?</li>
+<li>WIF your processing stages are implemented on different platforims or languages ?</li>
+<li>WIF you need to scale that with some guarantees of availability and failure tolerance ?</li>
+<li>WIF you need complete flexibility in your application cluster ?</li>
+</ul></div></body>
 </html>
