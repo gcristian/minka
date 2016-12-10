@@ -116,39 +116,11 @@ In a real use case all application instances must reuse the same routine and beh
 
 <iframe height="320px" width="100%" src="//pastebin.com/embed_iframe/M1riEVYV"></iframe>
 
-
-
-<pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">final</span><span class="pln"> </span><span class="typ">Pallet</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln"> p </span><span class="pun">=</span><span class="pln"> </span><span class="typ">PalletBuilder</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln">
-    builder</span><span class="pun">(</span><span class="str">"pal"</span><span class="pun">).</span><span class="pln">with</span><span class="pun">(</span><span class="typ">Balancer</span><span class="pun">.</span><span class="typ">Strategy</span><span class="pun">.</span><span class="pln">FAIR_WEIGHT</span><span class="pun">).</span><span class="pln">build</span><span class="pun">();</span><span class="pln">
-</span><span class="kwd">final</span><span class="pln"> </span><span class="typ">Set</span><span class="pun">&lt;</span><span class="typ">Duty</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;&gt;</span><span class="pln"> myDuties </span><span class="pun">=</span><span class="pln"> </span><span class="kwd">new</span><span class="pln"> </span><span class="typ">TreeSet</span><span class="pun">&lt;&gt;();</span><span class="pln">
-
-</span><span class="kwd">new</span><span class="pln"> </span><span class="typ">Minka</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">String</span><span class="pun">&gt;(</span><span class="str">"localhost:2181/minka/sampleApp"</span><span class="pun">)</span><span class="pln">
-    </span><span class="pun">.</span><span class="pln">onPalletLoad</span><span class="pun">(()-&gt;</span><span class="pln"> newHashSet</span><span class="pun">(</span><span class="pln">p</span><span class="pun">))</span><span class="pln">
-    </span><span class="pun">.</span><span class="pln">onDutyLoad</span><span class="pun">(()-&gt;</span><span class="pln"> newHashSet</span><span class="pun">(</span><span class="typ">DutyBuilder</span><span class="pun">.&lt;</span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln">
-        builder</span><span class="pun">(</span><span class="str">"aDuty"</span><span class="pun">,</span><span class="pln"> </span><span class="str">"pal"</span><span class="pun">).</span><span class="pln">with</span><span class="pun">(</span><span class="lit">200d</span><span class="pun">).</span><span class="pln">build</span><span class="pun">()))</span><span class="pln">
-    </span><span class="pun">.</span><span class="pln">onDutyCapture</span><span class="pun">(</span><span class="pln">duties</span><span class="pun">-&gt;</span><span class="pln">myDuties</span><span class="pun">.</span><span class="pln">addAll</span><span class="pun">(</span><span class="pln">duties</span><span class="pun">))</span><span class="pln">
-    </span><span class="pun">.</span><span class="pln">onDutyRelease</span><span class="pun">(</span><span class="pln">duties</span><span class="pun">-&gt;</span><span class="pln">myDuties</span><span class="pun">.</span><span class="pln">removeAll</span><span class="pun">(</span><span class="pln">duties</span><span class="pun">))</span><span class="pln">
-    </span><span class="pun">.</span><span class="pln">onDutyReport</span><span class="pun">(()-&gt;</span><span class="pln">myDuties</span><span class="pun">)</span><span class="pln">
-    </span><span class="pun">.</span><span class="pln">setCapacity</span><span class="pun">(</span><span class="pln">p</span><span class="pun">,</span><span class="pln"> </span><span class="lit">3000d</span><span class="pun">)</span><span class="pln">
-    </span><span class="pun">.</span><span class="pln">load</span><span class="pun">();</span><span class="pln">
-    </span><span class="com">// and we're distributed !</span></code></pre>
-
 <p>Every Minka class instance is a <em>Shard</em>, and can define which cluster is member of, by default is <em>unnamed</em>. In case we plan to share the zookeeper cluster with other minka-enabled applications: we must provide a custom name, or use a zookeeper’s chroot folder. </p>
 
 <p>Every JVM should only have one member, only for testing we could specify different TCP ports, and under the same cluster name (<em>unnamed</em> is fine) or zk’s chroot folder: we’ll have a “standalone” cluster, communicating thru loopback interfase.</p>
 
 <iframe width="100%" height="170px" src="//pastebin.com/embed_iframe/VTydemdM"></iframe>
-
-
-
-<pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">final</span><span class="pln"> </span><span class="typ">Config</span><span class="pln"> custom </span><span class="pun">=</span><span class="pln"> </span><span class="kwd">new</span><span class="pln"> </span><span class="typ">Config</span><span class="pun">();</span><span class="pln">
-</span><span class="com">// if we're sharing ZK</span><span class="pln">
-custom</span><span class="pun">.</span><span class="pln">getBootstrapConf</span><span class="pun">().</span><span class="pln">setServiceName</span><span class="pun">(</span><span class="str">"sampleApp"</span><span class="pun">);</span><span class="pln">
-</span><span class="com">// if we're shooting several servers in the same machine</span><span class="pln">
-custom</span><span class="pun">.</span><span class="pln">getBrokerConfg</span><span class="pun">().</span><span class="pln">setHostPort</span><span class="pun">(</span><span class="str">"localhost:5749"</span><span class="pun">);</span><span class="pln">
-</span><span class="kwd">new</span><span class="pln"> </span><span class="typ">Minka</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">String</span><span class="pun">&gt;(</span><span class="pln">custom</span><span class="pun">);</span></code></pre>
-
-
 
 <h4 id="15-operations">1.5 Operations</h4>
 
@@ -250,29 +222,7 @@ drwxrwxr</span><span class="pun">-</span><span class="pln">x </span><span class=
 </span><span class="pun">-</span><span class="pln">rwxrwxr</span><span class="pun">-</span><span class="pln">x </span><span class="lit">1</span><span class="pln"> cristian cristian  </span><span class="lit">853</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> newsampler</span><span class="pun">.</span><span class="pln">sh
 </span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">r</span><span class="pun">--</span><span class="pln"> </span><span class="lit">1</span><span class="pln"> cristian cristian </span><span class="lit">4</span><span class="pun">,</span><span class="lit">1K</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> pom</span><span class="pun">.</span><span class="pln">xml
 
-$ cat newsampler</span><span class="pun">.</span><span class="pln">sh
-
-</span><span class="com">#!/bin/bash</span><span class="pln">
-port_start</span><span class="pun">=</span><span class="lit">9000</span><span class="pln">
-host</span><span class="pun">=</span><span class="str">'localhost'</span><span class="pln">
-xms</span><span class="pun">=</span><span class="str">'512M'</span><span class="pln">
-</span><span class="kwd">delegate</span><span class="pun">=</span><span class="str">'DatasetSampler'</span><span class="pln">
-pp</span><span class="pun">=</span><span class="str">'broker.hostPort'</span><span class="pln">
-dsfp</span><span class="pun">=</span><span class="pln">$</span><span class="pun">(</span><span class="pln">pwd</span><span class="pun">)</span><span class="str">'/'</span><span class="pln">$</span><span class="pun">{</span><span class="lit">1</span><span class="pun">:-</span><span class="str">'dataset.properties'</span><span class="pun">}</span><span class="pln">
-</span><span class="kwd">for</span><span class="pln"> i </span><span class="kwd">in</span><span class="pln"> </span><span class="pun">{</span><span class="lit">0.</span><span class="pun">.</span><span class="lit">20</span><span class="pun">};</span><span class="pln"> </span><span class="kwd">do</span><span class="pln">
-    echo $dsfp
-    i</span><span class="pun">=</span><span class="pln">$</span><span class="pun">((</span><span class="pln">$i</span><span class="pun">+</span><span class="pln">$port_start</span><span class="pun">))</span><span class="pln">
-    x</span><span class="pun">=</span><span class="str">`netstat -ltn | grep $i | grep -v grep`</span><span class="pln">
-    y</span><span class="pun">=</span><span class="str">`ps aux | grep "$pp=$host:$i"| grep -v 'grep'`</span><span class="pln">
-    </span><span class="kwd">if</span><span class="pln"> </span><span class="pun">[</span><span class="pln"> </span><span class="pun">-</span><span class="pln">z </span><span class="str">"$x"</span><span class="pln"> </span><span class="pun">]</span><span class="pln"> </span><span class="pun">&amp;&amp;</span><span class="pln"> </span><span class="pun">[</span><span class="pln"> </span><span class="pun">-</span><span class="pln">z </span><span class="str">"$y"</span><span class="pln"> </span><span class="pun">];</span><span class="pln"> </span><span class="kwd">then</span><span class="pln">
-        echo </span><span class="str">"Using port: $i"</span><span class="pln">
-        mvn </span><span class="pun">-</span><span class="typ">DXms$xms</span><span class="pln"> </span><span class="pun">-</span><span class="typ">DXmx$xms</span><span class="pln"> </span><span class="kwd">exec</span><span class="pun">:</span><span class="pln">java </span><span class="pun">-</span><span class="typ">Dexec</span><span class="pun">.</span><span class="pln">mainClass</span><span class="pun">=</span><span class="typ">WebServer</span><span class="pun">.</span><span class="pln">main \
-            </span><span class="pun">-</span><span class="typ">Ddelegate</span><span class="pun">=</span><span class="pln">$delegate </span><span class="pun">-</span><span class="typ">Dmins</span><span class="pun">=</span><span class="lit">1440</span><span class="pln"> </span><span class="pun">-</span><span class="pln">D$pp</span><span class="pun">=</span><span class="pln">$host</span><span class="pun">:</span><span class="pln">$i </span><span class="pun">-</span><span class="typ">Ddataset</span><span class="pun">.</span><span class="pln">filepath</span><span class="pun">=</span><span class="pln">$dsfp
-        </span><span class="kwd">exit</span><span class="pln">
-    </span><span class="kwd">else</span><span class="pln">
-        echo </span><span class="str">"Port: $i busy (netstat got $x)"</span><span class="pln">
-    </span><span class="kwd">fi</span><span class="pln">
-</span><span class="kwd">done</span></code></pre>
+$ cat newsampler</span><span class="pun">.</span><span class="pln">sh</span></code></pre>
 
 <iframe width="100%" height="500px" src="//pastebin.com/embed_iframe/mMvXCe4s"></iframe>
 
