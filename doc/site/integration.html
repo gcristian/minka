@@ -35,13 +35,11 @@
 <h4 id="11-artifact">1.1 Artifact</h4>
 
 <pre><code>&lt;dependency&gt;
-    &lt;artifactId&gt;minka-parent&lt;/artifactId&gt;
+    &lt;artifactId&gt;minka-server&lt;/artifactId&gt;
     &lt;groupId&gt;io.tilt.minka&lt;/groupId&gt;
     &lt;version&gt;0.2-SNAPSHOT&lt;/version&gt;
 &lt;/dependency&gt;
 </code></pre>
-
-
 
 <h4 id="12-requirements">1.2 Requirements</h4>
 
@@ -212,13 +210,13 @@ cli</span><span class="pun">.</span><span class="pln">remove</span><span class="
 
 
 
-<h3 id="3-demo">3. Demo</h3>
+<h3 id="3-demo-section-in-progress">3. Demo (section in progress…)</h3>
+
+<p><img src="https://k60.kn3.net/C/A/0/3/C/4/1A1.png" alt="" title=""></p>
 
 <p>The demo application allows testing of a distributed stage, communication goes thru loopback interfase.</p>
 
 <p>Checkout the source repository:</p>
-
-
 
 <pre class="prettyprint prettyprinted"><code><span class="pln">$ git checkout git@github</span><span class="pun">.</span><span class="pln">com</span><span class="pun">:</span><span class="pln">gcristian</span><span class="pun">/</span><span class="pln">minka</span><span class="pun">.</span><span class="pln">git
 $ ls
@@ -345,19 +343,7 @@ $ sudo chown cristian</span><span class="pun">:</span><span class="pln"> </span>
 
 <pre class="prettyprint prettyprinted"><code><span class="pln">$ </span><span class="pun">./</span><span class="pln">newsampler datasets</span><span class="pun">/</span><span class="pln">mix</span><span class="pun">.</span><span class="pln">properties</span></code></pre>
 
-<p>Minka proctor phase will start to run</p>
-
-
-
-<pre class="prettyprint prettyprinted"><code><span class="pln">$ tailf </span><span class="pun">/</span><span class="kwd">var</span><span class="pun">/</span><span class="pln">minka</span><span class="pun">/</span><span class="pln">leader</span><span class="pun">.</span><span class="pln">log</span></code></pre>
-
-<iframe width="100%" height="500px" src="//pastebin.com/embed_iframe/9RXCiY0W"></iframe>
-
-<p>Then the Distributor phase starts…</p>
-
-<iframe width="100%" height="500" src="//pastebin.com/embed_iframe/XC22ksvu"></iframe>
-
-<p>And the status</p>
+<p>Some seconds after the proctor, balance and distribution phase runs…</p>
 
 <pre class="prettyprint prettyprinted"><code><span class="pln">curl </span><span class="pun">-</span><span class="pln">svn localhost</span><span class="pun">:</span><span class="lit">57480</span><span class="pun">/</span><span class="pln">minka</span><span class="pun">/</span><span class="pln">status</span></code></pre>
 
