@@ -82,32 +82,30 @@ These are the events the client must listen and react to:</p>
   <td align="left"><code>load</code></td>
   <td>yes</td>
   <td>balance *phase</td>
-  <td>input the initial duties and pallets to minka, only called at the first balancing phase of a new elected leader.</td>
+  <td>enter the initial duties and pallets to minka, only called at the first balancing phase of a new elected leader.</td>
 </tr>
 <tr>
   <td align="left"><code>capture</code>, <code>release</code></td>
   <td>yes</td>
   <td>distribution phase</td>
-  <td>honour the <em>Inversion of Control</em> contract about taking or discarding duties and pallets to perform a certain action, these are the core events.</td>
+  <td>honour the <em>Inversion of Control</em> contract: take or discard duties and pallets (start or stop user tasks)</td>
 </tr>
 <tr>
   <td align="left"><code>report</code></td>
   <td>yes</td>
   <td>proctor phase</td>
-  <td>the captured duties, in permanent custody</td>
+  <td>return the passed and currently captured duties, in permanent custody</td>
 </tr>
 <tr>
   <td align="left"><code>update</code>, <code>transfer</code></td>
   <td>no</td>
   <td>anytime</td>
-  <td>reaction of an duty or pallet’s payload update or a transferred message, to a duty or pallet previously <em>captured</em>. Entered thru the minka client</td>
+  <td>reaction of a duty or pallet’s payload update or a transferred message, to a duty or pallet previously <em>captured</em></td>
 </tr>
 </tbody></table>
 
 
 <p>*see the phases in the architecture section.</p>
-
-
 
 <h4 id="14-sample">1.4 Sample</h4>
 
