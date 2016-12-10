@@ -272,7 +272,7 @@ dsfp</span><span class="pun">=</span><span class="pln">$</span><span class="pun"
 
 <h4 id="emulated-scenario">Emulated scenario</h4>
 
-<p>The script basically tests available ports starting from 9000, and runs a Java process with a data set file as a parameter.</p>
+<p>The script basically tests available ports starting from 9000, and runs a Java process with a dataset file as a parameter.</p>
 
 <blockquote>
   <p>Maven 3.x installed is required.</p>
@@ -287,8 +287,6 @@ dsfp</span><span class="pun">=</span><span class="pln">$</span><span class="pun"
 </ul>
 
 <p>We’ll be using <code>mix.properties</code> which has an heterogeneous stage:</p>
-
-
 
 <pre class="prettyprint prettyprinted"><code><span class="pln">$ ls
 </span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">r</span><span class="pun">--</span><span class="pln"> </span><span class="lit">1</span><span class="pln"> cristian cristian  </span><span class="lit">331</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> dataset</span><span class="pun">-</span><span class="pln">cluster1</span><span class="pun">.</span><span class="pln">properties
@@ -337,9 +335,7 @@ shards</span><span class="pun">.</span><span class="pln">capacities </span><span
 <pre class="prettyprint prettyprinted"><code><span class="pln">$ sudo mkdir </span><span class="pun">/</span><span class="kwd">var</span><span class="pun">/</span><span class="pln">log</span><span class="pun">/</span><span class="pln">minka
 $ sudo chown cristian</span><span class="pun">:</span><span class="pln"> </span><span class="str">/var/</span><span class="pln">log</span><span class="pun">/</span><span class="pln">minka</span></code></pre>
 
-<p>Remember to fire the same line in 3 different consoles</p>
-
-
+<p>Fire the same line in 3 different consoles so we can identify the output individually..</p>
 
 <pre class="prettyprint prettyprinted"><code><span class="pln">$ </span><span class="pun">./</span><span class="pln">newsampler datasets</span><span class="pun">/</span><span class="pln">mix</span><span class="pun">.</span><span class="pln">properties</span></code></pre>
 
