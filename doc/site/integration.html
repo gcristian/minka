@@ -212,13 +212,11 @@ cli</span><span class="pun">.</span><span class="pln">remove</span><span class="
 
 
 
-<h3 id="3-demo-application">3. Demo application</h3>
+<h3 id="3-demo">3. Demo</h3>
 
-<p>This’s how I usually test integration by now.</p>
+<p>The demo application allows testing of a distributed scenario, using localhost TCP ports.</p>
 
-<p>Checkout the repository:</p>
-
-
+<p>Checkout the source repository:</p>
 
 <pre class="prettyprint prettyprinted"><code><span class="pln">$ git checkout git@github</span><span class="pun">.</span><span class="pln">com</span><span class="pun">:</span><span class="pln">gcristian</span><span class="pun">/</span><span class="pln">minka</span><span class="pun">.</span><span class="pln">git
 $ ls
@@ -249,11 +247,6 @@ drwxrwxr</span><span class="pun">-</span><span class="pln">x </span><span class=
 $ cat newsampler</span><span class="pun">.</span><span class="pln">sh
 
 </span><span class="com">#!/bin/bash</span><span class="pln">
-</span><span class="com"># ------------------- Minka Demo launcher --------------------</span><span class="pln">
-</span><span class="com"># scans for a non already used &amp; busy port to configure minka </span><span class="pln">
-</span><span class="com"># broker, starting at port 9000, takes the first one free</span><span class="pln">
-</span><span class="com"># ------------------------------------------------------------</span><span class="pln">
-
 port_start</span><span class="pun">=</span><span class="lit">9000</span><span class="pln">
 host</span><span class="pun">=</span><span class="str">'localhost'</span><span class="pln">
 xms</span><span class="pun">=</span><span class="str">'512M'</span><span class="pln">
@@ -275,15 +268,15 @@ dsfp</span><span class="pun">=</span><span class="pln">$</span><span class="pun"
     </span><span class="kwd">fi</span><span class="pln">
 </span><span class="kwd">done</span></code></pre>
 
-<h4 id="the-launcher-script-and-demo-application">The Launcher script and demo application</h4>
-
-<blockquote>
-  <p>This requires you have installed: maven 3.x at least</p>
-</blockquote>
+<h4 id="emulated-scenario">Emulated scenario</h4>
 
 <p>The script basically tests available ports starting from 9000, and runs a Java process with a data set file as a parameter.</p>
 
-<p>The Dataset file contains intructions about the scenario we are simulating: </p>
+<blockquote>
+  <p>Maven 3.x installed is required.</p>
+</blockquote>
+
+<p>A Dataset file contains intructions about the scenario we are simulating: </p>
 
 <ul>
 <li>size of total duties, number of concurrent shards</li>
