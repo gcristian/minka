@@ -107,6 +107,8 @@ These are the events the client must listen and react to:</p>
 
 <p>*see the phases in the architecture section.</p>
 
+
+
 <h4 id="14-sample">1.4 Sample</h4>
 
 <p>This creates a Minka server shard, starting with 1 pallet with a fair weight balancer, and 1 duty  weighing 200. When Minka yields control of the duty to us: we simply add it to <em>myDuties</em> set. <br>
@@ -118,7 +120,7 @@ In a real use case all application instances must reuse the same routine and beh
     builder</span><span class="pun">(</span><span class="str">"pal"</span><span class="pun">).</span><span class="pln">with</span><span class="pun">(</span><span class="typ">Balancer</span><span class="pun">.</span><span class="typ">Strategy</span><span class="pun">.</span><span class="pln">FAIR_WEIGHT</span><span class="pun">).</span><span class="pln">build</span><span class="pun">();</span><span class="pln">
 </span><span class="kwd">final</span><span class="pln"> </span><span class="typ">Set</span><span class="pun">&lt;</span><span class="typ">Duty</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;&gt;</span><span class="pln"> myDuties </span><span class="pun">=</span><span class="pln"> </span><span class="kwd">new</span><span class="pln"> </span><span class="typ">TreeSet</span><span class="pun">&lt;&gt;();</span><span class="pln">
 
-</span><span class="kwd">new</span><span class="pln"> </span><span class="typ">Minka</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">String</span><span class="pun">&gt;(</span><span class="str">"localhost:2181"</span><span class="pun">)</span><span class="pln">
+</span><span class="kwd">new</span><span class="pln"> </span><span class="typ">Minka</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">String</span><span class="pun">&gt;(</span><span class="str">"localhost:2181/minka/sampleApp"</span><span class="pun">)</span><span class="pln">
     </span><span class="pun">.</span><span class="pln">onPalletLoad</span><span class="pun">(()-&gt;</span><span class="pln"> newHashSet</span><span class="pun">(</span><span class="pln">p</span><span class="pun">))</span><span class="pln">
     </span><span class="pun">.</span><span class="pln">onDutyLoad</span><span class="pun">(()-&gt;</span><span class="pln"> newHashSet</span><span class="pun">(</span><span class="typ">DutyBuilder</span><span class="pun">.&lt;</span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln">
         builder</span><span class="pun">(</span><span class="str">"aDuty"</span><span class="pun">,</span><span class="pln"> </span><span class="str">"pal"</span><span class="pun">).</span><span class="pln">with</span><span class="pun">(</span><span class="lit">200d</span><span class="pun">).</span><span class="pln">build</span><span class="pun">()))</span><span class="pln">
@@ -132,8 +134,6 @@ In a real use case all application instances must reuse the same routine and beh
 <p>Every Minka class instance is a <em>Shard</em>, and can define which cluster is member of, by default is <em>unnamed</em>. In case we plan to share the zookeeper cluster with other minka-enabled applications: we must provide a custom name, or use a zookeeper’s chroot folder. </p>
 
 <p>Every JVM should only have one member, only for testing we could specify different TCP ports, and under the same cluster name (<em>unnamed</em> is fine) or zk’s chroot folder: we’ll have a “standalone” cluster, communicating thru loopback interfase.</p>
-
-
 
 <pre class="prettyprint prettyprinted"><code class="language-java"><span class="kwd">final</span><span class="pln"> </span><span class="typ">Config</span><span class="pln"> custom </span><span class="pun">=</span><span class="pln"> </span><span class="kwd">new</span><span class="pln"> </span><span class="typ">Config</span><span class="pun">();</span><span class="pln">
 </span><span class="com">// if we're sharing ZK</span><span class="pln">
@@ -189,8 +189,6 @@ custom</span><span class="pun">.</span><span class="pln">getBrokerConfg</span><s
 <pre class="prettyprint prettyprinted"><code class="language-java"><span class="typ">MinkaClient</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">,</span><span class="pln"> </span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln"> cli </span><span class="pun">=</span><span class="pln"> server</span><span class="pun">.</span><span class="pln">getClient</span><span class="pun">();</span><span class="pln">
 cli</span><span class="pun">.</span><span class="pln">add</span><span class="pun">(</span><span class="typ">DutyBuilder</span><span class="pun">.&lt;</span><span class="typ">String</span><span class="pun">&gt;</span><span class="pln">builder</span><span class="pun">(</span><span class="str">"other"</span><span class="pun">,</span><span class="pln"> </span><span class="str">"pal"</span><span class="pun">).</span><span class="pln">build</span><span class="pun">());</span><span class="pln">
 cli</span><span class="pun">.</span><span class="pln">remove</span><span class="pun">(</span><span class="pln">aDuty</span><span class="pun">);</span></code></pre>
-
-
 
 <h3 id="2-limitations">2. Limitations</h3>
 
