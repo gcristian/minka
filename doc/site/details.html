@@ -243,7 +243,7 @@ Pallets must be created before duties.</li>
 <h3 id="22-balancers">2.2 Balancers</h3>
 
 <p>Balancers move duties from a source shard to a target shard with a functional criteria, by means of migration or creation. They have a fixed behaviour and continuously perform the same task no matter what cycle are in.  <br>
-</p><center>Reference for the following pictures<br><br> <img src="http://svgshare.com/i/QD.svg" width="65%"> </center> <br>
+</p><center>Reference for the following pictures<br><br> <img src="http://svgshare.com/i/QD.svg" width="60%"> </center> <br>
 There’re four balancers that can be used for each individual pallet, at creation time thru:<p></p>
 
 <pre class="prettyprint prettyprinted"><code class="language-java"><span class="typ">PalletBuilder</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;.</span><span class="pln">builder</span><span class="pun">(</span><span class="str">"pal"</span><span class="pun">).</span><span class="pln">with</span><span class="pun">(</span><span class="typ">Balancer</span><span class="pun">.</span><span class="typ">Strategy</span><span class="pun">.</span><span class="pln">FAIR_WEIGHT</span><span class="pun">).</span><span class="pln">build</span><span class="pun">()</span></code></pre>
@@ -260,8 +260,8 @@ There’re four balancers that can be used for each individual pallet, at creati
   <td><code>Fair weight</code> (balanced) <br><br> function that assigns -in terms of duty weight- a heavier  load to bigger reported capacity shards, and lighter load to lesser ones. Useful for elasticity or variable shard sizes. <br><br><img src="http://imgh.us/box-fairweight.svg" height="60%"></td>
 </tr>
 <tr>
-  <td><code>Spill over</code> (unbalanced)<br><br> function that fills a shard to its limits, before going to the next shard, and so on. Useful to incrementally grow usage of shards as they’re really needed. <br><br> <img src="http://imgh.us/box-spillover.svg" height="60%"><br><br></td>
-  <td><code>Even weight</code> (balanced) <br><br> function that keeps same weight load on the same pallets at different shards. Useful for duties representing coordination tasks or business logics <br><br> <img height="60%" src="http://imgh.us/box-evenweight.svg"></td>
+  <td><code>Spill over</code> (unbalanced)<br><br> function that fills a shard to its limits, before going to the next shard, and so on. Useful to incrementally grow usage of shards as they’re really needed. (note locked pallets) <br><br> <img src="http://imgh.us/box-spillover.svg" height="60%"><br><br></td>
+  <td><code>Even weight</code> (balanced) <br><br> function that keeps same weight load on the same pallets at different shards. Useful for duties representing coordination tasks or business logics. (note identical sizes) <br><br> <img height="60%" src="http://imgh.us/box-evenweight.svg"></td>
 </tr>
 </tbody></table>
 
@@ -306,8 +306,6 @@ There’re four balancers that can be used for each individual pallet, at creati
 
 <p>Then there’s a White synthetic duty (id’ed 55), it’s only one but it’s present in all shards. <br>
 </p><center><img src="http://imgh.us/box-allbalancers.svg" width="80%"></center><p></p>
-
-
 
 <h3 id="23-shards">2.3 Shards</h3>
 
