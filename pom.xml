@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.tilt.minka</groupId>
 	<artifactId>minka-parent</artifactId>
@@ -20,7 +21,7 @@
 		<socialtracker.version>0.0-SNAPSHOT</socialtracker.version>
 	</properties>
 	<description>a network distribution and balancing library to enable sharding of application instances</description>
-	<url>http://gcristian.github.com/minka</url>
+	<url>http://gcristian.github.io/minka</url>
 	<licenses>
 		<license>
 			<name>The Apache License, Version 2.0</name>
@@ -36,10 +37,22 @@
 		</developer>
 	</developers>
 	<scm>
-		<connection>scm:git:git://github.com/minka.git</connection>
-		<developerConnection>scm:git:ssh://github.com:gcristian/minka.git</developerConnection>
-		<url>http://github.com/gcristian/minka/tree/master</url>
+		<connection>scm:git:git://github.com:gcristian/minka.git</connection>
+		<developerConnection>scm:git:git://github.com:gcristian/minka.git</developerConnection>
+		<url>http://gcristian.github.io/minka</url>
 	</scm>
+
+	<distributionManagement>
+		<snapshotRepository>
+			<id>ossrh</id>
+			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
+		</snapshotRepository>
+		<repository>
+			<id>ossrh</id>
+			<url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+		</repository>
+	</distributionManagement>
+
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
@@ -144,6 +157,17 @@
 
 		<plugins>
 			<plugin>
+				<groupId>org.sonatype.plugins</groupId>
+				<artifactId>nexus-staging-maven-plugin</artifactId>
+				<version>1.6.7</version>
+				<extensions>true</extensions>
+				<configuration>
+					<serverId>ossrh</serverId>
+					<nexusUrl>https://oss.sonatype.org/</nexusUrl>
+					<autoReleaseAfterClose>true</autoReleaseAfterClose>
+				</configuration>
+			</plugin>
+			<plugin>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>2.3.1</version>
 				<configuration>
@@ -161,6 +185,46 @@
 					<outputDirectory>${project.build.directory}/eclipse-bin</outputDirectory>
 					<wtpversion>2.0</wtpversion>
 				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+				<version>2.2.1</version>
+				<executions>
+					<execution>
+						<id>attach-sources</id>
+						<goals>
+							<goal>jar-no-fork</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-gpg-plugin</artifactId>
+				<version>1.5</version>
+				<executions>
+					<execution>
+						<id>sign-artifacts</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>sign</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<version>2.9.1</version>
+				<executions>
+					<execution>
+						<id>attach-javadocs</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
