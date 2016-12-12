@@ -14,7 +14,7 @@ import io.tilt.minka.domain.ShardEntity;
 /**
  * Balanced Partition problem: Given a sorted list of Weights, creates a fair distribution
  * Productive adaptation from:
- * {@linkplain http://sist.sysu.edu.cn/~isslxm/DSA/textbook/Skiena.-.TheAlgorithmDesignManual.pdf}
+ * @link http://sist.sysu.edu.cn/~isslxm/DSA/textbook/Skiena.-.TheAlgorithmDesignManual.pdf
  * 
  * @author Cristian Gonzalez
  * @since Dec 29, 2015

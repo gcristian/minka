@@ -19,6 +19,27 @@
 		<slf4j.version>1.7.12</slf4j.version>
 		<socialtracker.version>0.0-SNAPSHOT</socialtracker.version>
 	</properties>
+	<description>a network distribution and balancing library to enable sharding of application instances</description>
+	<url>http://gcristian.github.com/minka</url>
+	<licenses>
+		<license>
+			<name>The Apache License, Version 2.0</name>
+			<url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+		</license>
+	</licenses>
+	<developers>
+		<developer>
+			<name>Cristian A. Gonzalez</name>
+			<email>gcristian@gmail.com</email>
+			<organization>Flowics</organization>
+			<organizationUrl>http://www.flowics.com</organizationUrl>
+		</developer>
+	</developers>
+	<scm>
+		<connection>scm:git:git://github.com/minka.git</connection>
+		<developerConnection>scm:git:ssh://github.com:gcristian/minka.git</developerConnection>
+		<url>http://github.com/gcristian/minka/tree/master</url>
+	</scm>
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
