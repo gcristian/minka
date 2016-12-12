@@ -58,14 +58,20 @@ public class PalletBuilder<P extends Serializable> {
 		return new PalletBuilder<>(palletId);
 	}
 
-	/** @param meta a configuration for a {@linkplain Balancer} strategy  */
+	/** 
+	 * @param meta a configuration for a {@linkplain Balancer} strategy
+	 * @return the builder to keep building  
+	 * */
 	public PalletBuilder<P> with(final BalancerMetadata meta) {
 		Validate.notNull(meta);
 		this.meta = meta;
 		return this;
 	}
 
-	/** @param payload	 a bytes seriaizable payload */
+	/** 
+	 * @param payload	 a bytes seriaizable payload 
+	 * @return the builder to keep building
+	 * */
 	public PalletBuilder<P> with(final P payload) {
 		Validate.notNull(payload);
 		this.payload = payload;

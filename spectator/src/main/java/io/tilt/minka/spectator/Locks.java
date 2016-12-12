@@ -57,6 +57,7 @@ public class Locks extends Spectator {
     
     /**
      * Use the zookeper's host and port from System environment or properties
+     * @param spec the inheriting spectator to get parameters from
      */
     public Locks(Spectator spec) {
         super(spec, spec.getLogId());
@@ -71,6 +72,8 @@ public class Locks extends Spectator {
      * Idempotently.
      * 
      * @return      whether the listener participates in the leader meeting or not. True if it was done before.
+     * @param 	ensembleName an ID name
+     * @param 	server an implementor
      */
     public boolean runWhenLeader(final String ensembleName, final ServerCandidate server) {
         boolean participating = checkExistance(LATCH_PREFIX + ensembleName, server);
@@ -84,8 +87,8 @@ public class Locks extends Spectator {
     /**
      * If you plan to orderly stop leader candidates instead of leaving that work to Spectator/Zookeeper
      * Then you can stop your candidates manually.
-     * @param ensembleName
-     * @param notifyCandidate
+     * @param 	ensembleName an ID name
+     * @param notifyCandidate if you want to notify candidate
      */
     public void stopCandidateOrLeader(final String ensembleName, boolean notifyCandidate) {
         Iterator<UserInstanceObject> x = getUserMap().get(LATCH_PREFIX + ensembleName).iterator();

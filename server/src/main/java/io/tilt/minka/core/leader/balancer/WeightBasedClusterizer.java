@@ -27,7 +27,7 @@ import io.tilt.minka.domain.ShardEntity;
  * Balanced Partition problem: Given a sorted list of Weights, creates a fair distribution of duties
  * 
  * Productive adaptation from:
- * {@linkplain http://sist.sysu.edu.cn/~isslxm/DSA/textbook/Skiena.-.TheAlgorithmDesignManual.pdf}
+ * http://sist.sysu.edu.cn/~isslxm/DSA/textbook/Skiena.-.TheAlgorithmDesignManual.pdf
  * 
  * The algorighm does the best effort no matter the ordering
  * If Sorted, there will be cluttering of low weight duties in shards, and a few big ones in others

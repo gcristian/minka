@@ -67,11 +67,7 @@ public class Bootstrap extends ServiceImpl {
 	private final Agent readyAwareBooting;
 	//private final Journal journal;
 
-	/**
-	* Creates a new shard
-	* @param config 				a specific configuration  
-	* @param partitionDelegate		your delegate as point of integration
-	*/
+	/* starts a new shard */
 	public Bootstrap(final Config config, final ConfigValidator validator, final SpectatorSupplier spectatorSupplier,
 			final boolean autoStart, final Leader leader, final Follower follower,
 			final DependencyPlaceholder dependencyPlaceholder, final Scheduler scheduler,

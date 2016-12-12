@@ -72,7 +72,7 @@ public interface Balancer {
 				logger.error("Unexpected factorying balancer's directory", e);
 			}
 		}
-		/** @todo check other shards have this class in case of leadership reelection */
+		/* @todo check other shards have this class in case of leadership reelection */
 		public static void addCustomBalancer(final Balancer b) {
 			Validate.notNull(b);
 			if (directory.values().contains(b)) {

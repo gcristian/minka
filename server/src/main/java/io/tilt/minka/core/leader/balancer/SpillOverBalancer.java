@@ -118,7 +118,7 @@ public class SpillOverBalancer implements Balancer {
 		DUTY_WEIGHT,
 		/* Use the Max value as max number of duties to fit in one shard */
 		DUTY_SIZE,
-		/** @default Ignore given value and use Shard's reported capacity as max value */
+		/* @default Ignore given value and use Shard's reported capacity as max value */
 		USE_CAPACITY,
 	}
 

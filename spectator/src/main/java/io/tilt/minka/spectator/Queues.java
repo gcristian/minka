@@ -51,6 +51,7 @@ public class Queues extends NodeCacheable {
      * @param topicName     a unique name within the ensemble for the messages to arrive
      * @param consumer      a message consumer to be called on new messages 
      * @param fromTail      option to subscribe to the tail of the queue discarding messages prior to now
+     * @param <T>		the type parameter
      * @return              whether or not the subscription succeed
      */
     public <T> boolean runAsSubscriber(
@@ -86,6 +87,7 @@ public class Queues extends NodeCacheable {
      * @param topicName             queue name
      * @param consumer              listener to call on new messages
      * @param readSinceTimestamp    ignore messages created before this time stamp
+     * @param retentionLapse 		the lapse to retent data
      * @return
      */
     public boolean runAsSubscriber(
@@ -111,7 +113,7 @@ public class Queues extends NodeCacheable {
      * If you plan to dinamically consume from a lot of Queues, you should release them when no longer care.
      * Otherwise non stopped subscription resources will only be released at shutdown 
      * (subject to proper termination)
-     * @param topicName
+     * @param topicName	the name of the virtual topic
      */
     public void stopSubscription(final String topicName) {
         Set<UserInstanceObject> set = getUserMap().get(topicName);

@@ -34,7 +34,8 @@ public class DutyBuilder<T extends Serializable> {
 	
 	/**
 	 * @param id must be a unique ID within the host app domain when distributed.
-	 * @param palletId must belong to an already created pallet 
+	 * @param palletId must belong to an already created pallet
+	 * @param <T> the payload type 
 	 * @return a builder for first class citizen duty
 	 */
 	public static <T extends Serializable> DutyBuilder<T> builder(final String id, final String palletId) {
@@ -42,9 +43,8 @@ public class DutyBuilder<T extends Serializable> {
 	}
 	/**
 	 * In case is not provided, type and payload become String and param id, respectedly. 
-	 * @param type		must extendd Serializable
 	 * @param payload	must implement Serializable
-	 * @return
+	 * @return	the builder
 	 */
 	public DutyBuilder<T> with(final T payload) {
 		Validate.notNull(payload, id + ": You must specify payload param or use overload builder");
@@ -54,7 +54,8 @@ public class DutyBuilder<T extends Serializable> {
 	/**
 	 * The associated processing weight at execution time for the host app.
 	 * Unweighted duties cannot take benefits on pallets with weighted balancers 
-	 * @param weight  a value in the same scale than its pallet's shard capacity when reported by the host app. 
+	 * @param weight  a value in the same scale than its pallet's shard capacity when reported by the host app.
+	 * @return	the builder 
 	 */
 	public DutyBuilder<T> with(final double weight) {
 		Validate.isTrue(weight > 0, id + "A number greater than 0 expected for workload representing the duty");
@@ -65,7 +66,9 @@ public class DutyBuilder<T extends Serializable> {
 	 * lazy finalization allows a duty to be peacefully considered finished once it's presence 
 	 * ceases to be reported, otherwise the leader will keep trying to restart it, 
 	 * even flagging the shard as rebell if it rejects to take it and report it.
-	 * This's disabled by default */
+	 * This's disabled by default
+	 * @return	the builder 
+	 * */
 	public DutyBuilder<T> withLazyFinalization() {
 		this.lazy = true;
 		return this;
@@ -76,6 +79,7 @@ public class DutyBuilder<T extends Serializable> {
 	 * Stationary duties are never rebalanced, they're distributed and abandoned.
 	 * Used when duties cannot be paused once started or involve some static coupling to the shard. 
 	 * This's disabled by default.
+	 * @return	the builder
 	 */
 	public DutyBuilder<T> asStationary() {
 		this.idempotent = false;
@@ -85,6 +89,7 @@ public class DutyBuilder<T extends Serializable> {
 	 * synthetic duties are distributed to all existing shards, without balancing, 
 	 * they're all the same for Minka, all CRUD operations still apply as the duty is only 1.
 	 * Useful for controlling and coordination purposes.
+	 * @return	the builder
 	 */
 	public DutyBuilder<T> asSynthetic() {
 		this.synthetic = true;;

@@ -211,7 +211,7 @@ public interface Semaphore extends Service {
 		}
 	}
 
-	/**
+	/*
 	 * Not all combinations are declared as Minka knows what situations are really expected
 	 * So this's a neat declared coordination behaviour instead of scattering condition checks
 	 * and let the action tasks ignore about a state context of sibling threads among the pool
@@ -219,7 +219,7 @@ public interface Semaphore extends Service {
 	 * relations are not declared in both sides, A Parent of B, implicitly means B Child to A
 	 * with exception to ANY for which childhood doesnt apply unless explicitly declared so.
 	 * 
-	 * @warning beware with deadlock definitions !! (keep a tree locking hiearchy)
+	 * warning: beware with deadlock definitions !! (keep a tree locking hiearchy)
 	 */
 	default List<Rule> getLockingRules() {
 		final List<Rule> rules = Lists.newArrayList();

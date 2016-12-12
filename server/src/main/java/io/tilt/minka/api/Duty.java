@@ -24,7 +24,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 /**
  * An abstract entity that the host application uses to represent anything able to balance and distribute.  
  * the user MUST guarantee to TAKE and RELEASE responsibilities when the user's {@link PartitionDelegate} 
- * receives events:  {@link ShardDutyEvent.ASSIGNMENT} or {@link ShardDutyEvent.DISASSIGNMENT} respectively.
+ * receives events: EntityEvent.ATTACH or EntityEvent.DETTACH respectively.
  * Wrapped to keep generics matters isolated
  * 
  * Conditions:
@@ -34,7 +34,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * @author Cristian Gonzalez
  * @since Dec 3, 2015
  * 
- * @param <T>
+ * @param <T> the payload type
  */
 @JsonAutoDetect
 public interface Duty<T extends Serializable> extends Entity<T> {

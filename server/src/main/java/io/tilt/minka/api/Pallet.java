@@ -8,23 +8,23 @@ import org.apache.commons.lang.Validate;
 import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
 
 /**
- * A grouping factor for Duties with common and specific treatment requirements. </br> 
+ * A grouping factor for Duties with common and specific treatment requirements. <br> 
  * In logistics, pallets may group duties because of weight, destination, volume, color, product type, etc.
- * </br></br>
+ * <br><br>
  * Playing with Pallets, you can achieve:
- * <li>     on-demand change of balancing strategies for duties,
- * <li>     ensure you have at least N duties assigned to each shard, this enables custom coordinators ! 
- * <li>     optimal exploitation of different finite phisical/virtual resources, to avoid biased duty workload calculation, 
- * <li>     specific storage type for every pallet, user custom (PartitionMaster) or use minka managment
- * </br></br>
+ *      on-demand change of balancing strategies for duties,
+ *      ensure you have at least N duties assigned to each shard, this enables custom coordinators ! 
+ *      optimal exploitation of different finite phisical/virtual resources, to avoid biased duty workload calculation, 
+ *      specific storage type for every pallet, user custom (PartitionMaster) or use minka managment
+ * <br><br>
  * 
  * Samples of Pallets are: 
- * <li>	CPU: threads, i/o, memory, 
- * <li>	Network bandwidth, 
- * <li>	Storage: space, throughput, 
- * <li>	Virtual: DB connections, files descriptors
+ * 	CPU: threads, i/o, memory, 
+ * 	Network bandwidth, 
+ * 	Storage: space, throughput, 
+ * 	Virtual: DB connections, files descriptors
  * 
- * Pallets like Duties, require a CRUD management by the host application.</br> 
+ * Pallets like Duties, require a CRUD management by the host application.<br> 
  * As a grouping factor it's just a tag for Duties, they only contain attributes and behaviour configuration. 
  * Once created, duties can have the tag. Then operations on duties can be also handled by using the pallet tag.
  * They're ignored by the distributor when empty.

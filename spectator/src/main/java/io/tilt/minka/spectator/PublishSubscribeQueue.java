@@ -38,12 +38,8 @@ import org.slf4j.LoggerFactory;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 /**
- * Curator has no Pub/Sub kind of queue ( Jordan Zimmmerman: " <randgalt1> It never came up " )
- * So, lets manipulate caches to emulate'em
- * 
  * @author Cristian Gonzalez
  * @since Oct 15, 2015
- *
  */
 public class PublishSubscribeQueue implements TreeCacheListener, NodeCacheListener, Runnable {
 

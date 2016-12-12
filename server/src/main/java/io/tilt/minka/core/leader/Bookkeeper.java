@@ -315,6 +315,7 @@ public class Bookkeeper {
 	/**
 	 * Check valid actions to client sent duties/pallets, 
 	 * according their action and the current partition table
+	 * @param 	dutiesFromAction entities to act on
 	 */
 	public void registerCRUD(ShardEntity... dutiesFromAction) {
 		for (final ShardEntity ent : dutiesFromAction) {

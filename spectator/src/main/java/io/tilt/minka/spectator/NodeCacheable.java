@@ -45,7 +45,6 @@ public abstract class NodeCacheable extends Spectator {
 
     /**
      * Constraint for Payloads for uniqueness across a shared path, topic or queue.
-     * If implemented, an {@linkplain EventBroker} must apply it.
      * @author Cristian Gonzalez
      * @since Jan 20, 2016
      *

@@ -34,10 +34,8 @@ import io.tilt.minka.domain.NetworkShardID;
 
 /**
  * An agnostic master service with the following responsibilities:
- *  
- * 1) receive sharded-entity events from User's using {@link ClusterEntity}
- * 2) listen to heartbeats from slaves and ensure there're no unassigned entities
- * 3) distributing and balancing sharded-entities to slaves
+ * 1) listen to heartbeats from slaves and ensure there're no unassigned entities
+ * 2) distributing and balancing sharded-entities to slaves
  * 
  * @author Cristian Gonzalez
  * @since Nov 7, 2015

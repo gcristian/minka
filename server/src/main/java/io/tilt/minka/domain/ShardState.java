@@ -17,7 +17,7 @@
 package io.tilt.minka.domain;
 
 /**
- * State of life for a cluster node calculated by {@link Sheperd} 
+ * State of life for a cluster node calculated by the Proctor
  * 
  * @author Cristian Gonzalez
  * @since Nov 7, 2015

@@ -138,7 +138,7 @@ public class Spectator implements Closeable {
     /**
      * Manually close all spectator objects.
      * Dont use this for JVM destruction method. 
-     * instead use {@linkplain destroy()}
+     * use destroy()
      * 
      * @param closeUserListeners    Use true for user listeners to be called back   
      *   
@@ -361,7 +361,7 @@ public class Spectator implements Closeable {
     
     /**
      * Global to all ensembles generated within this instance
-     * @param callback
+     * @param callback a consumer to callback
      */
     public void setConnectionLostCallback(final Runnable callback) {        
         for (Collection<UserInstanceObject> coll: this.mapObjects.values()) {
@@ -372,7 +372,7 @@ public class Spectator implements Closeable {
     }
     
     /**
-     * @return  If not manually set defaults to @see {@link Spectator.CONNECTION_RETRY_ATTEMPTS_DEFAULT}
+     * @return  If not manually set defaults to
      */
     public int getConnectionRetryAttempts() {
         return connectionRetryAttempts;
@@ -380,7 +380,7 @@ public class Spectator implements Closeable {
 
     /**
      * In case ZK connection fails, set your own number of retries
-     * @param connectionRetryAttempts
+     * @param connectionRetryAttempts how many retry attempts
      */
     public void setConnectionRetryAttempts(int connectionRetryAttempts) {
         Spectator.connectionRetryAttempts = connectionRetryAttempts;
@@ -391,7 +391,7 @@ public class Spectator implements Closeable {
     }
 
     /**
-     * @return  If not manually set defaults to @see {@link Spectator.CONNECTION_RETRY_DELAY_MS_DEFAULT}
+     * @return  connection retry delay
      */
     public int getConnectionRetryDelayMs() {
         return connectionRetryDelayMs;
@@ -399,7 +399,7 @@ public class Spectator implements Closeable {
 
     /**
      * In case ZK connection fails, set your own delay between retries
-     * @param connectionRetryDelayMs
+     * @param connectionRetryDelayMs milliseconds to wait before next retry
      */
     public void setConnectionRetryDelayMs(int connectionRetryDelayMs) {
         Spectator.connectionRetryDelayMs = connectionRetryDelayMs;
@@ -410,15 +410,14 @@ public class Spectator implements Closeable {
     }
 
     /**
-     * @return  If not manually set defaults to @see {@link Spectator.QUEUE_RETENTION_DAYS_DEFAULT}
+     * @return  queue retention days
      */
     public static int getQueueRetentionDays() {
         return queueRetentionDays;
     }
 
     /**
-     * Messages on queues deletion occurs by default to @see {@link Spectator.QUEUE_RETENTION_DAYS_DEFAULT}
-     * @param queueRetentionDays
+     * @param queueRetentionDays how many days to retain queue objects
      */
     public void setQueueRetentionDays(int queueRetentionDays) {
         Spectator.queueRetentionDays = queueRetentionDays;

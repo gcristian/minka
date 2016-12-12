@@ -34,7 +34,7 @@ import io.tilt.minka.domain.ShardEntity;
  * 
  * Adds and Removes from {@linkplain MinkaClient} are yet properly functional.
  * Adds and Removes should be ONLY used to enter new Duties to Minka after bootstrap.
- * In case of Leader reelection/termination: Minka recalls {@linkplain reportTotal} 
+ * In case of Leader reelection/termination: Minka recalls reportTotal 
  * and forgets previously added duties thru add/remove from {@linkplain MinkaClient}
  * 
  * If overall Duties control from Minka is required: {@linkplain PartitionDelegate} must be used 

@@ -152,7 +152,7 @@ public class Roadmap implements Comparable<Roadmap> {
 		return this.capacityStatus;
 	}
 	
-	/** declare a dettaching or attaching step to deliver on a shard */
+	/* declare a dettaching or attaching step to deliver on a shard */
 	public void ship(final Shard shard, final ShardEntity duty) {
 		if (duty.getDutyEvent().is(EntityEvent.CREATE) || duty.getDutyEvent().is(EntityEvent.ATTACH)) {
 			init(STEP_ATTACH).put(shard, duty);

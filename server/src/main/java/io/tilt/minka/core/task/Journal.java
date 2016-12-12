@@ -22,16 +22,16 @@ import org.apache.commons.lang.Validate;
  */
 public interface Journal {
 
-	/** each journal matches an id based on creation ISODATE */
+	/* each journal matches an id based on creation ISODATE */
 	Date getCreation();
 
-	/** write a new story */
+	/* write a new story */
 	<T> void commit(Story<T> story);
 
-	/** read stories creation-ordered for a certain fact */
+	/* read stories creation-ordered for a certain fact */
 	List<Story<?>> readOrdered(Fact fact);
 
-	/** read all stories */
+	/* read all stories */
 	List<Story<?>> readOrdered();
 
 	public interface JournalStorage {
@@ -40,7 +40,7 @@ public interface Journal {
 		Journal get(Date creation);
 	}
 
-	/** something for auto-diagnose ? */
+	/* something for auto-diagnose ? */
 	public interface JournalChecker {
 		boolean hasWarningsIssued();
 

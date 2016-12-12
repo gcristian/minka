@@ -36,7 +36,7 @@ import javassist.Modifier;
  * 	1) properties file
  *  2) json config file
  *  3) command line passed property to JVM like "-Dfield=value"
- *  4) system environment variable like when "export HOST=hostname" or "echo 'HOST=hostname' >> /etc/default"
+ *  4) system environment variable 
  *  
  *  fallbacks source 5) static field in the passed object
  *  
@@ -57,7 +57,8 @@ public class Defaulter {
 	 * @param   props the properties instance to look up keys for 
 	 * @param   configurable 
 	 *  applying object with pairs of "default" sufixed static fields in the format "some_value_default"
-	 *  and instance fields in the propercase format without underscores like "someValue" 
+	 *  and instance fields in the propercase format without underscores like "someValue"
+	 * @param propPrefix if there's any prefix for field 
 	 * 
 	 * @return  TRUE if all defaults were applied. FALSE if some was not !
 	 */
@@ -129,8 +130,8 @@ public class Defaulter {
 	/**
 	 * Use delims as word beginner mark, remove it and proper case words
 	 * Take "HELLO_WORLD" and turn into "helloWorld" 
-	 * @param s
-	 * @return
+	 * @param s the string to convert to
+	 * @return the same string if no variation 
 	 */
 	private static String properCaseIt(final String s) {
 		final StringBuilder sb = new StringBuilder();

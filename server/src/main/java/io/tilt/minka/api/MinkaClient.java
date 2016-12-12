@@ -42,7 +42,7 @@ import io.tilt.minka.domain.ShardState;
  * Facility to CRUD {@linkplain ShardEntity}
  * 
  * So a {@link Leader} service whoever it is, will receive the event and distribute it
- * to a selected {@link Follower} according their {@link ShardState} and {@link Workload}
+ * to a selected {@link Follower} according their {@link ShardState}
  * 
  * From any {@linkplain Shard} (leader or follower) the client can use this class.
  * Coordination operations are driven thru {@linkplain EventBroker} to reach the leader shard
@@ -85,7 +85,7 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	/**
 	* Remove duties already running/distributed by Minka
 	* This causes the duty to be stopped at Minkas's Follower context.
-	* So expect a call at {@linkplain PartitionDelegate.release}.
+	* So expect a call at PartitionDelegate.release
 	* 
 	* Pre-conditions:
 	*     1) use after {@linkplain PartitionMaster}'s source has been updated, or within same TX. 
@@ -93,8 +93,8 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	*     1) {@linkplain PartitionDelegate} must not report it still taken: or it will be flagged "dangling"
 	*     2) {@linkplain PartitionMaster} must not report it: or it will be re-distributed for execution  
 	* 
-	* @param service	a unique name within a ZK ensemble to identify the shards
 	* @param duty	    a duty sharded or to be sharded in the cluster
+	* @return whether or not the operation succeed
 	*/
 	public boolean remove(final Duty<D> duty) {
 		return send(duty, EntityEvent.REMOVE, null);
@@ -111,8 +111,8 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	*     1) {@linkplain PartitionDelegate} must not report it taken 
 	*     2) {@linkplain PartitionMaster} must not report it present
 	*      
-	* @param duty
-	* @return
+	* @param duty	the duty to finalize
+	* @return whether or not the operation succeed
 	*/
 	public boolean finalized(final Duty<D> duty) {
 		return send(duty, EntityEvent.FINALIZED, null);
@@ -126,8 +126,8 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	*     1) use after {@linkplain PartitionMaster}'s source has been updated, or within same TX.
 	*     2) These duties must be also present when Minka uses {@linkplain PartitionMaster} at leader's promotion 
 	* 
-	 * @param service   a unique name within a ZK ensemble to identify the shards
-	 * @param duty      a duty sharded or to be sharded in the cluster
+	* @param duty      a duty sharded or to be sharded in the cluster
+	* @return whether or not the operation succeed
 	*/
 	public boolean add(final Duty<D> duty) {
 		return send(duty, EntityEvent.CREATE, null);
@@ -139,8 +139,8 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 
 	/**
 	* Enter a notification event for a {@linkplain Duty}
-	* @see PartitionDelegate method receive()
-	* @see {@linkplain update} but with a payload  
+	* @param duty the duty to update
+	* @return whether or not the operation succeed
 	*/
 	public boolean update(final Duty<D> duty) {
 		return send(duty, EntityEvent.UPDATE, null);

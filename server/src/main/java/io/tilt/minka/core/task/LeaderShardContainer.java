@@ -36,7 +36,7 @@ public interface LeaderShardContainer extends Service {
 	/**
 	 * Add consumer of new leader when is first time or already elected, 
 	 * and for latter elections as well    
-	 * @param consumerOfNewLeader
+	 * @param consumerOfNewLeader	a consumer
 	 */
 	void observeForChange(Consumer<NetworkShardID> consumerOfNewLeader);
 

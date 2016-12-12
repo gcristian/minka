@@ -75,7 +75,7 @@ public class Migrator {
 		this.pallet = pallet;
 	}
 
-	/** specifically transfer from a Source to a Target */
+	/* specifically transfer from a Source to a Target */
 	public final void transfer(final Shard target, final ShardEntity entity) {
 		Validate.notNull(target);
 		Validate.notNull(entity);
@@ -99,7 +99,7 @@ public class Migrator {
 		}
 		transfers.add(new Transfer(source, target ,entity));
 	}
-	/** explicitly override a shard's content, client must look after consistency ! */
+	/* explicitly override a shard's content, client must look after consistency ! */
 	public final void override(final Shard shard, final Set<ShardEntity> cluster) {
 		Validate.notNull(shard);
 		Validate.notNull(cluster);

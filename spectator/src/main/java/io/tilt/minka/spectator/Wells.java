@@ -67,6 +67,7 @@ public class Wells extends NodeCacheable  {
      * 
      * @param wellName     a unique name within the ensemble for the updates to arrive
      * @param consumer     a message consumer to be called on new updates
+     * @param <T> 		   the type
      * @return             whether or not the subscription succeed
      */
     public <T> boolean runOnUpdate(
@@ -85,7 +86,7 @@ public class Wells extends NodeCacheable  {
      * If you plan to dinamically consume from a lot of Wells, you should release them when no longer care.
      * Otherwise non closed subscription resources will only be released at shutdown 
      * (subject to proper termination)
-     * @param wellName
+     * @param wellName	the name of the refreshing well
      */
     public void closeWell(final String wellName) {
         Set<UserInstanceObject> set = getUserMap().get(wellName);

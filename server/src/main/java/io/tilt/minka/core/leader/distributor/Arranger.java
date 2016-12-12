@@ -238,7 +238,9 @@ public class Arranger {
 		protected PartitionTable getPartitionTable() {
 			return this.partitionTable;
 		}
-		/** @deprecated */
+		/** @deprecated
+		 * @return a roadmap inside the current table
+		 * */
 		public Roadmap getRoadmap() {
 			return this.roadmap;
 		}

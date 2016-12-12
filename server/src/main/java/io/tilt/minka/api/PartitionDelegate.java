@@ -33,7 +33,7 @@ import io.tilt.minka.domain.ShardState;
  * Starting the {@linkplain Bootstrap} with this delegate will make Minka to maintain its own 
  * storage for {@linkplain ShardEntity}
  * 
- * Client is compelled to call {@linkplain MinkaClient.add/remove} to enter and remove duties to the shards
+ * Client is compelled to call MinkaClient.add/remove to enter and remove duties to the shards
  *    
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
@@ -54,13 +54,13 @@ public interface PartitionDelegate<D extends Serializable, P extends Serializabl
 		return true;
 	}
 
-	/**
+	/*
 	* Instruct the Follower shard to take management responsibilities on these duties
 	*/
 	void capture(Set<Duty<D>> duties);
 	void capturePallet(Set<Pallet<P>> pallets);
 
-	/**
+	/*
 	* Instruct the Follower shard to release management 
 	* responsibi﻿lities on these duties.
 	* Not doing so will make Minka apply rules set in {@linkplain Config} about {@linkplain ShardState}
@@ -68,9 +68,8 @@ public interface PartitionDelegate<D extends Serializable, P extends Serializabl
 	void release(Set<Duty<D>> duties);
 	void releasePallet(Set<Pallet<P>> pallets);
 
-	/**
+	/*
 	 * Instruct the Follower shard to acknowledge an update ocurred on a duty's payload
-	 * @param duties
 	 */
 	default void update(Duty<D> duties) {
 		logger.error("{}: this PartitionDelegate has not implemented the duty update event",getClass().getSimpleName());
@@ -78,9 +77,8 @@ public interface PartitionDelegate<D extends Serializable, P extends Serializabl
 	default void update(Pallet<P> pallets) {
 		logger.error("{}: this PartitionDelegate has not implemented the duty update event",getClass().getSimpleName());
 	}
-	/**
+	/*
 	 * Instruct te Follower shard to get a client payload event for a particular duty 
-	 * @param duties
 	 */
 	default void transfer(Duty<D> duty, Serializable clientPayload) {
 		logger.error("{}: this PartitionDelegate has not implemented the payload reception event",getClass().getSimpleName());
@@ -89,7 +87,7 @@ public interface PartitionDelegate<D extends Serializable, P extends Serializabl
 		logger.error("{}: this PartitionDelegate has not implemented the payload reception event",getClass().getSimpleName());
 	}
 
-	/**
+	/*
 	 * Report shard's maximum workload capacity for a certain pallet
 	 * @return	a unit in the same measure unit than duty weights reported 
 	 */
@@ -97,7 +95,7 @@ public interface PartitionDelegate<D extends Serializable, P extends Serializabl
 		return -1;
 	}
 	
-	/**
+	/*
 	* Report the effectively sharded duties being handled.
 	* The Leader cannot trust that a delegated duty is really held by a shard,
 	* So the shard has the last word and must reports so at any given time.

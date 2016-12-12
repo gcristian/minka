@@ -18,7 +18,7 @@ public interface EntityPayload extends Serializable {
 
 	/**
 	 * Only called first time to fetch 
-	 * @return
+	 * @return	the stream to fetch data from
 	 */
 	default InputStream getInputStream() {
 		return null;

@@ -39,7 +39,7 @@ import io.tilt.minka.domain.ShardEntity;
 
 /**
  * Type balanced.
- * Purpose: perform an even spread considering duty weights, using a {@linkplain Presort}
+ * Purpose: perform an even spread considering duty weights, using a Presort
  * to order duties based on their creation date or weight.
  * This ignores the shard's capacity, an even spread may result in an obliterating shard load.
  * Effect: equally loaded shards, and many migration when using Presort.DATE

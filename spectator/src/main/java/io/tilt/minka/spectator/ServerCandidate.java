@@ -25,12 +25,10 @@ public interface ServerCandidate {
 
     /**
      * Start the duty when leadership takes in place. 
-     * @param name
      */
     void start();
     /**
      * Stop duty, in case of leadership the client MUST exit the start() scope 
-     * @param name
      */
     default void stop() { 
         logger.warn("Spectator called stop() on ActionListener. Implement method stop() !");

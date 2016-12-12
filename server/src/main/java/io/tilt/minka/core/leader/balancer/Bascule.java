@@ -38,11 +38,11 @@ public class Bascule<O, C> {
 	private final Set<C> cargo;
 	private final Set<C> discarded;
 	
-	/** weighing mode bascule: only to lift weights without assigning */
+	/* weighing mode bascule: only to lift weights without assigning */
 	public Bascule() {
 		this(null, -1, 0);
 	}
-	/** testing mode to assign duties to shards */
+	/* testing mode to assign duties to shards */
 	public Bascule(final O owner, final double maxRealCapacity) {
 		this(owner, maxRealCapacity, 0);
 		Validate.notNull(owner);
@@ -53,7 +53,9 @@ public class Bascule<O, C> {
 		this.cargo = new HashSet<>();
 		this.discarded = new HashSet<>();
 	}
-	/** @return whether or not this bascule is able to lift the duty's weight */
+	/**
+	 * @param duty a testing entity 
+	 * @return whether or not this bascule is able to lift the duty's weight */
 	public boolean fits(final Duty<?> duty) {
 		Validate.notNull(duty);
 		validOperation();
@@ -64,14 +66,20 @@ public class Bascule<O, C> {
 			throw new IllegalStateException("bad operation: bascule in weighing mode has no capacity set !");
 		}
 	}
-	/** @return whether or not the bascule added the duty and max test weight wasnt reached yet */
+	/**
+	 * @param element the cargo element
+	 * @param weight the weight
+	 * @return whether or not the bascule added the duty and max test weight wasnt reached yet */
 	public boolean testAndLift(final C element, final double weight) {
 		if (getMaxTestWeight()<0) {
 			throw new IllegalStateException("bad operation: try setting the test capacity first");
 		}
 		return lift_(element, weight, getMaxTestWeight());
 	}
-	/** @return whether or not the bascule added the duty and real max capacity wasnt reached */
+	/** 
+	 * @param element the cargo element
+	 * @param weight the weight
+	 * @return whether or not the bascule added the duty and real max capacity wasnt reached */
 	public boolean tryLift(final C element, final double weight) {
 		return lift_(element, weight, getMaxRealCapacity());
 	}

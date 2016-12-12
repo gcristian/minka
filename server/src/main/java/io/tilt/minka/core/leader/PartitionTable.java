@@ -60,7 +60,7 @@ import jersey.repackaged.com.google.common.collect.Sets;
  * Built at leader promotion.
  * 
  * @author Cristian Gonzalez
- * @since Dec 2, 2015<	
+ * @since Dec 2, 2015	
  */
 public class PartitionTable {
 
@@ -125,7 +125,6 @@ public class PartitionTable {
 			return total;
 		}
 		
-		/** @return  shards by state filter or all if null */
 		public List<Shard> getShardsByState(final ShardState filter) {
 			return shardsByID.values().stream().filter(i -> i.getState() == filter || filter == null)
 					.collect(Collectors.toList());
@@ -139,7 +138,7 @@ public class PartitionTable {
 		/**
 		 * When a Shard has been offline and their dangling duties reassigned
 		 * after completing Change's cycles: the shard must be deleted
-		 * @param shard
+		 * @param shard	a shard to delete from cluster
 		 */
 		public void removeShard(final Shard shard) {
 			logger.info("{}: Removing Shard {} - bye bye ! come back some day !", getClass().getSimpleName(), shard);
@@ -158,7 +157,10 @@ public class PartitionTable {
 				this.shardsByID.put(shard.getShardID(), shard);
 			}
 		}
-		/** @return if there was a Stage change caused by the confirmation after reallocation phase */
+		/**
+		 * @param duty the entity to act on
+		 * @param where	the sard where it resides 
+		 * @return if there was a Stage change caused by the confirmation after reallocation phase */
 		public boolean confirmDutyAboutShard(final ShardEntity duty, final Shard where) {
 			if (duty.getDutyEvent().is(EntityEvent.ATTACH) || duty.getDutyEvent().is(EntityEvent.CREATE)) {
 				checkDuplicationFailure(duty, where);
@@ -182,7 +184,9 @@ public class PartitionTable {
 				}
 			}
 		}
-		/** @return a copy of duties by shard: dont change duties ! */
+		/** 
+		 * @param shard	the shard to get duties from
+		 * @return a copy of duties by shard: dont change duties ! */
 		public Set<ShardEntity> getDutiesByShard(final Shard shard) {
 			return Sets.newHashSet(getPartition(shard).getDuties());
 		}

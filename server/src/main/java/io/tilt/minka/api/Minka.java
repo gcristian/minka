@@ -48,8 +48,10 @@ public class Minka<D extends Serializable, P extends Serializable> {
 
 	/** 
 	 * Create a Minka server. All mandatory events must be mapped to consumers/suppliers.
-	 * @param configFilepath with a configuration in a JSON file, 
-	 * whose format must comply {@linkplain Config} class serialization */
+	 * @param jsonFormatConfig with a configuration in a JSON file, 
+	 * whose format must comply {@linkplain Config} class serialization 
+	 * @throws Exception when given file is invalid
+	 * */
 	public Minka(final File jsonFormatConfig) throws Exception {
 		Validate.notNull(jsonFormatConfig);
 		Config config = Config.fromJsonFile(jsonFormatConfig);
@@ -162,7 +164,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	/**
 	 * An alternative way of mapping duty and pallet events, thru an implementation class.
 	 * @param delegate	a fully implementation class of a partition delegate
-	 * @return
+	 * @return	the server builder
 	 */
 	public Minka<D, P> setDelegate(final PartitionDelegate<D, P> delegate) {
 		Validate.notNull(delegate);
@@ -177,8 +179,8 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	}
 	/**
 	 * An alternative way of mapping duty and pallet events, thru an implementation class.
-	 * @param delegate	a fully implementation class of a partition master
-	 * @return
+	 * @param master a fully implementation class of a partition master
+	 * @return	the server builder
 	 */
 	public Minka<D, P> setMaster(final PartitionMaster<D, P> master) {
 		Validate.notNull(master);
@@ -210,6 +212,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * Note duty instances should be created only once and then references returned. 
 	 * To avoid inconsistency their return must always include any additions made thru {@linkplain MinkaClient}
 	 * @param supplier	to be called only at shard's election as Leader  
+	 * @return	the server builder
 	 */
 	public Minka<D, P> onDutyLoad(final Supplier<Set<Duty<D>>> supplier) {
 		initConsumerDelegate();
@@ -219,7 +222,8 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	/**
 	 * Mandatory. In case the current shard's elected as Leader.
 	 * To avoid inconsistency their return must always include any additions made thru {@linkplain MinkaClient}
-	 * @param supplier	to be called only at shard's election as Leader  
+	 * @param supplier	to be called only at shard's election as Leader
+	 * @return	the server builder  
 	 */
 	public Minka<D, P> onPalletLoad(final Supplier<Set<Pallet<P>>> supplier) {
 		initConsumerDelegate();
@@ -230,6 +234,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * Mandatory. Map duty assignation responsibilities to a consumer 
 	 * @see PartitionDelegate
 	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
+	 * @return	the server builder
 	 */
 	public Minka<D, P> onDutyCapture(final Consumer<Set<Duty<D>>> consumer) {
 		initConsumerDelegate();
@@ -240,6 +245,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * Required optional. Map pallet assignation responsibilities to a consumer 
 	 * @see PartitionDelegate
 	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
+	 * @return	the server builder
 	 */
 	public Minka<D, P> onPalletCapture(final Consumer<Set<Pallet<P>>> consumer) {
 		initConsumerDelegate();
@@ -250,6 +256,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * Mandatory. Map duty release contract to a consumer 
 	 * @see PartitionDelegate
 	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
+	 * @return	the server builder
 	 */
 	public Minka<D, P> onDutyRelease(final Consumer<Set<Duty<D>>> consumer) {
 		initConsumerDelegate();
@@ -260,6 +267,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * Required optional. Map pallet release contract to a consumer 
 	 * @see PartitionDelegate
 	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
+	 * @return	the server builder
 	 */
 	public Minka<D, P> onPalletRelease(final Consumer<Set<Pallet<P>>> consumer) {
 		initConsumerDelegate();
@@ -270,6 +278,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * Mandatory. Map report contract to a consumer 
 	 * @see PartitionDelegate
 	 * @param supplier	to be called profusely by the follower process at the current shard
+	 * @return	the server builder
 	 */
 	public Minka<D, P> onDutyReport(final Supplier<Set<Duty<D>>> supplier) {
 		initConsumerDelegate();
@@ -279,6 +288,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	/**
 	 * Optional. Map an update on the duty's payload to a consumer
 	 * @param consumer	to be called only on client's call thru MinkaClient.update(..)
+	 * @return	the server builder
 	 */
 	public Minka<D, P> onDutyUpdate(final Consumer<Duty<D>> consumer) {
 		initConsumerDelegate();
@@ -288,6 +298,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	/**
 	 * Optional. Map an update on the pallet's payload to a consumer
 	 * @param consumer	to be called only on client's call thru MinkaClient.update(..)
+	 * @return	the server builder
 	 */
 	public Minka<D, P> onPalletUpdate(final Consumer<Pallet<P>> consumer) {
 		initConsumerDelegate();
@@ -297,7 +308,8 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	/**
 	 * Optional. Map duty object's transfer responsibilities to a receptionist consumer 
 	 * @see PartitionDelegate
-	 * @param consumer	to be called only on client's call thru MinkaClient.deliver(...)
+	 * @param biconsumer	to be called only on client's call thru MinkaClient.deliver(...)
+	 * @return	the server builder
 	 */
 	public Minka<D, P> onDutyTransfer(final BiConsumer<Duty<D>, Serializable> biconsumer) {
 		initConsumerDelegate();
@@ -311,7 +323,8 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	}
 	/**
 	 * Optional. Adds a custom balancer
-	 * @param balancer
+	 * @param balancer	to use at balancing phase
+	 * @return	the server builder
 	 */
 	public Minka<D, P> onBalance(final Balancer balancer) {
 		Validate.notNull(balancer);
@@ -320,7 +333,8 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	}
 	/**
 	 * Optional. Map minka's service start to a consumer
-	 * @param runnable
+	 * @param runnable callback to run at event dispatch
+	 * @return	the server builder
 	 */
 	public Minka<D, P> onActivation(final Runnable runnable) {
 		initConsumerDelegate();
@@ -329,7 +343,8 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	}
 	/**
 	 * Optional. Map minka's service shutdown to a consumer. 
-	 * @param runnable
+	 * @param runnable	callback to run at event dispatch
+	 * @return	the server builder
 	 */
 	public Minka<D, P> onDeactivation(final Runnable runnable) {
 		initConsumerDelegate();
@@ -340,6 +355,8 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * Mandatory for pallets using a weighted-balancer to be actually distributed. <br> 
 	 * Explicitly set current shard's capacity for a given Pallet 
 	 * @param weight 	must be in the same measure than duty weights grouped by this pallet
+	 * @param pallet	the pallet to report capacity about
+	 * @return	the server builder
 	 */
 	public Minka<D, P> setCapacity(final Pallet<P> pallet, final double weight) {
 		initConsumerDelegate();
@@ -351,6 +368,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * for all mandatory and optional events to be mapped: before calling load()
 	 * This explicitly releases the bootstrap wait, but not without event's mapping validation.
 	 * The load will also occurr if all optional and mandatory events are mapped.
+	 * @return	the server builder
 	 */
 	public Minka<D, P> load() {
 		initConsumerDelegate();

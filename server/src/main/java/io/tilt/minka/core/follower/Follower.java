@@ -40,7 +40,6 @@ import io.tilt.minka.domain.ShardState;
  * 2) translate to the partition commander the received sharded-entity dis/assignments from the master
  *   
  * @author Cristian Gonzalez
- * @param <T>
  * @since Nov 7, 2015
  *
  */
