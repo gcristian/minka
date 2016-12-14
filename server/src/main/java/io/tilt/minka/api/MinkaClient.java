@@ -102,22 +102,7 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	public boolean remove(final Pallet<P> pallet) {
 		return send(pallet, EntityEvent.REMOVE, null);
 	}
-
-	/**
-	* Used to notify Minka about the self-finalization of a Duty by natural cause.
-	* The {@linkplain PartitionDelegate} wont be instructed to release the duty.
-	*  
-	* Post-conditions
-	*     1) {@linkplain PartitionDelegate} must not report it taken 
-	*     2) {@linkplain PartitionMaster} must not report it present
-	*      
-	* @param duty	the duty to finalize
-	* @return whether or not the operation succeed
-	*/
-	public boolean finalized(final Duty<D> duty) {
-		return send(duty, EntityEvent.FINALIZED, null);
-	}
-
+	
 	/**
 	* Enter a new duty to Minka so it can distribute it to proper shards. 
 	* If Minka persists duties @see {@linkplain Config} this's the only way to enter duties.

@@ -17,7 +17,6 @@
 package io.tilt.minka.core.leader;
 
 import static io.tilt.minka.domain.EntityEvent.CREATE;
-import static io.tilt.minka.domain.EntityEvent.FINALIZED;
 import static io.tilt.minka.domain.ShardEntity.State.CONFIRMED;
 import static io.tilt.minka.domain.ShardEntity.State.DANGLING;
 
@@ -326,8 +325,8 @@ public class Bookkeeper {
 			if (!event.isCrud()) {
 				throw new RuntimeException("Bad call");
 			}
-			if ((!found && event == CREATE) || (found && (event == EntityEvent.REMOVE || event == FINALIZED))) {
-				logger.info("{}: Registering Crud {}: {}", getClass().getSimpleName(), typeDuty ? "Duty": "Pallet", ent);
+			if ((!found && event == CREATE) || (found && event == EntityEvent.REMOVE)) {
+				logger.info("{}: Registering Crud {}: {}", getClass().getSimpleName(), typeDuty ? "Duty": "Pallet", entity);
 				if (typeDuty) {
 					if (event == CREATE) {
 						final ShardEntity pallet = partitionTable.getStage().getPalletById(ent.getDuty().getPalletId());

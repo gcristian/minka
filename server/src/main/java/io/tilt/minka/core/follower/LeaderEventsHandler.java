@@ -66,12 +66,6 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 	private Clearance lastClearance;
 	private final LeaderShardContainer leaderContainer;
 
-	/*
-	 * 10 mins min: previous time-window lapse to look for events from the
-	 * Leader
-	 */
-	private final long START_PAST_LAPSE_MS = 1000 * 60 * 10;
-
 	public LeaderEventsHandler(final Config config, final DependencyPlaceholder dependencyPlaceholder,
 			final AttachedPartition partition, final PartitionManager partitionManager, final EventBroker eventBroker,
 			final Scheduler scheduler, final LeaderShardContainer leaderContainer) {
@@ -176,7 +170,7 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 			case UPDATE:
 				partitionManager.update(Lists.newArrayList(duties));
 				break;
-			case FINALIZED:
+			case REMOVE:
 				partitionManager.finalized(Lists.newArrayList(duties));
 				break;
 			default:
