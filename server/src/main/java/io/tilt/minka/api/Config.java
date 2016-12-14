@@ -21,8 +21,6 @@ import java.util.Properties;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -46,8 +44,6 @@ import io.tilt.minka.utils.Defaulter;
  * @since Nov 19, 2016
  */
 public class Config {
-
-	private final Logger log = LoggerFactory.getLogger(getClass());
 	
 	protected static final ObjectMapper objectMapper = new ObjectMapper();
     static {
@@ -303,7 +299,7 @@ public class Config {
 	}
 
 	public static class DistributorConf {
-		protected static final boolean RUN_CONSISTENCY_CHECK = true;
+		protected static final boolean RUN_CONSISTENCY_CHECK = false;
 		private boolean runConsistencyCheck;
 		protected static final boolean RELOAD_DUTIES_FROM_STORAGE = false;
 		private boolean reloadDutiesFromStorage;

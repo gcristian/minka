@@ -16,7 +16,10 @@
  */
 package io.tilt.minka.utils;
 
-import com.sun.javafx.binding.StringFormatter;
+import java.nio.charset.Charset;
+import java.util.Random;
+
+import org.springframework.util.StreamUtils;
 
 import io.tilt.minka.domain.ShardID;
 
@@ -26,13 +29,8 @@ import io.tilt.minka.domain.ShardID;
  */
 public class LogUtils {
 
-	public final static String logo = "\n   ooo        ooooo  o8o              oooo      "
-			+ "          \n   `88.       .888'  `\"'              `888                \n    888b"
-			+ "     d'888  oooo  ooo. .oo.    888  oooo   .oooo. \n    8 Y88. .P  888  `888  "
-			+ "`888P\"Y88b   888 .8P'   `P  )88b\n    8  `888'   888   888   888   888   888888.     .oP\"888\n"
-			+ "    8    Y     888   888   888   888   888 `88b.  d8(  888\n   o8o        "
-			+ "o888o o888o o888o o888o o888o o888o `Y888\"\"8o\n\n";
-
+	public final static String logo = randomSaluteFromFile();
+	
 	public final static char OK = '√';
 	public final static char CRASH = '⚡';
 	public final static char HYPHEN_CHAR = '—';
@@ -60,6 +58,16 @@ public class LogUtils {
 		line.append(" ").append(title).append(" ");
 		grossLine(ch, dots, line);
 		return line.toString();
+	}
+	private static String randomSaluteFromFile() {
+		try {
+			final Random rnd = new Random();
+			final int num = rnd.nextInt(2);
+			return StreamUtils.copyToString(LogUtils.class.getResourceAsStream("salutation" + num + 
+					 ".txt"), Charset.forName("utf-8"));
+		} catch (Exception e) {
+		}
+		return "";
 	}
 
 	private static void grossLine(final char ch, int dots, StringBuilder line) {

@@ -17,7 +17,6 @@
 package io.tilt.minka.domain;
 
 import org.apache.commons.lang.Validate;
-import org.joda.time.DateTime;
 
 import io.tilt.minka.api.EntityPayload;
 import io.tilt.minka.core.task.Semaphore;
@@ -34,7 +33,6 @@ public class ShardCommand implements EntityPayload {
 	private static final long serialVersionUID = 5911601577093197314L;
 
 	private Command command;
-	private DateTime creation;
 	private NetworkShardID shardId;
 
 	public ShardCommand(final Command command, final NetworkShardID shardId) {

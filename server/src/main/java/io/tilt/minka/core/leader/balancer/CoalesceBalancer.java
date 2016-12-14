@@ -16,9 +16,6 @@
  */
 package io.tilt.minka.core.leader.balancer;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
 import io.tilt.minka.core.leader.distributor.Balancer;
 
@@ -31,9 +28,6 @@ import io.tilt.minka.core.leader.distributor.Balancer;
  * then duties from one of those pallets is going to migrate all-together 
  */
 public class CoalesceBalancer implements Balancer {
-
-	private final Logger logger = LoggerFactory.getLogger(getClass());
-
 
 	
 	public static class Metadata implements BalancerMetadata {

@@ -51,11 +51,7 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
 	private final NetworkShardID shardId;
-	/*
-	 * 10 mins min: previous time-window lapse to look for events to rebuild
-	 * Partition Table
-	 */
-	private final long START_PAST_LAPSE_MS = 1000 * 60 * 10;
+
 
 	public FollowerEventsHandler(final Config config, final PartitionTable partitionTable, final Bookkeeper bookkeeper,
 			final EventBroker eventBroker, final Scheduler scheduler, final NetworkShardID shardId) {

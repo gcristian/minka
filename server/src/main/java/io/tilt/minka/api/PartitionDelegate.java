@@ -24,7 +24,6 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.task.Bootstrap;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardState;
 
 /**
  * Client's point of integration with Minka.

@@ -135,7 +135,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 	// -------- interfase bridge
 	
 	private boolean readyIf(final Object o, Event ev) {
-		if (o instanceof Map && ((Map)o).containsKey(ev)) {
+		if (o instanceof Map && ((Map<?, ?>)o).containsKey(ev)) {
 			return true;
 		} else {
 			if (o!=null) {

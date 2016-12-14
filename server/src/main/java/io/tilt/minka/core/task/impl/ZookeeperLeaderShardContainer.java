@@ -45,14 +45,12 @@ public class ZookeeperLeaderShardContainer extends TransportlessLeaderShardConta
 
 		private Wells wells;
 		private final Supplier<Spectator> supplier;
-		private final Config config;
 		private final Consumer<MessageMetadata> callbackConsumer;
 
 		public ZookeeperLeaderShardContainer(final Config config, final ShardID myShardId,
 				final Supplier<Spectator> supplier) {
 			super(myShardId);
 			Validate.notNull(config);
-			this.config = config;
 			this.instance = this;
 			this.supplier = supplier;
 

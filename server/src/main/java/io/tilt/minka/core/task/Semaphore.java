@@ -32,7 +32,6 @@ import static io.tilt.minka.core.task.Semaphore.Hierarchy.SIBLING;
 import static io.tilt.minka.core.task.Semaphore.RuleFactory.builder;
 import static java.util.Arrays.asList;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

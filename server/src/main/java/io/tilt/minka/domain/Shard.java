@@ -18,7 +18,6 @@ package io.tilt.minka.domain;
 
 import java.io.Serializable;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +27,6 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.JsonInclude;
 
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;

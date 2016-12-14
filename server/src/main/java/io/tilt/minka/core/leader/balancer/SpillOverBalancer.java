@@ -43,7 +43,6 @@ import io.tilt.minka.domain.Shard.DateComparer;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
-import io.tilt.minka.domain.ShardEntity.StuckCause;
 
 /**
  * Type unbalanced.
@@ -60,6 +59,7 @@ import io.tilt.minka.domain.ShardEntity.StuckCause;
  * @author Cristian Gonzalez
  * @since Dec 13, 2015
  */
+@SuppressWarnings("deprecation")
 public class SpillOverBalancer implements Balancer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -153,7 +153,7 @@ public class SpillOverBalancer implements Balancer {
 				}
 				registerNewcomers(next, loadStrat, spaceByReceptor, unfitting, dutiesForBalance);
 				// then move those surplussing
-				final Migrator migra = registerMigrations(next, loadStrat, spaceByReceptor, unfitting, trans);
+				registerMigrations(next, loadStrat, spaceByReceptor, unfitting, trans);
 				logger.error("{}: Add Shards !! No receptor has space for Duties: {}", getClass().getSimpleName(), 
 						ShardEntity.toStringIds(unfitting));
 			}
@@ -180,7 +180,7 @@ public class SpillOverBalancer implements Balancer {
 		}
 	}
 
-	private Migrator registerMigrations(final NextTable next, final boolean loadStrat,
+	private void registerMigrations(final NextTable next, final boolean loadStrat,
 			final Map<Shard, AtomicDouble> spaceByReceptor, final List<ShardEntity> unfitting,
 			final SetMultimap<Shard, ShardEntity> trans) {
 
@@ -201,7 +201,6 @@ public class SpillOverBalancer implements Balancer {
 				}
 			}
 		}
-		return migra;
 	}
 
 

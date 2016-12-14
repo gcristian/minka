@@ -249,7 +249,7 @@ public class Distributor extends ServiceImpl {
 				return false;
 			}
 		} else {
-			//checkConsistencyState();
+			checkConsistencyState();
 		}
 		return true;
 	}

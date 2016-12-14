@@ -112,6 +112,7 @@ public class PalletBuilder<P extends Serializable> {
 			return new HashCodeBuilder().append(getId()).toHashCode();
 		}
 		@Override
+		@SuppressWarnings({ "unchecked", "rawtypes" })
 		public boolean equals(Object obj) {
 			if (obj != null && obj instanceof Entity) {
 				if (obj == this) {
