@@ -53,7 +53,8 @@ public class PalletCollector {
 		this();
 		Validate.notNull(duties);
 		Validate.notEmpty(palletSet);
-		palletSet.forEach(p -> this.palletById.put(p.getPallet().getId(), ShardEntity.create(p.getPallet())));
+		palletSet.forEach(p -> this.palletById.put(p.getPallet().getId(), 
+				ShardEntity.Builder.builder(p.getPallet()).build()));
 		for (ShardEntity se : duties) {
 			try {
 				if (logger.isDebugEnabled()) {

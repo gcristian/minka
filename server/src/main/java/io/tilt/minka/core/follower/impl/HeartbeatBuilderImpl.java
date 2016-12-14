@@ -98,7 +98,7 @@ public class HeartbeatBuilderImpl implements HeartbeatBuilder {
 						getClass().getSimpleName(), partition.getId(), ddiff.getDiff()); 
 				}
 			} else {
-				shardedDuty = ShardEntity.create(duty);
+				shardedDuty = ShardEntity.Builder.builder(duty).build();
 				// shardedDuty.registerEvent(PartitionEvent.ASSIGN, State.DANGLING);
 				shardedDuty.registerEvent(EntityEvent.CREATE, DANGLING);
 				log.error("{}: ({}) Reporting a Dangling Duty (by Addition): {}", getClass().getSimpleName(),

@@ -72,7 +72,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	public static Heartbeat copy(final Heartbeat hb) {
 		final List<ShardEntity> cloned = new ArrayList<>();
 		for (ShardEntity d : hb.getDuties()) {
-			cloned.add(ShardEntity.copy(d));
+			cloned.add(ShardEntity.Builder.builderFrom(d).build());
 		}
 		return new Heartbeat(cloned, hb.hasWarning(), hb.shardId, hb.sequenceId, hb.capacities);
 	}

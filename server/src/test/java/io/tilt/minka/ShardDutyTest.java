@@ -27,12 +27,12 @@ public class ShardDutyTest {
 
 		Set<ShardEntity> set = new HashSet<>();
 		Duty<String> d2 = DutyBuilder.<String>builder("0", "p2").build();
-		set.add(ShardEntity.create(DutyBuilder.builder("0", "p2").build()));
-		set.add(ShardEntity.create(d2));
-		set.add(ShardEntity.create(DutyBuilder.builder("0", "p2").build()));
+		set.add(ShardEntity.Builder.builder(DutyBuilder.builder("0", "p2").build()).build());
+		set.add(ShardEntity.Builder.builder(d2).build());
+		set.add(ShardEntity.Builder.builder(DutyBuilder.builder("0", "p2").build()).build());
 		assert (set.size() == 3);
 
-		Assert.assertTrue(set.contains(ShardEntity.create(d2)));
+		Assert.assertTrue(set.contains(ShardEntity.Builder.builder(d2).build()));
 	}
 
 }

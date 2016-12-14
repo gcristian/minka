@@ -269,14 +269,18 @@ public class Bookkeeper {
 		final Set<ShardEntity> sortedLog = new TreeSet<>();
 		final Iterator<Duty<?>> it = dutiesFromSource.iterator();
 		while (it.hasNext()) {
-			final ShardEntity potential = ShardEntity.create(it.next());
+			final Duty<?> duty = it.next();
+			final ShardEntity pallet = partitionTable.getStage().getPalletById(duty.getPalletId());
+			final ShardEntity.Builder builder = ShardEntity.Builder.builder(duty);
+			if (pallet!=null) {
+				builder.withRelatedEntity(pallet);
+			}
+			final ShardEntity potential = builder.build();
 			if (presentInPartition(potential)) {
 				sortedLog.add(potential);
 				it.remove();
 			} else {
-				final ShardEntity pallet = partitionTable.getStage().getPalletById(potential.getDuty().getPalletId());
 				if (pallet!=null) {
-					potential.setRelatedEntity(pallet);
 					logger.info("{}: Adding New Duty: {}", getClass().getSimpleName(), potential);
 					partitionTable.getNextStage().addCrudDuty(potential);
 				} else {
@@ -295,7 +299,7 @@ public class Bookkeeper {
 		final Set<ShardEntity> sortedLog = new TreeSet<>();
 		final Iterator<Pallet<?>> it = palletsFromSource.iterator();
 		while (it.hasNext()) {
-			final ShardEntity she = ShardEntity.create(it.next());
+			final ShardEntity she = ShardEntity.Builder.builder(it.next()).build();
 			if (palletsFromSource.contains(she)) {
 				sortedLog.add(she);
 				it.remove();
@@ -317,11 +321,11 @@ public class Bookkeeper {
 	 * @param 	dutiesFromAction entities to act on
 	 */
 	public void registerCRUD(ShardEntity... dutiesFromAction) {
-		for (final ShardEntity ent : dutiesFromAction) {
-			final boolean typeDuty = ent.getType()==ShardEntity.Type.DUTY;
-			final boolean found = (typeDuty && presentInPartition(ent)) || 
-					(!typeDuty && partitionTable.getStage().getPallets().contains(ent));
-			final EntityEvent event = ent.getDutyEvent();
+		for (final ShardEntity entity : dutiesFromAction) {
+			final boolean typeDuty = entity.getType()==ShardEntity.Type.DUTY;
+			final boolean found = (typeDuty && presentInPartition(entity)) || 
+					(!typeDuty && partitionTable.getStage().getPallets().contains(entity));
+			final EntityEvent event = entity.getDutyEvent();
 			if (!event.isCrud()) {
 				throw new RuntimeException("Bad call");
 			}
@@ -329,23 +333,24 @@ public class Bookkeeper {
 				logger.info("{}: Registering Crud {}: {}", getClass().getSimpleName(), typeDuty ? "Duty": "Pallet", entity);
 				if (typeDuty) {
 					if (event == CREATE) {
-						final ShardEntity pallet = partitionTable.getStage().getPalletById(ent.getDuty().getPalletId());
+						final ShardEntity pallet = partitionTable.getStage().getPalletById(entity.getDuty().getPalletId());
 						if (pallet!=null) {
-							ent.setRelatedEntity(pallet);
-							partitionTable.getNextStage().addCrudDuty(ent);
+							partitionTable.getNextStage().addCrudDuty(
+									ShardEntity.Builder.builder(entity.getEntity())
+										.withRelatedEntity(pallet).build());
 						} else {
 							logger.error("{}: Skipping Crud Event {}: Pallet ID :{} set not found or yet created", getClass().getSimpleName(),
-									event, ent, ent.getDuty().getPalletId());
+									event, entity, entity.getDuty().getPalletId());
 						}
 					} else {
-						partitionTable.getNextStage().addCrudDuty(ent);
+						partitionTable.getNextStage().addCrudDuty(entity);
 					}
 				} else {
-					partitionTable.addCrudPallet(ent);
+					partitionTable.addCrudPallet(entity);
 				}
 			} else {
 				logger.warn("{}: Skipping Crud Event {} {} in Partition Table: {}", 
-						getClass().getSimpleName(), event, found ? "already found": " Not found", ent);
+						getClass().getSimpleName(), event, found ? "already found": " Not found", entity);
 			}
 		}
 	}

@@ -30,13 +30,13 @@ public class PartitioneerTest {
 
 		final int shards = 4;
 		final List<ShardEntity> weightedDuties = new ArrayList<>();
-		weightedDuties.add(ShardEntity.create(buildDutyWithWeight(10l, "1")));
-		weightedDuties.add(ShardEntity.create(buildDutyWithWeight(100l, "2")));
-		weightedDuties.add(ShardEntity.create(buildDutyWithWeight(200l, "3")));
-		weightedDuties.add(ShardEntity.create(buildDutyWithWeight(500l, "4")));
-		weightedDuties.add(ShardEntity.create(buildDutyWithWeight(1000l, "5")));
-		weightedDuties.add(ShardEntity.create(buildDutyWithWeight(1500l, "6")));
-		weightedDuties.add(ShardEntity.create(buildDutyWithWeight(1500l, "7")));
+		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(10l, "1")).build());
+		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(100l, "2")).build());
+		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(200l, "3")).build());
+		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(500l, "4")).build());
+		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(1000l, "5")).build());
+		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(1500l, "6")).build());
+		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(1500l, "7")).build());
 
 		final WeightBasedClusterizer p = new WeightBasedClusterizer();
 		List<List<ShardEntity>> distro = p.split(shards, weightedDuties);

@@ -69,7 +69,7 @@ public class Arranger {
 		dangling.addAll(restoreUnfinishedBusiness(previousChange));
 		// add danglings as creations prior to migrations
 		final List<ShardEntity> danglingAsCreations = new ArrayList<>();
-		dangling.forEach(i -> danglingAsCreations.add(ShardEntity.copy(i)));
+		dangling.forEach(i -> danglingAsCreations.add(ShardEntity.Builder.builderFrom(i).build()));
 		final Set<ShardEntity> dutyCreations = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.CREATE, State.PREPARED);
 		dutyCreations.addAll(danglingAsCreations);
 		

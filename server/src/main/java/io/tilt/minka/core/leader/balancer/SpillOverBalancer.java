@@ -173,7 +173,7 @@ public class SpillOverBalancer implements Balancer {
 						receptor.getShardID(), spaceByReceptor.get(receptor), newcomer.toBrief());
 			} else {
 				newcomer.registerEvent(EntityEvent.ATTACH, State.STUCK);
-				newcomer.setStuckCause(StuckCause.UNSUITABLE);
+				//newcomer.setStuckCause(StuckCause.UNSUITABLE);
 				next.getRoadmap().getProblems().put(null, newcomer);
 				unfitting.add(newcomer);
 			}
@@ -191,7 +191,7 @@ public class SpillOverBalancer implements Balancer {
 				final Shard receptor = makeSpaceIntoReceptors(loadStrat, emitted, spaceByReceptor);
 				if (receptor == null) {
 					emitted.registerEvent(EntityEvent.ATTACH, State.STUCK);
-					emitted.setStuckCause(StuckCause.UNSUITABLE);
+					//emitted.setStuckCause(StuckCause.UNSUITABLE);
 					next.getRoadmap().getProblems().put(null, emitted);
 					unfitting.add(emitted);
 				} else {

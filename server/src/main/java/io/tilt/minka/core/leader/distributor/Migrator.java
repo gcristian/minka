@@ -237,7 +237,7 @@ public class Migrator {
 			for (ShardEntity detach : detaching) {
 				// copy because in latter cycles this will be assigned
 				// so they're traveling different places
-				final ShardEntity copy = ShardEntity.copy(detach);
+				final ShardEntity copy = ShardEntity.Builder.builderFrom(detach).build();
 				copy.registerEvent(EntityEvent.DETACH, PREPARED);
 				roadmap.ship(shard, copy);
 				logg.append(copy.getEntity().getId()).append(", ");
@@ -262,7 +262,7 @@ public class Migrator {
 				for (ShardEntity attach : attaching) {
 					// copy because in latter cycles this will be assigned
 					// so they're traveling different places
-					final ShardEntity copy = ShardEntity.copy(attach);
+					final ShardEntity copy = ShardEntity.Builder.builderFrom(attach).build();
 					copy.registerEvent(EntityEvent.ATTACH, PREPARED);
 					roadmap.ship(shard, copy);
 					logg.append(copy.getEntity().getId()).append(", ");
@@ -288,7 +288,7 @@ public class Migrator {
 			tr.getEntity().registerEvent(EntityEvent.DETACH, PREPARED);
 			roadmap.ship(tr.getSource(), entity);
 		}
-		ShardEntity assign = ShardEntity.copy(entity);
+		ShardEntity assign = ShardEntity.Builder.builderFrom(entity).build();
 		assign.registerEvent(EntityEvent.ATTACH, PREPARED);
 		roadmap.ship(tr.getTarget(), assign);
 		log.info("{}: Executing transfer from: {} to: {}, Duty: {}", getClass().getSimpleName(),

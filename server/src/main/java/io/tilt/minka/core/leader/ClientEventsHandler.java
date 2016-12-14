@@ -19,7 +19,6 @@ package io.tilt.minka.core.leader;
 import static io.tilt.minka.domain.ShardState.ONLINE;
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 

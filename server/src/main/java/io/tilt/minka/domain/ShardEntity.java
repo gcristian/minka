@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -53,7 +54,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	private static final long serialVersionUID = 4519763920222729635L;
 
-	private final Entity<?> entity;
+	private final Entity<?> from;
 	private final Type type;
 	private EntityEvent event;
 	private State state;
@@ -100,19 +101,93 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		 */
 		UNSUITABLE,
 	}
+	
+	private ShardEntity(final Entity<?> entity, Type type) {
+		this.from = entity;
+		this.event = EntityEvent.CREATE;
+		this.type = type;
+		this.state = PREPARED;
+		this.partitionDates = new HashMap<>();
+		this.stateDates = new HashMap<>();
+		final DateTime now = new DateTime(DateTimeZone.UTC);
+		this.partitionDates.put(event, now);
+		this.stateDates.put(state, now);
+	}
+	
+	public static class Builder {
+		
+		private EntityPayload userPayload;
+		private EntityEvent event;
+		private ShardEntity relatedEntity;
+		private final Duty<?> duty;
+		private final Pallet<?> pallet;
+		
+		private ShardEntity from;
 
-	public static ShardEntity copy(final ShardEntity entity) {
-		ShardEntity t = new ShardEntity(entity.getEntity(), entity.getType());
-		t.setStateDates(entity.getStateDates());
-		t.setPartitionDates(entity.getPartitionDates());
-		t.setUserPayload(entity.getUserPayload());
-		t.setState(entity.getState());
-		t.setPartitionEvent(entity.getDutyEvent());
-		t.setRelatedEntity(entity.getRelatedEntity());
-		return t;
+		private Builder(final Entity<?> entity) {
+			Validate.notNull(entity);
+			if (entity instanceof Duty) {
+				this.duty = (Duty<?>) entity;
+				this.pallet = null;
+			} else {
+				this.duty = null;
+				this.pallet = (Pallet<?>) entity;
+			}
+		}
+
+		public Builder withRelatedEntity(final ShardEntity relatedEntity) {
+			Validate.notNull(relatedEntity);
+			this.relatedEntity = relatedEntity;
+			return this;
+			
+		}
+		public Builder withPayload(final EntityPayload userPayload) {
+			Validate.notNull(userPayload);
+			this.userPayload = userPayload;
+			return this;
+		}
+		public Builder withEvent(final EntityEvent event) {
+			Validate.notNull(event);
+			this.event = event;
+			return this;
+		}
+		public ShardEntity build() {
+			if (from!=null) {
+				final ShardEntity t = new ShardEntity(from.getEntity(), from.getType());
+				t.setStateDates(from.getStateDates());
+				t.setPartitionDates(from.getPartitionDates());
+				t.setState(from.getState());
+				t.setPartitionEvent(from.getDutyEvent());
+				if (userPayload==null) {
+					t.setUserPayload(from.getUserPayload());
+				}
+				if (relatedEntity==null) {
+					t.setRelatedEntity(from.getRelatedEntity());
+				}
+				return t;
+			} else {
+				final ShardEntity ret = new ShardEntity(duty == null ? pallet : duty,
+						duty == null ? Type.PALLET : Type.DUTY);
+				if (event!=null) {
+					ret.registerEvent(event, PREPARED);
+				}
+				ret.setUserPayload(userPayload);
+				ret.setRelatedEntity(relatedEntity);
+				return ret;
+			}
+		}
+		public static Builder builderFrom(final ShardEntity entity) {
+			final Builder ret = new Builder(entity.getEntity());
+			ret.from = entity;
+			return ret;
+		}
+		
+		public static Builder builder(final Entity<?> entity) {
+			return new Builder(entity);
+		}
 	}
 
-	public void setRelatedEntity(final ShardEntity entity){
+	private void setRelatedEntity(final ShardEntity entity){
 		this.relatedEntity = entity;
 	}
 	
@@ -146,44 +221,23 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		this.stateDates = stateDates;
 	}
 
-	public static ShardEntity create(final Duty<?> duty) {
-		return new ShardEntity(duty, Type.DUTY);
-	}
-
-	public static ShardEntity create(final Pallet<?> pallet) {
-		return new ShardEntity(pallet, Type.PALLET);
-	}
-
-	/* reserved for the cluster */
-	private ShardEntity(final Entity<?> entity, Type type) {
-		this.entity = entity;
-		this.event = EntityEvent.CREATE;
-		this.type = type;
-		this.state = PREPARED;
-		this.partitionDates = new HashMap<>();
-		this.stateDates = new HashMap<>();
-		final DateTime now = new DateTime(DateTimeZone.UTC);
-		this.partitionDates.put(event, now);
-		this.stateDates.put(state, now);
-	}
-
 	@JsonIgnore
 	public Pallet<?> getPallet() {
-		if (this.entity instanceof Pallet<?>) {
-			return (Pallet<?>) this.entity;
+		if (this.from instanceof Pallet<?>) {
+			return (Pallet<?>) this.from;
 		}
 		throw new IllegalArgumentException("This entity doesnt hold a Pallet !");
 	}
 
 	@JsonIgnore
 	public Entity<?> getEntity() {
-		return this.entity;
+		return this.from;
 
 	}
 
 	@JsonProperty("id")
 	private String getId_() {
-		if (this.entity instanceof Duty<?>) {
+		if (this.from instanceof Duty<?>) {
 			return getDuty().getId();
 		}
 		return "[pallet]";
@@ -191,8 +245,8 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	
 	@JsonIgnore
 	public Duty<?> getDuty() {
-		if (this.entity instanceof Duty<?>) {
-			return (Duty<?>) this.entity;
+		if (this.from instanceof Duty<?>) {
+			return (Duty<?>) this.from;
 		}
 		throw new IllegalArgumentException("This entity doesnt hold a Duty !");
 	}
@@ -226,8 +280,8 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	public EntityEvent getDutyEvent() {
 		return this.event;
 	}
-
-	public void setUserPayload(final EntityPayload userPayload) {
+	
+	private void setUserPayload(final EntityPayload userPayload) {
 		this.userPayload = userPayload;
 	}
 
@@ -334,10 +388,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	public StuckCause getStuckCause() {
 		return this.stuckCause;
-	}
-
-	public void setStuckCause(StuckCause stuckCause) {
-		this.stuckCause = stuckCause;
 	}
 
 	public Type getType() {

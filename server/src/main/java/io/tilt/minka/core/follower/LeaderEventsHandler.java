@@ -42,7 +42,6 @@ import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.AttachedPartition;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.DomainInfo;
-import io.tilt.minka.domain.ShardCapacity;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 

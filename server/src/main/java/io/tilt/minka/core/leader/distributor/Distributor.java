@@ -258,13 +258,17 @@ public class Distributor extends ServiceImpl {
 		if (config.getDistributor().isRunConsistencyCheck() && partitionTable.getCurrentRoadmap().isEmpty()) {
 			// only warn in case there's no reallocation ahead
 			final Set<ShardEntity> currently = partitionTable.getStage().getDutiesAllByShardState(null, null);
-			final Set<ShardEntity> sortedLog = new TreeSet<>();
-			reloadDutiesFromStorage().stream().filter(duty -> !currently.contains(ShardEntity.create(duty)))
-					.forEach(duty -> sortedLog.add(ShardEntity.create(duty)));
-			if (!sortedLog.isEmpty()) {
+			final Set<ShardEntity> sorted = new TreeSet<>();
+			for (Duty<?> duty: reloadDutiesFromStorage()) {
+				final ShardEntity entity = ShardEntity.Builder.builder(duty).build();
+				if (!currently.contains(entity)) {
+					sorted.add(entity);
+				}
+			}
+			if (!sorted.isEmpty()) {
 				logger.error("{}: Consistency check: Absent duties going as Missing [ {}]", getName(),
-						ShardEntity.toStringIds(sortedLog));
-				partitionTable.getNextStage().getDutiesMissing().addAll(sortedLog);
+						ShardEntity.toStringIds(sorted));
+				partitionTable.getNextStage().getDutiesMissing().addAll(sorted);
 			}
 		}
 	}

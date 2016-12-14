@@ -140,20 +140,15 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 		return send(pallet, EntityEvent.TRANSFER, userPayload);
 	}
 	
-	@SuppressWarnings("unchecked")
 	private boolean send(final Entity<?> raw, final EntityEvent event, final EntityPayload userPayload) {
 		Validate.notNull(raw, "an entity is required");
 		boolean sent = true;
-		final ShardEntity entity;
-		if (raw instanceof Duty) {
-			entity = ShardEntity.create((Duty<D>)raw);
-		} else {
-			entity = ShardEntity.create((Pallet<P>)raw);
-		}
-		entity.registerEvent(event, State.PREPARED);
+		final ShardEntity.Builder builder = ShardEntity.Builder.builder(raw);
 		if (userPayload != null) {
-			entity.setUserPayload(userPayload);
+			builder.withPayload(userPayload);
 		}
+		final ShardEntity entity = builder.build();
+		entity.registerEvent(event, State.PREPARED);
 		if (leader.inService()) {
 			logger.info("{}: Recurring to local leader !", getClass().getSimpleName());
 			clientMediator.mediateOnEntity(entity);

@@ -36,8 +36,8 @@ public enum EntityEvent {
 	ATTACH(false),
 	/* leader takes off the duty from the shard for any reason may be */
 	DETACH(false),
-	/* the duty has finalized */
-	FINALIZED(true);
+	
+	;
 
 	boolean crud;
 
