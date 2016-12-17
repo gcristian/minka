@@ -28,31 +28,32 @@ import javax.ws.rs.core.Response;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.wordnik.swagger.annotations.Api;
 
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.Status;
 
 @Api("Minka Endpoint API")
-@Path("admin")
+@Path("minka/admin")
+
 @Singleton
 @Component
-public class Endpoint {
+public class AdminEndpoint {
 
 	@Autowired
 	private  PartitionTable table;
 
-	
 	@Inject 
-	public Endpoint(@Named("partitionTable") PartitionTable table) {
+	public AdminEndpoint(@Named("partitionTable") PartitionTable table) {
 		this.table = table;
 	}
 
 	@GET
 	@Path("/status")
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response status() {
-		return Response.accepted(Status.build(table)).build();
+	public Response status() throws JsonProcessingException {
+		return Response.accepted(Status.toJson(table)).build();
 	}
 
 

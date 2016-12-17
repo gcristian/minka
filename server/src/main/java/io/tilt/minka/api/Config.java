@@ -121,6 +121,8 @@ public class Config {
 		private boolean leaderShardAlsoFollows;
 		protected static final String ZOOKEEPER_HOST_PORT = "localhost:2181";
 		private String zookeeperHostPort;
+		protected static final boolean ENABLE_WEBSERVER = true;
+		private boolean enableWebserver;
 		
 		public String getServiceName() {
 			return serviceName;
@@ -152,11 +154,17 @@ public class Config {
 		public void setZookeeperHostPort(String zookeeperHostPort) {
 			this.zookeeperHostPort = zookeeperHostPort;
 		}
-		
+		public boolean isEnableWebserver() {
+			return this.enableWebserver;
+		}
+		public void setEnableWebserver(boolean enableWebserver) {
+			this.enableWebserver = enableWebserver;
+		}
 	}
 
 	public static class BrokerConf {
-		protected final static String HOST_PORT = "localhost:5748";
+		public final static int PORT = 5748;
+		protected final static String HOST_PORT = "localhost:" + PORT;
 		private String hostPort;
 		protected final static int CONNECTION_HANDLER_THREADS = 10;
 		private int connectionHandlerThreads;
@@ -310,10 +318,10 @@ public class Config {
 		private long startDelayMs;
 		protected final static long DELAY_MS = 5000;		
 		private long delayMs;
-		protected static final int REALLOCATION_EXPIRATION_SEC = 15;
-		private int reallocationExpirationSec;
+		protected static final int ROADMAP_EXPIRATION_SEC = 15;
+		private int roadmapExpirationSec;
 		protected static final int REALLOCATION_MAX_RETRIES = 3;
-		private int reallocationMaxRetries;
+		private int roadmapMaxRetries;
 		
 		public boolean isRunConsistencyCheck() {
 			return this.runConsistencyCheck;
@@ -345,17 +353,17 @@ public class Config {
 		public void setDelayMs(long delayMs) {
 			this.delayMs = delayMs;
 		}
-		public int getReallocationExpirationSec() {
-			return this.reallocationExpirationSec;
+		public int getRoadmapExpirationSec() {
+			return this.roadmapExpirationSec;
 		}
-		public void setReallocationExpirationSec(int reallocationExpirationSec) {
-			this.reallocationExpirationSec = reallocationExpirationSec;
+		public void setRoadmapExpirationSec(int roadmapExpirationSec) {
+			this.roadmapExpirationSec = roadmapExpirationSec;
 		}
-		public int getReallocationMaxRetries() {
-			return this.reallocationMaxRetries;
+		public int getRoadmapMaxRetries() {
+			return this.roadmapMaxRetries;
 		}
-		public void setReallocationMaxRetries(int reallocationMaxRetries) {
-			this.reallocationMaxRetries = reallocationMaxRetries;
+		public void setRoadmapMaxRetries(int roadmapMaxRetries) {
+			this.roadmapMaxRetries = roadmapMaxRetries;
 		}
 		
 	}

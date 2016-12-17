@@ -1,15 +1,21 @@
 package io.tilt.minka.api;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.Serializable;
-import java.util.HashMap;
+import java.net.URI;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import org.apache.commons.lang.Validate;
+import org.glassfish.grizzly.http.server.HttpServer;
+import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
+import org.glassfish.jersey.server.ResourceConfig;
+import org.glassfish.jersey.uri.internal.JerseyUriBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -42,10 +48,36 @@ public class Minka<D extends Serializable, P extends Serializable> {
 
 	private static final Logger logger = LoggerFactory.getLogger(Minka.class);
 
-	private static Map<String, ClassPathXmlApplicationContext> ctxs = new HashMap<>();
+	/* to enable many minka shards on the same JVM */
+	private static final Map<String, MinkaTenant> tenants = new ConcurrentHashMap<>();
 
-	private final String service;
-
+	private static class MinkaTenant {
+		private HttpServer webServer;
+		private ClassPathXmlApplicationContext context;
+		private Config config;
+		public HttpServer getWebServer() {
+			return this.webServer;
+		}
+		public void setWebServer(HttpServer webServer) {
+			this.webServer = webServer;
+		}
+		public ClassPathXmlApplicationContext getContext() {
+			return this.context;
+		}
+		public void setContext(ClassPathXmlApplicationContext context) {
+			this.context = context;
+		}
+		public Config getConfig() {
+			return this.config;
+		}
+		public void setConfig(Config config) {
+			this.config = config;
+		}
+	}
+	
+	/* current holder's tenant, and one for each instance held by applications */
+	private MinkaTenant tenant;
+	
 	/** 
 	 * Create a Minka server. All mandatory events must be mapped to consumers/suppliers.
 	 * @param jsonFormatConfig with a configuration in a JSON file, 
@@ -55,7 +87,6 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	public Minka(final File jsonFormatConfig) throws Exception {
 		Validate.notNull(jsonFormatConfig);
 		Config config = Config.fromJsonFile(jsonFormatConfig);
-		this.service = config.getBootstrap().getServiceName();
 		init(config);
 	}
 	/**
@@ -63,7 +94,6 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param config Create a Minka server with a specific configuration */
 	public Minka(final Config config) {
 		Validate.notNull(config);
-		this.service = config.getBootstrap().getServiceName();
 		init(config);
 	}
 	/** 
@@ -76,7 +106,6 @@ public class Minka<D extends Serializable, P extends Serializable> {
 		Validate.notNull(zookeeperConnectionString);
 		Validate.notNull(minkaHostPort);
 		final Config config = new Config(zookeeperConnectionString, minkaHostPort);
-		this.service = config.getBootstrap().getServiceName();
 		init(config);
 	}
 	/**
@@ -89,7 +118,6 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	public Minka(final String zookeeperConnectionString)  {
 		Validate.notNull(zookeeperConnectionString);
 		Config conf = new Config(zookeeperConnectionString);
-		this.service = conf.getBootstrap().getServiceName();
 		init(conf);
 	}
 	/**
@@ -98,52 +126,89 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * Shard will attempt to take a port over 5748, trying increased ports if busy.
 	 */
 	public Minka()  {
-		Config conf = new Config();
-		this.service = conf.getBootstrap().getServiceName();
-		init(conf);
+		init(new Config());
+	}
+
+	public ClassPathXmlApplicationContext getContext() {
+		return tenant.getContext();
+	}
+	public Config getConfig() {
+		return tenant.getConfig();
+	}
+	public HttpServer getWebServer() {
+		if (getConfig().getBootstrap().isEnableWebserver()) {
+			return tenant.getWebServer();
+		} else {
+			throw new IllegalAccessError("Config has the web server disabled");
+		}
 	}
 
 	private void init(final Config config) {
 		// TODO fix im ignoring config arg.
-		logger.info("{}: Initializing context for service: {}", getClass().getSimpleName(), 
-				service);
-		ClassPathXmlApplicationContext ctx = ctxs.get(service);
+		final String serviceName = config.getBootstrap().getServiceName();
+		logger.info("{}: Initializing context for service: {}", getClass().getSimpleName(), serviceName);
+		tenants.put(config.getBootstrap().getServiceName(), tenant = new MinkaTenant());
+		tenant.setConfig(config);
+		ClassPathXmlApplicationContext ctx = tenant.getContext();
 		if (ctx != null) {
-			throw new IllegalStateException("Minka service " + service + " already loaded !");
+			throw new IllegalStateException("Minka service " + serviceName + " already loaded !");
 		}
 		final String configPath = "classpath:io/tilt/minka/config/context-minka-spring.xml";
 		ctx = new ClassPathXmlApplicationContext(new String[] { configPath }, false);
-		ctxs.put(service, ctx);
-		ctx.setDisplayName("minka-" + service + "-ts:" + System.currentTimeMillis());
+		tenant.setContext(ctx);
+		ctx.setDisplayName("minka-" + serviceName + "-ts:" + System.currentTimeMillis());
 		if (config != null) {
 			logger.info("{}: Using configuration", getClass().getSimpleName());
 			
 			//((ConfigurableApplicationContext)ctx).getBeanFactory().registerSingleton(
 			//	config.getClass().getCanonicalName(), config);
+			ctx.setId(serviceName);
 			logger.info("{}: Naming context: {}", getClass().getSimpleName(), ctx.getId());
-			ctx.setId(service);
 		}
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> destroy()));
 		start();
 	}
-
+	   
 	private void start() {
-		if (!ctxs.get(service).isActive()) {
-			ctxs.get(service).refresh();
+		if (!tenant.getContext().isActive()) {
+			tenant.getContext().refresh();
+			if (tenant.getConfig().getBootstrap().isEnableWebserver()) {
+				startWebserver();
+			}
 		} else {
 			logger.error("{}: Can only load Minka once !", getClass().getSimpleName());
 		}
 	}
 
+    public void startWebserver() {
+    	final String[] hostPort = tenant.getConfig().getBroker().getHostPort().split(":");
+		int port = Integer.parseInt(hostPort[1]);
+		port += port == Config.BrokerConf.PORT ? 10000:100;
+    	final URI uri = new JerseyUriBuilder().host(hostPort[0]).port(port).build();
+		final ResourceConfig res = new ResourceConfig(AdminEndpoint.class);
+		res.property("contextConfig", tenant.getContext());
+		final HttpServer webServer = GrizzlyHttpServerFactory.createHttpServer(uri, res);
+		tenants.get(tenant.getConfig().getBootstrap().getServiceName()).setWebServer(webServer);
+		try {
+			webServer.start();
+		} catch (IOException e) {
+			logger.info("{}: Unable to start web server", getClass().getSimpleName(), e);
+		}
+    }
+    
 	private void checkInit() {
-		if (!ctxs.get(service).isActive()) {
+		if (!tenant.getContext().isActive()) {
 			throw new IllegalStateException("Minka service must be started first !");
 		}
 	}
 	
 	public synchronized void destroy() {
-		if (ctxs.get(service) != null && ctxs.get(service).isActive()) {
-			ctxs.get(service).close();
+		if (tenant != null && tenant.getContext().isActive()) {
+			tenant.getContext().close();
+			if (tenant.getConfig().getBootstrap().isEnableWebserver() && tenant.getWebServer()!=null) {
+				tenant.getWebServer().shutdown();
+			}
+			tenant = null;
 		} else {
 			logger.error("{}: Can only destroy service's context once !", getClass().getSimpleName());
 		}
@@ -155,11 +220,11 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 */
 	public MinkaClient<D, P> getClient() {
 		checkInit();
-		return ctxs.get(service).getBean(MinkaClient.class);
+		return tenant.getContext().getBean(MinkaClient.class);
 	}
 	
 	private DependencyPlaceholder getDepPlaceholder() {
-		return ctxs.get(service).getBean(DependencyPlaceholder.class);
+		return tenant.getContext().getBean(DependencyPlaceholder.class);
 	}
 	/**
 	 * An alternative way of mapping duty and pallet events, thru an implementation class.

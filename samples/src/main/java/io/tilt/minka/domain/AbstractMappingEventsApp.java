@@ -49,7 +49,7 @@ public abstract class AbstractMappingEventsApp {
 		this.runningDuties = new HashSet<>();
 	}
 	
-	public void startClientApp() throws Exception {
+	public void startDemo() throws Exception {
 		logger.info("{} Loading {} duties: {}", shardId, allOriginalDuties.size(), toStringGroupByPallet(allOriginalDuties));
 		
 		server = new Minka<>();
@@ -103,7 +103,7 @@ public abstract class AbstractMappingEventsApp {
 		server.load();
 	}
 	
-	public Minka<String, String> getLoader() {
+	public Minka<String, String> getServer() {
 		return this.server;
 	}
 	private boolean timeToLog(long now) {

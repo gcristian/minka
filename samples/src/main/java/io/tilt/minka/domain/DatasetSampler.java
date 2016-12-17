@@ -104,7 +104,8 @@ public class DatasetSampler extends AbstractMappingEventsApp {
 	private int dutySize;
 	
 	public static void main(String[] args) throws Exception {
-		new DatasetSampler().startClientApp();
+		new DatasetSampler().startDemo();
+		Thread.sleep(60000*10);
 	}
 	public DatasetSampler() throws Exception {
 		super();
