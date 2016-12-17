@@ -229,7 +229,7 @@ public class Migrator {
 		List<ShardEntity> detaching = clusterSet==null ? new ArrayList<>(currents) :
 			currents.stream().filter(i -> !clusterSet.contains(i)).collect(Collectors.toList());
 		if (detaching.isEmpty()) {
-			log.info("{}: Override-dettach shard: {}, no change, has no Detachings (calculated are all already attached)",
+			log.info("{}: Override-dettach shard: {}, no change",
 					getClass().getSimpleName(), shard);
 			return false;
 		} else {
@@ -255,7 +255,7 @@ public class Migrator {
 			final List<ShardEntity> attaching = clusterSet.stream().filter(i -> !currents.contains(i))
 					.collect(Collectors.toList());
 			if (attaching.isEmpty()) {
-				log.info("{}: Override-attach shard: {} no change, has no New Attachments (calculated are all already attached)",
+				log.info("{}: Override-attach shard: {} no change, has no New Attachments",
 						getClass().getSimpleName(), shard);
 			} else {
 				logg = new StringBuilder();

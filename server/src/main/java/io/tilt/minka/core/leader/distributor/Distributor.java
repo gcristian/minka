@@ -192,16 +192,16 @@ public class Distributor extends ServiceImpl {
 					roadmap.getId());
 		} else {
 			this.partitionTable.setWorkingHealth(ClusterHealth.STABLE);
-			logger.info("{}: {} Balancer without change", getName(), LogUtils.BALANCED_CHAR);
+			logger.info("{}: .. in Balance {}", getName(), LogUtils.BALANCED_CHAR);
 		}
 	}
 
 	private void checkExpiration(final long now, final Roadmap currentRoadmap) {
 		final DateTime created = currentRoadmap.getCreation();
-		final int maxSecs = config.getDistributor().getReallocationExpirationSec();
+		final int maxSecs = config.getDistributor().getRoadmapExpirationSec();
 		final DateTime expiration = created.plusSeconds(maxSecs);
 		if (expiration.isBefore(now)) {
-			if (currentRoadmap.getRetryCount() == config.getDistributor().getReallocationMaxRetries()) {
+			if (currentRoadmap.getRetryCount() == config.getDistributor().getRoadmapMaxRetries()) {
 				logger.info("{}: Abandoning change expired ! (max secs:{}) ", getName(), maxSecs);
 				buildAndDriveRoadmap(currentRoadmap);
 			} else {
@@ -220,6 +220,7 @@ public class Distributor extends ServiceImpl {
 	private boolean checkWithStorageWhenAllOnlines() {
 		if (initialAdding || (config.getDistributor().isReloadDutiesFromStorage()
 				&& config.getDistributor().getReloadDutiesFromStorageEachPeriods() == counter++)) {
+			logger.info("{}: reloading duties from storage", getName());
 			counter = 0;
 			final Set<Duty<?>> duties = reloadDutiesFromStorage();
 			final Set<Pallet<?>> pallets = reloadPalletsFromStorage();

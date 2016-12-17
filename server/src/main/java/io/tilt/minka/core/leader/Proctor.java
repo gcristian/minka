@@ -138,13 +138,6 @@ public class Proctor extends ServiceImpl {
 	}
 
 	private void analyzeShards() {
-		/*
-		try {
-			FileUtils.writeStringToFile(new File("/tmp/status"), Status.toJson(partitionTable), "utf-8", false);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		 */
 		try {
 			if (!leaderShardContainer.imLeader()) {
 				return;

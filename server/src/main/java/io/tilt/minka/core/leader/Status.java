@@ -85,7 +85,10 @@ public class Status {
 	
 	public static Status build(final PartitionTable table) {
 		Validate.notNull(table);
-		return new Status(buildShardRep(table), buildPallets(table), buildGlobal(table), 
+		return new Status(
+				buildShardRep(table), 
+				buildPallets(table), 
+				buildGlobal(table), 
 				table.getHistory());
 	}
 
