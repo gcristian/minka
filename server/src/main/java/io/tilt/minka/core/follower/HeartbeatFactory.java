@@ -25,9 +25,9 @@ import io.tilt.minka.domain.Heartbeat;
  * @author Cristian Gonzalez
  * @since Nov 17, 2015
  */
-public interface HeartbeatBuilder {
+public interface HeartbeatFactory {
 
-	Heartbeat build();
+	Heartbeat create();
 	void setDomainInfo(DomainInfo domain);
 	
 }

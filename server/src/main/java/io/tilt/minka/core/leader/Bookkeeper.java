@@ -71,10 +71,14 @@ public class Bookkeeper {
 		if (hb.getCapacities()!=null) {
 			shard.setCapacities(hb.getCapacities());
 		}
+		if (!hb.isReportedCapturedDuties()) {
+			return;
+		}
+			
 		if (partitionTable.getCurrentRoadmap().isEmpty()) {
 			// believe only when online: to avoid Dirty efects after follower's hangs/stucks
 			// so it clears itself before trusting their HBs
-			for (final ShardEntity duty : hb.getDuties()) {
+			for (final ShardEntity duty : hb.getReportedCapturedDuties()) {
 				if (duty.getState() == CONFIRMED) {
 					try {
 						changeStage(shard, duty);
@@ -90,16 +94,14 @@ public class Bookkeeper {
 					if (duty.getDutyEvent().is(EntityEvent.CREATE)) {
 					} else if (duty.getDutyEvent().is(EntityEvent.REMOVE)) {
 					}
-				} else if (duty.getState() == ShardEntity.State.FINALIZED) {
-					// TODO remove from Stage directly...
 				}
 			}
 		} else {
-			analyzeReportedDuties(shard, hb.getDuties());
+			analyzeReportedDuties(shard, hb.getReportedCapturedDuties());
 		}
 		// TODO perhaps in presence of Reallocation not ?
 		if (shard.getState().isAlive()) {
-			declareHeartbeatAbsencesAsMissing(shard, hb.getDuties());
+			declareHeartbeatAbsencesAsMissing(shard, hb.getReportedCapturedDuties());
 		}
 	}
 

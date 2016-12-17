@@ -57,7 +57,7 @@ public class Follower extends ServiceImpl {
 
 	private final Scheduler scheduler;
 	private final Heartpump heartpump;
-	private final HeartbeatBuilder builder;
+	private final HeartbeatFactory heartbeatFactory;
 
 	private final Agent clearancer;
 	private final Agent cardiologyst;
@@ -66,12 +66,12 @@ public class Follower extends ServiceImpl {
 	private boolean firstClearanceGot;
 
 	public Follower(final Config config, final Heartpump heartpump, final LeaderEventsHandler leaderConsumer,
-			final EventBroker eventBroker, final Scheduler scheduler, final HeartbeatBuilder builder) {
+			final EventBroker eventBroker, final Scheduler scheduler, final HeartbeatFactory heartbeatFactory) {
 		super();
 
 		this.alive = true;
 		this.heartpump = heartpump;
-		this.builder = builder;
+		this.heartbeatFactory = heartbeatFactory;
 		this.leaderConsumer = leaderConsumer;
 		this.config = config;
 		this.eventBroker = eventBroker;
@@ -92,7 +92,7 @@ public class Follower extends ServiceImpl {
 
 		this.pump = scheduler.getAgentFactory()
 				.create(Action.HEARTBEAT_REPORT, PriorityLock.MEDIUM_BLOCKING, Frequency.PERIODIC,
-						() -> heartpump.emit(builder.build()))
+						() -> heartpump.emit(heartbeatFactory.create()))
 				.delayed(config.getFollower().getHeartbeatStartDelayMs()).every(config.getFollower().getHeartbeatDelayMs()).build();
 	}
 
@@ -113,7 +113,7 @@ public class Follower extends ServiceImpl {
 		logger.info("{}: ({}) Stopping services, on duty since: {}", getClass().getSimpleName(),
 				config.getLoggingShardId(), creation);
 		if (inService()) {
-			final Heartbeat bye = builder.build();
+			final Heartbeat bye = heartbeatFactory.create();
 			bye.setStateChange(ShardState.QUITTED);
 			heartpump.emit(bye);
 			logger.info("{}: ({}) Stopping timer", getClass().getSimpleName(), config.getLoggingShardId());
