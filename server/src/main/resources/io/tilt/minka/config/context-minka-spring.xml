@@ -63,17 +63,16 @@
     
     ===============================================================================================-->
         
-    <bean id="partition" class="io.tilt.minka.domain.AttachedPartition">
+    <bean id="partition" class="io.tilt.minka.domain.ShardedPartition">
         <constructor-arg ref="shardId" />
     </bean>
     
     <bean id="clientHolder" class="io.tilt.minka.api.DependencyPlaceholder"/>
     
-    <bean id="heartbeatBuilder" class="io.tilt.minka.core.follower.impl.HeartbeatBuilderImpl">
+    <bean id="heartbeatFactory" class="io.tilt.minka.core.follower.impl.HeartbeatFactoryImpl">
         <constructor-arg ref="config" />
         <constructor-arg ref="clientHolder" />
         <constructor-arg ref="partition" />
-        <constructor-arg ref="leaderShardContainer" />
     </bean>
     <!-- Emite heartbeats para el Lider -->
     <bean id="heartpump" class="io.tilt.minka.core.follower.impl.HeartpumpImpl">
@@ -88,7 +87,7 @@
         <constructor-arg ref="partition" />
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="leaderShardContainer" />
-        <constructor-arg ref="heartbeatBuilder" />
+        <constructor-arg ref="heartbeatFactory" />
     </bean>
     
     <!-- Maneja la particion a traves del delegado -->
@@ -109,7 +108,7 @@
         <constructor-arg ref="leaderEventsHandler" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="scheduler" />
-        <constructor-arg ref="heartbeatBuilder" />
+        <constructor-arg ref="heartbeatFactory" />
     </bean>
         
     <!-- ============================================================================================

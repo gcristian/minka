@@ -30,14 +30,14 @@ import com.google.common.collect.Sets;
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.follower.HeartbeatBuilder;
+import io.tilt.minka.core.follower.HeartbeatFactory;
 import io.tilt.minka.core.follower.PartitionManager;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.core.task.Semaphore.Action;
-import io.tilt.minka.domain.AttachedPartition;
+import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
@@ -47,22 +47,22 @@ public class PartitionManagerImpl implements PartitionManager {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private final DependencyPlaceholder dependencyPlaceholder;
-	private final AttachedPartition partition;
-	private final HeartbeatBuilder builder;
+	private final ShardedPartition partition;
+	private final HeartbeatFactory heartbeatFactory;
 	private final Scheduler scheduler;
 	private final Synchronized releaser;
 
 	private DomainInfo domain;
 	
-	public PartitionManagerImpl(final DependencyPlaceholder dependencyPlaceholder, final AttachedPartition partition, 
+	public PartitionManagerImpl(final DependencyPlaceholder dependencyPlaceholder, final ShardedPartition partition, 
 			final Scheduler scheduler, final LeaderShardContainer leaderShardContainer, 
-			final HeartbeatBuilder builder) {
+			final HeartbeatFactory heartbeatFactory) {
 		
 		super();
 		this.dependencyPlaceholder = dependencyPlaceholder;
 		this.partition = partition;
 		this.scheduler = scheduler;
-		this.builder = builder;
+		this.heartbeatFactory = heartbeatFactory;
 		this.releaser = scheduler.getFactory().build(Action.INSTRUCT_DELEGATE, PriorityLock.MEDIUM_BLOCKING,
 				() -> releaseAll());
 	}
@@ -84,10 +84,10 @@ public class PartitionManagerImpl implements PartitionManager {
 	// TODO refactory
 	public Void finalized(final Collection<ShardEntity> duties) {
 		for (ShardEntity duty : duties) {
-			if (partition.getDuties().contains(duty)) {
+			if (partition.contains(duty)) {
 				logger.info("{}: ({}) Removing finalized Duty from Partition: {}", getClass().getSimpleName(),
 						partition.getId(), duty.toBrief());
-				partition.getDuties().remove(duty);
+				partition.remove(duty);
 			} else {
 				logger.error("{}: ({}) Unable to ACKNOWLEDGE for finalization a never taken Duty !: {}",
 						getClass().getSimpleName(), partition.getId(), duty.toBrief());
@@ -101,7 +101,7 @@ public class PartitionManagerImpl implements PartitionManager {
 	public Void update(final Collection<ShardEntity> duties) {
 		for (ShardEntity entity : duties) {
 			if (entity.getType()==ShardEntity.Type.DUTY) {
-				if (partition.getDuties().contains(entity)) {
+				if (partition.contains(entity)) {
 					if (entity.getUserPayload() == null) {
 						logger.info("{}: ({}) Instructing PartitionDelegate to UPDATE : {}", getClass().getSimpleName(),
 								partition.getId(), entity.toBrief());
@@ -139,7 +139,7 @@ public class PartitionManagerImpl implements PartitionManager {
 				partition.getId(), ShardEntity.toStringBrief(duties));
 		try {
 			dependencyPlaceholder.getDelegate().release(toSet(duties, duty -> {
-				if (!partition.getDuties().contains(duty)) {
+				if (!partition.contains(duty)) {
 					logger.error("{}: ({}) Unable to RELEASE a never taken Duty !: {}", getClass().getSimpleName(),
 							partition.getId(), duty);
 					return false;
@@ -147,10 +147,10 @@ public class PartitionManagerImpl implements PartitionManager {
 					return true;
 				}
 			}));
-			duties.forEach(d->partition.getDuties().remove(d));
+			duties.forEach(d->partition.remove(d));
 			// remove pallets absent in duties
 			final Set<ShardEntity> removing = partition.getPallets().stream()
-				.filter(p->!partition.getDuties().contains(p.getRelatedEntity().getPallet()))
+				.filter(p->!partition.contains(p.getRelatedEntity()))
 				.collect(Collectors.toSet());
 			if (!removing.isEmpty()) {
 				dependencyPlaceholder.getDelegate().releasePallet(removing);
@@ -176,13 +176,13 @@ public class PartitionManagerImpl implements PartitionManager {
 				ShardEntity.toStringBrief(duties));
 		try {
 			final Set<Pallet<?>> pallets = new HashSet<>();
-			duties.stream().filter(d->partition.getPallets().add(d))
+			duties.stream().filter(d->partition.add(d))
 				.forEach(d->pallets.add(d.getRelatedEntity().getPallet()));
 			if (!pallets.isEmpty()) {
 				dependencyPlaceholder.getDelegate().capturePallet(pallets);
 			}
 			dependencyPlaceholder.getDelegate().capture(toSet(duties, null));
-			partition.getDuties().addAll(duties);
+			partition.addAllDuties(duties);
 		} catch (Exception e) {
 			logger.error("{}: ({}) Delegate thrown an Exception while Taking", getClass().getSimpleName(), 
 					partition.getId(), e);
@@ -223,7 +223,7 @@ public class PartitionManagerImpl implements PartitionManager {
 	@Override
 	public Void acknowledge(DomainInfo info) {
 		this.domain = info;
-		this.builder.setDomainInfo(domain);
+		this.heartbeatFactory.setDomainInfo(domain);
 		return null;
 	}
 

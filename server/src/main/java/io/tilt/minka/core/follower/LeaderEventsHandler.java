@@ -39,7 +39,7 @@ import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.core.task.impl.ServiceImpl;
-import io.tilt.minka.domain.AttachedPartition;
+import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.ShardCommand;
@@ -58,7 +58,7 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final PartitionManager partitionManager;
-	private final AttachedPartition partition;
+	private final ShardedPartition partition;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
 	private final Config config;
@@ -66,7 +66,7 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 	private final LeaderShardContainer leaderContainer;
 
 	public LeaderEventsHandler(final Config config, final DependencyPlaceholder dependencyPlaceholder,
-			final AttachedPartition partition, final PartitionManager partitionManager, final EventBroker eventBroker,
+			final ShardedPartition partition, final PartitionManager partitionManager, final EventBroker eventBroker,
 			final Scheduler scheduler, final LeaderShardContainer leaderContainer) {
 
 		super();

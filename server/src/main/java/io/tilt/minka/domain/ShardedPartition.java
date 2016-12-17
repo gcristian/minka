@@ -16,6 +16,7 @@
  */
 package io.tilt.minka.domain;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.lang.Validate;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 import io.tilt.minka.api.Duty;
@@ -36,17 +38,19 @@ import io.tilt.minka.api.Pallet;
  * @since Dec 13, 2015
  *
  */
-public class AttachedPartition {
+public class ShardedPartition {
 
 	private final NetworkShardID id;
 	private Set<ShardEntity> duties;
 	private Set<ShardEntity> pallets;
+	private long lastUpdateTimestamp;
+	private long recentUpdateThreshold = 10 *1000l;
 
-	public static AttachedPartition partitionForFollower(final NetworkShardID shardId) {
-		return new AttachedPartition(shardId);
+	public static ShardedPartition partitionForFollower(final NetworkShardID shardId) {
+		return new ShardedPartition(shardId);
 	}
 
-	public AttachedPartition(final NetworkShardID shardId) {
+	public ShardedPartition(final NetworkShardID shardId) {
 		this.id = shardId;
 		init();
 	}
@@ -95,7 +99,7 @@ public class AttachedPartition {
 		return sb.toString();
 	}
 
-	public ShardEntity forDuty(final Duty<?> t) {
+	public ShardEntity getFromRawDuty(final Duty<?> t) {
 		for (ShardEntity shardDuty : duties) {
 			if (shardDuty.getDuty().getId().equals(t.getId())) {
 				return shardDuty;
@@ -104,25 +108,53 @@ public class AttachedPartition {
 		return null;
 	}
 	
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public Set<ShardEntity> getDuties() {
+		return new ImmutableSet.Builder().addAll(duties).build();
+	}
+
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public Set<ShardEntity> getPallets() {
+		return new ImmutableSet.Builder().addAll(pallets).build();
+	}
 	public Set<ShardEntity> getDuties(final Pallet<?> pallet) {
 		return this.duties.stream().filter(d->d.getDuty().getPalletId().equals(pallet.getId()))
 				.collect(Collectors.toSet());
 	}
-	
-	public boolean remove(final ShardEntity duty) {
-		return this.duties.remove(duty);
+	public void addAllPallets(final Collection<ShardEntity> all) {
+		this.pallets.addAll(all);
+	}
+	public void addAllDuties(final Collection<ShardEntity> all) {
+		this.duties.addAll(all);
+	}
+	public boolean add(final ShardEntity entity) {
+		if (entity.getType()==ShardEntity.Type.DUTY) {
+			this.lastUpdateTimestamp = System.currentTimeMillis();
+			return this.duties.add(entity);
+		} else {
+			this.lastUpdateTimestamp = System.currentTimeMillis();
+			return this.pallets.add(entity);
+		}
+	}
+	public boolean remove(final ShardEntity entity) {
+		if (entity.getType()==ShardEntity.Type.DUTY) {
+			this.lastUpdateTimestamp = System.currentTimeMillis();
+			return this.duties.remove(entity);
+		} else {
+			this.lastUpdateTimestamp = System.currentTimeMillis();
+			return this.pallets.remove(entity);
+		}
 	}
 
-	public boolean containsDuty(final ShardEntity duty) {
-		return this.duties.contains(duty);
+	public boolean contains(final ShardEntity entity) {
+		if (entity.getType()==ShardEntity.Type.DUTY) {
+			return this.duties.contains(entity);
+		} else {
+			return this.pallets.contains(entity);
+		}
 	} 	
 
-	public Set<ShardEntity> getDuties() {
-		return duties;
+	public boolean wasRecentlyUpdated() {
+		return (System.currentTimeMillis() - lastUpdateTimestamp) < recentUpdateThreshold;
 	}
-	
-	public Set<ShardEntity> getPallets() {
-		return this.pallets;
-	}
-
 }

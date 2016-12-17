@@ -27,7 +27,7 @@ import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.follower.Heartpump;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.impl.ServiceImpl;
-import io.tilt.minka.domain.AttachedPartition;
+import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.NetworkShardID;
 
@@ -37,12 +37,12 @@ public class HeartpumpImpl extends ServiceImpl implements Heartpump {
 
 	private final Config config;
 	private final EventBroker eventBroker;
-	private final AttachedPartition partition;
+	private final ShardedPartition partition;
 	private final LeaderShardContainer leaderShardContainer;
 
 	private DateTime lastHeartbeatTimestamp;
 
-	public HeartpumpImpl(final Config config, final EventBroker eventBroker, final AttachedPartition partition,
+	public HeartpumpImpl(final Config config, final EventBroker eventBroker, final ShardedPartition partition,
 			final LeaderShardContainer leaderShardContainer) {
 
 		super();

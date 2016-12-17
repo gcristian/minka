@@ -39,7 +39,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Distributor;
 import io.tilt.minka.core.leader.distributor.Roadmap;
-import io.tilt.minka.domain.AttachedPartition;
+import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.NetworkShardID;
 import io.tilt.minka.domain.Shard;
@@ -74,7 +74,7 @@ public class PartitionTable {
 	public static class Stage {
 		
 		private final Map<ShardID, Shard> shardsByID;
-		private final Map<Shard, AttachedPartition> partitionsByShard;
+		private final Map<Shard, ShardedPartition> partitionsByShard;
 		private final Map<String, ShardEntity> palletsById;
 		
 		public Stage() {
@@ -104,7 +104,7 @@ public class PartitionTable {
 		}
 		public int getSize(final Pallet<?> pallet, final Shard quest) {
 			int total = 0;
-			for (final AttachedPartition part: partitionsByShard.values()) {
+			for (final ShardedPartition part: partitionsByShard.values()) {
 				if (quest==null || part.getId().equals(quest.getShardID())) {
 					total += (pallet == null ? part.getDuties().size() : part.getDuties(pallet).size());
 				}
@@ -117,7 +117,7 @@ public class PartitionTable {
 		}
 		public double getWeight(final Pallet<?> pallet, final Shard quest) {
 			int total = 0;
-			for (final AttachedPartition part: partitionsByShard.values()) {
+			for (final ShardedPartition part: partitionsByShard.values()) {
 				if (quest==null || part.getId().equals(quest.getShardID())) {
 					total +=part.getWeight(pallet);
 				}
@@ -143,7 +143,7 @@ public class PartitionTable {
 		public void removeShard(final Shard shard) {
 			logger.info("{}: Removing Shard {} - bye bye ! come back some day !", getClass().getSimpleName(), shard);
 			final Shard rem = this.shardsByID.remove(shard.getShardID());
-			final AttachedPartition part = this.partitionsByShard.remove(shard);
+			final ShardedPartition part = this.partitionsByShard.remove(shard);
 			if (rem == null || part == null) {
 				logger.error("{}: trying to delete unexisting Shard: {}", getClass().getSimpleName(), shard);
 			}
@@ -164,10 +164,10 @@ public class PartitionTable {
 		public boolean confirmDutyAboutShard(final ShardEntity duty, final Shard where) {
 			if (duty.getDutyEvent().is(EntityEvent.ATTACH) || duty.getDutyEvent().is(EntityEvent.CREATE)) {
 				checkDuplicationFailure(duty, where);
-				getPartition(where).getDuties().add(duty);
+				getPartition(where).add(duty);
 				return true;
 			} else if (duty.getDutyEvent().is(EntityEvent.DETACH) || duty.getDutyEvent().is(EntityEvent.REMOVE)) {
-				if (!getPartition(where).getDuties().remove(duty)) {
+				if (!getPartition(where).remove(duty)) {
 					throw new IllegalStateException("Absence failure. Confirmed deletion actually doesnt exist or it " + 
 							"was already confirmed");
 				}
@@ -178,7 +178,7 @@ public class PartitionTable {
 
 		private void checkDuplicationFailure(final ShardEntity duty, final Shard reporter) {
 			for (Shard sh : partitionsByShard.keySet()) {
-				if (!sh.equals(reporter) && partitionsByShard.get(sh).getDuties().contains(duty)) {
+				if (!sh.equals(reporter) && partitionsByShard.get(sh).contains(duty)) {
 					throw new ConcurrentDutyException("Duplication failure: Shard %s tries to Report Duty: %s already "
 							+ "in ptable's Shard: %s", reporter, duty, sh);
 				}
@@ -214,10 +214,10 @@ public class PartitionTable {
 			return allDuties;
 		}
 
-		private AttachedPartition getPartition(Shard shard) {
-			AttachedPartition po = this.partitionsByShard.get(shard);
+		private ShardedPartition getPartition(Shard shard) {
+			ShardedPartition po = this.partitionsByShard.get(shard);
 			if (po == null) {
-				this.partitionsByShard.put(shard, po = AttachedPartition.partitionForFollower(shard.getShardID()));
+				this.partitionsByShard.put(shard, po = ShardedPartition.partitionForFollower(shard.getShardID()));
 			}
 			return po;
 		}
@@ -238,7 +238,7 @@ public class PartitionTable {
 
 		public Shard getDutyLocation(final ShardEntity se) {
 			for (final Shard shard : partitionsByShard.keySet()) {
-				final AttachedPartition part = partitionsByShard.get(shard);
+				final ShardedPartition part = partitionsByShard.get(shard);
 				for (ShardEntity st : part.getDuties()) {
 					if (st.equals(se)) {
 						return shard;
@@ -251,7 +251,7 @@ public class PartitionTable {
 		public List<Shard> getPalletLocations(final ShardEntity se) {
 			final List<Shard> ret = new ArrayList<>();
 			for (final Shard shard : partitionsByShard.keySet()) {
-				final AttachedPartition part = partitionsByShard.get(shard);
+				final ShardedPartition part = partitionsByShard.get(shard);
 				for (ShardEntity st : part.getPallets()) {
 					if (st.equals(se)) {
 						ret.add(shard);
@@ -463,7 +463,7 @@ public class PartitionTable {
 				return;
 			}
 			for (final Shard shard : getStage().shardsByID.values()) {
-				final AttachedPartition partition = getStage().partitionsByShard.get(shard);
+				final ShardedPartition partition = getStage().partitionsByShard.get(shard);
 				final Map<Pallet<?>, Capacity> capacities = shard.getCapacities();
 				if (partition == null) {
 					logger.info("{}: {} = Empty", getClass().getSimpleName(), shard);
