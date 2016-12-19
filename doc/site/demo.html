@@ -25,7 +25,11 @@
 <td><a href="http://gcristian.github.io/minka/doc/site/project.html">Project</a></td>
 </tr></tbody></table>
 
+
+
 <h3 id="demo-application">Demo application</h3>
+
+
 
 <h4 id="the-demo-application-emulates-a-distributed-scenario">The demo application emulates a distributed scenario.</h4>
 
@@ -173,8 +177,6 @@ To check this we can request a JSON <code>status</code> to the leader shard.</p>
 </blockquote>
 
 <p>So let’s find the leader shard first:</p>
-
-
 
 <pre class="prettyprint prettyprinted"><code><span class="pln">$ curl localhost</span><span class="pun">:</span><span class="lit">9100</span><span class="pun">/</span><span class="pln">minka</span><span class="pun">/</span><span class="pln">admin</span><span class="pun">/</span><span class="pln">proctor
 
@@ -339,5 +341,32 @@ Duties reside in the <code>duties</code> string field, in the format: {id1:weigh
     </span><span class="str">"semaphoreUnlockRetryDelayMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">100</span><span class="pun">,</span><span class="pln">
     </span><span class="str">"maxConcurrency"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">10</span><span class="pln">
   </span><span class="pun">}</span><span class="pln">
-</span><span class="pun">}</span></code></pre></div></body>
+</span><span class="pun">}</span></code></pre>
+
+<p>Minka produces a very noisy logging that allows debugging, if we need anything of importance out of the webserver endpoints, we can tail the log files:</p>
+
+<table>
+<thead>
+<tr>
+  <th>file</th>
+  <th>about</th>
+</tr>
+</thead>
+<tbody><tr>
+  <td><code>leader.log</code></td>
+  <td>the leader shard about the running phases results</td>
+</tr>
+<tr>
+  <td><code>tasks.log</code></td>
+  <td>all shards about the scheduler and its frequent agents</td>
+</tr>
+<tr>
+  <td><code>broker.log</code></td>
+  <td>the TCP broker input and output communication between shards</td>
+</tr>
+<tr>
+  <td><code>follower.log</code></td>
+  <td>all the follower shards about their commands at the leader.</td>
+</tr>
+</tbody></table></div></body>
 </html>
