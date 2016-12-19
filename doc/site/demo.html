@@ -1,0 +1,343 @@
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://stackedit.io/res-min/themes/base.css" />
+<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"></script>
+<script>e
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-88637530-1', 'auto');
+  ga('send', 'pageview');
+</script>
+</head>
+
+<body><div class="container" width="70%"><p></p><center><img src="https://k61.kn3.net/4/6/F/B/B/2/02D.png" alt="" title=""> </center><p></p>
+
+<table align="center"><tbody><tr>
+<td><a href="http://gcristian.github.io/minka">Home</a></td>
+<td><a href="http://gcristian.github.io/minka/doc/site/integration.html">Integration</a></td>
+<td><a href="http://gcristian.github.io/minka/doc/site/demo.html">Demo</a></td>
+<td><a href="http://gcristian.github.io/minka/doc/site/details.html">Details</a></td>
+<td><a href="http://gcristian.github.io/minka/doc/site/architecture.html">Architecture</a></td>
+<td><a href="http://gcristian.github.io/minka/doc/site/project.html">Project</a></td>
+</tr></tbody></table>
+
+<h3 id="demo-application">Demo application</h3>
+
+<h4 id="the-demo-application-emulates-a-distributed-scenario">The demo application emulates a distributed scenario.</h4>
+
+<p>Checkout the source repository:</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code><span class="pln">$ git checkout git@github</span><span class="pun">.</span><span class="pln">com</span><span class="pun">:</span><span class="pln">gcristian</span><span class="pun">/</span><span class="pln">minka</span><span class="pun">.</span><span class="pln">git
+$ ls
+drwxrwxr</span><span class="pun">-</span><span class="pln">x </span><span class="lit">2</span><span class="pln"> cristian cristian </span><span class="lit">4</span><span class="pun">,</span><span class="lit">0K</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">21</span><span class="pun">:</span><span class="lit">59</span><span class="pln"> doc
+</span><span class="pun">-</span><span class="pln">rwxrwxr</span><span class="pun">-</span><span class="pln">x </span><span class="lit">1</span><span class="pln"> cristian cristian   </span><span class="lit">38</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> go
+</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">r</span><span class="pun">--</span><span class="pln"> </span><span class="lit">1</span><span class="pln"> cristian cristian  </span><span class="lit">12K</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> LICENSE
+drwxrwxr</span><span class="pun">-</span><span class="pln">x </span><span class="lit">6</span><span class="pln"> cristian cristian </span><span class="lit">4</span><span class="pun">,</span><span class="lit">0K</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> samples
+drwxrwxr</span><span class="pun">-</span><span class="pln">x </span><span class="lit">3</span><span class="pln"> cristian cristian </span><span class="lit">4</span><span class="pun">,</span><span class="lit">0K</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> server
+drwxrwxr</span><span class="pun">-</span><span class="pln">x </span><span class="lit">5</span><span class="pln"> cristian cristian </span><span class="lit">4</span><span class="pun">,</span><span class="lit">0K</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> spectator
+</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">r</span><span class="pun">--</span><span class="pln"> </span><span class="lit">1</span><span class="pln"> cristian cristian </span><span class="lit">2</span><span class="pun">,</span><span class="lit">3K</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">21</span><span class="pun">:</span><span class="lit">59</span><span class="pln"> readme</span><span class="pun">.</span><span class="pln">md
+</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">r</span><span class="pun">--</span><span class="pln"> </span><span class="lit">1</span><span class="pln"> cristian cristian </span><span class="lit">4</span><span class="pun">,</span><span class="lit">5K</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> pom</span><span class="pun">.</span><span class="pln">xml</span></code></pre>
+
+<p>We have the core at <code>../server</code>, and the demo application at <code>../samples</code> <br>
+The demo app. is launched with the <code>newsampler.sh</code> script.</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code><span class="pln">$ cd samples
+$ ls
+
+drwxrwxr</span><span class="pun">-</span><span class="pln">x </span><span class="lit">2</span><span class="pln"> cristian cristian </span><span class="lit">4</span><span class="pun">,</span><span class="lit">0K</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> datasets
+</span><span class="pun">-</span><span class="pln">rwxrwxr</span><span class="pun">-</span><span class="pln">x </span><span class="lit">1</span><span class="pln"> cristian cristian  </span><span class="lit">823</span><span class="pln"> oct </span><span class="lit">30</span><span class="pln"> </span><span class="lit">17</span><span class="pun">:</span><span class="lit">12</span><span class="pln"> sampler
+drwxrwxr</span><span class="pun">-</span><span class="pln">x </span><span class="lit">4</span><span class="pln"> cristian cristian </span><span class="lit">4</span><span class="pun">,</span><span class="lit">0K</span><span class="pln"> ago </span><span class="lit">21</span><span class="pln"> </span><span class="lit">20</span><span class="pun">:</span><span class="lit">22</span><span class="pln"> src
+drwxrwxr</span><span class="pun">-</span><span class="pln">x </span><span class="lit">7</span><span class="pln"> cristian cristian </span><span class="lit">4</span><span class="pun">,</span><span class="lit">0K</span><span class="pln"> nov </span><span class="lit">26</span><span class="pln"> </span><span class="lit">21</span><span class="pun">:</span><span class="lit">50</span><span class="pln"> target
+</span><span class="pun">-</span><span class="pln">rwxrwxr</span><span class="pun">-</span><span class="pln">x </span><span class="lit">1</span><span class="pln"> cristian cristian  </span><span class="lit">853</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> newsampler</span><span class="pun">.</span><span class="pln">sh
+</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">r</span><span class="pun">--</span><span class="pln"> </span><span class="lit">1</span><span class="pln"> cristian cristian </span><span class="lit">4</span><span class="pun">,</span><span class="lit">1K</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> pom</span><span class="pun">.</span><span class="pln">xml
+
+$ cat newsampler</span><span class="pun">.</span><span class="pln">sh
+
+</span><span class="com">#!/bin/bash</span><span class="pln">
+</span><span class="com"># ------------------- Minka Demo launcher --------------------</span><span class="pln">
+</span><span class="com"># scans for a non already used &amp; busy port to configure minka </span><span class="pln">
+</span><span class="com"># broker, starting at port 9000, takes the first one free</span><span class="pln">
+</span><span class="com"># ------------------------------------------------------------</span><span class="pln">
+
+port_start</span><span class="pun">=</span><span class="lit">9000</span><span class="pln">
+host</span><span class="pun">=</span><span class="str">'localhost'</span><span class="pln">
+xms</span><span class="pun">=</span><span class="str">'512M'</span><span class="pln">
+pp</span><span class="pun">=</span><span class="str">'broker.hostPort'</span><span class="pln">
+dsfp</span><span class="pun">=</span><span class="pln">$</span><span class="pun">(</span><span class="pln">pwd</span><span class="pun">)</span><span class="str">'/'</span><span class="pln">$</span><span class="pun">{</span><span class="lit">1</span><span class="pun">:-</span><span class="str">'dataset.properties'</span><span class="pun">}</span><span class="pln">
+</span><span class="kwd">for</span><span class="pln"> i </span><span class="kwd">in</span><span class="pln"> </span><span class="pun">{</span><span class="lit">0.</span><span class="pun">.</span><span class="lit">20</span><span class="pun">};</span><span class="pln"> </span><span class="kwd">do</span><span class="pln">
+    echo $dsfp
+    i</span><span class="pun">=</span><span class="pln">$</span><span class="pun">((</span><span class="pln">$i</span><span class="pun">+</span><span class="pln">$port_start</span><span class="pun">))</span><span class="pln">
+    x</span><span class="pun">=</span><span class="str">`netstat -ltn | grep $i | grep -v grep`</span><span class="pln">
+    y</span><span class="pun">=</span><span class="str">`ps aux | grep "$pp=$host:$i"| grep -v 'grep'`</span><span class="pln">
+    </span><span class="kwd">if</span><span class="pln"> </span><span class="pun">[</span><span class="pln"> </span><span class="pun">-</span><span class="pln">z </span><span class="str">"$x"</span><span class="pln"> </span><span class="pun">]</span><span class="pln"> </span><span class="pun">&amp;&amp;</span><span class="pln"> </span><span class="pun">[</span><span class="pln"> </span><span class="pun">-</span><span class="pln">z </span><span class="str">"$y"</span><span class="pln"> </span><span class="pun">];</span><span class="pln"> </span><span class="kwd">then</span><span class="pln">
+        echo </span><span class="str">"Using port: $i"</span><span class="pln">
+        mvn </span><span class="pun">-</span><span class="typ">DXms$xms</span><span class="pln"> </span><span class="pun">-</span><span class="typ">DXmx$xms</span><span class="pln"> </span><span class="kwd">exec</span><span class="pun">:</span><span class="pln">java \ 
+            </span><span class="pun">-</span><span class="typ">Dexec</span><span class="pun">.</span><span class="pln">mainClass</span><span class="pun">=</span><span class="typ">DatasetSampler</span><span class="pun">.</span><span class="pln">main </span><span class="pun">-</span><span class="typ">Dmins</span><span class="pun">=</span><span class="lit">1440</span><span class="pln"> \
+            </span><span class="pun">-</span><span class="pln">D$pp</span><span class="pun">=</span><span class="pln">$host</span><span class="pun">:</span><span class="pln">$i </span><span class="pun">-</span><span class="typ">Ddataset</span><span class="pun">.</span><span class="pln">filepath</span><span class="pun">=</span><span class="pln">$dsfp
+        </span><span class="kwd">exit</span><span class="pln">
+    </span><span class="kwd">else</span><span class="pln">
+        echo </span><span class="str">"Port: $i busy (netstat got $x)"</span><span class="pln">
+    </span><span class="kwd">fi</span><span class="pln">
+</span><span class="kwd">done</span></code></pre>
+
+
+
+<h4 id="emulated-scenario">Emulated scenario</h4>
+
+<p>The script basically tests available ports starting from 9000, and runs a Java process with a dataset file as a parameter.</p>
+
+<blockquote>
+  <p>Maven 3.x installed is required.</p>
+</blockquote>
+
+<p>A Dataset file contains <strong>intructions</strong> about the stage we are simulating: </p>
+
+<ul>
+<li>size of total duties, number of concurrent shards</li>
+<li>pallets with their weights, balancer, and their slice of duties</li>
+<li>the pallet weight capacity that each shard will report (they will look for the one with its own port)</li>
+</ul>
+
+<p>We’ll be using <code>mix.properties</code> which has an heterogeneous stage:</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code><span class="pln">$ ls
+</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">r</span><span class="pun">--</span><span class="pln"> </span><span class="lit">1</span><span class="pln"> cristian cristian  </span><span class="lit">331</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> dataset</span><span class="pun">-</span><span class="pln">cluster1</span><span class="pun">.</span><span class="pln">properties
+</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">r</span><span class="pun">--</span><span class="pln"> </span><span class="lit">1</span><span class="pln"> cristian cristian  </span><span class="lit">331</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> dataset</span><span class="pun">-</span><span class="pln">cluster2</span><span class="pun">.</span><span class="pln">properties
+</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">r</span><span class="pun">--</span><span class="pln"> </span><span class="lit">1</span><span class="pln"> cristian cristian  </span><span class="lit">351</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> dataset</span><span class="pun">.</span><span class="pln">properties
+</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">r</span><span class="pun">--</span><span class="pln"> </span><span class="lit">1</span><span class="pln"> cristian cristian  </span><span class="lit">155</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> dataset</span><span class="pun">-</span><span class="pln">sizy</span><span class="pun">.</span><span class="pln">properties
+</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">r</span><span class="pun">--</span><span class="pln"> </span><span class="lit">1</span><span class="pln"> cristian cristian  </span><span class="lit">177</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> fairy</span><span class="pun">.</span><span class="pln">properties
+</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">r</span><span class="pun">--</span><span class="pln"> </span><span class="lit">1</span><span class="pln"> cristian cristian  </span><span class="lit">740</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> mix</span><span class="pun">.</span><span class="pln">properties
+</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">rw</span><span class="pun">-</span><span class="pln">r</span><span class="pun">--</span><span class="pln"> </span><span class="lit">1</span><span class="pln"> cristian cristian </span><span class="lit">2</span><span class="pun">,</span><span class="lit">2K</span><span class="pln"> dic  </span><span class="lit">9</span><span class="pln"> </span><span class="lit">02</span><span class="pun">:</span><span class="lit">32</span><span class="pln"> sample</span><span class="pun">.</span><span class="pln">properties
+
+$ cat datasets</span><span class="pun">/</span><span class="pln">mix</span><span class="pun">.</span><span class="pln">properties
+
+duties</span><span class="pun">.</span><span class="pln">size </span><span class="pun">=</span><span class="pln"> </span><span class="lit">1000</span><span class="pln">
+shards</span><span class="pun">.</span><span class="pln">ports </span><span class="pun">=</span><span class="pln"> </span><span class="lit">9001</span><span class="pun">;</span><span class="lit">9002</span><span class="pun">;</span><span class="lit">9000</span><span class="pln">
+duties</span><span class="pun">.</span><span class="pln">pallets </span><span class="pun">=</span><span class="pln"> </span><span class="typ">Finwe</span><span class="pun">:</span><span class="lit">200</span><span class="pun">:</span><span class="lit">50</span><span class="pun">~</span><span class="lit">100</span><span class="pun">:</span><span class="pln">FAIR_WEIGHT</span><span class="pun">;</span><span class="pln"> </span><span class="typ">Ewok</span><span class="pun">:</span><span class="lit">500</span><span class="pun">:</span><span class="lit">500</span><span class="pun">~</span><span class="lit">1000</span><span class="pun">:</span><span class="pln">EVEN_WEIGHT</span><span class="pun">;</span><span class="pln"> </span><span class="typ">Cirith</span><span class="pun">:</span><span class="lit">100</span><span class="pun">:</span><span class="lit">1</span><span class="pun">:</span><span class="pln">EVEN_SIZE</span><span class="pun">;</span><span class="pln"> </span><span class="typ">Manwe</span><span class="pun">:</span><span class="lit">150</span><span class="pun">:</span><span class="lit">50</span><span class="pun">~</span><span class="lit">1000</span><span class="pun">:</span><span class="pln">FAIR_WEIGHT</span><span class="pun">;</span><span class="pln">
+shards</span><span class="pun">.</span><span class="pln">capacities </span><span class="pun">=</span><span class="pln"> </span><span class="lit">9001</span><span class="pun">:</span><span class="typ">Finwe</span><span class="pun">:</span><span class="lit">1000</span><span class="pun">;</span><span class="pln"> </span><span class="lit">9001</span><span class="pun">:</span><span class="typ">Ewok</span><span class="pun">:</span><span class="lit">3000</span><span class="pun">;</span><span class="pln"> </span><span class="lit">9001</span><span class="pun">:</span><span class="typ">Manwe</span><span class="pun">:</span><span class="lit">25000</span><span class="pun">;</span><span class="pln"> </span><span class="lit">9002</span><span class="pun">:</span><span class="typ">Finwe</span><span class="pun">:</span><span class="lit">1500</span><span class="pun">;</span><span class="pln"> </span><span class="lit">9002</span><span class="pun">:</span><span class="typ">Ewok</span><span class="pun">:</span><span class="lit">2000</span><span class="pun">;</span><span class="pln"> </span><span class="lit">9002</span><span class="pun">:</span><span class="typ">Manwe</span><span class="pun">:</span><span class="lit">11000</span><span class="pun">;</span><span class="pln"> </span><span class="lit">9000</span><span class="pun">:</span><span class="typ">Finwe</span><span class="pun">:</span><span class="lit">15000</span><span class="pun">;</span><span class="pln"> </span><span class="lit">9000</span><span class="pun">:</span><span class="typ">Ewok</span><span class="pun">:</span><span class="lit">24000</span><span class="pun">;</span><span class="pln"> </span><span class="lit">9000</span><span class="pun">:</span><span class="typ">Manwe</span><span class="pun">:</span><span class="lit">16000</span><span class="pun">;</span><span class="pln"> </span><span class="lit">9003</span><span class="pun">:</span><span class="typ">Finwe</span><span class="pun">:</span><span class="lit">15000</span><span class="pun">;</span><span class="pln"> </span><span class="lit">9003</span><span class="pun">:</span><span class="typ">Ewok</span><span class="pun">:</span><span class="lit">35500</span><span class="pun">;</span><span class="pln"> </span><span class="lit">9003</span><span class="pun">:</span><span class="typ">Manwe</span><span class="pun">:</span><span class="lit">45000</span></code></pre>
+
+<p>I will explain some properties: </p>
+
+
+
+<pre class="prettyprint prettyprinted"><code><span class="pln">shards</span><span class="pun">.</span><span class="pln">ports </span><span class="pun">=</span><span class="pln"> </span><span class="lit">9001</span><span class="pun">;</span><span class="lit">9002</span><span class="pun">;</span><span class="lit">9000</span></code></pre>
+
+<p>This dataset files requires to launch 3 shards, so we’ll be repeating the same command 3 times:</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code><span class="pln">duties</span><span class="pun">.</span><span class="pln">pallets </span><span class="pun">=</span><span class="pln"> </span><span class="typ">Finwe</span><span class="pun">:</span><span class="lit">200</span><span class="pun">:</span><span class="lit">50</span><span class="pun">~</span><span class="lit">100</span><span class="pun">:</span><span class="pln">FAIR_WEIGHT</span><span class="pun">;</span><span class="pln"> </span></code></pre>
+
+<p>A pallet named <em>Finwe</em> will be grabbing <code>200</code> duties, weighing any random number <code>50~100</code>, with the <em>fair weight</em> balancer</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code><span class="pln">shards</span><span class="pun">.</span><span class="pln">capacities </span><span class="pun">=</span><span class="pln"> </span><span class="lit">9001</span><span class="pun">:</span><span class="typ">Finwe</span><span class="pun">:</span><span class="lit">1000</span><span class="pun">;</span></code></pre>
+
+<p>The shard that took the port <code>9001</code> first, will report a max weight capacity of <code>1000</code> for pallet Finwe…</p>
+
+
+
+<h3 id="lets-go">Let’s go</h3>
+
+<p>Create logging output folders first:</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code><span class="pln">$ sudo mkdir </span><span class="pun">/</span><span class="kwd">var</span><span class="pun">/</span><span class="pln">log</span><span class="pun">/</span><span class="pln">minka
+$ sudo chown cristian</span><span class="pun">:</span><span class="pln"> </span><span class="str">/var/</span><span class="pln">log</span><span class="pun">/</span><span class="pln">minka</span></code></pre>
+
+<p>Fire the same line in 3 different consoles so we can identify the output individually..</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code><span class="pln">$ </span><span class="pun">./</span><span class="pln">newsampler datasets</span><span class="pun">/</span><span class="pln">mix</span><span class="pun">.</span><span class="pln">properties</span></code></pre>
+
+<p>Some seconds after the proctor, balance and distribution phase runs: duties are distributed. <br>
+To check this we can request a JSON <code>status</code> to the leader shard.</p>
+
+<p>By default the webserver’s port is <code>57480</code>, and the broker’s port is <code>5748</code>. In case we change the default broker’s port: Minka adds 100 to the broker’s port to resolve the webserver port, in this case broker takes port <code>9000</code>, and the webserver of this shard will become <code>9100</code>. Unless specifically configurated, the binding interfase is the same than the broker’s one.</p>
+
+<blockquote>
+  <p>This happens so there can be running several shards at the same machine, without colliding any minka port, like in this case the <code>newsampler.sh</code> script parametrizing ports in the range of <code>9000..90xx</code></p>
+</blockquote>
+
+<p>So let’s find the leader shard first:</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code><span class="pln">$ curl localhost</span><span class="pun">:</span><span class="lit">9100</span><span class="pun">/</span><span class="pln">minka</span><span class="pun">/</span><span class="pln">admin</span><span class="pun">/</span><span class="pln">proctor
+
+</span><span class="pun">{</span><span class="pln">
+  </span><span class="str">"leaderShardId"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">{</span><span class="pln">
+    </span><span class="str">"port"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"9000"</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"sourceHost"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"192.168.1.102"</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"id"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"192.168.1.102:9000"</span><span class="pln">
+  </span><span class="pun">},</span><span class="pln">
+  </span><span class="str">"shards"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">[]</span><span class="pln">
+</span><span class="pun">}</span></code></pre>
+
+<p>So now we know that the shard living in the port <code>9000</code> has become leader. <br>
+During its leadership we can ask them for the Status object. <br>
+For the sake of text space, I’m using a different dataset sampler file.</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code><span class="pln">$ curl </span><span class="pun">-</span><span class="pln">svn localhost</span><span class="pun">:</span><span class="lit">9100</span><span class="pun">/</span><span class="pln">minka</span><span class="pun">/</span><span class="pln">admin</span><span class="pun">/</span><span class="pln">status </span><span class="pun">|</span><span class="pln"> jq </span><span class="pun">.</span><span class="pln">
+
+</span><span class="pun">{</span><span class="pln">
+  </span><span class="str">"global"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">{</span><span class="pln">
+    </span><span class="str">"unstaged-size"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"20"</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"staged-size"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"80"</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"pallet-size"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"1"</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"duty-size"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"100"</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"shard-size"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"2"</span><span class="pln">
+  </span><span class="pun">},</span></code></pre>
+
+<p>the Status has information about the global distribution of duties, number of shards, duties distributed and duties without if there’re no enough weight capacity. <br>
+The <code>pallets</code> section shows the pallets loaded so far, and their distribution status</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code><span class="pln">  </span><span class="str">"pallets"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">[</span><span class="pln">
+    </span><span class="pun">{</span><span class="pln">
+      </span><span class="str">"balancer"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"io.tilt.minka.core.leader.balancer.FairWeightBalancer"</span><span class="pun">,</span><span class="pln">
+      </span><span class="str">"balancer-metadata"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">{</span><span class="pln">
+        </span><span class="str">"dispersion"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"EVEN"</span><span class="pun">,</span><span class="pln">
+        </span><span class="str">"presort"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"DATE"</span><span class="pln">
+      </span><span class="pun">},</span><span class="pln">
+      </span><span class="str">"unstaged-weight"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"100.0"</span><span class="pun">,</span><span class="pln">
+      </span><span class="str">"id"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"Fairy"</span><span class="pun">,</span><span class="pln">
+      </span><span class="str">"creation"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"2016-12-19T02:15:53.331Z"</span><span class="pun">,</span><span class="pln">
+      </span><span class="str">"size"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"100"</span><span class="pun">,</span><span class="pln">
+      </span><span class="str">"cluster-capacity"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"400.0"</span><span class="pun">,</span><span class="pln">
+      </span><span class="str">"allocation"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"80%"</span><span class="pun">,</span><span class="pln">
+      </span><span class="str">"staged-size"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"80"</span><span class="pun">,</span><span class="pln">
+      </span><span class="str">"staged-weight"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"400.0"</span><span class="pun">,</span><span class="pln">
+      </span><span class="str">"unstaged-size"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"20"</span><span class="pln">
+    </span><span class="pun">}</span><span class="pln">
+  </span><span class="pun">],</span></code></pre>
+
+<p>Status shows also the distributed shards, and which entities they have captured so far. <br>
+Duties reside in the <code>duties</code> string field, in the format: {id1:weight1, id2:weight2…}</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code><span class="pln">  </span><span class="str">"shards"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">[</span><span class="pln">
+    </span><span class="pun">{</span><span class="pln">
+      </span><span class="str">"pallets"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">[</span><span class="pln">
+        </span><span class="pun">{</span><span class="pln">
+          </span><span class="str">"duties"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"90:5.0,91:5.0,92:5.0,93:5.0,94:5.0,95:5.0,96:5.0,97:5.0,10:5.0,98:5.0,11:5.0,99:5.0,12:5.0,13:5.0,14:5.0,15:5.0,16:5.0,17:5.0,18:5.0,19:5.0,0:5.0,1:5.0,2:5.0,3:5.0,4:5.0,5:5.0,6:5.0,7:5.0,8:5.0,9:5.0,20:5.0,21:5.0,22:5.0,23:5.0,24:5.0,25:5.0,26:5.0,27:5.0,28:5.0,29:5.0,70:5.0,71:5.0,72:5.0,73:5.0,74:5.0,75:5.0,76:5.0,77:5.0,78:5.0,79:5.0,80:5.0,81:5.0,82:5.0,83:5.0,84:5.0,85:5.0,86:5.0,87:5.0,88:5.0,89:5.0,"</span><span class="pun">,</span><span class="pln">
+          </span><span class="str">"weight"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"300.0"</span><span class="pun">,</span><span class="pln">
+          </span><span class="str">"capacity"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"300.0"</span><span class="pun">,</span><span class="pln">
+          </span><span class="str">"size"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"60"</span><span class="pun">,</span><span class="pln">
+          </span><span class="str">"id"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"Fairy"</span><span class="pln">
+        </span><span class="pun">}</span><span class="pln">
+      </span><span class="pun">],</span><span class="pln">
+      </span><span class="str">"status"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"ONLINE"</span><span class="pun">,</span><span class="pln">
+      </span><span class="str">"creation"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"2016-12-19T02:39:25.669Z"</span><span class="pun">,</span><span class="pln">
+      </span><span class="str">"host"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"2.168.1.10:9001"</span><span class="pln">
+    </span><span class="pun">},</span><span class="pln">
+    </span><span class="pun">{</span><span class="pln">
+      </span><span class="str">"pallets"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">[</span><span class="pln">
+        </span><span class="pun">{</span><span class="pln">
+          </span><span class="str">"duties"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"60:5.0,50:5.0,61:5.0,51:5.0,62:5.0,52:5.0,63:5.0,53:5.0,64:5.0,54:5.0,65:5.0,55:5.0,66:5.0,56:5.0,67:5.0,57:5.0,68:5.0,58:5.0,69:5.0,59:5.0,"</span><span class="pun">,</span><span class="pln">
+          </span><span class="str">"weight"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"100.0"</span><span class="pun">,</span><span class="pln">
+          </span><span class="str">"capacity"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"100.0"</span><span class="pun">,</span><span class="pln">
+          </span><span class="str">"size"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"20"</span><span class="pun">,</span><span class="pln">
+          </span><span class="str">"id"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"Fairy"</span><span class="pln">
+        </span><span class="pun">}</span><span class="pln">
+      </span><span class="pun">],</span><span class="pln">
+      </span><span class="str">"status"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"ONLINE"</span><span class="pun">,</span><span class="pln">
+      </span><span class="str">"creation"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"2016-12-19T02:15:42.316Z"</span><span class="pun">,</span><span class="pln">
+      </span><span class="str">"host"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"2.168.1.10:9000"</span><span class="pln">
+    </span><span class="pun">}</span><span class="pln">
+  </span><span class="pun">]</span><span class="pln">
+</span><span class="pun">}</span></code></pre>
+
+<p>There’s also the configuration running the current shard:</p>
+
+
+
+<pre class="prettyprint prettyprinted"><code><span class="pln">$ curl </span><span class="pun">-</span><span class="pln">svn </span><span class="lit">192.168</span><span class="pun">.</span><span class="lit">1.102</span><span class="pun">:</span><span class="lit">9100</span><span class="pun">/</span><span class="pln">minka</span><span class="pun">/</span><span class="pln">admin</span><span class="pun">/</span><span class="pln">config </span><span class="pun">|</span><span class="pln"> jq </span><span class="pun">.</span><span class="pln">
+
+</span><span class="pun">{</span><span class="pln">
+  </span><span class="str">"consistency"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">{</span><span class="pln">
+    </span><span class="str">"dutyStorage"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"CLIENT_DEFINED"</span><span class="pln">
+  </span><span class="pun">},</span><span class="pln">
+  </span><span class="str">"proctor"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">{</span><span class="pln">
+    </span><span class="str">"clusterHealthStabilityDelayPeriods"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">1</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"heartbeatMaxDistanceStandardDeviation"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">4</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"heartbeatLapseSec"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">20</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"heartbeatMaxBiggestDistanceFactor"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">2.5</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"startDelayMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">500</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"delayMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">1000</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"maxShardJoiningStateMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">15000</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"minHealthlyHeartbeatsForShardOnline"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">2</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"maxAbsentHeartbeatsBeforeShardGone"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">5</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"maxHeartbeatReceptionDelayFactorForSick"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">3</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"maxSickHeartbeatsBeforeShardQuarantine"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">15</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"minShardsOnlineBeforeSharding"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">1</span><span class="pln">
+  </span><span class="pun">},</span><span class="pln">
+  </span><span class="str">"distributor"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">{</span><span class="pln">
+    </span><span class="str">"roadmapMaxRetries"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">0</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"roadmapExpirationSec"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">15</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"delayMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">5000</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"startDelayMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">10000</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"reloadDutiesFromStorageEachPeriods"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">10</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"reloadDutiesFromStorage"</span><span class="pun">:</span><span class="pln"> </span><span class="kwd">false</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"runConsistencyCheck"</span><span class="pun">:</span><span class="pln"> </span><span class="kwd">false</span><span class="pln">
+  </span><span class="pun">},</span><span class="pln">
+  </span><span class="str">"balancer"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">{</span><span class="pln">
+    </span><span class="str">"spillOverMaxValue"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">99999999999</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"spillOverMaxUnit"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"USE_CAPACITY"</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"evenLoadPresort"</span><span class="pun">:</span><span class="pln"> </span><span class="kwd">null</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"roundRobinMaxDutiesDeltaBetweenShards"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">0</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"strategy"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"EVEN_WEIGHT"</span><span class="pln">
+  </span><span class="pun">},</span><span class="pln">
+  </span><span class="str">"follower"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">{</span><span class="pln">
+    </span><span class="str">"maxHeartbeatBuildFailsBeforeReleasing"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">1</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"heartbeatDelayMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">2000</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"heartbeatStartDelayMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">1000</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"heartattackCheckStartDelayMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">10000</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"heartattackCheckDelayMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">10000</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"clearanceCheckStartDelayMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">20000</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"clearanceCheckDelayMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">10000</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"clearanceMaxAbsenceMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">30000</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"maxHeartbeatAbsenceForReleaseMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">10000</span><span class="pln">
+  </span><span class="pun">},</span><span class="pln">
+  </span><span class="str">"broker"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">{</span><span class="pln">
+    </span><span class="str">"networkInterfase"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"lo"</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"shardIdSuffix"</span><span class="pun">:</span><span class="pln"> </span><span class="str">""</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"enablePortFallback"</span><span class="pun">:</span><span class="pln"> </span><span class="kwd">true</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"retryDelayMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">3000</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"maxRetries"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">300</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"connectionHandlerThreads"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">10</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"hostPort"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"192.168.1.102:9000"</span><span class="pln">
+  </span><span class="pun">},</span><span class="pln">
+  </span><span class="str">"bootstrap"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">{</span><span class="pln">
+    </span><span class="str">"serviceName"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"default-name"</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"webServerHostPort"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"192.168.1.102:9100"</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"enableWebserver"</span><span class="pun">:</span><span class="pln"> </span><span class="kwd">true</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"zookeeperHostPort"</span><span class="pun">:</span><span class="pln"> </span><span class="str">"localhost:2181"</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"leaderShardAlsoFollows"</span><span class="pun">:</span><span class="pln"> </span><span class="kwd">true</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"publishLeaderCandidature"</span><span class="pun">:</span><span class="pln"> </span><span class="kwd">true</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"readynessRetryDelayMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">5000</span><span class="pln">
+  </span><span class="pun">},</span><span class="pln">
+  </span><span class="str">"scheduler"</span><span class="pun">:</span><span class="pln"> </span><span class="pun">{</span><span class="pln">
+    </span><span class="str">"semaphoreUnlockMaxRetries"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">30</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"semaphoreUnlockRetryDelayMs"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">100</span><span class="pun">,</span><span class="pln">
+    </span><span class="str">"maxConcurrency"</span><span class="pun">:</span><span class="pln"> </span><span class="lit">10</span><span class="pln">
+  </span><span class="pun">}</span><span class="pln">
+</span><span class="pun">}</span></code></pre></div></body>
+</html>
