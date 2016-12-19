@@ -16,8 +16,7 @@
 		<jersey.version>1.19</jersey.version>
 		<metrics.version>3.1.0</metrics.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<slf4j.version>1.7.12</slf4j.version>
-		<socialtracker.version>0.0-SNAPSHOT</socialtracker.version>
+        <slf4j.version>1.7.13</slf4j.version>
 	</properties>
 	<description>a network distribution and balancing library to enable sharding of application instances</description>
 	<url>http://gcristian.github.io/minka</url>
@@ -72,7 +71,7 @@
 			<dependency>
 				<groupId>commons-lang</groupId>
 				<artifactId>commons-lang</artifactId>
-				<version>2.5</version>
+				<version>2.6</version>
 			</dependency>
 			<dependency>
 				<groupId>commons-codec</groupId>
@@ -93,7 +92,7 @@
 			<dependency>
 				<groupId>joda-time</groupId>
 				<artifactId>joda-time</artifactId>
-				<version>2.8.2</version>
+	         <version>2.8.2</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework</groupId>
@@ -187,21 +186,11 @@
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-source-plugin</artifactId>
-				<version>2.2.1</version>
-				<executions>
-					<execution>
-						<id>attach-sources</id>
-						<goals>
-							<goal>jar-no-fork</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-gpg-plugin</artifactId>
-				<version>1.5</version>
+            <version>1.5</version>
+            <configuration>
+                <skip>true</skip>
+            </configuration>
 				<executions>
 					<execution>
 						<id>sign-artifacts</id>
@@ -230,6 +219,12 @@
 				<artifactId>maven-source-plugin</artifactId>
 				<version>2.4</version>
 				<executions>
+					<execution>
+						<id>attach-sources</id>
+						<goals>
+							<goal>jar-no-fork</goal>
+						</goals>
+					</execution>
 					<execution>
 						<phase>package</phase>
 						<goals>

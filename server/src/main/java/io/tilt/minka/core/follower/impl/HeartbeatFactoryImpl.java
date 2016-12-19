@@ -32,14 +32,13 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.follower.HeartbeatFactory;
-import io.tilt.minka.core.task.LeaderShardContainer;
-import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Heartbeat.DutyDiff;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.utils.LogUtils;
 
 /**
