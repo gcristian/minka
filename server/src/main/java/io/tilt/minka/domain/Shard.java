@@ -27,6 +27,7 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
@@ -46,7 +47,9 @@ public class Shard implements Comparator<Shard> {
 
 	private final BrokerChannel brokerChannel;
 	private final NetworkShardID shardId;
+	@JsonIgnore
 	private final DateTime firstTimeSeen;
+	@JsonIgnore
 	private DateTime lastStatusChange;
 	private final SlidingSortedSet<Heartbeat> cardiacLapse;
 	private ShardState serviceState;
@@ -62,11 +65,11 @@ public class Shard implements Comparator<Shard> {
 		this.lastStatusChange = new DateTime(DateTimeZone.UTC);
 		this.capacities = new HashMap<>();
 	}
-
+	@JsonIgnore
 	public DateTime getLastStatusChange() {
 		return this.lastStatusChange;
 	}
-
+	@JsonIgnore
 	public DateTime getFirstTimeSeen() {
 		return this.firstTimeSeen;
 	}

@@ -31,6 +31,8 @@ import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.follower.Follower;
 
@@ -44,6 +46,7 @@ import io.tilt.minka.core.follower.Follower;
  */
 public class NetworkShardIDImpl implements NetworkShardID, Closeable {
 
+	@JsonIgnore
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private static final long serialVersionUID = 3233785408081305735L;
@@ -54,7 +57,9 @@ public class NetworkShardIDImpl implements NetworkShardID, Closeable {
 	private String id;
 	private final InetAddress sourceHost;
 	private int port;
+	@JsonIgnore
 	private final int configuredPort;
+	@JsonIgnore
 	private final DateTime creation;
 	private transient ServerSocket bookedSocket;
 
@@ -235,6 +240,7 @@ public class NetworkShardIDImpl implements NetworkShardID, Closeable {
 	}
 
 	@Override
+	@JsonIgnore
 	public DateTime getCreation() {
 		return this.creation;
 	}

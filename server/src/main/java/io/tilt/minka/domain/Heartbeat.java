@@ -28,6 +28,8 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.Follower;
@@ -253,7 +255,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	public void cleanDuties() {
 		this.reportedCapturedDuties = new ArrayList<>(1);
 	}
-
+	@JsonIgnore
 	public DateTime getCreation() {
 		return this.creation;
 	}
@@ -261,7 +263,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	public long getReceptionDelay() {
 		return reception.getMillis() - creation.getMillis();
 	}
-
+	@JsonIgnore
 	public DateTime getReception() {
 		return this.reception;
 	}
@@ -282,6 +284,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		this.stateChange = stateChange;
 	}
 
+	@JsonIgnore
 	public List<ShardEntity> getReportedCapturedDuties() {
 		return this.reportedCapturedDuties;
 	}

@@ -117,7 +117,9 @@
       
     ===============================================================================================-->
     
-    <bean id="partitionTable" class="io.tilt.minka.core.leader.PartitionTable"/>
+    <bean id="partitionTable" class="io.tilt.minka.core.leader.PartitionTable">
+    	<constructor-arg ref="leaderShardContainer"/>
+    </bean>
         
     <bean id="entityDao" class="io.tilt.minka.core.leader.EntityDao.FakeDao"/>
     

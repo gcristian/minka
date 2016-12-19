@@ -47,7 +47,7 @@ public class AdminEndpoint {
 	@Autowired
 	private  Config config;
 
-	@Inject 
+	@Inject
 	public AdminEndpoint(@Named("partitionTable") PartitionTable table) {
 		this.table = table;
 	}
@@ -66,6 +66,12 @@ public class AdminEndpoint {
 		return Response.accepted(Status.toJson(table)).build();
 	}
 	
+	@GET
+	@Path("/proctor")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response proctor() throws JsonProcessingException {
+		return Response.accepted(Status.Shards.toJson(table)).build();
+	}
 
 
 }

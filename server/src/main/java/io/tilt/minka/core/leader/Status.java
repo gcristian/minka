@@ -40,6 +40,7 @@ import io.tilt.minka.core.leader.distributor.Roadmap;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardID;
 
 /**
  * Plain representation of the domain objects
@@ -48,8 +49,29 @@ import io.tilt.minka.domain.ShardEntity;
  * @since Nov 6, 2016
  */
 @SuppressWarnings("unused")
+@JsonPropertyOrder({"global", "shards", "pallets", "roadmaps"})
 public class Status {
-	@JsonPropertyOrder({"global", "shards", "pallets", "roadmaps"})
+	
+	
+	public static class Shards {
+		private List<Shard> shards;
+		private ShardID leaderShardId;
+	
+		public static String toJson(final PartitionTable table) throws JsonProcessingException {
+			Validate.notNull(table);
+			return mapper.writeValueAsString(build(table));
+		}
+		public static Shards build(final PartitionTable table) {
+			Validate.notNull(table);
+			return new Shards(table.getStage().getShards(), table.getLeaderShardContainer().getLeaderShardId());
+		}
+		private Shards(final List<Shard> shards, final ShardID leaderId) {
+			this.shards = shards;
+			this.leaderShardId = leaderId;
+		}
+	}
+	
+	
 	
 	protected static final ObjectMapper mapper; 
 	static {

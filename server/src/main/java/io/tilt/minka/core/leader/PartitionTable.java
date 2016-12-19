@@ -39,7 +39,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Distributor;
 import io.tilt.minka.core.leader.distributor.Roadmap;
-import io.tilt.minka.domain.ShardedPartition;
+import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.NetworkShardID;
 import io.tilt.minka.domain.Shard;
@@ -48,6 +48,7 @@ import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
 import io.tilt.minka.domain.ShardID;
 import io.tilt.minka.domain.ShardState;
+import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.utils.SlidingSortedSet;
 import jersey.repackaged.com.google.common.collect.Sets;
 
@@ -65,7 +66,7 @@ import jersey.repackaged.com.google.common.collect.Sets;
 public class PartitionTable {
 
 	private static final Logger logger = LoggerFactory.getLogger(PartitionTable.class);
-
+	private LeaderShardContainer leaderShardContainer; 
 	/**
 	 * the result of a {@linkplain Distributor} phase run. 
 	 * state of continuously checked truth on duties attached to shards.
@@ -365,7 +366,7 @@ public class PartitionTable {
 		INSUFFICIENT,
 	}
 
-	public PartitionTable() {
+	public PartitionTable(final LeaderShardContainer container) {
 		this.visibilityHealth = ClusterHealth.STABLE;
 		this.workingHealth = ClusterHealth.STABLE;
 		this.capacity = ClusterCapacity.IDLE;
@@ -373,7 +374,12 @@ public class PartitionTable {
 		this.nextStage = new NextStage();
 		this.currentRoadmap = new Roadmap();
 		this.history = new SlidingSortedSet<>(20);
+		this.leaderShardContainer = container;
 
+	}
+	
+	public LeaderShardContainer getLeaderShardContainer() {
+		return this.leaderShardContainer;
 	}
 	
 	public List<Roadmap> getHistory() {

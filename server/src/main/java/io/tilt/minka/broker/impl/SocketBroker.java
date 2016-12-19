@@ -30,6 +30,8 @@ import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.LeaderShardContainer;
@@ -55,7 +57,7 @@ import io.tilt.minka.spectator.MessageMetadata;
  * @since Jan 31, 2016
  */
 public class SocketBroker extends AbstractBroker implements EventBroker {
-
+	@JsonIgnore
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private final Config config;
@@ -191,6 +193,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	public class DirectChannel implements BrokerChannel {
 		private final NetworkShardID target;
 		private final Channel channel;
+		@JsonIgnore
 		private DateTime creation;
 
 		public DirectChannel(final String serviceNanme, final NetworkShardID target, final Channel channel) {
@@ -204,7 +207,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 				this.creation = target.getCreation();
 			}
 		}
-
+		@JsonIgnore
 		private DateTime getCreation() {
 			return this.creation;
 		}
