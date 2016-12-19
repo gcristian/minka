@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import io.tilt.minka.api.Config.BootstrapConf;
 import io.tilt.minka.api.ConsumerDelegate.Event;
 import io.tilt.minka.core.leader.distributor.Balancer;
 
@@ -50,30 +51,6 @@ public class Minka<D extends Serializable, P extends Serializable> {
 
 	/* to enable many minka shards on the same JVM */
 	private static final Map<String, MinkaTenant> tenants = new ConcurrentHashMap<>();
-
-	private static class MinkaTenant {
-		private HttpServer webServer;
-		private ClassPathXmlApplicationContext context;
-		private Config config;
-		public HttpServer getWebServer() {
-			return this.webServer;
-		}
-		public void setWebServer(HttpServer webServer) {
-			this.webServer = webServer;
-		}
-		public ClassPathXmlApplicationContext getContext() {
-			return this.context;
-		}
-		public void setContext(ClassPathXmlApplicationContext context) {
-			this.context = context;
-		}
-		public Config getConfig() {
-			return this.config;
-		}
-		public void setConfig(Config config) {
-			this.config = config;
-		}
-	}
 	
 	/* current holder's tenant, and one for each instance held by applications */
 	private MinkaTenant tenant;
@@ -142,29 +119,21 @@ public class Minka<D extends Serializable, P extends Serializable> {
 			throw new IllegalAccessError("Config has the web server disabled");
 		}
 	}
-
+	
 	private void init(final Config config) {
 		// TODO fix im ignoring config arg.
 		final String serviceName = config.getBootstrap().getServiceName();
 		logger.info("{}: Initializing context for service: {}", getClass().getSimpleName(), serviceName);
 		tenants.put(config.getBootstrap().getServiceName(), tenant = new MinkaTenant());
 		tenant.setConfig(config);
-		ClassPathXmlApplicationContext ctx = tenant.getContext();
-		if (ctx != null) {
-			throw new IllegalStateException("Minka service " + serviceName + " already loaded !");
-		}
 		final String configPath = "classpath:io/tilt/minka/config/context-minka-spring.xml";
-		ctx = new ClassPathXmlApplicationContext(new String[] { configPath }, false);
+		final ClassPathXmlApplicationContext ctx = new ClassPathXmlApplicationContext(new String[] { configPath }, false);
 		tenant.setContext(ctx);
+		ctx.addBeanFactoryPostProcessor(beanFactory-> beanFactory.registerSingleton("config", config));
 		ctx.setDisplayName("minka-" + serviceName + "-ts:" + System.currentTimeMillis());
-		if (config != null) {
-			logger.info("{}: Using configuration", getClass().getSimpleName());
-			
-			//((ConfigurableApplicationContext)ctx).getBeanFactory().registerSingleton(
-			//	config.getClass().getCanonicalName(), config);
-			ctx.setId(serviceName);
-			logger.info("{}: Naming context: {}", getClass().getSimpleName(), ctx.getId());
-		}
+		logger.info("{}: Using configuration", getClass().getSimpleName(), config);
+		ctx.setId(serviceName);
+		logger.info("{}: Naming context: {}", getClass().getSimpleName(), ctx.getId());
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> destroy()));
 		start();
 	}
@@ -180,14 +149,10 @@ public class Minka<D extends Serializable, P extends Serializable> {
 		}
 	}
 
-    public void startWebserver() {
-    	final String[] hostPort = tenant.getConfig().getBroker().getHostPort().split(":");
-		int port = Integer.parseInt(hostPort[1]);
-		port += port == Config.BrokerConf.PORT ? 10000:100;
-    	final URI uri = new JerseyUriBuilder().host(hostPort[0]).port(port).build();
+	public void startWebserver() {
 		final ResourceConfig res = new ResourceConfig(AdminEndpoint.class);
 		res.property("contextConfig", tenant.getContext());
-		final HttpServer webServer = GrizzlyHttpServerFactory.createHttpServer(uri, res);
+		final HttpServer webServer = GrizzlyHttpServerFactory.createHttpServer(resolveBindAddress(tenant.getConfig()), res);
 		tenants.get(tenant.getConfig().getBootstrap().getServiceName()).setWebServer(webServer);
 		try {
 			webServer.start();
@@ -195,6 +160,27 @@ public class Minka<D extends Serializable, P extends Serializable> {
 			logger.info("{}: Unable to start web server", getClass().getSimpleName(), e);
 		}
     }
+
+	/* by default bind to the same broker's host interfase and if changed use broker's port plus 100 */
+	public URI resolveBindAddress(final Config config) {
+		final String[] brokerHostPort = config.getBroker().getHostPort().split(":");
+    	final JerseyUriBuilder builder = new JerseyUriBuilder();
+    	final BootstrapConf bs = config.getBootstrap();
+		final String[] webHostPort = bs.getWebServerHostPort().split(":");
+		int webPort = Integer.parseInt(webHostPort[1]);
+		final boolean webHostPortUntouched = bs.getWebServerHostPort().equals(Config.BootstrapConf.WEB_SERVER_HOST_PORT);
+		if (webHostPortUntouched) {
+			int brokerPort = Integer.parseInt(brokerHostPort[1]);
+			webPort = brokerPort == Config.BrokerConf.PORT ? webPort: brokerPort + 100;
+			final String host = config.getResolvedShardId().getStringIdentity().split(":")[0];
+			builder.host(host).port(webPort);
+			config.getBootstrap().setWebServerHostPort(host + ":" + webPort);
+		} else {
+			builder.host(webHostPort[0]).port(webPort);
+			config.getBootstrap().setWebServerHostPort(webHostPort[0]+ ":" + webPort);
+		}
+		return builder.build();
+	}
     
 	private void checkInit() {
 		if (!tenant.getContext().isActive()) {
@@ -441,4 +427,27 @@ public class Minka<D extends Serializable, P extends Serializable> {
 		return this;
 	}
 
+	private static class MinkaTenant {
+		private HttpServer webServer;
+		private ClassPathXmlApplicationContext context;
+		private Config config;
+		public HttpServer getWebServer() {
+			return this.webServer;
+		}
+		public void setWebServer(HttpServer webServer) {
+			this.webServer = webServer;
+		}
+		public ClassPathXmlApplicationContext getContext() {
+			return this.context;
+		}
+		public void setContext(ClassPathXmlApplicationContext context) {
+			this.context = context;
+		}
+		public Config getConfig() {
+			return this.config;
+		}
+		public void setConfig(Config config) {
+			this.config = config;
+		}
+	}
 }

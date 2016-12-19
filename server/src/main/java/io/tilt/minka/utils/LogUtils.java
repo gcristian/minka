@@ -82,7 +82,7 @@ public class LogUtils {
 		return line.toString();
 	}
 
-	public static String getGreetings(final ShardID id, final String serviceName) {
+	public static String getGreetings(final ShardID id, final String serviceName, final String webserverHostPort) {
 		final String nl = System.getProperty("line.separator");
 		StringBuilder sb = new StringBuilder(nl);
 		grossLine(GROSS_CHAR, LARGE * 2, sb);
@@ -90,8 +90,8 @@ public class LogUtils {
 		sb.append(logo);
 		sb.append("    Distributing duties since 1438, where no follower has ever got").append(nl).append(nl);
 		sb.append("    Service: ").append(serviceName).append(nl);
-		sb.append("    ShardID: ").append(id).append(nl).append(nl);
-
+		sb.append("    Tcp Broker: ").append(id).append(nl);
+		sb.append("    Http server: ").append(webserverHostPort).append(nl).append(nl);
 		sb.append(END_LINE);
 		return sb.toString();
 	}

@@ -51,7 +51,6 @@ public class Config {
         objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         objectMapper.configure(SerializationFeature.CLOSE_CLOSEABLE, true);
         objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
-        
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
 
         final SimpleModule simpleModule = new SimpleModule("module-1");
@@ -121,8 +120,12 @@ public class Config {
 		private boolean leaderShardAlsoFollows;
 		protected static final String ZOOKEEPER_HOST_PORT = "localhost:2181";
 		private String zookeeperHostPort;
+		
 		protected static final boolean ENABLE_WEBSERVER = true;
 		private boolean enableWebserver;
+		protected static final int WEB_SERVER_PORT = 57480;
+		protected static final String WEB_SERVER_HOST_PORT = "localhost:" + WEB_SERVER_PORT;
+		private String webServerHostPort;
 		
 		public String getServiceName() {
 			return serviceName;
@@ -159,6 +162,12 @@ public class Config {
 		}
 		public void setEnableWebserver(boolean enableWebserver) {
 			this.enableWebserver = enableWebserver;
+		}
+		public String getWebServerHostPort() {
+			return this.webServerHostPort;
+		}
+		public void setWebServerHostPort(String webServerHostPort) {
+			this.webServerHostPort = webServerHostPort;
 		}
 	}
 

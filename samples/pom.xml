@@ -117,7 +117,7 @@
 				</executions>
 				<configuration>
 					<executable>maven</executable>
-					<mainClass>io.tilt.minka.domain.WebServer</mainClass>
+					<mainClass>io.tilt.minka.domain.DatasetSampler</mainClass>
 					<workingDirectory>/tmp</workingDirectory>
 				</configuration>
 			</plugin>

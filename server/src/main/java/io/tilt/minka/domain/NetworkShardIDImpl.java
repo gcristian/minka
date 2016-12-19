@@ -158,6 +158,7 @@ public class NetworkShardIDImpl implements NetworkShardID, Closeable {
 			id = "-" + random.nextInt(9999);
 		}
 		this.id = id + ":" + port;
+		config.getBroker().setHostPort(this.id);
 	}
 
 	/** trying to find a LAN candidate address */

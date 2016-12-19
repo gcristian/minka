@@ -44,17 +44,28 @@ public class AdminEndpoint {
 	@Autowired
 	private  PartitionTable table;
 
+	@Autowired
+	private  Config config;
+
 	@Inject 
 	public AdminEndpoint(@Named("partitionTable") PartitionTable table) {
 		this.table = table;
 	}
 
 	@GET
+	@Path("/config")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response config() throws Exception {
+		return Response.accepted(config.toJson()).build();
+	}
+	
+	@GET
 	@Path("/status")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response status() throws JsonProcessingException {
 		return Response.accepted(Status.toJson(table)).build();
 	}
+	
 
 
 }

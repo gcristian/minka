@@ -63,7 +63,10 @@ public class Clearance implements Serializable, Comparable<Clearance> {
 
 	@Override
 	public int hashCode() {
-		return new HashCodeBuilder().append(getLeaderShardId()).append(getCreation()).append(getSequenceId())
+		return new HashCodeBuilder()
+				.append(getLeaderShardId())
+				.append(getCreation())
+				.append(getSequenceId())
 				.toHashCode();
 	}
 
@@ -71,8 +74,10 @@ public class Clearance implements Serializable, Comparable<Clearance> {
 	public boolean equals(Object obj) {
 		if (obj instanceof Clearance) {
 			Clearance other = (Clearance) obj;
-			return new EqualsBuilder().append(getSequenceId(), other.getSequenceId())
-					.append(getLeaderShardId(), other.getLeaderShardId()).isEquals();
+			return new EqualsBuilder()
+					.append(getSequenceId(), other.getSequenceId())
+					.append(getLeaderShardId(), other.getLeaderShardId())
+					.isEquals();
 		} else {
 			return false;
 		}
