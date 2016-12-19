@@ -19,12 +19,11 @@
 <table align="center"><tbody><tr>
 <td><a href="http://gcristian.github.io/minka">Home</a></td>
 <td><a href="http://gcristian.github.io/minka/doc/site/integration.html">Integration</a></td>
+<td><a href="http://gcristian.github.io/minka/doc/site/demo.html">Demo</a></td>
 <td><a href="http://gcristian.github.io/minka/doc/site/details.html">Details</a></td>
 <td><a href="http://gcristian.github.io/minka/doc/site/architecture.html">Architecture</a></td>
 <td><a href="http://gcristian.github.io/minka/doc/site/project.html">Project</a></td>
 </tr></tbody></table>
-
-
 
 <h2 id="2-details">2. Details</h2>
 
@@ -195,6 +194,8 @@ For proper desired management, this’s a concern to tell minka about your dutie
 </tbody></table>
 
 
+
+
 <h4 id="214-pallets">2.1.4 Pallets</h4>
 
 <p>A pallet is a 2nd-level order into which we can granularize our processing needs. Pallets can be used to group together similar duties, that we might need to react with the same <code>function()</code> , or with the same pallet’s payload, or at the same pallet’s shard (in case we use the appropiate balancers for this). <br>
@@ -240,11 +241,15 @@ Pallets must be created before duties.</li>
 </tbody></table>
 
 
+
+
 <h3 id="22-balancers">2.2 Balancers</h3>
 
 <p>Balancers move duties from a source shard to a target shard with a functional criteria, by means of migration or creation. They have a fixed behaviour and continuously perform the same task no matter what cycle are in.  <br>
 </p><center>Reference for the following pictures<br><br> <img src="http://svgshare.com/i/QD.svg" width="60%"> </center> <br>
 There’re four balancers that can be used for each individual pallet, at creation time thru:<p></p>
+
+
 
 <pre class="prettyprint prettyprinted"><code class="language-java"><span class="typ">PalletBuilder</span><span class="pun">&lt;</span><span class="typ">String</span><span class="pun">&gt;.</span><span class="pln">builder</span><span class="pun">(</span><span class="str">"pal"</span><span class="pun">).</span><span class="pln">with</span><span class="pun">(</span><span class="typ">Balancer</span><span class="pun">.</span><span class="typ">Strategy</span><span class="pun">.</span><span class="pln">FAIR_WEIGHT</span><span class="pun">).</span><span class="pln">build</span><span class="pun">()</span></code></pre>
 
@@ -306,6 +311,8 @@ There’re four balancers that can be used for each individual pallet, at creati
 
 <p>Then there’s a White synthetic duty (id’ed 55), it’s only one but it’s present in all shards. <br>
 </p><center><img src="http://imgh.us/box-allbalancers.svg" width="80%"></center><p></p>
+
+
 
 <h3 id="23-shards">2.3 Shards</h3>
 
