@@ -8,7 +8,7 @@ port_start=9000
 host='localhost'
 xms='512M'
 pp='broker.hostPort'
-dsfp=$(pwd)'/'${1:-'dataset.properties'}
+dsfp=$(pwd)'/'${1:-'datasets/mix.properties'}
 for i in {0..20}; do
 	echo $dsfp
 	i=$(($i+$port_start))
