@@ -256,7 +256,7 @@ public class Status {
 			this.size = unstagedSize + stagedSize;
 			String str = "0";
 			if (size > 0 && stagedSize > 0) {
-				str = String.valueOf((size * stagedSize) / 100) ;
+				str = String.valueOf((stagedSize*100) / size) ;
 			}
 			this.allocationPercent = str + "%";
 			this.creation = creation.toString();
