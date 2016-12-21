@@ -25,13 +25,15 @@
 <td><a href="http://gcristian.github.io/minka/doc/site/project.html">Project</a></td>
 </tr></tbody></table>
 
+
+
 <h2 id="4-project">4. Project</h2>
 
 
 
 <h3 id="41-scope">4.1 Scope</h3>
 
-<p>Minka is a simple and abstract model for shardig, balancing and distributing data. <br>
+<p>Minka is a simple and abstract model for sharding, balancing and distributing data. <br>
 It’s provided with no orientation, that’s why is also reduced in complexity and features.</p>
 
 <blockquote>
@@ -41,7 +43,7 @@ It’s provided with no orientation, that’s why is also reduced in complexity 
 <p>Minka is not a database or filesystem</p>
 
 <ul>
-<li>it doesnt gives any facility to model data structures or articulate data flows, far from being related to.</li>
+<li>it doesnt gives any facility to model data structures or articulate data flows.</li>
 <li>Although it supports data persistance and replication for high availability of service, and it can be used to store information.</li>
 </ul>
 
@@ -59,29 +61,27 @@ It’s provided with no orientation, that’s why is also reduced in complexity 
 <li>Although it supports hot topology changes, multitenancy, failure resilience.</li>
 </ul>
 
-
-
 <h3 id="42-roadmap">4.2 Roadmap</h3>
 
 <ol>
-<li><p>Release 0.1 <br>
-1.2 <code>done</code>: initial leader’s load of entities from DB and CRUD operations on duties <br>
-1.3 <code>done</code>: balancing and distribution flows</p></li>
-<li><p>Release 0.2 <br>
-1.2. <code>done</code>: replace zookeeper broker with a TCP socket broker <br>
-1.2. <code>done</code>: add programatic integration instead of spring xmls <br>
-1.3. <code>done</code>: enable custom balancer implementation <br>
-1.4. <code>to-do</code>:  add HTTP server for API read requests <br>
-1.5. <code>to-do</code>: stationary and synthetic duties, for non-idempotent tasks, coordination signals <br>
-1.6. <code>to-do</code>: capture event marked with creation or migration, delegate might need it <br>
-1.7. <code>to-do</code>: enforce unique ids validation across input methods.</p></li>
+<li><p>Release 0.1</p>
+
+<ul><li><code>done</code>: initial leader’s load of entities from DB and CRUD operations on duties</li>
+<li><code>done</code>: balancing and distribution flows</li></ul></li>
+<li><p>Release 0.2</p>
+
+<ul><li><code>done</code>: replace zookeeper broker with a TCP socket broker</li>
+<li><code>done</code>: add programatic integration instead of spring xmls</li>
+<li><code>done</code>: enable custom balancer implementation</li>
+<li><code>to-do</code>:  add HTTP server for API read requests</li>
+<li><code>to-do</code>: stationary and synthetic duties, for non-idempotent tasks, coordination signals</li>
+<li><code>to-do</code>: capture event marked with creation or migration, delegate might need it</li>
+<li><code>to-do</code>: enforce unique ids validation across input methods.</li></ul></li>
 <li><p>Release 0.3</p>
 
-<ol><li><code>to-do</code>: native storage for entities to support CRUD requests</li>
-<li><code>to-do</code>: enable usage of MinkaClient outside the JVM running the shard</li></ol></li>
+<ul><li><code>to-do</code>: native storage for entities to support CRUD requests</li>
+<li><code>to-do</code>: enable usage of MinkaClient outside the JVM running the shard</li></ul></li>
 </ol>
-
-
 
 <h3 id="43-about">4.3 About</h3>
 
