@@ -49,6 +49,8 @@ import io.tilt.minka.domain.ShardEntity;
  */
 public interface Balancer {
 
+	static final Logger logger = LoggerFactory.getLogger(Balancer.class);
+
 	/**
 	 * Analyze the current and next state of the partition table and 
 	 * apply overrides and transfers on a migrator. 
@@ -61,7 +63,6 @@ public interface Balancer {
 	
 	/** so clients can add new balancers */
 	public static class Directory {
-		private static final Logger logger = LoggerFactory.getLogger(Balancer.class);
 		private final static Map<Class<? extends Balancer>, Balancer> directory = new HashMap<>();
 		static {
 			try {
@@ -154,8 +155,7 @@ public interface Balancer {
 			try {
 				return (BalancerMetadata) Class.forName(getBalancer().getName()+"$Metadata").newInstance();
 			} catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				logger.error("{}: Unable to load balancer: {}", getBalancer().getClass(), Balancer.class.getSimpleName(), e);
 				return null;
 			}
 		}
