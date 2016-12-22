@@ -3,6 +3,8 @@ package io.tilt.minka.api;
 import java.io.InputStream;
 import java.io.Serializable;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 /**
  * Facility to transport streams for large binaries from Leader to Followers.
  * 
@@ -11,7 +13,8 @@ import java.io.Serializable;
  *
  */
 public interface EntityPayload extends Serializable {
-
+	
+	@JsonIgnore
 	default boolean hasStreamPayload() {
 		return false;
 	}
@@ -20,6 +23,7 @@ public interface EntityPayload extends Serializable {
 	 * Only called first time to fetch 
 	 * @return	the stream to fetch data from
 	 */
+	@JsonIgnore
 	default InputStream getInputStream() {
 		return null;
 	}
