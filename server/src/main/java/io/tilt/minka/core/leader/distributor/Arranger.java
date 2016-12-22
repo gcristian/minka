@@ -101,10 +101,11 @@ public class Arranger {
 					table.getStage().getShardsByState(ShardState.ONLINE).forEach(
 							s->index.put(s, table.getStage().getDutiesByShard(pallet.getPallet(), s)));
 					
-					final NextTable nextTable = new NextTable(pallet.getPallet(), index, adds, removes, roadmap, table);
+					final Migrator migra = new Migrator(table, roadmap, pallet.getPallet());
+					final NextTable nextTable = new NextTable(pallet.getPallet(), index, adds, removes, roadmap, migra);
 					balancer.balance(nextTable);
-					if (!nextTable.getMigrator().isEmpty()) {
-						nextTable.getMigrator().execute();
+					if (!migra.isEmpty()) {
+						migra.execute();
 					}
 				} else {
 					logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(), 
@@ -195,21 +196,20 @@ public class Arranger {
 		private final Set<ShardEntity> creations;
 		private final Set<ShardEntity> deletions;
 		private final Roadmap roadmap;
-		private final PartitionTable partitionTable;
 		
 		private Migrator migra;
 		private Set<ShardEntity> duties;
 		
 		protected NextTable(final Pallet<?> pallet, final Map<Shard, Set<ShardEntity>> dutiesByShard, 
-				final Set<ShardEntity> creations, final Set<ShardEntity> deletions, 
-				final Roadmap roadmap, final PartitionTable partitionTable) {
+				final Set<ShardEntity> creations, final Set<ShardEntity> deletions, final Roadmap roadmap, 
+				final Migrator migra) {
 			super();
 			this.pallet = pallet;
 			this.dutiesByShard = Collections.unmodifiableMap(dutiesByShard);
 			this.creations = Collections.unmodifiableSet(creations);
 			this.deletions = Collections.unmodifiableSet(deletions);
 			this.roadmap = roadmap;
-			this.partitionTable = partitionTable;
+			this.migra = migra;
 		}
 		public Pallet<?> getPallet() {
 			return this.pallet;
@@ -235,9 +235,6 @@ public class Arranger {
 		public Set<ShardEntity> getDeletions() {
 			return this.deletions;
 		}
-		protected PartitionTable getPartitionTable() {
-			return this.partitionTable;
-		}
 		/** @deprecated
 		 * @return a roadmap inside the current table
 		 * */
@@ -246,9 +243,6 @@ public class Arranger {
 		}
 		/** @return a facility to request modifications for duty assignation for the next distribution */
 		public synchronized Migrator getMigrator() {
-			if (migra == null) {
-				this.migra = new Migrator(partitionTable, roadmap, pallet); 
-			}
 			return migra;
 		}
 	}
