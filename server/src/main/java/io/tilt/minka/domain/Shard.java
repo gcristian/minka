@@ -28,6 +28,7 @@ import org.joda.time.DateTimeZone;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
@@ -47,9 +48,7 @@ public class Shard implements Comparator<Shard> {
 
 	private final BrokerChannel brokerChannel;
 	private final NetworkShardID shardId;
-	@JsonIgnore
 	private final DateTime firstTimeSeen;
-	@JsonIgnore
 	private DateTime lastStatusChange;
 	private final SlidingSortedSet<Heartbeat> cardiacLapse;
 	private ShardState serviceState;
@@ -69,11 +68,20 @@ public class Shard implements Comparator<Shard> {
 	public DateTime getLastStatusChange() {
 		return this.lastStatusChange;
 	}
+	@JsonProperty("lastStatusChange")
+	private String getLastStatusChange_() {
+		return this.lastStatusChange.toString();
+	}
 	@JsonIgnore
 	public DateTime getFirstTimeSeen() {
 		return this.firstTimeSeen;
 	}
+	@JsonProperty("firstTimeSeen")
+	public String getFirstTime() {
+		return this.firstTimeSeen.toString();
+	}
 
+	@JsonIgnore
 	public BrokerChannel getBrokerChannel() {
 		return this.brokerChannel;
 	}
@@ -86,6 +94,7 @@ public class Shard implements Comparator<Shard> {
 		this.capacities = capacities;
 	}
 	
+	@JsonIgnore
 	public Map<Pallet<?>, Capacity> getCapacities() {
 		return this.capacities;
 	}
@@ -97,6 +106,7 @@ public class Shard implements Comparator<Shard> {
 		this.cardiacLapse.add(hb);
 	}
 
+	@JsonIgnore
 	public List<Heartbeat> getHeartbeats() {
 		return this.cardiacLapse.values();
 	}

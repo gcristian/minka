@@ -50,14 +50,16 @@ import io.tilt.minka.api.Pallet;
  */
 public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEntity>, EntityPayload {
 
+	@JsonIgnore
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private static final long serialVersionUID = 4519763920222729635L;
-
+	@JsonIgnore
 	private final Entity<?> from;
 	private final Type type;
 	private EntityEvent event;
 	private State state;
+	@JsonIgnore
 	private StuckCause stuckCause;
 	private EntityPayload userPayload;
 
