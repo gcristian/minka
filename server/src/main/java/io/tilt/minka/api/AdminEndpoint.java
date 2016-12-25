@@ -60,17 +60,38 @@ public class AdminEndpoint {
 	}
 	
 	@GET
-	@Path("/status")
+	@Path("/distro")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response status() throws JsonProcessingException {
 		return Response.accepted(Status.toJson(table)).build();
 	}
+
+	@GET
+	@Path("/pallets")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response pallets() throws JsonProcessingException {
+		return Response.accepted(Status.palletsToJson(table)).build();
+	}
 	
 	@GET
-	@Path("/proctor")
+	@Path("/shards")
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response proctor() throws JsonProcessingException {
+	public Response shards() throws JsonProcessingException {
 		return Response.accepted(Status.Shards.toJson(table)).build();
+	}
+
+	@GET
+	@Path("/duties")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response duties() throws JsonProcessingException {
+		return Response.accepted(Status.dutiesToJson(table)).build();
+	}
+
+	@GET
+	@Path("/roadmaps")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response roadmaps() throws JsonProcessingException {
+		return Response.accepted(Status.elementToJson(table.getHistory())).build();
 	}
 
 

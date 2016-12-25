@@ -24,7 +24,6 @@ import static io.tilt.minka.domain.ShardState.ONLINE;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -36,7 +35,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Multimap;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.DependencyPlaceholder;
@@ -49,6 +47,7 @@ import io.tilt.minka.core.leader.Bookkeeper;
 import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
+import io.tilt.minka.core.leader.distributor.Roadmap.Delivery;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -141,24 +140,20 @@ public class Distributor extends ServiceImpl {
 				return;
 			}
 			// skip if unstable unless a roadmap in progress or expirations will occurr and dismiss
-			if (partitionTable.getCurrentRoadmap().isEmpty()
-					&& partitionTable.getVisibilityHealth() == ClusterHealth.UNSTABLE) {
+			Roadmap currRoadmap = partitionTable.getCurrentRoadmap();
+			if ((currRoadmap==null || currRoadmap.isEmpty()) && partitionTable.getVisibilityHealth() == ClusterHealth.UNSTABLE) {
 				logger.warn("{}: ({}) Posponing distribution until reaching cluster stability (", getName(), shardId);
 				return;
 			}
 			showStatus();
-			final long now = System.currentTimeMillis();
 			final int online = partitionTable.getStage().getShardsByState(ONLINE).size();
 			final int min = config.getProctor().getMinShardsOnlineBeforeSharding();
 			if (online >= min) {
 				if (checkWithStorageWhenAllOnlines()) {
-					final Roadmap currentRoadmap = partitionTable.getCurrentRoadmap();
-					if (currentRoadmap.isEmpty()) {
+					if (currRoadmap == null || currRoadmap.isClosed()) {
 						buildAndDriveRoadmap(null);
-					} else if (!currentRoadmap.hasFinished() && currentRoadmap.hasCurrentStepFinished()) {
-						forwardRoadmap();
 					} else {
-						checkExpiration(now, currentRoadmap);
+						driveRoadmap();
 					}
 				}
 			} else {
@@ -184,15 +179,42 @@ public class Distributor extends ServiceImpl {
 	private void buildAndDriveRoadmap(final Roadmap previousChange) {
 		final Roadmap roadmap = arranger.callForBalance(partitionTable, previousChange);
 		bookkeeper.cleanTemporaryDuties();
-		if (!roadmap.isEmpty()) {
+		if (roadmap!=null && !roadmap.isEmpty()) {
 			partitionTable.addRoadmap(roadmap);
 			this.partitionTable.setWorkingHealth(ClusterHealth.UNSTABLE);
-			forwardRoadmap();
-			logger.info("{}: Balancer generated {} issues on change: {}", getName(), roadmap.getGroupedDeliveries().size(),
-					roadmap.getId());
+			roadmap.open();
+			driveRoadmap();
+			logger.info("{}: Balancer generated issues on change: {}", getName(), roadmap.getId());
 		} else {
 			this.partitionTable.setWorkingHealth(ClusterHealth.STABLE);
 			logger.info("{}: .. in Balance {}", getName(), LogUtils.BALANCED_CHAR);
+		}
+	}
+	
+	private void driveRoadmap() {
+		final Roadmap roadmap = partitionTable.getCurrentRoadmap();
+		while (roadmap.hasNext()) {
+			if (roadmap.hasPermission()) {
+				final Delivery delivery = roadmap.next();
+				// check it's still in ptable
+				if (partitionTable.getStage().getShardsByState(ONLINE).contains(delivery.getShard())) {
+					final Collection<ShardEntity> duties = delivery.getDuties();
+					final Set<ShardEntity> sortedLog = new TreeSet<>(duties);
+					logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), delivery.getEvent().toVerb(),
+							delivery.getShard().getShardID(), duties.size(), ShardEntity.toStringIds(sortedLog));
+					if (eventBroker.postEvents(delivery.getShard().getBrokerChannel(), new ArrayList<>(duties))) {
+						// dont mark to wait for those already confirmed (from fallen shards)
+						duties.forEach(duty -> duty.registerEvent((duty.getState() == PREPARED ? SENT : CONFIRMED)));
+					} else {
+						logger.error("{}: Couldnt transport current issues !!!", getName());
+					}
+				} else {
+					logger.error("{}: PartitionTable lost transport's target shard: {}", getName(), delivery.getShard());
+				}
+			} else {
+				checkExpiration(System.currentTimeMillis(), roadmap);
+				break;
+			}
 		}
 	}
 
@@ -258,7 +280,7 @@ public class Distributor extends ServiceImpl {
 	private void checkConsistencyState() {
 		if (config.getDistributor().isRunConsistencyCheck() && partitionTable.getCurrentRoadmap().isEmpty()) {
 			// only warn in case there's no reallocation ahead
-			final Set<ShardEntity> currently = partitionTable.getStage().getDutiesAllByShardState(null, null);
+			final Set<ShardEntity> currently = partitionTable.getStage().getDuties();
 			final Set<ShardEntity> sorted = new TreeSet<>();
 			for (Duty<?> duty: reloadDutiesFromStorage()) {
 				final ShardEntity entity = ShardEntity.Builder.builder(duty).build();
@@ -322,40 +344,4 @@ public class Distributor extends ServiceImpl {
 		}
 	}
 
-	/* move to next issue step and send them all */
-	private void forwardRoadmap() {
-		partitionTable.getCurrentRoadmap().nextStep();
-		if (partitionTable.getCurrentRoadmap().hasCurrentStepFinished()) {
-			logger.info("{}: Skipping current empty step", getName());
-			partitionTable.getCurrentRoadmap().nextStep();
-		}
-		driveRoadmap();
-	}
-	
-	private void driveRoadmap() {
-		final Multimap<Shard, ShardEntity> issues = partitionTable.getCurrentRoadmap().getGroupedDeliveries();
-		final Iterator<Shard> it = issues.keySet().iterator();
-		while (it.hasNext()) {
-			final Shard shard = it.next();
-			// check it's still in ptable
-			if (partitionTable.getStage().getShardsByState(ONLINE).contains(shard)) {
-				final Collection<ShardEntity> duties = partitionTable.getCurrentRoadmap().getGroupedDeliveries().get(shard);
-				if (!duties.isEmpty()) {
-					final Set<ShardEntity> sortedLog = new TreeSet<>(duties);
-					logger.info("{}: Transporting to Shard: {} Duties ({}): {}", getName(), shard.getShardID(), duties.size(),
-							ShardEntity.toStringIds(sortedLog));
-					if (eventBroker.postEvents(shard.getBrokerChannel(), new ArrayList<>(duties))) {
-						// dont mark to wait for those already confirmed (from fallen shards)
-						duties.forEach(duty -> duty.registerEvent((duty.getState() == PREPARED ? SENT : CONFIRMED)));
-					} else {
-						logger.error("{}: Couldnt transport current issues !!!", getName());
-					}
-				} else {
-					throw new IllegalStateException("No duties grouped by shard at Reallocation !!");
-				}
-			} else {
-				logger.error("{}: PartitionTable lost transport's target shard: {}", getName(), shard);
-			}
-		}
-	}
 }

@@ -24,25 +24,27 @@ package io.tilt.minka.domain;
 public enum EntityEvent {
 
 	/* user creates a duty from MinkaClient */
-	CREATE(true),
+	CREATE(true, "Creating"),
 	/* user prompts to delete as a kill state */
-	REMOVE(true),
+	REMOVE(true, "Removing"),
 	/* user updates something related to the duty that leader must notify the shard */
-	UPDATE(true),
+	UPDATE(true, "Updating"),
 	/* unrelated to the entity, just a message to it's delegate */
-	TRANSFER(false),
+	TRANSFER(false, "Transferring" ),
 
 	/* leader assigns to a Shard */
-	ATTACH(false),
+	ATTACH(false, "Attaching"),
 	/* leader takes off the duty from the shard for any reason may be */
-	DETACH(false),
+	DETACH(false, "Dettaching"),
 	
 	;
 
 	boolean crud;
+	String verb;
 
-	EntityEvent(boolean crud) {
+	EntityEvent(boolean crud, final String verb) {
 		this.crud = crud;
+		this.verb = verb;
 	}
 
 	public boolean isCrud() {
@@ -52,9 +54,15 @@ public enum EntityEvent {
 	public boolean is(EntityEvent pe) {
 		return this == pe;
 	}
+	
+	public String toVerb() {
+		return verb;
+	}
 
-	@Override
+/*	
+    @Override
 	public String toString() {
 		return this.name().substring(0, 1);
 	}
+*/
 }

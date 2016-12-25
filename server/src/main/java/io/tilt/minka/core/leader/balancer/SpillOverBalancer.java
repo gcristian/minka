@@ -174,7 +174,7 @@ public class SpillOverBalancer implements Balancer {
 			} else {
 				newcomer.registerEvent(EntityEvent.ATTACH, State.STUCK);
 				//newcomer.setStuckCause(StuckCause.UNSUITABLE);
-				next.getRoadmap().getProblems().put(null, newcomer);
+				//next.getRoadmap().getProblems().put(null, newcomer);
 				unfitting.add(newcomer);
 			}
 		}
@@ -192,7 +192,7 @@ public class SpillOverBalancer implements Balancer {
 				if (receptor == null) {
 					emitted.registerEvent(EntityEvent.ATTACH, State.STUCK);
 					//emitted.setStuckCause(StuckCause.UNSUITABLE);
-					next.getRoadmap().getProblems().put(null, emitted);
+					//next.getRoadmap().getProblems().put(null, emitted);
 					unfitting.add(emitted);
 				} else {
 					migra.transfer(emisor, receptor, emitted);

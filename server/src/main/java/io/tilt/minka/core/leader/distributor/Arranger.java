@@ -76,13 +76,14 @@ public class Arranger {
 		final Set<ShardEntity> dutyDeletions = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
 		// lets add those duties of a certain deleting pallet
 		table.getNextStage().getPalletsCrudWithFilters(EntityEvent.REMOVE, State.PREPARED)
-			.forEach(p->dutyDeletions.addAll(table.getStage().getDutiesAll(p.getPallet())));
+			.forEach(p->dutyDeletions.addAll(table.getStage().getDutiesByPallet(p.getPallet())));
 		registerDeletions(table, roadmap, dutyDeletions);
 		
 		final Set<ShardEntity> ents = new HashSet<>(table.getStage().getDutiesAttached());
 		ents.addAll(dutyCreations);
 		final PalletCollector allColl = new PalletCollector(ents, table.getStage().getPallets());
 		final Iterator<Set<ShardEntity>> itPallet = allColl.getPalletsIterator();
+		boolean anyChange = false;
 		while (itPallet.hasNext()) {
 			try {
 				Iterator<ShardEntity> itDuties = itPallet.next().iterator();
@@ -105,7 +106,7 @@ public class Arranger {
 					final NextTable nextTable = new NextTable(pallet.getPallet(), index, adds, removes, roadmap, migra);
 					balancer.balance(nextTable);
 					if (!migra.isEmpty()) {
-						migra.execute();
+						anyChange |=migra.execute();
 					}
 				} else {
 					logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(), 
@@ -115,7 +116,7 @@ public class Arranger {
 				logger.error("Unexpected", e);
 			}
 		}
-		return roadmap;
+		return anyChange ? roadmap : null;
 	}
 
 	protected static void registerMissing(final PartitionTable table, final Roadmap realloc,
@@ -145,18 +146,15 @@ public class Arranger {
 	 * check waiting duties never confirmed (for fallen shards as previous
 	 * target candidates)
 	 */
-	protected List<ShardEntity> restoreUnfinishedBusiness(final Roadmap previousChange) {
+	protected List<ShardEntity> restoreUnfinishedBusiness(final Roadmap previous) {
 		List<ShardEntity> unfinishedWaiting = new ArrayList<>();
-		if (previousChange != null && !previousChange.isEmpty() && !previousChange.hasCurrentStepFinished()
-				&& !previousChange.hasFinished()) {
-			previousChange.getGroupedDeliveries().keys()
-					/*
-					 * .stream() no siempre la NO confirmacion sucede sobre un
-					 * fallen shard .filter(i->i.getServiceState()==QUITTED)
-					 * .collect(Collectors.toList())
-					 */
-					.forEach(i -> previousChange.getGroupedDeliveries().get(i).stream()
-							.filter(j -> j.getState() == State.SENT).forEach(j -> unfinishedWaiting.add(j)));
+		if (previous != null && !previous.isClosed() && !previous.hasPermission() && !previous.hasNext()) {
+			/*
+			 * .stream() no siempre la NO confirmacion sucede sobre un
+			 * fallen shard .filter(i->i.getServiceState()==QUITTED)
+			 * .collect(Collectors.toList())
+			 */
+			unfinishedWaiting.addAll(previous.getPending());
 			if (unfinishedWaiting.isEmpty()) {
 				logger.info("{}: Previous change although unfinished hasnt waiting duties", getClass().getSimpleName());
 			} else {

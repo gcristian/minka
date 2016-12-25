@@ -36,6 +36,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
 import io.tilt.minka.core.leader.distributor.Roadmap;
+import io.tilt.minka.core.leader.distributor.Roadmap.Delivery;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
@@ -75,7 +76,7 @@ public class Bookkeeper {
 			return;
 		}
 			
-		if (partitionTable.getCurrentRoadmap().isEmpty()) {
+		if (partitionTable.getCurrentRoadmap() == null || partitionTable.getCurrentRoadmap().isClosed()) {
 			// believe only when online: to avoid Dirty efects after follower's hangs/stucks
 			// so it clears itself before trusting their HBs
 			for (final ShardEntity duty : hb.getReportedCapturedDuties()) {
@@ -107,15 +108,16 @@ public class Bookkeeper {
 
 	private void analyzeReportedDuties(final Shard shard, final List<ShardEntity> heartbeatDuties) {
 		final Roadmap road = partitionTable.getCurrentRoadmap();
-		final Set<ShardEntity> currentChanges = road.getGroupedDeliveries().get(shard);
+		final Delivery delivery = road.getDelivery(shard);
+		if (delivery!=null) {
+			confirmReallocated(shard, heartbeatDuties, delivery);
+			confirmAbsences(shard, heartbeatDuties, delivery);
+		}
 
-		confirmReallocated(shard, heartbeatDuties, currentChanges);
-		confirmAbsences(shard, heartbeatDuties, currentChanges);
-
-		if (road.hasCurrentStepFinished() && road.hasFinished()) {
+		if (!road.hasNext() && road.hasPermission()) {
 			logger.info("{}: Roadmap finished ! (all changes in stage)", getClass().getSimpleName());
 			road.close();
-		} else if (road.hasCurrentStepFinished()) {
+		//} else if (road.hasCurrentStepFinished()) {
 			//scheduler.forward(scheduler.get(Action.DISTRIBUTOR));
 		}
 	}
@@ -149,19 +151,18 @@ public class Bookkeeper {
 
 	/* find the up-coming */
 	private void confirmReallocated(final Shard shard, final List<ShardEntity> heartbeatDuties,
-			final Set<ShardEntity> currentChanges) {
+			final Delivery delivery) {
 
 		final Set<ShardEntity> sortedLogConfirmed = new TreeSet<>();
 		final Set<ShardEntity> sortedLogDirty = new TreeSet<>();
 		for (final ShardEntity heartbeatDuty : heartbeatDuties) {
-			for (ShardEntity prescriptedDuty : currentChanges) {
+			for (ShardEntity prescriptedDuty : delivery.getDuties()) {
 				if (prescriptedDuty.equals(heartbeatDuty)) {
 					if (heartbeatDuty.getState() == CONFIRMED
 							&& prescriptedDuty.getDutyEvent() == heartbeatDuty.getDutyEvent()) {
 						sortedLogConfirmed.add(heartbeatDuty);
 						// remove the one holding older State
 						prescriptedDuty.registerEvent(CONFIRMED);
-						currentChanges.remove(prescriptedDuty);
 						changeStage(shard, heartbeatDuty);
 						break;
 					} else {
@@ -193,13 +194,9 @@ public class Bookkeeper {
 	}
 
 	/* check un-coming as unassign */
-	private void confirmAbsences(final Shard shard, final List<ShardEntity> heartbeatDuties,
-			final Set<ShardEntity> currentChanges) {
-
-		final Iterator<ShardEntity> it = currentChanges.iterator();
+	private void confirmAbsences(final Shard shard, final List<ShardEntity> heartbeatDuties, final Delivery delivery) {
 		final Set<ShardEntity> sortedLog = new TreeSet<>();
-		while (it.hasNext()) {
-			final ShardEntity reallocatedDuty = it.next();
+		for (ShardEntity reallocatedDuty :delivery.getDuties()) {
 			if ((reallocatedDuty.getDutyEvent().is(EntityEvent.DETACH)
 					|| reallocatedDuty.getDutyEvent().is(EntityEvent.REMOVE))
 					&& !heartbeatDuties.stream().anyMatch(
@@ -207,7 +204,6 @@ public class Bookkeeper {
 				sortedLog.add(reallocatedDuty);
 				reallocatedDuty.registerEvent(CONFIRMED);
 				changeStage(shard, reallocatedDuty);
-				it.remove();
 			}
 		}
 		if (!sortedLog.isEmpty()) {

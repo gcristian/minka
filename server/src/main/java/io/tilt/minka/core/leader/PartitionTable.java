@@ -200,10 +200,13 @@ public class PartitionTable {
 		public Set<ShardEntity> getDutiesAttached() {
 			return getDutiesAllByShardState(null, null);
 		}
-		public Set<ShardEntity> getDutiesAll(final Pallet<?> pallet) {
+		public Set<ShardEntity> getDuties() {
+			return getDutiesAllByShardState(null, null);
+		}
+		public Set<ShardEntity> getDutiesByPallet(final Pallet<?> pallet) {
 			return getDutiesAllByShardState(pallet, null);
 		}
-		public Set<ShardEntity> getDutiesAllByShardState(final Pallet<?> pallet, final ShardState state) {
+		private Set<ShardEntity> getDutiesAllByShardState(final Pallet<?> pallet, final ShardState state) {
 			final Set<ShardEntity> allDuties = new HashSet<>();
 			for (Shard shard : partitionsByShard.keySet().stream().filter(s -> s.getState() == state || state == null)
 					.collect(Collectors.toList())) {
@@ -372,7 +375,6 @@ public class PartitionTable {
 		this.capacity = ClusterCapacity.IDLE;
 		this.stage = new Stage();
 		this.nextStage = new NextStage();
-		this.currentRoadmap = new Roadmap();
 		this.history = new SlidingSortedSet<>(20);
 		this.leaderShardContainer = container;
 

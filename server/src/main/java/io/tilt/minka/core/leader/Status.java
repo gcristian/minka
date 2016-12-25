@@ -35,8 +35,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.common.util.concurrent.AtomicDouble;
 
+import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
-import io.tilt.minka.core.leader.distributor.Roadmap;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
@@ -85,21 +85,21 @@ public class Status {
 		mapper.configure(Feature.WRITE_NUMBERS_AS_STRINGS, true);
 	}
 	
-	protected final List<ShardRep> shards;
-	protected final List<PalletRep> pallets;
+	protected final List<ShardView> shards;
 	protected final Global global;
-	protected final List<Roadmap> roadmaps;
 	
 	@JsonCreator
-	private Status(final List<ShardRep> shards, final List<PalletRep> pallets, final Global global, 
-			final List<Roadmap> roadmaps) {
+	private Status(final List<ShardView> shards, final Global global) {
 		super();
 		this.shards = shards;
-		this.pallets = pallets;
 		this.global = global;
-		this.roadmaps = roadmaps;
 	}
 
+	public static String elementToJson(final Object o) throws JsonProcessingException {
+		Validate.notNull(o);
+		return mapper.writeValueAsString(o);
+	}
+	
 	public static String toJson(final PartitionTable table) throws JsonProcessingException {
 		Validate.notNull(table);
 		return mapper.writeValueAsString(build(table));
@@ -109,13 +109,26 @@ public class Status {
 		Validate.notNull(table);
 		return new Status(
 				buildShardRep(table), 
-				buildPallets(table), 
-				buildGlobal(table), 
-				table.getHistory());
+				buildGlobal(table));
 	}
 
-	private static List<PalletRep> buildPallets(final PartitionTable table) {
-		final List<PalletRep> ret = new ArrayList<>();
+	public static String dutiesToJson(final PartitionTable table) throws JsonProcessingException {
+		return elementToJson(buildDuties(table));
+	}
+	private static List<Duty<?>> buildDuties(final PartitionTable table) {
+		Validate.notNull(table);
+		final List<Duty<?>> ret = new ArrayList<>();
+		table.getStage().getDuties().forEach(e->ret.add(e.getDuty()));
+		return ret;
+	}
+
+	public static String palletsToJson(PartitionTable table) throws JsonProcessingException {
+		Validate.notNull(table);
+		return elementToJson(buildPallets(table));
+	}
+		
+	private static List<PalletView> buildPallets(final PartitionTable table) {
+		final List<PalletView> ret = new ArrayList<>();
 		
 		for (final ShardEntity pallet: table.getStage().getPallets()) {
 			final Set<ShardEntity> crud = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.CREATE, 
@@ -125,33 +138,40 @@ public class Status {
 								
 			AtomicDouble dettachedWeight = new AtomicDouble();
 			crud.forEach(d->dettachedWeight.addAndGet(d.getDuty().getWeight()));
+
+			final List<DutyView> dutyRepList = new ArrayList<>();
+			table.getStage().getDutiesByPallet(pallet.getPallet()).forEach(d->dutyRepList.add(new DutyView(d.getDuty().getId(), d.getDuty().getWeight())));
 			
-			ret.add(new PalletRep(pallet.getPallet().getId(), 
-				table.getStage().getCapacityTotal(pallet.getPallet()), 
-				table.getStage().getSizeTotal(pallet.getPallet()), 
-				table.getStage().getWeightTotal(pallet.getPallet()), 
-				pallet.getPallet().getMetadata().getBalancer().getName(), 
-				crud.size(), dettachedWeight.get(), pallet.getEventDateForPartition(EntityEvent.CREATE),
-						pallet.getPallet().getMetadata()));
+			ret.add(new PalletView(pallet.getPallet().getId(), 
+						table.getStage().getCapacityTotal(pallet.getPallet()), 
+						table.getStage().getSizeTotal(pallet.getPallet()), 
+						table.getStage().getWeightTotal(pallet.getPallet()), 
+						pallet.getPallet().getMetadata().getBalancer().getName(), 
+						crud.size(), 
+						dettachedWeight.get(), 
+						pallet.getEventDateForPartition(EntityEvent.CREATE),
+						pallet.getPallet().getMetadata(),
+						dutyRepList
+					));
 		}
 		return ret;
 	}
 
-	private static List<ShardRep> buildShardRep(final PartitionTable table) {
-		final List<ShardRep> ret = new ArrayList<>();
+	private static List<ShardView> buildShardRep(final PartitionTable table) {
+		final List<ShardView> ret = new ArrayList<>();
 		for (final Shard shard: table.getStage().getShards()) {
-			final List<PalletAtShardRep> palletsAtShard =new ArrayList<>();
+			final List<PalletAtShardView> palletsAtShard =new ArrayList<>();
 			
 			for (final ShardEntity pallet: table.getStage().getPallets()) {
 				final Set<ShardEntity> duties = table.getStage().getDutiesByShard(pallet.getPallet(), shard);
-				final List<DutyRep> dutyRepList = new ArrayList<>();
-				duties.forEach(d->dutyRepList.add(new DutyRep(d.getDuty().getId(), d.getDuty().getWeight())));
-				palletsAtShard.add(new PalletAtShardRep(pallet.getPallet().getId(), 
+				final List<DutyView> dutyRepList = new ArrayList<>();
+				duties.forEach(d->dutyRepList.add(new DutyView(d.getDuty().getId(), d.getDuty().getWeight())));
+				palletsAtShard.add(new PalletAtShardView(pallet.getPallet().getId(), 
 						table.getStage().getCapacity(pallet.getPallet(), shard), 
 					duties.size(), table.getStage().getWeight(pallet.getPallet(), shard), dutyRepList));
 				
 			}
-			ret.add(new ShardRep(shard.getShardID().getSynthetizedID(), shard.getFirstTimeSeen(), 
+			ret.add(new ShardView(shard.getShardID().getSynthetizedID(), shard.getFirstTimeSeen(), 
 					palletsAtShard, shard.getState().toString()));
 		}
 		return ret;
@@ -181,15 +201,15 @@ public class Status {
 		}
 	}
 	
-	public static class ShardRep {
+	public static class ShardView {
 		@JsonPropertyOrder({"host", "creation", "status", "pallets"})
 		private final String host;
 		private final String creation;
 		private final String status;
-		private final List<PalletAtShardRep> pallets;
+		private final List<PalletAtShardView> pallets;
 		
 		@JsonCreator
-		protected ShardRep(final String host, final DateTime creation, final List<PalletAtShardRep> pallets, final String status) {
+		protected ShardView(final String host, final DateTime creation, final List<PalletAtShardView> pallets, final String status) {
 			super();
 			this.host = host;
 			this.creation = creation.toString();
@@ -199,15 +219,15 @@ public class Status {
 	}
 	
 	
-	public static class PalletAtShardRep {
+	public static class PalletAtShardView {
 		@JsonPropertyOrder({"id", "size", "capacity", "weight", "duties"})
 		@JsonProperty(index=1, value ="id") private final String id;
 		@JsonProperty(index=2, value ="size") private final int size;
 		@JsonProperty(index=3, value ="capacity") private final double capacity;
 		@JsonProperty(index=4, value ="weight") private final double weight;
 		@JsonProperty(index=5, value ="duties") private final String duties;
-		protected PalletAtShardRep(final String id, final double capacity, final int size, final double weight, 
-				final List<DutyRep> duties) {
+		protected PalletAtShardView(final String id, final double capacity, final int size, final double weight, 
+				final List<DutyView> duties) {
 			super();
 			this.id = id;
 			this.capacity = capacity;
@@ -219,17 +239,17 @@ public class Status {
 		}
 	}
 	
-	public static class DutyRep {
+	public static class DutyView {
 		private final String id;
 		private final double weight;
-		protected DutyRep(final String id, final double weight) {
+		protected DutyView(final String id, final double weight) {
 			super();
 			this.id = id;
 			this.weight = weight;
 		}
 	}
 	
-	public static class PalletRep {
+	public static class PalletView {
 		@JsonPropertyOrder({"id", "creation", "cluster-capacity", "allocation", "staged-size", 
 			"staged-weight", "unstaged-size", "unstaged-weight", "balancer", "balancer-metadata"})	@JsonProperty(index=1, value ="id") private final String id;
 		@JsonProperty(index=2, value ="creation") private final String creation;
@@ -242,9 +262,10 @@ public class Status {
 		@JsonProperty(index=9, value ="unstaged-weight") private final double unstagedWeight;
 		@JsonProperty(index=10, value ="balancer-metadata") private final BalancerMetadata meta;		
 		@JsonProperty(index=11, value ="balancer") private final String balancer;
-		protected PalletRep(final String id, final double capacity, final int stagedSize, final double stagedWeight, 
+		@JsonProperty(index=12, value ="duties") private final String duties;
+		protected PalletView(final String id, final double capacity, final int stagedSize, final double stagedWeight, 
 				final String balancer, final int unstagedSize, final double unstagedWeight, final DateTime creation, 
-				final BalancerMetadata meta) {
+				final BalancerMetadata meta, final List<DutyView> duties) {
 			super();
 			this.id = id;
 			this.capacity = capacity;
@@ -261,6 +282,9 @@ public class Status {
 			this.allocationPercent = str + "%";
 			this.creation = creation.toString();
 			this.meta = meta;
+			StringBuilder sb = new StringBuilder();
+			duties.forEach(d->sb.append(d.id).append(":").append(d.weight).append(","));
+			this.duties=sb.toString();
 		}
 	}
 }
