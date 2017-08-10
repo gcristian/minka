@@ -39,8 +39,8 @@ import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
-import io.tilt.minka.domain.NetworkShardID;
-import io.tilt.minka.domain.ShardID;
+import io.tilt.minka.domain.NetworkShardIdentifier;
+import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.spectator.MessageMetadata;
 
 /**
@@ -67,7 +67,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 
 	private Map<DirectChannel, SocketClient> clients;
 
-	public SocketBroker(Config config, NetworkShardID shardId, LeaderShardContainer leaderContainerShard,
+	public SocketBroker(Config config, NetworkShardIdentifier shardId, LeaderShardContainer leaderContainerShard,
 			Scheduler scheduler) {
 
 		super(shardId);
@@ -123,10 +123,10 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 		}
 	}
 
-	private void onLeaderChange(final NetworkShardID newLeader) {
+	private void onLeaderChange(final NetworkShardIdentifier newLeader) {
 		start();
 		// close outbound connections if leader really changed
-		final ShardID previous = leaderShardContainer.getPreviousLeaderShardId();
+		final ShardIdentifier previous = leaderShardContainer.getPreviousLeaderShardId();
 		if (previous == null || !previous.equals(newLeader)) {
 			logger.info("{}: ({}) Closing client connections to previous leader: {}, cause new leader is: {}",
 					getClass().getSimpleName(), super.getShardId(), previous, newLeader);
@@ -191,12 +191,12 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	}
 
 	public class DirectChannel implements BrokerChannel {
-		private final NetworkShardID target;
+		private final NetworkShardIdentifier target;
 		private final Channel channel;
 		@JsonIgnore
 		private DateTime creation;
 
-		public DirectChannel(final String serviceNanme, final NetworkShardID target, final Channel channel) {
+		public DirectChannel(final String serviceNanme, final NetworkShardIdentifier target, final Channel channel) {
 			this.target = target;
 			this.channel = channel;
 			// this way my channels are unique using shard's creation date 
@@ -223,7 +223,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 		}
 
 		@Override
-		public NetworkShardID getAddress() {
+		public NetworkShardIdentifier getAddress() {
 			return target;
 		}
 
@@ -263,12 +263,12 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	}
 
 	@Override
-	public BrokerChannel buildToTarget(Config config, Channel channel, NetworkShardID shardId) {
+	public BrokerChannel buildToTarget(Config config, Channel channel, NetworkShardIdentifier shardId) {
 		return new DirectChannel(config.getBootstrap().getServiceName(), shardId, channel);
 	}
 
 	@Override
-	public BrokerChannel buildToTarget(String service, Channel channel, NetworkShardID shardId) {
+	public BrokerChannel buildToTarget(String service, Channel channel, NetworkShardIdentifier shardId) {
 		return new DirectChannel(service, shardId, channel);
 	}
 

@@ -19,8 +19,9 @@ package io.tilt.minka.core.task;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Centralization of background one-shot and scheduled tasks.
- * Also friendler retrying mechanism for the Semaphore 
+ * A simple agenda to coordinate tasks of Minka
+ * Every action being taken by Minka is an Agent that runs in context of a Schedule
+ * deliberately sorted to allow a clean read+write of shared data
  * 
  * @author Cristian Gonzalez
  * @since Nov 27, 2015

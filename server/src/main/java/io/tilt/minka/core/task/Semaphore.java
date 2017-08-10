@@ -29,7 +29,6 @@ import static io.tilt.minka.core.task.Semaphore.Action.STUCK_POLICY;
 import static io.tilt.minka.core.task.Semaphore.Hierarchy.CHILD;
 import static io.tilt.minka.core.task.Semaphore.Hierarchy.PARENT;
 import static io.tilt.minka.core.task.Semaphore.Hierarchy.SIBLING;
-import static io.tilt.minka.core.task.Semaphore.RuleFactory.builder;
 import static java.util.Arrays.asList;
 
 import java.util.HashMap;
@@ -39,13 +38,9 @@ import java.util.Map;
 import com.google.common.collect.Lists;
 
 /**
- * Semaphore to centralize codifying of rules to keep behaviour coherence 
- * and state consistency within the shard: by dis/allowing 
- *  - threaded actions over shared data, 
- *  - operation's business order
- *  - cluster situation control  
- * 
- * Not to benefit of a thread-intensive scenario, but to allow a functional level of abstraction 
+ * A simple schema to define rules and control permissions on actions.
+ * Allowing consistency on threaded actions over shared data, etc. 
+ * Also giving a functional level of abstraction. 
  * 
  * @author Cristian Gonzalez
  * @since Nov 27, 2015
@@ -178,13 +173,14 @@ public interface Semaphore extends Service {
 		}
 	}
 
+	public static RuleFactory builder(Action action) {
+		return new RuleFactory(action);
+	}
+
 	public static class RuleFactory implements Rule {
 		private final Action action;
 		private final Map<Hierarchy, List<Action>> relatedByHierarchy;
 
-		public static RuleFactory builder(Action action) {
-			return new RuleFactory(action);
-		}
 
 		private RuleFactory(Action action) {
 			this.relatedByHierarchy = new HashMap<>();

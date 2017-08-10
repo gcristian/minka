@@ -27,8 +27,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.task.LeaderShardContainer;
-import io.tilt.minka.domain.NetworkShardID;
-import io.tilt.minka.domain.ShardID;
+import io.tilt.minka.domain.NetworkShardIdentifier;
+import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.utils.SynchronizedSlidingQueue;
 
 /**
@@ -40,23 +40,23 @@ public class TransportlessLeaderShardContainer extends ServiceImpl implements Le
 
 		private final Logger logger = LoggerFactory.getLogger(getClass());
 
-		private final ShardID myShardId;
-		private NetworkShardID leaderShardId;
-		private NetworkShardID lastLeaderShardId;
-		private Queue<NetworkShardID> previousLeaders;
-		private Set<Consumer<NetworkShardID>> observers;
+		private final ShardIdentifier myShardId;
+		private NetworkShardIdentifier leaderShardId;
+		private NetworkShardIdentifier lastLeaderShardId;
+		private Queue<NetworkShardIdentifier> previousLeaders;
+		private Set<Consumer<NetworkShardIdentifier>> observers;
 
-		public TransportlessLeaderShardContainer(final ShardID myShardId) {
-			this.previousLeaders = new SynchronizedSlidingQueue<NetworkShardID>(10);
+		public TransportlessLeaderShardContainer(final ShardIdentifier myShardId) {
+			this.previousLeaders = new SynchronizedSlidingQueue<NetworkShardIdentifier>(10);
 			this.observers = new HashSet<>();
 			this.myShardId = myShardId;
 		}
 
-		public ShardID getMyShardId() {
+		public ShardIdentifier getMyShardId() {
 			return this.myShardId;
 		}
 
-		public final void observeForChange(Consumer<NetworkShardID> consumer) {
+		public final void observeForChange(Consumer<NetworkShardIdentifier> consumer) {
 			logger.info("{}: ({}) Adding to observation group: {} (hash {})", getClass().getSimpleName(), myShardId,
 						consumer, consumer.hashCode());
 			this.observers.add(consumer);
@@ -70,7 +70,7 @@ public class TransportlessLeaderShardContainer extends ServiceImpl implements Le
 		}
 
 		@Override
-		public void setNewLeader(final NetworkShardID newLeader) {
+		public void setNewLeader(final NetworkShardIdentifier newLeader) {
 			Validate.notNull(newLeader, "Cannot set a Null leader !");
 			try {
 				boolean firstLeader = lastLeaderShardId == null;
@@ -85,7 +85,7 @@ public class TransportlessLeaderShardContainer extends ServiceImpl implements Le
 							previousLeaders.add(leaderShardId);
 						}
 						leaderShardId = newLeader;
-						for (Consumer<NetworkShardID> o : this.observers) {
+						for (Consumer<NetworkShardIdentifier> o : this.observers) {
 							logger.info("{}: ({}) Notifying observer: {}", getClass().getSimpleName(), myShardId,
 										o.getClass().getSimpleName());
 							o.accept(this.leaderShardId);
@@ -97,16 +97,16 @@ public class TransportlessLeaderShardContainer extends ServiceImpl implements Le
 			}
 		}
 
-		public final NetworkShardID getPreviousLeaderShardId() {
+		public final NetworkShardIdentifier getPreviousLeaderShardId() {
 			return previousLeaders.peek();
 		}
 
-		public final NetworkShardID getLeaderShardId() {
+		public final NetworkShardIdentifier getLeaderShardId() {
 			return this.leaderShardId;
 		}
 
 		@Override
-		public final List<NetworkShardID> getAllPreviousLeaders() {
+		public final List<NetworkShardIdentifier> getAllPreviousLeaders() {
 			// TODO
 			return null;
 		}

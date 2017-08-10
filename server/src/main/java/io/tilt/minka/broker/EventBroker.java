@@ -25,7 +25,7 @@ import java.util.function.Consumer;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.task.Service;
-import io.tilt.minka.domain.NetworkShardID;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 
 /**
  * Transport-agnostic asynchronic exchange to decouple messages between shards.
@@ -42,9 +42,9 @@ public interface EventBroker extends Service {
 		throw new RuntimeException("Unmandatory build was required");
 	}
 
-	BrokerChannel buildToTarget(Config config, Channel channel, NetworkShardID shardId);
+	BrokerChannel buildToTarget(Config config, Channel channel, NetworkShardIdentifier shardId);
 
-	default BrokerChannel buildToTarget(String service, Channel channel, NetworkShardID shardId) {
+	default BrokerChannel buildToTarget(String service, Channel channel, NetworkShardIdentifier shardId) {
 		throw new RuntimeException("Unmandatory build was required");
 	}
 
@@ -56,7 +56,7 @@ public interface EventBroker extends Service {
 
 		String getFullName();
 
-		NetworkShardID getAddress();
+		NetworkShardIdentifier getAddress();
 	}
 
 	enum ChannelHint {

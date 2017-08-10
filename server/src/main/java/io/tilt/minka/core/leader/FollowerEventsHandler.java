@@ -30,7 +30,7 @@ import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.Heartbeat;
-import io.tilt.minka.domain.NetworkShardID;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardState;
 
@@ -50,11 +50,11 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 	private final Bookkeeper bookkeeper;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
-	private final NetworkShardID shardId;
+	private final NetworkShardIdentifier shardId;
 
 
 	public FollowerEventsHandler(final Config config, final PartitionTable partitionTable, final Bookkeeper bookkeeper,
-			final EventBroker eventBroker, final Scheduler scheduler, final NetworkShardID shardId) {
+			final EventBroker eventBroker, final Scheduler scheduler, final NetworkShardIdentifier shardId) {
 
 		this.config = config;
 		this.partitionTable = partitionTable;
@@ -92,8 +92,8 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 					hb.getReceptionDelay());
 		}
 
-		scheduler.run(scheduler.getFactory().build(Scheduler.Action.PARTITION_TABLE_UPDATE,
-				PriorityLock.MEDIUM_BLOCKING, () -> {
+		scheduler.run(scheduler.getFactory().build(
+		        Scheduler.Action.PARTITION_TABLE_UPDATE, PriorityLock.MEDIUM_BLOCKING, () -> {
 					// when a shutdownlock acquired then keep receving HB to evaluate all Slaves are down!
 					Shard shard = partitionTable.getStage().getShard(hb.getShardId());
 					if (shard == null) {

@@ -45,7 +45,7 @@ import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.Heartbeat;
-import io.tilt.minka.domain.NetworkShardID;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardState;
 import io.tilt.minka.utils.LogUtils;
@@ -72,7 +72,7 @@ public class Proctor extends ServiceImpl {
 	private final Bookkeeper bokkeeper;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
-	private final NetworkShardID shardId;
+	private final NetworkShardIdentifier shardId;
 	private final LeaderShardContainer leaderShardContainer;
 
 	private int analysisCounter;
@@ -87,7 +87,7 @@ public class Proctor extends ServiceImpl {
 	 */
 
 	public Proctor(final Config config, final PartitionTable partitionTable, final Bookkeeper bookkeeper, 
-			final EventBroker eventBroker, final Scheduler scheduler, final NetworkShardID shardId, 
+			final EventBroker eventBroker, final Scheduler scheduler, final NetworkShardIdentifier shardId, 
 			final LeaderShardContainer leaderShardContainer) {
 
 		this.config = config;
@@ -279,7 +279,7 @@ public class Proctor extends ServiceImpl {
 		 * (long)(config.getProctorHeartbeatMaxBiggestDistanceFactor()*10d) /
 		 * 100);
 		 */
-		final NetworkShardID shardId = onTime.get(0).getShardId();
+		final NetworkShardIdentifier shardId = onTime.get(0).getShardId();
 		boolean healthly = stdDeviationDelay < permittedStdDeviationDistance;// && biggestDelay < permittedBiggestDelay;
 		if (logger.isInfoEnabled()) {
 			logger.debug("{}: Shard: {}, {} Standard deviation distance: {}/{}", getName(), shardId,

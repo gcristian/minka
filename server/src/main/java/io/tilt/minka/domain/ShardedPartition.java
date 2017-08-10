@@ -40,17 +40,17 @@ import io.tilt.minka.api.Pallet;
  */
 public class ShardedPartition {
 
-	private final NetworkShardID id;
+	private final NetworkShardIdentifier id;
 	private Set<ShardEntity> duties;
 	private Set<ShardEntity> pallets;
 	private long lastUpdateTimestamp;
 	private long recentUpdateThreshold = 10 *1000l;
 
-	public static ShardedPartition partitionForFollower(final NetworkShardID shardId) {
+	public static ShardedPartition partitionForFollower(final NetworkShardIdentifier shardId) {
 		return new ShardedPartition(shardId);
 	}
 
-	public ShardedPartition(final NetworkShardID shardId) {
+	public ShardedPartition(final NetworkShardIdentifier shardId) {
 		this.id = shardId;
 		init();
 	}
@@ -80,7 +80,7 @@ public class ShardedPartition {
 		this.pallets = new TreeSet<>();
 	}
 
-	public NetworkShardID getId() {
+	public NetworkShardIdentifier getId() {
 		return id;
 	}
 

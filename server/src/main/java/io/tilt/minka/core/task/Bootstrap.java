@@ -32,7 +32,7 @@ import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.core.task.impl.SpectatorSupplier;
-import io.tilt.minka.domain.ShardID;
+import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.spectator.Locks;
 import io.tilt.minka.spectator.ServerCandidate;
 import io.tilt.minka.utils.LogUtils;
@@ -56,7 +56,7 @@ public class Bootstrap extends ServiceImpl {
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final Scheduler scheduler;
 	private final LeaderShardContainer leaderShardContainer;
-	private final ShardID shardId;
+	private final ShardIdentifier shardId;
 	private final EventBroker eventBroker;
 
 	private final SpectatorSupplier spectatorSupplier;
@@ -71,7 +71,7 @@ public class Bootstrap extends ServiceImpl {
 	public Bootstrap(final Config config, final ConfigValidator validator, final SpectatorSupplier spectatorSupplier,
 			final boolean autoStart, final Leader leader, final Follower follower,
 			final DependencyPlaceholder dependencyPlaceholder, final Scheduler scheduler,
-			final LeaderShardContainer leaderShardContainer, final ShardID shardId, final EventBroker eventBroker) {
+			final LeaderShardContainer leaderShardContainer, final ShardIdentifier shardId, final EventBroker eventBroker) {
 
 		Validate.notNull(config, "a unique service name is required (within the ZK ensemble)");
 		this.config = config;

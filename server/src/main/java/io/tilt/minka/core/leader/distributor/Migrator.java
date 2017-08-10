@@ -42,7 +42,7 @@ import io.tilt.minka.domain.ShardEntity.State;
 import io.tilt.minka.domain.ShardState;
 
 /** 
- * Media for {@linkplain Balancer} to request transfers and overrides on the {@linkplain Roadmap}
+ * Media for {@linkplain Balancer} to request transfers and overrides on the {@linkplain Plan}
  * while ignoring its internals and relying on this for coherence and consistency 
  * It helps to balancer extensibility.
  * 
@@ -56,16 +56,16 @@ import io.tilt.minka.domain.ShardState;
  */
 public class Migrator {
 
-	private final Logger log = LoggerFactory.getLogger(getClass());
+	protected static final Logger log = LoggerFactory.getLogger(Migrator.class);
 	
 	private final PartitionTable table;
-	private final Roadmap roadmap;
+	private final Plan roadmap;
 	private final Pallet<?> pallet;
 	private Boolean isWeightedPallet;
 	private List<Override> overrides;
 	private List<Transfer> transfers;
 	
-	protected Migrator(final PartitionTable table, final Roadmap roadmap, final Pallet<?> pallet) {
+	protected Migrator(final PartitionTable table, final Plan roadmap, final Pallet<?> pallet) {
 		super();
 		Validate.notNull(pallet);
 		Validate.notNull(roadmap);
@@ -206,94 +206,15 @@ public class Migrator {
 		if (overrides!=null) {
 			checkExclusions(); // balancers using transfers only make delta changes, without reassigning
 			for (final Override ov: overrides) {			
-				final Set<ShardEntity> current = table.getStage().getDutiesByShard(ov.getPallet(), ov.getShard());
-				if (log.isDebugEnabled()) {
-					log.debug("{}: cluster built {}", getClass().getSimpleName(), ov.getEntities());
-					log.debug("{}: currents at shard {} ", getClass().getSimpleName(), current);
-				}
-				anyChange|=dettachDelta(ov.getEntities(), ov.getShard(), current);
-				anyChange|=attachDelta(ov.getEntities(), ov.getShard(), current);	
+				anyChange = ov.applyDeltas(roadmap, table);
 			}
 		}
 		if (transfers!=null) {
 			for (Transfer tr: transfers) {
-				anyChange|=dettachAttach(tr);
+				anyChange|=tr.dettachAttach(roadmap, table);
 			}
 		}
 		return anyChange;
-	}
-	
-	/* dettach anything living in the shard outside what's coming
-	 * null or empty cluster translates to: dettach all existing */
-	private final boolean dettachDelta(final Set<ShardEntity> clusterSet, final Shard shard, final Set<ShardEntity> currents) {
-		List<ShardEntity> detaching = clusterSet==null ? new ArrayList<>(currents) :
-			currents.stream().filter(i -> !clusterSet.contains(i)).collect(Collectors.toList());
-		if (detaching.isEmpty()) {
-			log.info("{}: Override-dettach shard: {}, no change",
-					getClass().getSimpleName(), shard);
-			return false;
-		} else {
-			StringBuilder logg = new StringBuilder();
-			for (ShardEntity detach : detaching) {
-				// copy because in latter cycles this will be assigned
-				// so they're traveling different places
-				final ShardEntity copy = ShardEntity.Builder.builderFrom(detach).build();
-				copy.registerEvent(EntityEvent.DETACH, PREPARED);
-				roadmap.ship(shard, copy);
-				logg.append(copy.getEntity().getId()).append(", ");
-			}
-			log.info("{}: Executing Override-dettach from: {}, duties: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
-				detaching.size(), logg.toString());
-			return true;
-		}
-	}
-
-	/* attach what's not already living in that shard */
-	private final boolean attachDelta(final Set<ShardEntity> clusterSet, final Shard shard, final Set<ShardEntity> currents) {
-		StringBuilder logg;
-		if (clusterSet != null) {
-			final List<ShardEntity> attaching = clusterSet.stream().filter(i -> !currents.contains(i))
-					.collect(Collectors.toList());
-			if (attaching.isEmpty()) {
-				log.info("{}: Override-attach shard: {} no change, has no New Attachments",
-						getClass().getSimpleName(), shard);
-			} else {
-				logg = new StringBuilder();
-				for (ShardEntity attach : attaching) {
-					// copy because in latter cycles this will be assigned
-					// so they're traveling different places
-					final ShardEntity copy = ShardEntity.Builder.builderFrom(attach).build();
-					copy.registerEvent(EntityEvent.ATTACH, PREPARED);
-					roadmap.ship(shard, copy);
-					logg.append(copy.getEntity().getId()).append(", ");
-				}
-				log.info("{}: Executing Override-attach shard: {}, duty: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
-					attaching.size(), logg.toString());
-				return true;
-			}
-		}
-		return false;
-	}
-	
-
-	/* dettach in prev. source, attach to next target */
-	private boolean dettachAttach(final Transfer tr) {
-		final ShardEntity entity = tr.getEntity();
-		final Shard location = table.getStage().getDutyLocation(entity);
-		if (location!=null && location.equals(tr.getTarget())) {
-			log.info("{}: Transfers mean no change for Duty: {}", getClass().getSimpleName(), tr.toString());
-			return false;
-		}
-		if (tr.getSource()!=null) {
-			tr.getEntity().registerEvent(EntityEvent.DETACH, PREPARED);
-			roadmap.ship(tr.getSource(), entity);
-		}
-		ShardEntity assign = ShardEntity.Builder.builderFrom(entity).build();
-		assign.registerEvent(EntityEvent.ATTACH, PREPARED);
-		roadmap.ship(tr.getTarget(), assign);
-		log.info("{}: Executing transfer from: {} to: {}, Duty: {}", getClass().getSimpleName(),
-			tr.getSource()!=null ? tr.getSource().getShardID() : "[new]", tr.getTarget().getShardID(), assign.toString());
-		return true;
 	}
 
 	private boolean unfairlyIgnored(ShardEntity duty) {
@@ -363,6 +284,69 @@ public class Migrator {
 		public double getRemainingCap() {
 			return this.remainingCap;
 		}
+
+	    public boolean applyDeltas(final Plan plan, final PartitionTable table) {
+	        boolean anyChange = false;
+	        final Set<ShardEntity> current = table.getStage().getDutiesByShard(getPallet(), getShard());
+	        if (log.isDebugEnabled()) {
+	            log.debug("{}: cluster built {}", getClass().getSimpleName(), getEntities());
+	            log.debug("{}: currents at shard {} ", getClass().getSimpleName(), current);
+	        }
+	        anyChange|=dettachDelta(plan, table, getEntities(), getShard(), current);
+	        anyChange|=attachDelta(plan, table, getEntities(), getShard(), current);
+	        if (!anyChange) {
+	            log.info("{}: Shard: {}, unchanged", getClass().getSimpleName(), shard);
+	        }
+	        return anyChange;
+	    }
+	    
+		/* dettach anything living in the shard outside what's coming
+	    * null or empty cluster translates to: dettach all existing */
+	    private final boolean dettachDelta(final Plan plan, final PartitionTable table, 
+	            final Set<ShardEntity> clusterSet, final Shard shard, final Set<ShardEntity> currents) {
+	        List<ShardEntity> detaching = clusterSet==null ? new ArrayList<>(currents) :
+	            currents.stream().filter(i -> !clusterSet.contains(i)).collect(Collectors.toList());
+	        if (!detaching.isEmpty()) {
+	            StringBuilder logg = new StringBuilder();
+	            for (ShardEntity detach : detaching) {
+	                // copy because in latter cycles this will be assigned
+	                // so they're traveling different places
+	                final ShardEntity copy = ShardEntity.Builder.builderFrom(detach).build();
+	                copy.registerEvent(EntityEvent.DETACH, PREPARED);
+	                plan.ship(shard, copy);
+	                logg.append(copy.getEntity().getId()).append(", ");
+	            }
+	            log.info("{}: Shipping dettaches from: {}, duties: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
+	                detaching.size(), logg.toString());
+	            return true;
+	        }
+	        return false;
+	    }
+	    
+	    /* attach what's not already living in that shard */
+	    private final boolean attachDelta(final Plan roadmap, final PartitionTable table, 
+	            final Set<ShardEntity> clusterSet, final Shard shard, final Set<ShardEntity> currents) {
+	        StringBuilder logg;
+	        if (clusterSet != null) {
+	            final List<ShardEntity> attaching = clusterSet.stream().filter(i -> !currents.contains(i))
+	                    .collect(Collectors.toList());
+	            if (!attaching.isEmpty()) {
+	                logg = new StringBuilder();
+	                for (ShardEntity attach : attaching) {
+	                    // copy because in latter cycles this will be assigned
+	                    // so they're traveling different places
+	                    final ShardEntity copy = ShardEntity.Builder.builderFrom(attach).build();
+	                    copy.registerEvent(EntityEvent.ATTACH, PREPARED);
+	                    roadmap.ship(shard, copy);
+	                    logg.append(copy.getEntity().getId()).append(", ");
+	                }
+	                log.info("{}: Shipping attaches shard: {}, duty: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
+	                    attaching.size(), logg.toString());
+	                return true;
+	            }
+	        }
+	        return false;
+	    }
 	}
 	
 	protected static class Transfer {
@@ -387,6 +371,28 @@ public class Migrator {
 		public String toString() {
 			return entity.toBrief() + source.toString() + " ==> " + target.toString(); 
 		}
+		
+
+	    /* dettach in prev. source, attach to next target */
+	    public boolean dettachAttach(final Plan roadmap, final PartitionTable table) {
+	        final ShardEntity entity = getEntity();
+	        final Shard location = table.getStage().getDutyLocation(entity);
+	        if (location!=null && location.equals(getTarget())) {
+	            log.info("{}: Transfers mean no change for Duty: {}", getClass().getSimpleName(), toString());
+	            return false;
+	        }
+	        if (getSource()!=null) {
+	            getEntity().registerEvent(EntityEvent.DETACH, PREPARED);
+	            roadmap.ship(getSource(), entity);
+	        }
+	        ShardEntity assign = ShardEntity.Builder.builderFrom(entity).build();
+	        assign.registerEvent(EntityEvent.ATTACH, PREPARED);
+	        roadmap.ship(getTarget(), assign);
+	        log.info("{}: Shipping transfer from: {} to: {}, Duty: {}", getClass().getSimpleName(),
+	            getSource()!=null ? getSource().getShardID() : "[new]", getTarget().getShardID(), assign.toString());
+	        return true;
+	    }
+
 	}
 
 }

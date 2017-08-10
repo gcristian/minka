@@ -23,8 +23,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
@@ -36,13 +34,15 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.core.leader.distributor.Roadmap.Delivery;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
+import io.tilt.minka.utils.LogUtils;
+import io.tilt.minka.utils.SlidingSortedSet;
 
 /**
  * Acts as a driveable distribution in progress created thru {@linkplain Migrator} 
@@ -58,72 +58,35 @@ import io.tilt.minka.domain.ShardEntity.State;
  * @since Dec 11, 2015
  */
 @JsonAutoDetect
-public class Roadmap implements Comparable<Roadmap>, Iterator<Delivery> {
+@JsonPropertyOrder({"id", "created", "started", "elapsed", "ended", "deliveries", "pending"})
+public class Plan implements Comparable<Plan>, Iterator<Delivery> {
 
-	private static final Logger logger = LoggerFactory.getLogger(Roadmap.class);
-	private static List<EntityEvent> sortedEvents = Arrays.asList(EntityEvent.REMOVE, EntityEvent.DETACH, EntityEvent.CREATE, EntityEvent.ATTACH);
+	static final Logger logger = LoggerFactory.getLogger(Plan.class);
+	private static List<EntityEvent> sortedEvents = Arrays.asList(
+	        EntityEvent.REMOVE, 
+	        EntityEvent.DETACH, 
+	        EntityEvent.CREATE, 
+	        EntityEvent.ATTACH);
 	
-	private static final AtomicLong sequence = new AtomicLong();
+	private static final AtomicLong sequenceNumberator = new AtomicLong();
 	private final long id;
 	private final DateTime created;
-	private final Map<EntityEvent, Map<Shard, List<ShardEntity>>> work;
+	private final Map<EntityEvent, Map<Shard, List<ShardEntity>>> shippings;
 	
 	private Delivery lastDelivery;
-	private int index;
+	private int deliveryIdx;
 	private Iterator<Delivery> iterator;
 	private List<Delivery> deliveries;
 	private DateTime started;
 	private DateTime ended;
 	private int retryCounter;
 
-	/* plainer of the work map  */
-	public static class Delivery {
-		private EntityEvent event;
-		private Shard shard;
-		private final List<ShardEntity> duties;
-		private final Map<ShardEntity.State, StringBuilder> states;
-		private Delivery(final List<ShardEntity> duties, final Shard shard, final EntityEvent event) {
-			super();
-			this.duties = duties;
-			this.shard = shard;
-			this.event = event;
-			this.states = new HashMap<>();
-		}
-		public List<ShardEntity> getDuties() {
-			return this.duties;
-		}
-		public Shard getShard() {
-			return this.shard;
-		}
-		protected EntityEvent getEvent() {
-			return event;
-		}
-		@JsonProperty("state")
-		private final Map<ShardEntity.State, StringBuilder> getState() {
-			final Map<ShardEntity.State, StringBuilder> ret = new HashMap<>();
-			duties.forEach(duty-> getOrPut(states, duty.getState(), ()->new StringBuilder())
-					.append(duty.getDuty().getId()).append(", "));
-			return ret;
-		}
-		boolean allConfirmed() {
-			final Set<ShardEntity> sortedLog = new TreeSet<>();
-			for (final ShardEntity duty : duties) {
-				if (duty.getState() != State.CONFIRMED) {
-					// TODO get Partition TAble and check if Shard has long fell offline
-					sortedLog.add(duty);
-					logger.info("{}: waiting Shard: {} for at least Duties: {}", getClass().getSimpleName(), shard,
-							ShardEntity.toStringIds(sortedLog));
-					return false;
-				}
-			}
-			return true;
-		}
-	}
-
+	@JsonIgnore
 	public List<ShardEntity> getPending() {
 		final List<ShardEntity> ret = new ArrayList<>();
 		for (final Delivery delivery: deliveries) {
 			for (final ShardEntity duty: delivery.getDuties()) {
+			    // PREPARED -> SENT -> CONFIRMED
 				if (duty.getState()==State.SENT) {
 					ret.add(duty);
 				}
@@ -135,57 +98,107 @@ public class Roadmap implements Comparable<Roadmap>, Iterator<Delivery> {
 		return ret;
 	}
 	
+	public String getElapsed() {
+	    return LogUtils.humanTimeDiff(getStarted().getMillis(), 
+	            getEnded()==null ? System.currentTimeMillis() : getEnded().getMillis());
+	}
+	
 	@JsonProperty("deliveries")
 	private List<Delivery> getDeliveries() {
 		return this.deliveries;
 	}
 	
-	public Roadmap() {
-		this.id = sequence.incrementAndGet();
-		this.created = new DateTime(DateTimeZone.UTC);		
-		this.work = new HashMap<>();
+	public Plan(final long id) {
+	    this.id = id;
+        this.created = new DateTime(DateTimeZone.UTC);      
+        this.shippings = new HashMap<>();
+	}
+	public Plan() {
+		this(sequenceNumberator.incrementAndGet());
 	}
 
 	public Delivery getDelivery(final Shard shard) {
+		if (lastDelivery.getShard().equals(shard)) {
+		    return lastDelivery;
+		}
+		for (Delivery d: parallelized) {
+		    if (d.getShard().equals(shard)) {
+		        return d;
+		    }
+		}
 		for (Delivery d: deliveries) {
-			if (d.getShard().equals(shard)) {
-				return d;
-			}
+		    if (d.getShard().equals(shard)) {
+                return d;
+            }
 		}
 		return null;
 	}
 	
-	public void open() {
+	public void prepare() {
 		this.started= new DateTime(DateTimeZone.UTC);
+		int order = 0;
 		for (final EntityEvent event: sortedEvents) {
-			final Map<Shard, List<ShardEntity>> map = getOrPut(work, event, ()->new HashMap<>());
+			final Map<Shard, List<ShardEntity>> map = getOrPut(shippings, event, ()->new HashMap<>());
 			for (final Entry<Shard, List<ShardEntity>> e: map.entrySet()) {
 				if (deliveries == null) {
 					deliveries = new ArrayList<>();
 				}
-				deliveries.add(new Delivery(e.getValue(), e.getKey(), event));
+				deliveries.add(new Delivery(e.getValue(), e.getKey(), event, order++));
 			}
 		}
-		this.work.clear();
+		this.shippings.clear();
 		iterator = deliveries.iterator();
+		parallelized = new ArrayList<>(deliveries.size());
 	}
 
 	@Override
 	public Delivery next() {
-		if (!hasPermission()) {
+		if (!isNextDeliveryAvailable()) {
 			throw new IllegalAccessError("no permission to advance forward");
 		}
-		index++;
+		if (lastDelivery!=null) {
+		    final Delivery proximo = deliveries.get(deliveryIdx);
+            final boolean sameFutureEvent = proximo.getEvent() ==lastDelivery.getEvent();
+		    if (sameFutureEvent && !lastDelivery.allConfirmed()) { 
+		        // most probably never this fast
+		        logger.info("{}: Parallelizing next Delivery (same entity event)", getClass().getSimpleName());
+		        parallelized.add(lastDelivery);
+		        parallelized.add(proximo);
+		    } else if (!sameFutureEvent) {
+		        // always confirmed because of isNextDeliveryAvailable above
+		        parallelized.clear();
+		    } 
+		}
 		lastDelivery = iterator.next();
+		deliveryIdx++;
 		return lastDelivery;
 	}
+	
+	private List<Delivery> parallelized = null;
 
-	public boolean hasPermission() {
-		if (lastDelivery != null && (deliveries.size()==index || (deliveries.size() <index &&
-			 deliveries.get(index).getEvent()!=lastDelivery.getEvent()))) {
-				return lastDelivery.allConfirmed();
+	@JsonIgnore
+	public boolean isNextDeliveryAvailable() {
+		if (lastDelivery==null) {
+		    // es la 1ra vez q agarra el plan (aun no hizo next())
+		    return true;
+		} else if (!hasNext()) {
+		    return false;
+		} else {
+		    final EntityEvent nextDeliveryEvent = deliveries.get(deliveryIdx).getEvent();
+            if (nextDeliveryEvent==lastDelivery.getEvent()) {
+                // same future events (attach/dettach) are parallelized 
+                return true;
+		    } else {
+		        // different future events require bookkeeper's confirmation (in stage)
+		        for (Delivery parallel: parallelized) {
+		            if (!parallel.allConfirmed()) {
+		                logger.info("{}: Past Deliveries yet unconfirmed", getClass().getSimpleName());
+		                return false;
+		            }
+		        }
+		        return true;
+		    }
 		}
-		return true;
 	}
 	@Override
 	public boolean hasNext() {
@@ -205,8 +218,8 @@ public class Roadmap implements Comparable<Roadmap>, Iterator<Delivery> {
 	
 
 	public void close() {
-		if (!hasPermission()) {
-			throw new IllegalStateException("roadmap not allowed to close last delivery unconfirmed !");
+		if (isNextDeliveryAvailable()) {
+			throw new IllegalStateException("plan not closeable last delivery unconfirmed !");
 		}
 		this.ended = new DateTime(DateTimeZone.UTC);
 	}
@@ -225,7 +238,7 @@ public class Roadmap implements Comparable<Roadmap>, Iterator<Delivery> {
 	/* declare a dettaching or attaching step to deliver on a shard */
 	public synchronized void ship(final Shard shard, final ShardEntity duty) {
 		final List<ShardEntity> list = getOrPut(
-				getOrPut(work, duty.getDutyEvent(), ()->new HashMap<>()), 
+				getOrPut(shippings, duty.getDutyEvent(), ()->new HashMap<>()), 
 				shard, ()->new ArrayList<>());
 		list.add(duty);
 	}
@@ -234,8 +247,9 @@ public class Roadmap implements Comparable<Roadmap>, Iterator<Delivery> {
 		return this.ended !=null;
 	}
 	
-	public boolean isEmpty() {
-		return work.isEmpty();
+	@JsonIgnore
+	public boolean areShippingsEmpty() {
+		return shippings.isEmpty();
 	}
 	
 	public DateTime getEnded() {
@@ -274,8 +288,22 @@ public class Roadmap implements Comparable<Roadmap>, Iterator<Delivery> {
 	}
 
 	@Override
-	public int compareTo(Roadmap o) {
+	public int compareTo(Plan o) {
 		return o.getCreation().compareTo(getCreation());
 	}
+	
+	public static void main(String[] args) throws InterruptedException {
+        
+	    final SlidingSortedSet<Plan> set = new SlidingSortedSet<>(5);
+	    for (int i = 0; i < 10; i++) {
+	        System.out.println(new DateTime(DateTimeZone.UTC));
+	        set.add(new Plan(i));
+	        Thread.sleep(200);
+	    }
+	    System.out.println("----------");
+	    for (Plan p : set.values()) {
+	        assert(p.getId()>=5);
+	    }
+    }
 
 }

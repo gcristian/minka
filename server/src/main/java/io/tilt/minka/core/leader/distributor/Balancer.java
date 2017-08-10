@@ -39,7 +39,7 @@ import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
- * Analyze the current {@linkplain PartitionTable} and if neccesary modify the {@linkplain Roadmap}
+ * Analyze the current {@linkplain PartitionTable} and if neccesary modify the {@linkplain Plan}
  * through the {@linkplain Migrator} facility, which registers {@linkplain ShardEntity} 
  * with a {@linkplain EntityEvent} and a {@linkplain ShardEntity.State}.
  * Representing migrations of duties, deletions, creations, dangling, etc.

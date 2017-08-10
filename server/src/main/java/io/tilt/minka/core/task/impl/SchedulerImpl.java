@@ -35,7 +35,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.task.Scheduler;
-import io.tilt.minka.domain.ShardID;
+import io.tilt.minka.domain.ShardIdentifier;
 
 /**
  * @author Cristian Gonzalez
@@ -65,7 +65,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	public SchedulerImpl(
 			final Config config, 
 			final SpectatorSupplier supplier, 
-			final ShardID shardId, 
+			final ShardIdentifier shardId, 
 			final AgentFactory agentFactory,
 			final SynchronizedFactory syncFactory) {
 		super(config, supplier, shardId.toString());

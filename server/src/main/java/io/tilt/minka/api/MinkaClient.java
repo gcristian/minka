@@ -35,7 +35,7 @@ import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
-import io.tilt.minka.domain.ShardID;
+import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.ShardState;
 
 /**
@@ -58,13 +58,13 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	private final Leader leader;
 	private final EventBroker eventBroker;
 	private final ClientEventsHandler clientMediator;
-	private final ShardID shardId;
+	private final ShardIdentifier shardId;
 	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
 	private final PartitionTable table;
 
 	protected MinkaClient(final Config config, final Leader leader, final EventBroker eventBroker,
-			final ClientEventsHandler mediator, final ShardID shardId, 
+			final ClientEventsHandler mediator, final ShardIdentifier shardId, 
 			final ZookeeperLeaderShardContainer leaderShardContainer, final PartitionTable table) {
 		this.config = config;
 		this.leader = leader;

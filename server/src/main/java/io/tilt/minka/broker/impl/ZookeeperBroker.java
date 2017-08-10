@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.impl.SpectatorSupplier;
-import io.tilt.minka.domain.NetworkShardID;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.spectator.MessageMetadata;
 import io.tilt.minka.spectator.Queues;
 import io.tilt.minka.spectator.Spectator;
@@ -46,19 +46,19 @@ public class ZookeeperBroker extends AbstractBroker implements EventBroker, Cons
 	private final Queues queues;
 	private final Wells wells;
 
-	public ZookeeperBroker(final Config config, final NetworkShardID shardId) {
+	public ZookeeperBroker(final Config config, final NetworkShardIdentifier shardId) {
 		super(shardId);
 		this.queues = new Queues(config.getBootstrap().getZookeeperHostPort());
 		this.wells = new Wells(config.getBootstrap().getZookeeperHostPort());
 	}
 
 	@Override
-	public BrokerChannel buildToTarget(String service, Channel channel, NetworkShardID shardId) {
+	public BrokerChannel buildToTarget(String service, Channel channel, NetworkShardIdentifier shardId) {
 		return new PathableChannel(service, channel, shardId.getStringIdentity());
 	}
 
 	@Override
-	public BrokerChannel buildToTarget(final Config config, final Channel channel, final NetworkShardID shardId) {
+	public BrokerChannel buildToTarget(final Config config, final Channel channel, final NetworkShardIdentifier shardId) {
 		return buildToTarget(config.getBootstrap().getServiceName(), channel, shardId);
 	}
 
@@ -93,7 +93,7 @@ public class ZookeeperBroker extends AbstractBroker implements EventBroker, Cons
 		}
 
 		@Override
-		public NetworkShardID getAddress() {
+		public NetworkShardIdentifier getAddress() {
 			return null; /*
 								 * ShardID.valueOf(MINKA_SUBDOMAIN + "/" +
 								 * serviceName + "/" + channel.getName() + (suffix ==

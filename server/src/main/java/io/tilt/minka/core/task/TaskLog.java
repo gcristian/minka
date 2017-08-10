@@ -20,7 +20,7 @@ import org.apache.commons.lang.Validate;
  * @author Cristian Gonzalez
  * @since Aug 9, 2016
  */
-public interface Journal {
+public interface TaskLog {
 
 	/* each journal matches an id based on creation ISODATE */
 	Date getCreation();
@@ -37,7 +37,7 @@ public interface Journal {
 	public interface JournalStorage {
 		List<Date> listCreations();
 
-		Journal get(Date creation);
+		TaskLog get(Date creation);
 	}
 
 	/* something for auto-diagnose ? */

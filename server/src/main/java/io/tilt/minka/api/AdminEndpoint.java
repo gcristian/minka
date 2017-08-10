@@ -72,7 +72,7 @@ public class AdminEndpoint {
 	public Response pallets() throws JsonProcessingException {
 		return Response.accepted(Status.palletsToJson(table)).build();
 	}
-	
+	                    
 	@GET
 	@Path("/shards")
 	@Produces(MediaType.APPLICATION_JSON)
@@ -88,9 +88,9 @@ public class AdminEndpoint {
 	}
 
 	@GET
-	@Path("/roadmaps")
+	@Path("/plans")
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response roadmaps() throws JsonProcessingException {
+	public Response plans() throws JsonProcessingException {
 		return Response.accepted(Status.elementToJson(table.getHistory())).build();
 	}
 

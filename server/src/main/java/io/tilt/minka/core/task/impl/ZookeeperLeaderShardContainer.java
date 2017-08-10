@@ -24,8 +24,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.domain.NetworkShardID;
-import io.tilt.minka.domain.ShardID;
+import io.tilt.minka.domain.NetworkShardIdentifier;
+import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.spectator.MessageMetadata;
 import io.tilt.minka.spectator.Spectator;
 import io.tilt.minka.spectator.Wells;
@@ -47,7 +47,7 @@ public class ZookeeperLeaderShardContainer extends TransportlessLeaderShardConta
 		private final Supplier<Spectator> supplier;
 		private final Consumer<MessageMetadata> callbackConsumer;
 
-		public ZookeeperLeaderShardContainer(final Config config, final ShardID myShardId,
+		public ZookeeperLeaderShardContainer(final Config config, final ShardIdentifier myShardId,
 				final Supplier<Spectator> supplier) {
 			super(myShardId);
 			Validate.notNull(config);
@@ -57,7 +57,7 @@ public class ZookeeperLeaderShardContainer extends TransportlessLeaderShardConta
 			// define it once to avoid varying hashCode as inline argument
 			this.callbackConsumer = (meta) -> {
 				try {
-						super.setNewLeader((NetworkShardID) meta.getPayload());
+						super.setNewLeader((NetworkShardIdentifier) meta.getPayload());
 				} catch (Exception e) {
 						logger.error("{}: ({}) Failing to read leader's shard-container event's payload",
 									getClass().getSimpleName(), getMyShardId(), config.getLoggingShardId(), e);
@@ -70,7 +70,7 @@ public class ZookeeperLeaderShardContainer extends TransportlessLeaderShardConta
 		}
 
 		@Override
-		public void setNewLeader(NetworkShardID newLeader) {
+		public void setNewLeader(NetworkShardIdentifier newLeader) {
 			wells.updateWell(getServiceZKPath(), newLeader);
 		}
 

@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -47,15 +48,17 @@ public class Shard implements Comparator<Shard> {
 	private static final int MAX_HEARBEATS_TO_EVALUATE = 50;
 
 	private final BrokerChannel brokerChannel;
-	private final NetworkShardID shardId;
+	private final NetworkShardIdentifier shardId;
 	private final DateTime firstTimeSeen;
 	private DateTime lastStatusChange;
 	private final SlidingSortedSet<Heartbeat> cardiacLapse;
 	private ShardState serviceState;
 	private Map<Pallet<?>, Capacity> capacities;
 	
-	public Shard(final BrokerChannel channel, final NetworkShardID memberId) {
+	public Shard(final BrokerChannel channel, final NetworkShardIdentifier memberId) {
 		super();
+		Validate.notNull(memberId);
+		Validate.notNull(channel);
 		this.brokerChannel = channel;
 		this.shardId = memberId;
 		this.serviceState = ShardState.JOINING;
@@ -86,7 +89,7 @@ public class Shard implements Comparator<Shard> {
 		return this.brokerChannel;
 	}
 
-	public NetworkShardID getShardID() {
+	public NetworkShardIdentifier getShardID() {
 		return this.shardId;
 	}
 	
@@ -151,6 +154,7 @@ public class Shard implements Comparator<Shard> {
 			return s.getFirstTimeSeen().compareTo(s2.getFirstTimeSeen());
 		}
 	}
+	
 	
 	public static class CapacityComparer implements Comparator<Shard>, Serializable {
 		private static final long serialVersionUID = 2191475545082914908L;

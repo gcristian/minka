@@ -22,7 +22,7 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.impl.TransportlessLeaderShardContainer;
-import io.tilt.minka.domain.NetworkShardID;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.NetworkShardIDImpl;
 import junit.framework.Assert;
 
@@ -137,7 +137,7 @@ public abstract class AbstractBrokerTester {
 		}
 	}
 
-	private void test(final EventBroker sourceBroker, final NetworkShardID targetShard, final Config config,
+	private void test(final EventBroker sourceBroker, final NetworkShardIdentifier targetShard, final Config config,
 			final int integer) throws InterruptedException {
 
 		latch = new CountDownLatch(1);
@@ -151,7 +151,7 @@ public abstract class AbstractBrokerTester {
 	}
 
 	protected abstract EventBroker buildBroker(final Consumer<Serializable> driver,
-			final LeaderShardContainer container, final Config config, final NetworkShardID shard);
+			final LeaderShardContainer container, final Config config, final NetworkShardIdentifier shard);
 
 	protected Consumer<Serializable> buildConsumer(final AtomicInteger msgAtDestiny) {
 

@@ -44,7 +44,7 @@ import io.tilt.minka.core.follower.Follower;
  * @since Dec 3, 2015
  *
  */
-public class NetworkShardIDImpl implements NetworkShardID, Closeable {
+public class NetworkShardIDImpl implements NetworkShardIdentifier, Closeable {
 
 	@JsonIgnore
 	private final Logger logger = LoggerFactory.getLogger(getClass());

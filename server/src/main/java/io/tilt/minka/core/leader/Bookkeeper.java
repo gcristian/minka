@@ -35,8 +35,8 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
-import io.tilt.minka.core.leader.distributor.Roadmap;
-import io.tilt.minka.core.leader.distributor.Roadmap.Delivery;
+import io.tilt.minka.core.leader.distributor.Delivery;
+import io.tilt.minka.core.leader.distributor.Plan;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
@@ -63,62 +63,63 @@ public class Bookkeeper {
 		this.partitionTable = partitionTable;
 	}
 
-	public void check(final Heartbeat hb, final Shard shard) {
-		if (hb.getStateChange() == ShardState.QUITTED) {
-			checkShardChangingState(shard);
+	public void check(final Heartbeat beat, final Shard source) {
+		if (beat.getStateChange() == ShardState.QUITTED) {
+			checkShardChangingState(source);
 			return;
 		}
-		shard.addHeartbeat(hb);
-		if (hb.getCapacities()!=null) {
-			shard.setCapacities(hb.getCapacities());
+		source.addHeartbeat(beat);
+		if (beat.getCapacities()!=null) {
+			source.setCapacities(beat.getCapacities());
 		}
-		if (!hb.isReportedCapturedDuties()) {
+		if (!beat.isReportedCapturedDuties()) {
 			return;
 		}
 			
-		if (partitionTable.getCurrentRoadmap() == null || partitionTable.getCurrentRoadmap().isClosed()) {
+		if (partitionTable.getCurrentPlan() == null || partitionTable.getCurrentPlan().isClosed()) {
 			// believe only when online: to avoid Dirty efects after follower's hangs/stucks
 			// so it clears itself before trusting their HBs
-			for (final ShardEntity duty : hb.getReportedCapturedDuties()) {
+			for (final ShardEntity duty : beat.getReportedCapturedDuties()) {
 				if (duty.getState() == CONFIRMED) {
 					try {
-						changeStage(shard, duty);
+						changeStage(source, duty);
 					} catch (ConcurrentDutyException cde) {
 						if (partitionTable.getHealth() == ClusterHealth.STABLE) {
 							// TODO 
 						}
-						logger.error("{}: Rebell shard: {}", getClass().getSimpleName(), shard, cde);
+						logger.error("{}: Rebell shard: {}", getClass().getSimpleName(), source, cde);
 					}
 				} else if (duty.getState() == DANGLING) {
 					logger.error("{}: Shard {} reported Dangling Duty (follower's unconfident: {}): {}",
-							getClass().getSimpleName(), shard.getShardID(), duty.getDutyEvent(), duty);
+							getClass().getSimpleName(), source.getShardID(), duty.getDutyEvent(), duty);
 					if (duty.getDutyEvent().is(EntityEvent.CREATE)) {
 					} else if (duty.getDutyEvent().is(EntityEvent.REMOVE)) {
 					}
 				}
 			}
 		} else {
-			analyzeReportedDuties(shard, hb.getReportedCapturedDuties());
+			analyzeReportedDuties(source, beat.getReportedCapturedDuties());
 		}
 		// TODO perhaps in presence of Reallocation not ?
-		if (shard.getState().isAlive()) {
-			declareHeartbeatAbsencesAsMissing(shard, hb.getReportedCapturedDuties());
+		if (source.getState().isAlive()) {
+			declareHeartbeatAbsencesAsMissing(source, beat.getReportedCapturedDuties());
 		}
 	}
 
-	private void analyzeReportedDuties(final Shard shard, final List<ShardEntity> heartbeatDuties) {
-		final Roadmap road = partitionTable.getCurrentRoadmap();
-		final Delivery delivery = road.getDelivery(shard);
+	private void analyzeReportedDuties(final Shard source, final List<ShardEntity> heartbeatDuties) {
+		final Plan plan = partitionTable.getCurrentPlan();
+		final Delivery delivery = plan.getDelivery(source);
 		if (delivery!=null) {
-			confirmReallocated(shard, heartbeatDuties, delivery);
-			confirmAbsences(shard, heartbeatDuties, delivery);
-		}
-
-		if (!road.hasNext() && road.hasPermission()) {
-			logger.info("{}: Roadmap finished ! (all changes in stage)", getClass().getSimpleName());
-			road.close();
-		//} else if (road.hasCurrentStepFinished()) {
-			//scheduler.forward(scheduler.get(Action.DISTRIBUTOR));
+			confirmReallocated(source, heartbeatDuties, delivery);
+			confirmAbsences(source, heartbeatDuties, delivery);
+			if (!plan.hasNext()) {
+			    logger.info("{}: Plan finished ! (all changes in stage)", getClass().getSimpleName());
+			    plan.close();
+			    //} else if (road.hasCurrentStepFinished()) {
+			    //  scheduler.forward(scheduler.get(Action.DISTRIBUTOR));
+			}
+		} else {
+		    throw new IllegalAccessError("todo mal");
 		}
 	}
 

@@ -38,22 +38,22 @@ import com.google.common.util.concurrent.AtomicDouble;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Distributor;
-import io.tilt.minka.core.leader.distributor.Roadmap;
+import io.tilt.minka.core.leader.distributor.Plan;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.NetworkShardID;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
-import io.tilt.minka.domain.ShardID;
+import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.ShardState;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.utils.SlidingSortedSet;
 import jersey.repackaged.com.google.common.collect.Sets;
 
 /**
- * Only one modifier allowed: {@linkplain Bookkeeper} with a {@linkplain Roadmap} after a distribution process.
+ * Only one modifier allowed: {@linkplain Bookkeeper} with a {@linkplain Plan} after a distribution process.
  * 
  * Contains the relations between {@linkplain Shard} and {@linkplain Duty}.
  * Continuously checked truth in {@linkplain Stage}.
@@ -74,7 +74,7 @@ public class PartitionTable {
 	 */
 	public static class Stage {
 		
-		private final Map<ShardID, Shard> shardsByID;
+		private final Map<ShardIdentifier, Shard> shardsByID;
 		private final Map<Shard, ShardedPartition> partitionsByShard;
 		private final Map<String, ShardEntity> palletsById;
 		
@@ -226,7 +226,7 @@ public class PartitionTable {
 			return po;
 		}
 
-		public Shard getShard(NetworkShardID id) {
+		public Shard getShard(NetworkShardIdentifier id) {
 			return shardsByID.get(id);
 		}
 
@@ -338,8 +338,8 @@ public class PartitionTable {
 	private ClusterCapacity capacity;
 	private final Stage stage;
 	private final NextStage nextStage;
-	private Roadmap currentRoadmap;
-	private SlidingSortedSet<Roadmap> history;
+	private Plan currentPlan;
+	private SlidingSortedSet<Plan> history;
 
 	
 	/**
@@ -384,16 +384,16 @@ public class PartitionTable {
 		return this.leaderShardContainer;
 	}
 	
-	public List<Roadmap> getHistory() {
+	public List<Plan> getHistory() {
 		return this.history.values();
 	}
 
-	public Roadmap getCurrentRoadmap() {
-		return this.currentRoadmap;
+	public Plan getCurrentPlan() {
+		return this.currentPlan;
 	}
 
-	public void addRoadmap(Roadmap change) {
-		this.currentRoadmap = change;
+	public void addPlan(Plan change) {
+		this.currentPlan = change;
 		this.history.add(change);
 	}
 

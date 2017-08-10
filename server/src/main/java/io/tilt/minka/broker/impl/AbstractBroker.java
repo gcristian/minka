@@ -31,7 +31,7 @@ import com.google.common.collect.Multimap;
 
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.impl.ServiceImpl;
-import io.tilt.minka.domain.NetworkShardID;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.spectator.MessageMetadata;
 
 /**
@@ -47,15 +47,15 @@ public abstract class AbstractBroker extends ServiceImpl implements EventBroker,
 	private Multimap<String, Consumer<Serializable>> consumerPerChannelEventType;
 	/* save (consumer) -> (many channeles) */
 	private Multimap<Consumer<Serializable>, String> channelsPerConsumer;
-	private final NetworkShardID shardId;
+	private final NetworkShardIdentifier shardId;
 
-	public AbstractBroker(final NetworkShardID shardId) {
+	public AbstractBroker(final NetworkShardIdentifier shardId) {
 		this.shardId = shardId;
 		this.consumerPerChannelEventType = HashMultimap.create();
 		this.channelsPerConsumer = HashMultimap.create();
 	}
 
-	public NetworkShardID getShardId() {
+	public NetworkShardIdentifier getShardId() {
 		return this.shardId;
 	}
 

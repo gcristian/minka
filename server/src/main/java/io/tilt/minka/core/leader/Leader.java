@@ -30,7 +30,7 @@ import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.core.task.impl.ServiceImpl;
-import io.tilt.minka.domain.NetworkShardID;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 
 /**
  * An agnostic master service with the following responsibilities:
@@ -46,13 +46,13 @@ public class Leader extends ServiceImpl {
 
 	/* maintenance */
 	private final Scheduler scheduler;
-	private final NetworkShardID shardId;
+	private final NetworkShardIdentifier shardId;
 	private final List<Service> services;
 	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
 	private boolean served;
 
-	public Leader(Config config, List<Service> services, Scheduler scheduler, NetworkShardID shardId,
+	public Leader(Config config, List<Service> services, Scheduler scheduler, NetworkShardIdentifier shardId,
 			LeaderShardContainer leaderShardContainer, EventBroker eventBroker) {
 
 		super();
@@ -63,7 +63,7 @@ public class Leader extends ServiceImpl {
 		this.leaderShardContainer = leaderShardContainer;
 	}
 
-	public NetworkShardID getShardId() {
+	public NetworkShardIdentifier getShardId() {
 		return this.shardId;
 	}
 

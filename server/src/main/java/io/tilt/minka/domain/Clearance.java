@@ -39,15 +39,15 @@ public class Clearance implements Serializable, Comparable<Clearance> {
 	private static final long serialVersionUID = 4828220405145911529L;
 	private static final AtomicLong sequencer = new AtomicLong();
 
-	private final NetworkShardID leaderShardId;
+	private final NetworkShardIdentifier leaderShardId;
 	private final DateTime creation;
 	private final long sequenceId;
 
-	public static Clearance create(final NetworkShardID leaderShardId) {
+	public static Clearance create(final NetworkShardIdentifier leaderShardId) {
 		return new Clearance(leaderShardId);
 	}
 
-	private Clearance(final NetworkShardID leaderShardId) {
+	private Clearance(final NetworkShardIdentifier leaderShardId) {
 		this.creation = new DateTime(DateTimeZone.UTC);
 		this.sequenceId = sequencer.incrementAndGet();
 		this.leaderShardId = leaderShardId;
@@ -83,7 +83,7 @@ public class Clearance implements Serializable, Comparable<Clearance> {
 		}
 	}
 
-	public NetworkShardID getLeaderShardId() {
+	public NetworkShardIdentifier getLeaderShardId() {
 		return this.leaderShardId;
 	}
 

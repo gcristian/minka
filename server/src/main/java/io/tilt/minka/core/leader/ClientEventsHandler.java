@@ -33,7 +33,7 @@ import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.NetworkShardID;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
@@ -55,10 +55,10 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 	private final Scheduler scheduler;
 	private final Bookkeeper bookkeeper;
 	private final EventBroker eventBroker;
-	private final NetworkShardID shardId;
+	private final NetworkShardIdentifier shardId;
 
 	public ClientEventsHandler(Config config, PartitionTable partitionTable, Scheduler scheduler,
-			EventBroker eventBroker, Bookkeeper bookkeeper, NetworkShardID shardId) {
+			EventBroker eventBroker, Bookkeeper bookkeeper, NetworkShardIdentifier shardId) {
 
 		this.config = config;
 		this.partitionTable = partitionTable;

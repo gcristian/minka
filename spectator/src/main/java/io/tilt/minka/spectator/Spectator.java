@@ -62,7 +62,7 @@ public class Spectator implements Closeable {
     private final String SPECTATOR_ZK_SUBDOMAIN_PATH= "spectator-domain";
 
     // retry during 30 mins, each 5 seconds
-    public final static int CONNECTION_RETRY_ATTEMPTS_DEFAULT = 3;
+    public final static int CONNECTION_RETRY_ATTEMPTS_DEFAULT = 60 * 5;
     public final static int CONNECTION_RETRY_DELAY_MS_DEFAULT = 1000;
     public final static int QUEUE_RETENTION_DAYS_DEFAULT = 5;
     
@@ -338,12 +338,11 @@ public class Spectator implements Closeable {
                                 .retryPolicy(retryPolicy)
                                 .build();
                         hookListeners();
-                        try {
+                        /*try {
                             sharedClient.blockUntilConnected(10, TimeUnit.SECONDS);
                         } catch (InterruptedException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
-                        }
+                            logger.error("{}: Interrupted while waiting for ZK to be connected", e);
+                        }*/
                         sharedClient.start();
                     }
                 }

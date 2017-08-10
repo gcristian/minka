@@ -82,8 +82,11 @@ public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactor
 
 	@Override
 	public String toString() {
-		StringBuilder sb = new StringBuilder().append("A:").append(getAction()).append(",").append("T:")
-			.append(getTask().getClass().getSimpleName());
+		String cname = getTask().getClass().getSimpleName();
+		final int p = cname.indexOf('$');
+		cname = p > 0 ? cname.substring(p) : cname;
+		StringBuilder sb = new StringBuilder().append("Ag:").append(getAction())
+				.append(",").append("T:").append(cname);
 		return sb.toString();
 	}
 

@@ -168,7 +168,7 @@ public class SpillOverBalancer implements Balancer {
 			final Shard receptor = makeSpaceIntoReceptors(loadStrat, newcomer, spaceByReceptor);
 			if (receptor != null) {
 				newcomer.registerEvent(EntityEvent.ATTACH, State.PREPARED);
-				next.getRoadmap().ship(receptor, newcomer);
+				next.getPlan().ship(receptor, newcomer);
 				logger.info("{}: Assigning to Shard: {} (space left: {}), Duty: {}", getClass().getSimpleName(),
 						receptor.getShardID(), spaceByReceptor.get(receptor), newcomer.toBrief());
 			} else {

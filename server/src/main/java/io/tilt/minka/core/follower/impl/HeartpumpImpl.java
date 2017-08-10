@@ -29,7 +29,7 @@ import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.domain.Heartbeat;
-import io.tilt.minka.domain.NetworkShardID;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 
 public class HeartpumpImpl extends ServiceImpl implements Heartpump {
 
@@ -82,7 +82,7 @@ public class HeartpumpImpl extends ServiceImpl implements Heartpump {
 		}
 	}
 
-	protected NetworkShardID getID() {
+	protected NetworkShardIdentifier getID() {
 		return partition.getId();
 	}
 

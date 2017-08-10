@@ -19,7 +19,7 @@ package io.tilt.minka.core.task;
 import java.util.List;
 import java.util.function.Consumer;
 
-import io.tilt.minka.domain.NetworkShardID;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 
 /**
  * Value object with responsibility of always knowing who the leader is 
@@ -31,21 +31,21 @@ import io.tilt.minka.domain.NetworkShardID;
  */
 public interface LeaderShardContainer extends Service {
 
-	void setNewLeader(NetworkShardID newLeader);
+	void setNewLeader(NetworkShardIdentifier newLeader);
 
 	/**
 	 * Add consumer of new leader when is first time or already elected, 
 	 * and for latter elections as well    
 	 * @param consumerOfNewLeader	a consumer
 	 */
-	void observeForChange(Consumer<NetworkShardID> consumerOfNewLeader);
+	void observeForChange(Consumer<NetworkShardIdentifier> consumerOfNewLeader);
 
-	NetworkShardID getLeaderShardId();
+	NetworkShardIdentifier getLeaderShardId();
 
-	NetworkShardID getPreviousLeaderShardId();
+	NetworkShardIdentifier getPreviousLeaderShardId();
 
 	/* Auditing matters */
-	List<NetworkShardID> getAllPreviousLeaders();
+	List<NetworkShardIdentifier> getAllPreviousLeaders();
 
 	/* whether the current shard is also the leader */
 	boolean imLeader();

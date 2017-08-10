@@ -40,7 +40,7 @@ import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardID;
+import io.tilt.minka.domain.ShardIdentifier;
 
 /**
  * Plain representation of the domain objects
@@ -55,7 +55,7 @@ public class Status {
 	
 	public static class Shards {
 		private List<Shard> shards;
-		private ShardID leaderShardId;
+		private ShardIdentifier leaderShardId;
 	
 		public static String toJson(final PartitionTable table) throws JsonProcessingException {
 			Validate.notNull(table);
@@ -65,7 +65,7 @@ public class Status {
 			Validate.notNull(table);
 			return new Shards(table.getStage().getShards(), table.getLeaderShardContainer().getLeaderShardId());
 		}
-		private Shards(final List<Shard> shards, final ShardID leaderId) {
+		private Shards(final List<Shard> shards, final ShardIdentifier leaderId) {
 			this.shards = shards;
 			this.leaderShardId = leaderId;
 		}

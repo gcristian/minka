@@ -16,7 +16,9 @@
  */
 package io.tilt.minka.domain;
 
-import java.net.InetAddress;
+import java.io.Serializable;
+
+import org.joda.time.DateTime;
 
 import io.tilt.minka.core.follower.Follower;
 
@@ -28,12 +30,14 @@ import io.tilt.minka.core.follower.Follower;
  * @since Dec 3, 2015
  *
  */
-public interface NetworkShardID extends ShardID {
+public interface ShardIdentifier extends Serializable {
 
-	int getInetPort();
+	/* to be technically used - not for logging */
+	String getStringIdentity();
 
-	InetAddress getInetAddress();
+	/* for loggin - not to be seriously used */
+	String getSynthetizedID();
 
-	void leavePortReservation();
+	DateTime getCreation();
 
 }

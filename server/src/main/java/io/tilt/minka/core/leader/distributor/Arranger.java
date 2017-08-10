@@ -59,12 +59,12 @@ public class Arranger {
 		this.config = config;
 	}
 
-	public final Roadmap callForBalance(final PartitionTable table, final Roadmap previousChange) {
-		final Roadmap roadmap = new Roadmap();
+	public final Plan evaluate(final PartitionTable table, final Plan previousChange) {
+		final Plan plan = new Plan();
 		final List<Shard> onlineShards = table.getStage().getShardsByState(ONLINE);
 		// recently fallen shards
 		final Set<ShardEntity> dangling = table.getNextStage().getDutiesDangling();
-		registerMissing(table, roadmap, table.getNextStage().getDutiesMissing());
+		registerMissing(table, plan, table.getNextStage().getDutiesMissing());
 		// add previous fallen and never confirmed migrations
 		dangling.addAll(restoreUnfinishedBusiness(previousChange));
 		// add danglings as creations prior to migrations
@@ -77,7 +77,7 @@ public class Arranger {
 		// lets add those duties of a certain deleting pallet
 		table.getNextStage().getPalletsCrudWithFilters(EntityEvent.REMOVE, State.PREPARED)
 			.forEach(p->dutyDeletions.addAll(table.getStage().getDutiesByPallet(p.getPallet())));
-		registerDeletions(table, roadmap, dutyDeletions);
+		registerDeletions(table, plan, dutyDeletions);
 		
 		final Set<ShardEntity> ents = new HashSet<>(table.getStage().getDutiesAttached());
 		ents.addAll(dutyCreations);
@@ -102,8 +102,8 @@ public class Arranger {
 					table.getStage().getShardsByState(ShardState.ONLINE).forEach(
 							s->index.put(s, table.getStage().getDutiesByShard(pallet.getPallet(), s)));
 					
-					final Migrator migra = new Migrator(table, roadmap, pallet.getPallet());
-					final NextTable nextTable = new NextTable(pallet.getPallet(), index, adds, removes, roadmap, migra);
+					final Migrator migra = new Migrator(table, plan, pallet.getPallet());
+					final NextTable nextTable = new NextTable(pallet.getPallet(), index, adds, removes, plan, migra);
 					balancer.balance(nextTable);
 					if (!migra.isEmpty()) {
 						anyChange |=migra.execute();
@@ -116,10 +116,10 @@ public class Arranger {
 				logger.error("Unexpected", e);
 			}
 		}
-		return anyChange ? roadmap : null;
+		return anyChange ? plan : null;
 	}
 
-	protected static void registerMissing(final PartitionTable table, final Roadmap realloc,
+	protected static void registerMissing(final PartitionTable table, final Plan realloc,
 			final Set<ShardEntity> missing) {
 		for (final ShardEntity missed : missing) {
 			final Shard lazy = table.getStage().getDutyLocation(missed);
@@ -146,9 +146,9 @@ public class Arranger {
 	 * check waiting duties never confirmed (for fallen shards as previous
 	 * target candidates)
 	 */
-	protected List<ShardEntity> restoreUnfinishedBusiness(final Roadmap previous) {
+	protected List<ShardEntity> restoreUnfinishedBusiness(final Plan previous) {
 		List<ShardEntity> unfinishedWaiting = new ArrayList<>();
-		if (previous != null && !previous.isClosed() && !previous.hasPermission() && !previous.hasNext()) {
+		if (previous != null && !previous.isClosed() && !previous.isNextDeliveryAvailable() && !previous.hasNext()) {
 			/*
 			 * .stream() no siempre la NO confirmacion sucede sobre un
 			 * fallen shard .filter(i->i.getServiceState()==QUITTED)
@@ -166,13 +166,13 @@ public class Arranger {
 	}
 
 	/* by user deleted */
-	private void registerDeletions(final PartitionTable table, final Roadmap roadmap,
+	private void registerDeletions(final PartitionTable table, final Plan plan,
 			final Set<ShardEntity> deletions) {
 
 		for (final ShardEntity deletion : deletions) {
 			Shard shard = table.getStage().getDutyLocation(deletion);
 			deletion.registerEvent(EntityEvent.DETACH, State.PREPARED);
-			roadmap.ship(shard, deletion);
+			plan.ship(shard, deletion);
 			logger.info("{}: Deleting from: {}, Duty: {}", getClass().getSimpleName(), shard.getShardID(),
 					deletion.toBrief());
 		}
@@ -193,20 +193,20 @@ public class Arranger {
 		private final Map<Shard, Set<ShardEntity>> dutiesByShard;
 		private final Set<ShardEntity> creations;
 		private final Set<ShardEntity> deletions;
-		private final Roadmap roadmap;
+		private final Plan plan;
 		
 		private Migrator migra;
 		private Set<ShardEntity> duties;
 		
 		protected NextTable(final Pallet<?> pallet, final Map<Shard, Set<ShardEntity>> dutiesByShard, 
-				final Set<ShardEntity> creations, final Set<ShardEntity> deletions, final Roadmap roadmap, 
+				final Set<ShardEntity> creations, final Set<ShardEntity> deletions, final Plan plan, 
 				final Migrator migra) {
 			super();
 			this.pallet = pallet;
 			this.dutiesByShard = Collections.unmodifiableMap(dutiesByShard);
 			this.creations = Collections.unmodifiableSet(creations);
 			this.deletions = Collections.unmodifiableSet(deletions);
-			this.roadmap = roadmap;
+			this.plan = plan;
 			this.migra = migra;
 		}
 		public Pallet<?> getPallet() {
@@ -234,10 +234,10 @@ public class Arranger {
 			return this.deletions;
 		}
 		/** @deprecated
-		 * @return a roadmap inside the current table
+		 * @return a plan inside the current table
 		 * */
-		public Roadmap getRoadmap() {
-			return this.roadmap;
+		public Plan getPlan() {
+			return this.plan;
 		}
 		/** @return a facility to request modifications for duty assignation for the next distribution */
 		public synchronized Migrator getMigrator() {

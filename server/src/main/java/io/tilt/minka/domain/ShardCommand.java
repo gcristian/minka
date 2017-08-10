@@ -33,9 +33,9 @@ public class ShardCommand implements EntityPayload {
 	private static final long serialVersionUID = 5911601577093197314L;
 
 	private Command command;
-	private NetworkShardID shardId;
+	private NetworkShardIdentifier shardId;
 
-	public ShardCommand(final Command command, final NetworkShardID shardId) {
+	public ShardCommand(final Command command, final NetworkShardIdentifier shardId) {
 		super();
 		this.command = command;
 		Validate.isTrue(
@@ -45,7 +45,7 @@ public class ShardCommand implements EntityPayload {
 		this.shardId = shardId;
 	}
 
-	public NetworkShardID getShardId() {
+	public NetworkShardIdentifier getShardId() {
 		return this.shardId;
 	}
 

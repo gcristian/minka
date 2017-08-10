@@ -102,7 +102,8 @@ public class SemaphoreImpl extends ServiceImpl implements Semaphore {
 
 	private synchronized Permission acquire_(final Action action, boolean blockThread) {
 		Validate.notNull(action);
-		Permission ret = checkState(action);
+		// para los medium blocking terminaba roto
+		Permission ret = blockThread ? null : checkState(action);
 		if (ret == null) {
 			final Rule rule = rules.get(action);
 			final List<Action> fellows = rule.getRelated(SIBLING);

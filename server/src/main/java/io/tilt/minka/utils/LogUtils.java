@@ -21,7 +21,7 @@ import java.util.Random;
 
 import org.springframework.util.StreamUtils;
 
-import io.tilt.minka.domain.ShardID;
+import io.tilt.minka.domain.ShardIdentifier;
 
 /**
  * http://boschista.deviantart.com/journal/Cool-ASCII-Symbols-214218618
@@ -82,7 +82,7 @@ public class LogUtils {
 		return line.toString();
 	}
 
-	public static String getGreetings(final ShardID id, final String serviceName, final String webserverHostPort) {
+	public static String getGreetings(final ShardIdentifier id, final String serviceName, final String webserverHostPort) {
 		final String nl = System.getProperty("line.separator");
 		StringBuilder sb = new StringBuilder(nl);
 		grossLine(GROSS_CHAR, LARGE * 2, sb);
@@ -95,5 +95,18 @@ public class LogUtils {
 		sb.append(END_LINE);
 		return sb.toString();
 	}
+	
+	public static String humanTimeDiff(final long start, final long end) {
+	    final long delta =  end - start;
+        if (delta > 0) {
+            final long secs = delta/1000;
+            if (secs > 0) {
+                return (secs > 60) ? secs/60 + "m" : secs + "s"; 
+            } else {
+                return delta + "ms";
+            }
+        }
+        return "?";
+    }
 
 }

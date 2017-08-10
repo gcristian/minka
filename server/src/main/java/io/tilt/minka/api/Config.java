@@ -35,7 +35,7 @@ import io.tilt.minka.core.leader.balancer.SpillOverBalancer.MaxUnit;
 import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Balancer.PreSort;
 import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
-import io.tilt.minka.domain.ShardID;
+import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.utils.Defaulter;
 
 /**
@@ -61,7 +61,7 @@ public class Config {
 	@JsonIgnore
 	public final DateTime loadTime = new DateTime(DateTimeZone.UTC);
 	@JsonIgnore
-	private ShardID resolvedShardId;
+	private ShardIdentifier resolvedShardId;
 
 	private SchedulerConf scheduler;
 	private BootstrapConf bootstrap;
@@ -325,9 +325,9 @@ public class Config {
 		/* 10 seconds to let the Proctor discover all Followers before distributing */
 		protected final static long START_DELAY_MS = 10000;
 		private long startDelayMs;
-		protected final static long DELAY_MS = 5000;		
+		protected final static long DELAY_MS = 3000;		
 		private long delayMs;
-		protected static final int ROADMAP_EXPIRATION_SEC = 15;
+		protected static final int ROADMAP_EXPIRATION_SEC = 30;
 		private int roadmapExpirationSec;
 		protected static final int REALLOCATION_MAX_RETRIES = 3;
 		private int roadmapMaxRetries;
@@ -362,13 +362,13 @@ public class Config {
 		public void setDelayMs(long delayMs) {
 			this.delayMs = delayMs;
 		}
-		public int getRoadmapExpirationSec() {
+		public int getPlanExpirationSec() {
 			return this.roadmapExpirationSec;
 		}
 		public void setRoadmapExpirationSec(int roadmapExpirationSec) {
 			this.roadmapExpirationSec = roadmapExpirationSec;
 		}
-		public int getRoadmapMaxRetries() {
+		public int getPlanMaxRetries() {
 			return this.roadmapMaxRetries;
 		}
 		public void setRoadmapMaxRetries(int roadmapMaxRetries) {
@@ -606,11 +606,11 @@ public class Config {
 	}
 
 	@JsonIgnore
-	public ShardID getLoggingShardId() {
+	public ShardIdentifier getLoggingShardId() {
 		return this.resolvedShardId;
 	}
 
-	public void setResolvedShardId(ShardID resolvedShardId) {
+	public void setResolvedShardId(ShardIdentifier resolvedShardId) {
 		this.resolvedShardId = resolvedShardId;
 	}
 
@@ -667,7 +667,7 @@ public class Config {
 		return this.loadTime;
 	}
 
-	public ShardID getResolvedShardId() {
+	public ShardIdentifier getResolvedShardId() {
 		return this.resolvedShardId;
 	}
 

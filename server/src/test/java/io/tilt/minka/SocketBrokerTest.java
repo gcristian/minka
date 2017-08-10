@@ -13,13 +13,13 @@ import io.tilt.minka.core.task.impl.SchedulerImpl;
 import io.tilt.minka.core.task.impl.SpectatorSupplier;
 import io.tilt.minka.core.task.impl.SynchronizedAgentFactoryImpl;
 import io.tilt.minka.core.task.impl.SynchronizedFactoryImpl;
-import io.tilt.minka.domain.NetworkShardID;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 
 public class SocketBrokerTest extends AbstractBrokerTester {
 
 	@Override
 	protected EventBroker buildBroker(final Consumer<Serializable> driver, final LeaderShardContainer container,
-			final Config config, final NetworkShardID shard) {
+			final Config config, final NetworkShardIdentifier shard) {
 
 		final EventBroker broker = new SocketBroker(config, shard, container,
 				new SchedulerImpl(config, new SpectatorSupplier(config), shard, new SynchronizedAgentFactoryImpl(),

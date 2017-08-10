@@ -16,6 +16,9 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
+import static io.tilt.minka.core.leader.distributor.Distributor.DriveStatus.EXPIRED;
+import static io.tilt.minka.core.leader.distributor.Distributor.DriveStatus.RETRY;
+import static io.tilt.minka.core.leader.distributor.Distributor.DriveStatus.VALID;
 import static io.tilt.minka.domain.ShardEntity.State.CONFIRMED;
 import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
 import static io.tilt.minka.domain.ShardEntity.State.SENT;
@@ -47,7 +50,6 @@ import io.tilt.minka.core.leader.Bookkeeper;
 import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
-import io.tilt.minka.core.leader.distributor.Roadmap.Delivery;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -58,12 +60,12 @@ import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardID;
+import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.utils.LogUtils;
 
 /**
  * Periodically runs specified {@linkplain Balancer}'s over {@linkplain Pallet}'s
- * and drive the {@linkplain Roadmap} object if any, transporting duties.
+ * and drive the {@linkplain Plan} object if any, transporting duties.
  * 
  * @author Cristian Gonzalez
  * @since Nov 17, 2015
@@ -72,12 +74,13 @@ public class Distributor extends ServiceImpl {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
+	private final static int MAX_DRIVE_TRIES = 3;
 	private final Config config;
 	private final Scheduler scheduler;
 	private final EventBroker eventBroker;
 	private final PartitionTable partitionTable;
 	private final Bookkeeper bookkeeper;
-	private final ShardID shardId;
+	private final ShardIdentifier shardId;
 	private final EntityDao entityDao;
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final LeaderShardContainer leaderShardContainer;
@@ -90,7 +93,7 @@ public class Distributor extends ServiceImpl {
 	private final Agent distributor;
 
 	public Distributor(final Config config, final Scheduler scheduler, final EventBroker eventBroker,
-			final PartitionTable partitionTable, final Bookkeeper bookkeeper, final ShardID shardId,
+			final PartitionTable partitionTable, final Bookkeeper bookkeeper, final ShardIdentifier shardId,
 			final EntityDao dutyDao, final DependencyPlaceholder dependencyPlaceholder, 
 			final LeaderShardContainer leaderShardContainer) {
 
@@ -115,7 +118,9 @@ public class Distributor extends ServiceImpl {
 
 		this.distributor = scheduler.getAgentFactory()
 				.create(Action.DISTRIBUTOR, PriorityLock.MEDIUM_BLOCKING, Frequency.PERIODIC, () -> distribute())
-				.delayed(config.getDistributor().getStartDelayMs()).every(config.getDistributor().getDelayMs()).build();
+				.delayed(config.getDistributor().getStartDelayMs())
+				.every(config.getDistributor().getDelayMs())
+				.build();
 
 		this.arranger = new Arranger(config);
 	}
@@ -139,27 +144,39 @@ public class Distributor extends ServiceImpl {
 				logger.warn("{}: ({}) Posponing distribution: not leader anymore ! ", getName(), shardId);
 				return;
 			}
-			// skip if unstable unless a roadmap in progress or expirations will occurr and dismiss
-			Roadmap currRoadmap = partitionTable.getCurrentRoadmap();
-			if ((currRoadmap==null || currRoadmap.isEmpty()) && partitionTable.getVisibilityHealth() == ClusterHealth.UNSTABLE) {
+			// skip if unstable unless a plan in progress or expirations will occurr and dismiss
+			Plan currentPlan = partitionTable.getCurrentPlan();
+			if ((currentPlan==null) && // || currentPlan.isEmpty()) && 
+			        partitionTable.getVisibilityHealth() == ClusterHealth.UNSTABLE) {
 				logger.warn("{}: ({}) Posponing distribution until reaching cluster stability (", getName(), shardId);
 				return;
 			}
-			showStatus();
+			logStatus();
 			final int online = partitionTable.getStage().getShardsByState(ONLINE).size();
 			final int min = config.getProctor().getMinShardsOnlineBeforeSharding();
-			if (online >= min) {
-				if (checkWithStorageWhenAllOnlines()) {
-					if (currRoadmap == null || currRoadmap.isClosed()) {
-						buildAndDriveRoadmap(null);
-					} else {
-						driveRoadmap();
-					}
-				}
-			} else {
-				logger.info("{}: balancing posponed: not enough online shards (min:{}, now:{})", getName(), min,
-						online);
-			}
+			if (online < min) {
+			    logger.info("{}: balancing posponed: not enough online shards (min:{}, now:{})", getName(), min, online);
+			    return;
+			}			
+		    if (!checkWithStorageWhenAllOnlines()) {
+		        return;
+		    }
+		    
+            boolean driveable = isDriveablePlan(currentPlan);
+            DriveStatus driveRes = null;
+            int tries = 0;
+            while ((driveRes==RETRY && tries<=MAX_DRIVE_TRIES) || driveRes!=VALID ) {
+                if (!driveable) {
+                    driveRes = VALID;
+                    currentPlan = buildPlan(null);
+                }
+                if (isDriveablePlan(currentPlan)) {
+                    driveRes = drive(currentPlan);
+                }
+                if (driveRes == EXPIRED) {
+                    driveable = false;
+                }
+            }
 			communicateUpdates();
 		} catch (Exception e) {
 			logger.error("{}: Unexpected ", getName(), e);
@@ -168,7 +185,11 @@ public class Distributor extends ServiceImpl {
 		}
 	}
 	
-	private void showStatus() {
+	private boolean isDriveablePlan(final Plan plan) {
+	    return plan!=null && !plan.isClosed();
+	}
+	
+	private void logStatus() {
 		StringBuilder title = new StringBuilder();
 		title.append("Distributor (i").append(++distributionCounter)
 			.append(" by Leader: ").append(shardId.toString());
@@ -176,26 +197,28 @@ public class Distributor extends ServiceImpl {
 		partitionTable.logStatus();
 	}
 
-	private void buildAndDriveRoadmap(final Roadmap previousChange) {
-		final Roadmap roadmap = arranger.callForBalance(partitionTable, previousChange);
+	private Plan buildPlan(final Plan previousChange) {
+		final Plan plan = arranger.evaluate(partitionTable, previousChange);
 		bookkeeper.cleanTemporaryDuties();
-		if (roadmap!=null && !roadmap.isEmpty()) {
-			partitionTable.addRoadmap(roadmap);
+		if (plan!=null && !plan.areShippingsEmpty()) {
+			partitionTable.addPlan(plan);
 			this.partitionTable.setWorkingHealth(ClusterHealth.UNSTABLE);
-			roadmap.open();
-			driveRoadmap();
-			logger.info("{}: Balancer generated issues on change: {}", getName(), roadmap.getId());
+			plan.prepare();
+			logger.info("{}: Balancer generated issues on Plan: {}", getName(), plan.getId());
+			return plan;
 		} else {
 			this.partitionTable.setWorkingHealth(ClusterHealth.STABLE);
-			logger.info("{}: .. in Balance {}", getName(), LogUtils.BALANCED_CHAR);
+			logger.info("{}: Distribution in Balance ", getName(), LogUtils.BALANCED_CHAR);
+			return null;
 		}
 	}
 	
-	private void driveRoadmap() {
-		final Roadmap roadmap = partitionTable.getCurrentRoadmap();
-		while (roadmap.hasNext()) {
-			if (roadmap.hasPermission()) {
-				final Delivery delivery = roadmap.next();
+	private DriveStatus drive(final Plan plan) {
+	    logger.info("{}: Driving Plan: {}", getName(), plan.getId());
+	    DriveStatus status = DriveStatus.VALID;
+		while (plan.hasNext()) {
+			if (plan.isNextDeliveryAvailable()) {
+				final Delivery delivery = plan.next();
 				// check it's still in ptable
 				if (partitionTable.getStage().getShardsByState(ONLINE).contains(delivery.getShard())) {
 					final Collection<ShardEntity> duties = delivery.getDuties();
@@ -212,30 +235,43 @@ public class Distributor extends ServiceImpl {
 					logger.error("{}: PartitionTable lost transport's target shard: {}", getName(), delivery.getShard());
 				}
 			} else {
-				checkExpiration(System.currentTimeMillis(), roadmap);
-				break;
+				return checkExpiration(System.currentTimeMillis(), plan);
 			}
 		}
+		status = checkExpiration(System.currentTimeMillis(), plan);
+		return status;
+	}
+	
+	public enum DriveStatus {
+	    /* hay que regenerar uno nuevo */
+	    EXPIRED,
+	    /* hay que reintentar el drive */
+	    RETRY,
+	    /* no hay que hacer nada drive anduvo bien */
+	    VALID
 	}
 
-	private void checkExpiration(final long now, final Roadmap currentRoadmap) {
-		final DateTime created = currentRoadmap.getCreation();
-		final int maxSecs = config.getDistributor().getRoadmapExpirationSec();
-		final DateTime expiration = created.plusSeconds(maxSecs);
+	private DriveStatus checkExpiration(final long now, final Plan currentPlan) {
+		final int maxSecs = config.getDistributor().getPlanExpirationSec() * 
+		        (int)config.getDistributor().getDelayMs()/1000;
+		final DateTime expiration = currentPlan.getCreation().plusSeconds(maxSecs);
 		if (expiration.isBefore(now)) {
-			if (currentRoadmap.getRetryCount() == config.getDistributor().getRoadmapMaxRetries()) {
-				logger.info("{}: Abandoning change expired ! (max secs:{}) ", getName(), maxSecs);
-				buildAndDriveRoadmap(currentRoadmap);
+			if (currentPlan.getRetryCount() == config.getDistributor().getPlanMaxRetries()) {
+				logger.info("{}: Abandoning Plan expired ! (max secs:{}) ", getName(), maxSecs);
+				//buildAndDrivePlan(currentPlan);
+				return DriveStatus.EXPIRED;
 			} else {
-				currentRoadmap.incrementRetry();
-				logger.info("{}: ReSending change expired: Retry {} (max secs:{}) ", getName(),
-						currentRoadmap.getRetryCount(), maxSecs);
-				driveRoadmap();
+				currentPlan.incrementRetry();
+				logger.info("{}: ReSending Plan expired: Retry {} (max secs:{}) ", getName(),
+						currentPlan.getRetryCount(), maxSecs);
+				//drive(currentPlan);
+				return DriveStatus.RETRY;
 			}
 		} else {
-			logger.info("{}: balancing posponed: an existing change in progress ({}'s to expire)", getName(),
-					(expiration.getMillis() - now) / 1000);
-		}
+			logger.info("{}: Drive in progress waiting recent deliveries ({}'s to expire)", getName(),
+					currentPlan.getId(), (expiration.getMillis() - now) / 1000);
+			return DriveStatus.VALID;
+		}		
 	}
 
 	/* read from storage only first time */
@@ -272,13 +308,13 @@ public class Distributor extends ServiceImpl {
 				return false;
 			}
 		} else {
-			checkConsistencyState();
+			checkUnexistingDutiesFromStorage();
 		}
 		return true;
 	}
 
-	private void checkConsistencyState() {
-		if (config.getDistributor().isRunConsistencyCheck() && partitionTable.getCurrentRoadmap().isEmpty()) {
+	private void checkUnexistingDutiesFromStorage() {
+		if (config.getDistributor().isRunConsistencyCheck() && partitionTable.getCurrentPlan().areShippingsEmpty()) {
 			// only warn in case there's no reallocation ahead
 			final Set<ShardEntity> currently = partitionTable.getStage().getDuties();
 			final Set<ShardEntity> sorted = new TreeSet<>();

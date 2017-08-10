@@ -33,9 +33,9 @@ import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.follower.HeartbeatFactory;
 import io.tilt.minka.domain.DomainInfo;
+import io.tilt.minka.domain.DutyDiff;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Heartbeat;
-import io.tilt.minka.domain.Heartbeat.DutyDiff;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
@@ -73,7 +73,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	public Heartbeat create() {
 		final long now = System.currentTimeMillis();
 		// this's used only if there's nothing important to report (differences, absences, etc)
-		final Heartbeat.Builder builder = Heartbeat.Builder.builder(sequence.getAndIncrement(), partition.getId());
+		final Heartbeat.Builder builder = Heartbeat.builder(sequence.getAndIncrement(), partition.getId());
 		final Set<Duty<?>> reportedDuties = askCurrentCapture();
 		// add reported: as confirmed if previously assigned, dangling otherwise.
 		final List<ShardEntity> temp = new ArrayList<>(reportedDuties.size() + partition.getDuties().size()); 
