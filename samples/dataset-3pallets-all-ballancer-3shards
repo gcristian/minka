@@ -1,5 +1,3 @@
-# size or number of duties
-duties.size = 300
 
 # the different nodes named as their listening ports
 # run `./newsampler` 3 times, each process will grab the next port

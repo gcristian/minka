@@ -143,6 +143,9 @@ public class Minka<D extends Serializable, P extends Serializable> {
 			tenant.getContext().refresh();
 			if (tenant.getConfig().getBootstrap().isEnableWebserver()) {
 				startWebserver();
+			} else {
+			    logger.info("{}: Webserver disabled by configuration. Enable for a fully functional shard", 
+			            getClass().getSimpleName());
 			}
 		} else {
 			logger.error("{}: Can only load Minka once !", getClass().getSimpleName());
@@ -152,7 +155,8 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	public void startWebserver() {
 		final ResourceConfig res = new ResourceConfig(AdminEndpoint.class);
 		res.property("contextConfig", tenant.getContext());
-		final HttpServer webServer = GrizzlyHttpServerFactory.createHttpServer(resolveBindAddress(tenant.getConfig()), res);
+		final HttpServer webServer = GrizzlyHttpServerFactory.createHttpServer(
+		        resolveWebServerBindAddress(tenant.getConfig()), res);
 		tenants.get(tenant.getConfig().getBootstrap().getServiceName()).setWebServer(webServer);
 		try {
 			webServer.start();
@@ -162,23 +166,27 @@ public class Minka<D extends Serializable, P extends Serializable> {
     }
 
 	/* by default bind to the same broker's host interfase and if changed use broker's port plus 100 */
-	public URI resolveBindAddress(final Config config) {
+	public URI resolveWebServerBindAddress(final Config config) {
 		final String[] brokerHostPort = config.getBroker().getHostPort().split(":");
     	final JerseyUriBuilder builder = new JerseyUriBuilder();
     	final BootstrapConf bs = config.getBootstrap();
 		final String[] webHostPort = bs.getWebServerHostPort().split(":");
 		int webPort = Integer.parseInt(webHostPort[1]);
 		final boolean webHostPortUntouched = bs.getWebServerHostPort().equals(Config.BootstrapConf.WEB_SERVER_HOST_PORT);
+		String webhostport;
 		if (webHostPortUntouched) {
 			int brokerPort = Integer.parseInt(brokerHostPort[1]);
 			webPort = brokerPort == Config.BrokerConf.PORT ? webPort: brokerPort + 100;
 			final String host = config.getResolvedShardId().getStringIdentity().split(":")[0];
 			builder.host(host).port(webPort);
-			config.getBootstrap().setWebServerHostPort(host + ":" + webPort);
+			webhostport = host + ":" + webPort;
 		} else {
 			builder.host(webHostPort[0]).port(webPort);
-			config.getBootstrap().setWebServerHostPort(webHostPort[0]+ ":" + webPort);
+			webhostport = webHostPort[0]+ ":" + webPort;
 		}
+		config.getResolvedShardId().setWebhostPort(webhostport);
+		config.getBootstrap().setWebServerHostPort(webhostport);
+		logger.info("{}: Web host:port = {}", webhostport);
 		return builder.build();
 	}
     

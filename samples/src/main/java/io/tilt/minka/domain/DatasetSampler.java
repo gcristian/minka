@@ -1,7 +1,6 @@
 
 package io.tilt.minka.domain;
 
-import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -9,6 +8,8 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.Validate;
@@ -22,72 +23,28 @@ import io.tilt.minka.api.DutyBuilder;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
+import io.tilt.minka.domain.SimpleClientApplication.EntityProvider;
 
 /**
- * README: in this file I can define a parametrized dataset to load minka entities
- * and automate correctness validations on distribution and balance algorithms
- * about what's to be expected after time when all shards are online and stable
- * we can define our own to simulate a real scenario and check how minka works
- * saving lot of tedious programmatic lines of code
- * 
- * HELP: duties are inputs to functions, whether short-term, long-term, static or dynamic
- * pallets represent functions running in all machines, a facility to group duties
- * shards represent machines holding portions of the duty universe
- * weight value is abstract but in a real scenario should link to the physical resource used by the pallet
- * capacity is in relation of each shard's physical resource total capability for every pallet
- * 
- * SAMPLE: for instance, pallet A may make use of hardisk, B of network bandwidth, and C of cpu threads
- * minka is so abstract that lets the host application articulate the domain model to fit their needs
- * achieving any already legacy or particular combination of resource exhaustion
- * 
- * small DSL: terms are ; separated, and params within terms are : separated,
- * / is division of a whole, and * is multiplo of a whole
- * 
- * SAMPLE FILE
- * 
- * duties.size = 500
- * 
- * # number of shards to boot infered by ports
- * # NOTICE: we must shoot as many shards as defined in shard.ports, with those ports
- * # format: {{shard1's HTTP port};{...}}
- * shards.ports = 5001;5002
- * 
- * # pallet balancers, distribution of duties on pallets and duty weights  
- * # format: 
- * # 	{{pallet id}:
- * # 	 {slice of duties.size or fixed integer}:
- * #	 {weight = min~max random range or fixed integer}:
- * #	 {balancer on class Balancers.Strategy}
- * #		;
- * #     {...}}
- * duties.pallets = A:/2:50~100:A:EVEN_WEIGHT; B:200:500:B:SPILLOVER; C:50:1:C:ROUND_ROBIN
- * 
- * # assignation of capacity on shards for every pallet loaded
- * # format: {{shard}:{pallet}:{mutiple of duties.pallet:weight or fixed integer};{...}}
- * shards.capacities = 5001:A:5000; 5001:B:*5; 5002:A:*4; 5002:B:*3; 5003:A:7000; 5003:B:7000
- *
+ * Samples an scenario of pallets and duties using a properties file with certain keys/values.
+ *  
  */
-public class DatasetSampler extends AbstractMappingEventsApp {
+public class DatasetSampler implements EntityProvider {
 
 	private static final String POWER = "*";
 
 	private static final String FIELD_DELIM = ":";
 	private static final String RANGE_DELIM = "~";
 	private static final String TERM_DELIM = ";";
-
-	private static final String sep = "(;[^\\s]|;)";
 	
 	// 1d:50:1:C:EVEN_WEIGHT; 1d:/8:188:C:EVEN_WEIGHT;
 	private static final String dutyPalletFrmt = "(\\/[0-9]*|[0-9]*):([0-9]*\\~[0-9]*|[0-9]*):([^\\s]+)";
 	private static final Pattern dutyPalletFrmtTermPt = Pattern.compile(dutyPalletFrmt);
-	private static final Pattern dutyPalletFrmtPt = Pattern.compile(dutyPalletFrmt + sep);
 	
 	// 5002:B:*3; 5002:D33:37;  
 	private static final String shardCapFrmt = "([^\\s]+):([0-9]*|\\*[0-9]*)";
 	private static final Pattern shardCapFrmtTermPt = Pattern.compile(shardCapFrmt);	
-	private static final Pattern shardCapFrmtPt = Pattern.compile(shardCapFrmt + sep);
 	
-	private static final String DUTIES_SIZE = "duties.size";	
 	private static final String DUTIES_PALLETS = "duties.pallets";
 	private static final String SHARDS_CAPACITIES = "shards.capacities";
 
@@ -101,34 +58,15 @@ public class DatasetSampler extends AbstractMappingEventsApp {
 	private static final Random rnd = new Random();
 	private Properties prop;
 	
-	public static void main(String[] args) throws Exception {
-		new DatasetSampler().startDemo();
-		Thread.sleep(60000*10);
-	}
-	public DatasetSampler() throws Exception {
-		super();
-	}
-
-	public void init() throws Exception {
-		if (this.prop == null) {
-			final String datasetFilepath = System.getProperty("dataset.filepath");
-			this.prop = new Properties();
-			final FileInputStream fis = new FileInputStream(datasetFilepath);
-			prop.load(fis);
-			fis.close();
-			
-			//final String dp = prop.getProperty(DUTIES_PALLETS);
-			//Validate.isTrue(dutyPalletFrmtPt.matcher(dp).find(), DUTIES_PALLETS_FRMT_EXPLAIN + dp);
-			//final String sc = prop.getProperty(SHARDS_CAPACITIES);
-			//Validate.isTrue(shardCapFrmtPt.matcher(sc).find(), SHARD_CAP_FRMT_EXPLAIN + sc);
-		}
+	public DatasetSampler(final Properties prop) throws Exception {
+		this.prop = prop;
+		System.out.println(prop);
 	}
 	
 	@Override
-	public Set<Duty<String>> buildDuties() throws Exception {
-		init();
+	public Set<Duty<String>> loadDuties() {
 		final Set<Duty<String>> duties = new HashSet<>();
-		int dutyId = 0;
+		final AtomicInteger numerator = new AtomicInteger();
 		
 		for (Object key: prop.keySet()) {
 		    if (key.toString().startsWith(DUTIES_PALLETS )) {
@@ -136,19 +74,20 @@ public class DatasetSampler extends AbstractMappingEventsApp {
 		                .replace(" ", "")
 		                .replace("\t", "");
 		        Validate.isTrue(dutyPalletFrmtTermPt.matcher(chunk).find(), DUTIES_PALLETS_FRMT_EXPLAIN + chunk);
-		        final String palletName = key.toString().substring(DUTIES_PALLETS.length()+1);
-		        dutyId = parseDutyDefinitionAndBuild(duties, dutyId, chunk, palletName);
+		        parseDutyFromString(key.toString(), chunk, (duty)->duties.add(duty), numerator);
 		    }
 		}		
 		return duties;
 	}
 
-	private int parseDutyDefinitionAndBuild(
-	        final Set<Duty<String>> duties, 
-	        int dutyNumerator, 
-	        final String dpal, 
-	        final String palletName) {
-		final String[] parse = dpal.split(FIELD_DELIM);
+	private void parseDutyFromString(
+	        final String key,
+            final String chunk,
+	        final Consumer<Duty<String>> callback, 
+	        final AtomicInteger numerator) {
+	    
+        final String palletName = key.substring(DUTIES_PALLETS.length()+1);
+		final String[] parse = chunk.split(FIELD_DELIM);
 		final String sliceStr = parse[0].trim();
 		final String weightStr = parse[1].trim();
 		final int size =  Integer.parseInt(sliceStr);
@@ -163,21 +102,19 @@ public class DatasetSampler extends AbstractMappingEventsApp {
 			weight = Integer.parseInt(weightStr);
 		}
 		logger.info("Building {} duties for pallet: {}", size, palletName);
-		for (int i = 0; i < size; i++, dutyNumerator++) {
+		for (int i = 0; i < size; i++) {
 			// this's biased as it's most probably to get the min value when given range is smaller than 0~min
 			final long dweight = rangePos > 0 ? Math.max(range[0],rnd.nextInt(range[1])) : weight;
-			duties.add(DutyBuilder.<String>builder(
-			            String.valueOf(dutyNumerator), 
+			callback.accept(DutyBuilder.<String>builder(
+			            String.valueOf(numerator.incrementAndGet()), 
 			            String.valueOf(palletName))
 			        .with(dweight)
 			        .build());
 		}
-		return dutyNumerator;
 	}
 
 	@Override
-	public Set<Pallet<String>> buildPallets() throws Exception {
-		init();
+	public Set<Pallet<String>> loadPallets() {
 		final Set<Pallet<String>> pallets = new HashSet<>();
 		for (Object key: prop.keySet()) {
 		    if (key.toString().startsWith(DUTIES_PALLETS)) {  
@@ -202,17 +139,26 @@ public class DatasetSampler extends AbstractMappingEventsApp {
 	private Map<String, Double> capacities = new HashMap<>(); 
 	
 	@Override
-	public double getTotalCapacity(Pallet<String> pallet) {
-		final String port = getMinkaClient().getShardIdentity().split(FIELD_DELIM)[1];
+	public double loadShardCapacity(
+	        final Pallet<String> pallet, 
+	        final Set<Duty<String>> duties, 
+	        final String shardIdentifier) {
+	    
+		final String port = shardIdentifier.split(FIELD_DELIM)[1];
 		final String key = port + pallet.getId();
 		Double ret = capacities.get(key);
 		if (ret == null ) {
-			capacities.put(key, new Double(ret = retrieveCapacity(pallet, port)));
+			capacities.put(key, new Double(ret = readCapacityFromProperties(pallet, duties, port, shardIdentifier)));
 		}
 		return ret;
 	}
 
-	private double retrieveCapacity(final Pallet<?> pallet, final String port) {
+	private double readCapacityFromProperties(
+	        final Pallet<String> pallet, 
+	        final Set<Duty<String>> allDuties, 
+	        final String port, 
+	        final String shardId) {
+	    
 		double ret = 0;
 		for (Object key: prop.keySet()) {
 		    if (key.toString().startsWith(SHARDS_CAPACITIES)) {
@@ -231,7 +177,8 @@ public class DatasetSampler extends AbstractMappingEventsApp {
         			if (portStr.equals(port) && pid.equals(pallet.getId())) {
         				if (capacity.startsWith(POWER)) {
         					AtomicDouble accumWeight = new AtomicDouble(0);
-        					getAllOriginalDuties().stream().filter(d->d.getPalletId().equals(pid))
+        					allDuties.stream()
+        					    .filter(d->d.getPalletId().equals(pid))
         						.forEach(d->accumWeight.addAndGet(d.getWeight()));
         					ret = accumWeight.get() * Double.parseDouble(capacity.substring(1));
         				} else {
@@ -243,7 +190,7 @@ public class DatasetSampler extends AbstractMappingEventsApp {
 		    }
 		}
 		if (!logflags.contains(pallet)) {
-			logger.info("{} Capacity pallet: {} = {}", super.getMinkaClient().getShardIdentity(), pallet.getId(), ret);
+			logger.info("{} Capacity pallet: {} = {}", shardId, pallet.getId(), ret);
 			logflags.add(pallet);
 		}
 		return ret;

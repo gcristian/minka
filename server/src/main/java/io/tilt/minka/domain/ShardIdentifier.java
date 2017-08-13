@@ -39,5 +39,8 @@ public interface ShardIdentifier extends Serializable {
 	String getSynthetizedID();
 
 	DateTime getCreation();
+	
+	/* receive it after server initialization */
+	void setWebhostPort(String hostport);
 
 }

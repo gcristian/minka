@@ -7,7 +7,7 @@ port_start=9000
 host='localhost'
 xms='512M'
 pp='broker.hostPort'
-dsfp=$(pwd)'/'${1:-'datasets/mix.properties'}
+dsfp=$(pwd)'/'${1:-'dataset-3pallets-fair-balancer-3shards'}
 another=false
 for i in {0..20}; do
 	echo $dsfp
@@ -19,7 +19,7 @@ for i in {0..20}; do
 		cmd="mvn "
 		[ "$another" ] && cmd=$cmd" compile install -DskipTests "
 		p=$p"-DXms$xms -DXmx$xms exec:java "
-		p=$p"-Dexec.mainClass=DatasetSampler.main "
+		p=$p"-Dexec.mainClass=FileDatasetSampler.main "
 		p=$p"-Dmins=1440 -D$pp=$host:$i "
 		p=$p"-Ddataset.filepath=$dsfp"
 		$cmd $p

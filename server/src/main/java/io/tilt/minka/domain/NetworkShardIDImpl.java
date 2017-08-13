@@ -49,6 +49,8 @@ public class NetworkShardIDImpl implements NetworkShardIdentifier, Closeable {
 	@JsonIgnore
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
+	private static final int MAX_SHARDID_NAME = 13;
+
 	private static final long serialVersionUID = 3233785408081305735L;
 	private static final Random random = new Random();
 
@@ -58,10 +60,11 @@ public class NetworkShardIDImpl implements NetworkShardIdentifier, Closeable {
 	private final InetAddress sourceHost;
 	private int port;
 	@JsonIgnore
-	private final int configuredPort;
+	private final int configuredPort;  
 	@JsonIgnore
 	private final DateTime creation;
 	private transient ServerSocket bookedSocket;
+    private String webhostport;   
 
 	//	private Journal journal;
 
@@ -134,8 +137,6 @@ public class NetworkShardIDImpl implements NetworkShardIdentifier, Closeable {
 		}
 	}
 
-	private static final int MAX_SHARDID_NAME = 13;
-
 	@Override
 	/* trims ID up to a max length without excluding port */
 	public String getSynthetizedID() {
@@ -149,8 +150,10 @@ public class NetworkShardIDImpl implements NetworkShardIdentifier, Closeable {
 	private void buildId(final Config config) {
 		String id = null;
 		if (sourceHost != null) {
-			if (!sourceHost.getHostName().isEmpty()) {
+			if (!sourceHost.getHostName().isEmpty() && config.getBroker().isUseMachineHostname()) {
 				id = sourceHost.getHostName();
+                logger.info("{}: Using system's hostname enabled by config: {}", 
+                        getClass().getSimpleName(), id);
 				final String suffix = config.getBroker().getShardIdSuffix();
 				if (suffix != null && !suffix.isEmpty()) {
 					id += "-" + suffix;
@@ -259,5 +262,14 @@ public class NetworkShardIDImpl implements NetworkShardIdentifier, Closeable {
 	public void close() throws IOException {
 		leavePortReservation();
 	}
+
+    @Override
+    public void setWebhostPort(final String hostport) {
+        this.webhostport = hostport;
+    }
+    
+    public String getWebhostport() {
+        return this.webhostport;
+    }
 
 }

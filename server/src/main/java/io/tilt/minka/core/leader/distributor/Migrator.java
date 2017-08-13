@@ -46,10 +46,10 @@ import io.tilt.minka.domain.ShardState;
  * while ignoring its internals and relying on this for coherence and consistency 
  * It helps to balancer extensibility.
  * 
- * everything ends up in a: roadmap.ship(...)
+ * everything ends up in a: plan.ship(...)
  *
  * Is a rule that if the balancers have a stable behaviour: this class will keep the 
- * roadmap unchanged at  execute(), unless there's a CRUD operation from client.
+ * plan unchanged at  execute(), unless there's a CRUD operation from client.
  * 
  * @author Cristian Gonzalez
  * @since Oct 29, 2016
@@ -374,7 +374,7 @@ public class Migrator {
 		
 
 	    /* dettach in prev. source, attach to next target */
-	    public boolean dettachAttach(final Plan roadmap, final PartitionTable table) {
+	    public boolean dettachAttach(final Plan plan, final PartitionTable table) {
 	        final ShardEntity entity = getEntity();
 	        final Shard location = table.getStage().getDutyLocation(entity);
 	        if (location!=null && location.equals(getTarget())) {
@@ -383,11 +383,11 @@ public class Migrator {
 	        }
 	        if (getSource()!=null) {
 	            getEntity().registerEvent(EntityEvent.DETACH, PREPARED);
-	            roadmap.ship(getSource(), entity);
+	            plan.ship(getSource(), entity);
 	        }
 	        ShardEntity assign = ShardEntity.Builder.builderFrom(entity).build();
 	        assign.registerEvent(EntityEvent.ATTACH, PREPARED);
-	        roadmap.ship(getTarget(), assign);
+	        plan.ship(getTarget(), assign);
 	        log.info("{}: Shipping transfer from: {} to: {}, Duty: {}", getClass().getSimpleName(),
 	            getSource()!=null ? getSource().getShardID() : "[new]", getTarget().getShardID(), assign.toString());
 	        return true;

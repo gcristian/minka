@@ -19,7 +19,13 @@ import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
 
-/* plainer of the work map  */
+/**
+ * A single Event over many Entities intended on a single Shard.
+ * Isolated from other deliveries. Created by the {@linkplain Plan} 
+ * Coordinated by the {@linkplain Distributor}
+ * @author Cristian Gonzalez
+ * @since Aug 11, 2017
+ */
 @JsonPropertyOrder({"order", "shard", "event", "state"})
 public class Delivery {
     
@@ -27,13 +33,15 @@ public class Delivery {
 	private final Shard shard;
 	private final List<ShardEntity> duties;
 	private final int order;
-	
+	private Status status;
+
 	public Delivery(final List<ShardEntity> duties, final Shard shard, final EntityEvent event, final int order) {
 		super();
 		this.duties = duties;
 		this.shard = shard;
 		this.event = event;
 		this.order = order;
+		this.status = Status.ENQUEUED;
 	}
 	public int getOrder() {
         return this.order;
@@ -54,6 +62,10 @@ public class Delivery {
 		return event;
 	}
 
+	public void markPending() {
+	    this.status = Status.PENDING;
+	}
+	
 	@JsonProperty("state")
 	/* only for serialization */
 	final Map<ShardEntity.State, StringBuilder> getState() {
@@ -62,18 +74,31 @@ public class Delivery {
 				.append(duty.getDuty().getId()).append(", "));
 		return ret;
 	}
-	public boolean allConfirmed() {
-		final Set<ShardEntity> sortedLog = new TreeSet<>();
-		for (final ShardEntity duty : duties) {
-			if (duty.getState() != State.CONFIRMED) {
-				// TODO get Partition TAble and check if Shard has long fell offline
-				sortedLog.add(duty);
-				Plan.logger.info("{}: waiting Shard: {} for at least Duties: {}", getClass().getSimpleName(), shard,
-						ShardEntity.toStringIds(sortedLog));
-				return false;
-			}
-		}
-		return true;
+	
+	public static enum Status {
+	    // waiting for it's turn to be delivered
+	    ENQUEUED,
+	    // sent, waiting for shard confirmation
+	    PENDING,
+	    // delivered 
+	    CONFIRMED,
+	}
+		
+	public Status checkStatus() {
+	    if (status == Status.PENDING) {
+    		final Set<ShardEntity> sortedLog = new TreeSet<>();
+    		for (final ShardEntity duty : duties) {
+    			if (duty.getState() != State.CONFIRMED) {
+    				// TODO get Partition TAble and check if Shard has long fell offline
+    				sortedLog.add(duty);
+    				Plan.logger.info("{}: waiting Shard: {} for at least Duties: {}", getClass().getSimpleName(), shard,
+    						ShardEntity.toStringIds(sortedLog));
+    				return status;
+    			}
+    		}
+    		this.status = Status.CONFIRMED;
+	    }
+	    return this.status;
 	}
 	@Override
 	public String toString() {

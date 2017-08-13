@@ -35,5 +35,5 @@ public interface NetworkShardIdentifier extends ShardIdentifier {
 	InetAddress getInetAddress();
 
 	void leavePortReservation();
-
+	
 }

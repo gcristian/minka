@@ -109,20 +109,16 @@ public class Bookkeeper {
 	private void analyzeReportedDuties(final Shard source, final List<ShardEntity> heartbeatDuties) {
 		final Plan plan = partitionTable.getCurrentPlan();
 		final Delivery delivery = plan.getDelivery(source);
-		if (delivery!=null) {
-			confirmReallocated(source, heartbeatDuties, delivery);
-			confirmAbsences(source, heartbeatDuties, delivery);
-			if (!plan.hasNext()) {
-			    logger.info("{}: Plan finished ! (all changes in stage)", getClass().getSimpleName());
-			    plan.close();
-			    //} else if (road.hasCurrentStepFinished()) {
-			    //  scheduler.forward(scheduler.get(Action.DISTRIBUTOR));
-			}
-		} else {
-		    throw new IllegalAccessError("todo mal");
+		confirmReallocated(source, heartbeatDuties, delivery);
+		confirmAbsences(source, heartbeatDuties, delivery);
+		if (plan.hasFinalized()) {
+		    logger.info("{}: Plan finished ! (all changes in stage)", getClass().getSimpleName());
+		    plan.close();
+		    //} else if (road.hasCurrentStepFinished()) {
+		    //  scheduler.forward(scheduler.get(Action.DISTRIBUTOR));
 		}
 	}
-
+	
 	 /*this checks partition table looking for missing duties (not declared dangling, that's diff) */
 	private void declareHeartbeatAbsencesAsMissing(final Shard shard, final List<ShardEntity> heartbeatDuties) {
 		final Set<ShardEntity> sortedLog = new TreeSet<>();
@@ -151,8 +147,7 @@ public class Bookkeeper {
 	}
 
 	/* find the up-coming */
-	private void confirmReallocated(final Shard shard, final List<ShardEntity> heartbeatDuties,
-			final Delivery delivery) {
+	private void confirmReallocated(final Shard shard, final List<ShardEntity> heartbeatDuties, final Delivery delivery) {
 
 		final Set<ShardEntity> sortedLogConfirmed = new TreeSet<>();
 		final Set<ShardEntity> sortedLogDirty = new TreeSet<>();

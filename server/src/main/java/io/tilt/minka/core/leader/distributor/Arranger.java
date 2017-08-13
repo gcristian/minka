@@ -148,7 +148,7 @@ public class Arranger {
 	 */
 	protected List<ShardEntity> restoreUnfinishedBusiness(final Plan previous) {
 		List<ShardEntity> unfinishedWaiting = new ArrayList<>();
-		if (previous != null && !previous.isClosed() && !previous.isNextDeliveryAvailable() && !previous.hasNext()) {
+		if (previous != null && !previous.isClosed() && !previous.hasFinalized()) {
 			/*
 			 * .stream() no siempre la NO confirmacion sucede sobre un
 			 * fallen shard .filter(i->i.getServiceState()==QUITTED)

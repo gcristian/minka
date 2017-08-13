@@ -45,8 +45,8 @@ import io.tilt.minka.utils.LogUtils;
 import io.tilt.minka.utils.SlidingSortedSet;
 
 /**
- * Acts as a driveable distribution in progress created thru {@linkplain Migrator} 
- * by the {@linkplain Balancer} analyzing the {@linkplain PartitionTable}.
+ * Acts as a driveable distribution in progress, created thru {@linkplain Migrator} 
+ * indirectly by the {@linkplain Balancer} analyzing the {@linkplain PartitionTable}.
  * Composed of deliveries, migrations, deletions, creations, etc.
  * s 
  * Such operations takes coordination to avoid parallelism and inconsistencies 
@@ -59,7 +59,7 @@ import io.tilt.minka.utils.SlidingSortedSet;
  */
 @JsonAutoDetect
 @JsonPropertyOrder({"id", "created", "started", "elapsed", "ended", "deliveries", "pending"})
-public class Plan implements Comparable<Plan>, Iterator<Delivery> {
+public class Plan implements Comparable<Plan> {
 
 	static final Logger logger = LoggerFactory.getLogger(Plan.class);
 	private static List<EntityEvent> sortedEvents = Arrays.asList(
@@ -112,101 +112,83 @@ public class Plan implements Comparable<Plan>, Iterator<Delivery> {
 	    this.id = id;
         this.created = new DateTime(DateTimeZone.UTC);      
         this.shippings = new HashMap<>();
+        this.deliveries = new ArrayList<>();
 	}
 	public Plan() {
 		this(sequenceNumberator.incrementAndGet());
 	}
 
 	public Delivery getDelivery(final Shard shard) {
-		if (lastDelivery.getShard().equals(shard)) {
-		    return lastDelivery;
-		}
-		for (Delivery d: parallelized) {
-		    if (d.getShard().equals(shard)) {
-		        return d;
-		    }
-		}
-		for (Delivery d: deliveries) {
-		    if (d.getShard().equals(shard)) {
-                return d;
-            }
-		}
-		return null;
+	    return deliveries.stream()
+	        .filter(d->d.checkStatus()==Delivery.Status.PENDING && d.getShard().equals(shard))
+	        .findFirst()
+	        .orElse(null);
 	}
 	
-	public void prepare() {
+	public boolean prepare() {
 		this.started= new DateTime(DateTimeZone.UTC);
 		int order = 0;
 		for (final EntityEvent event: sortedEvents) {
 			final Map<Shard, List<ShardEntity>> map = getOrPut(shippings, event, ()->new HashMap<>());
 			for (final Entry<Shard, List<ShardEntity>> e: map.entrySet()) {
-				if (deliveries == null) {
-					deliveries = new ArrayList<>();
-				}
 				deliveries.add(new Delivery(e.getValue(), e.getKey(), event, order++));
 			}
 		}
 		this.shippings.clear();
 		iterator = deliveries.iterator();
-		parallelized = new ArrayList<>(deliveries.size());
+		return iterator.hasNext();
 	}
 
-	@Override
 	public Delivery next() {
-		if (!isNextDeliveryAvailable()) {
+		if (!hasNextAvailable()) {
 			throw new IllegalAccessError("no permission to advance forward");
 		}
 		if (lastDelivery!=null) {
-		    final Delivery proximo = deliveries.get(deliveryIdx);
-            final boolean sameFutureEvent = proximo.getEvent() ==lastDelivery.getEvent();
-		    if (sameFutureEvent && !lastDelivery.allConfirmed()) { 
-		        // most probably never this fast
-		        logger.info("{}: Parallelizing next Delivery (same entity event)", getClass().getSimpleName());
-		        parallelized.add(lastDelivery);
-		        parallelized.add(proximo);
-		    } else if (!sameFutureEvent) {
-		        // always confirmed because of isNextDeliveryAvailable above
-		        parallelized.clear();
-		    } 
+		    lastDelivery.checkStatus();
 		}
 		lastDelivery = iterator.next();
 		deliveryIdx++;
 		return lastDelivery;
 	}
 	
-	private List<Delivery> parallelized = null;
-
-	@JsonIgnore
-	public boolean isNextDeliveryAvailable() {
+    public boolean hasNextAvailable() {
+        if (started==null) {
+            throw new IllegalStateException("Plan not prepared yet !");
+        }
+        if (!iterator.hasNext()) {
+            deliveries.forEach(d->d.checkStatus());
+            return false;
+        } 
+        // there's more, but are they allowed right now ?
 		if (lastDelivery==null) {
-		    // es la 1ra vez q agarra el plan (aun no hizo next())
+		    // first time here
 		    return true;
-		} else if (!hasNext()) {
-		    return false;
-		} else {
-		    final EntityEvent nextDeliveryEvent = deliveries.get(deliveryIdx).getEvent();
-            if (nextDeliveryEvent==lastDelivery.getEvent()) {
-                // same future events (attach/dettach) are parallelized 
-                return true;
-		    } else {
-		        // different future events require bookkeeper's confirmation (in stage)
-		        for (Delivery parallel: parallelized) {
-		            if (!parallel.allConfirmed()) {
-		                logger.info("{}: Past Deliveries yet unconfirmed", getClass().getSimpleName());
-		                return false;
-		            }
-		        }
-		        return true;
-		    }
-		}
+		}		
+	    final EntityEvent nextDeliveryEvent = deliveries.get(deliveryIdx).getEvent();
+        if (nextDeliveryEvent==lastDelivery.getEvent()) {
+            deliveries.forEach(d->d.checkStatus());
+            // same future events (attach/dettach) are parallelized
+            return true;
+	    }
+        // different future events require bookkeeper's confirmation (in stage)
+        for (Delivery d: deliveries) {
+            if (d.checkStatus() == Delivery.Status.PENDING) {
+                logger.info("{}: Past Deliveries yet unconfirmed", getClass().getSimpleName());
+                return false;
+            }
+        }
+        return true;
 	}
-	@Override
-	public boolean hasNext() {
-		if (started==null) {
-			throw new IllegalStateException("roadmap not started yet !");
-		}
-		return iterator.hasNext();
-	}
+    
+    /** @return if all deliveries are fully confirmed */ 
+    public boolean hasFinalized() {
+        for (Delivery d: deliveries) {
+            if (d.checkStatus() != Delivery.Status.CONFIRMED) {
+                return false;
+            }
+        }
+        return true;
+    }
 
 	public void incrementRetry() {
 		retryCounter++;
@@ -218,7 +200,7 @@ public class Plan implements Comparable<Plan>, Iterator<Delivery> {
 	
 
 	public void close() {
-		if (isNextDeliveryAvailable()) {
+		if (hasNextAvailable()) {
 			throw new IllegalStateException("plan not closeable last delivery unconfirmed !");
 		}
 		this.ended = new DateTime(DateTimeZone.UTC);

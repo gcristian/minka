@@ -184,6 +184,8 @@ public class Config {
 		/** True: try number-consecutive open ports if specified is busy, False: break bootup */
 		protected static final boolean ENABLE_PORT_FALLBACK = true;
 		public boolean enablePortFallback;
+        protected static final boolean USE_MACHINE_HOSTNAME = false;
+        public boolean useMachineHostname;
 		protected static final String SHARD_ID_SUFFIX = "";
 		private String shardIdSuffix;
 		protected static final String NETWORK_INTERFASE = "lo";
@@ -219,6 +221,12 @@ public class Config {
 		public void setEnablePortFallback(boolean enablePortFallback) {
 			this.enablePortFallback = enablePortFallback;
 		}
+		public boolean isUseMachineHostname() {
+            return this.useMachineHostname;
+        }
+		public void setUseMachineHostname(boolean useMachineHostname) {
+            this.useMachineHostname = useMachineHostname;
+        }
 		public String getShardIdSuffix() {
 			return this.shardIdSuffix;
 		}

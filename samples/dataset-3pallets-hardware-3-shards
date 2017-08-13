@@ -1,6 +1,4 @@
 
-# DSL for statically sampling Minka with a testing data model
-
 =============================================
 # the different nodes named as their listening ports
 # run `./newsampler` 3 times, each process will grab the next port
@@ -16,20 +14,21 @@ shards.ports = 9000;9001;9002
 # 	FAIR_WEIGHT	assignation of duties according weights and nodes capacities
 #	EVEN_WEIGHT	same duty total weight to each shard regardless of capacities (non asked)
 #	EVEN_SIZE	same number of duties to all shards
-#	SPILL_OVER	progressive cluster usage by duty agluttination until completion
+#	SPILL_OVER	increasing duty assignation to shards in order of fulfilling
 #	COALESCE	shard agglutination of duties of the same pallet
 #	SCATTER		shuffling assignation of duties
-#              NAME    SIZE     WEIGHT   BALANCER
-duties.pallets.Finwe = 20:	1	:FAIR_WEIGHT; 
-duties.pallets.Ewok  = 10:	1	:EVEN_SIZE; 
-duties.pallets.Manwe = 15:	1	:FAIR_WEIGHT;
+
+#              NAME   	SIZE    WEIGHT   BALANCER
+duties.pallets.THREADS=	12:	1	:FAIR_WEIGHT; 
+duties.pallets.DISK = 	1000:	1	:FAIR_WEIGHT; 
+duties.pallets.RAM = 	64:	50~1000	:FAIR_WEIGHT;
 
 =============================================
 
 # the different weighing capacities each node will report for each pallet
 # (each sampler will lookup in this dataset it's truth table to report to the leader
 #                 SHARD  NAME   CAPACITY NAME  CAPACITY NAME   CAPACITY
-shards.capacities.9000 = Finwe:	15000;	 Ewok: 24000; 	Manwe: 16000; 
-shards.capacities.9001 = Finwe: 1000;	 Ewok: 3000; 	Manwe: 25000; 
-shards.capacities.9002 = Finwe: 1500;	 Ewok: 2000; 	Manwe: 11000; 
+shards.capacities.9000 = Cores:	15000;	 Disk: 24000; 	Ram: 16000; 
+shards.capacities.9001 = Cores: 1000;	 Disk: 3000; 	Ram: 25000; 
+shards.capacities.9002 = Cores: 1500;	 Disk: 2000; 	Ram: 11000; 
 

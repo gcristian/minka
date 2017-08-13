@@ -63,7 +63,7 @@
 				</executions>
 				<configuration>
 					<executable>maven</executable>
-					<mainClass>io.tilt.minka.domain.DatasetSampler</mainClass>
+					<mainClass>io.tilt.minka.domain.FileDatasetSampler</mainClass>
 					<workingDirectory>/tmp</workingDirectory>
 				</configuration>
 			</plugin>

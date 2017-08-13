@@ -16,45 +16,50 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.utils.LogUtils;
 
 /**
- * A sample delegate that only logs what's being instructed by Minka.
- * Also shows using MinkaContextLoader to map events to consumers
- * instead of providing a spring bean representing a PartitionDelegate implementation class.
+ * An example of an Application loading entities to a locally created Minka server
  * 
  * @author Cristian Gonzalez
  * @since Nov 9, 2016
  */
-public abstract class AbstractMappingEventsApp {
+public class SimpleClientApplication {
 
-	private static final Logger logger = LoggerFactory.getLogger(AbstractMappingEventsApp.class);
+	private static final Logger logger = LoggerFactory.getLogger(SimpleClientApplication.class);
 
 	// TreeSet() to enter them in the default minka order: comparator by id   
-	private Set<Duty<String>> allOriginalDuties = new TreeSet<>();
-	private Set<Pallet<String>> allOriginalPallets = new TreeSet<>();
 	private Set<Duty<String>> runningDuties = new TreeSet<>();
 
 	private Minka<String, String> server;
 
 	private String shardId = "{NN}";
 	
-	public abstract Set<Duty<String>> buildDuties() throws Exception ;
-	public abstract Set<Pallet<String>> buildPallets() throws Exception;
-	public abstract double getTotalCapacity(Pallet<String> pallet);
-	
-	public abstract void init() throws Exception;
-	
-	public AbstractMappingEventsApp() throws Exception {
+	public SimpleClientApplication() throws Exception {
 		super();
-		this.allOriginalDuties = buildDuties();
-		this.allOriginalPallets = buildPallets();
 		this.runningDuties = new HashSet<>();
 	}
 	
-	public void startDemo() throws Exception {
-		logger.info("{} Loading {} duties: {}", shardId, allOriginalDuties.size(), toStringGroupByPallet(allOriginalDuties));
+	public static interface EntityProvider {
+	    Set<Duty<String>> loadDuties();
+	    Set<Pallet<String>> loadPallets();
+	    double loadShardCapacity(Pallet<String> pallet, Set<Duty<String>> allDuties, String shardIdentifier);	    
+	}
+	
+	public void close() {
+	    if (this.server!=null) {
+	        this.server.destroy();
+	    }
+	}
+	
+	public void start(final EntityProvider loader) throws Exception {
+	    java.util.Objects.requireNonNull(loader);
+	    
+	    final Set<Duty<String>> duties = new TreeSet<>(loader.loadDuties());
+	    final Set<Pallet<String>> pallets = new TreeSet<>(loader.loadPallets());
+
+	    logger.info("{} Loading {} duties: {}", shardId, duties.size(), toStringGroupByPallet(duties));
 		
 		server = new Minka<>();
-		server.onPalletLoad(() -> allOriginalPallets);
-		server.onDutyLoad(()->allOriginalDuties);
+		server.onPalletLoad(() -> pallets);
+		server.onDutyLoad(()-> duties);
 		
 		server.onDutyCapture((final Set<Duty<String>> t) -> {
 			logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "taking"));
@@ -88,8 +93,8 @@ public abstract class AbstractMappingEventsApp {
 			return this.runningDuties;
 		});
 		
-		for (final Pallet<String> pallet: allOriginalPallets) {
-			server.setCapacity(pallet, getTotalCapacity(pallet));			
+		for (final Pallet<String> pallet: pallets) {
+			server.setCapacity(pallet, loader.loadShardCapacity(pallet, duties, server.getClient().getShardIdentity()));			
 		}
 		
 		server.onDutyUpdate(d->{});
@@ -103,9 +108,13 @@ public abstract class AbstractMappingEventsApp {
 		server.load();
 	}
 	
-	public Minka<String, String> getServer() {
-		return this.server;
+	public MinkaClient<String, String> getClient() {
+	    if (this.server!=null) {
+	        return this.server.getClient();
+	    }
+	    return null;
 	}
+	
 	private boolean timeToLog(long now) {
 		return lastSize != runningDuties.size() || now - lastPrint > 60000 * 1;
 	}
@@ -118,16 +127,7 @@ public abstract class AbstractMappingEventsApp {
 				;
 		}
 	}
-
-	public MinkaClient<String, String> getMinkaClient() {
-		return server.getClient();
-	}
 	
-	public Set<Duty<String>> getAllOriginalDuties() {
-		return this.allOriginalDuties;
-	}
-	
-
 	private String toStringGroupByPallet(Set<Duty<String>> entities) {
 		final StringBuilder sb = new StringBuilder();
 		entities.stream().collect(Collectors.groupingBy(t -> t.getPalletId())).forEach((palletId, duties) -> {
