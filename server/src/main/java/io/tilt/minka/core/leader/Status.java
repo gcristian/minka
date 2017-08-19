@@ -164,10 +164,11 @@ public class Status {
 
 	private static List<ShardView> buildShardRep(final PartitionTable table) {
 		final List<ShardView> ret = new ArrayList<>();
-		for (final Shard shard: table.getStage().getShards()) {
+		final StageExtractor extractor = new StageExtractor(table.getStage());
+		for (final Shard shard: extractor.getShards()) {
 			final List<PalletAtShardView> palletsAtShard =new ArrayList<>();
 			
-			for (final ShardEntity pallet: table.getStage().getPallets()) {
+			for (final ShardEntity pallet: extractor.getPallets()) {
 				final Set<ShardEntity> duties = table.getStage().getDutiesByShard(pallet.getPallet(), shard);
 				final List<DutyView> dutyRepList = new ArrayList<>();
 				duties.forEach(d->dutyRepList.add(
@@ -177,9 +178,9 @@ public class Status {
 				palletsAtShard.add(
 				        new PalletAtShardView(
 				                pallet.getPallet().getId(), 
-				                table.getStage().getCapacity(pallet.getPallet(), shard),
+				                extractor.getCapacity(pallet.getPallet(), shard),
 				                duties.size(), 
-				                table.getStage().getWeight(pallet.getPallet(), shard), 
+				                extractor.getWeight(pallet.getPallet(), shard), 
 				                dutyRepList));
 				
 			}

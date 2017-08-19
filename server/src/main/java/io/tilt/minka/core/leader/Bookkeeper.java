@@ -67,14 +67,14 @@ public class Bookkeeper {
 		     this.scheduler = java.util.Objects.requireNonNull(scheduler);
 	}
 
-	public void check(final Heartbeat beat, final Shard source) {
+	public void check(final Heartbeat beat, final Shard sourceShard) {
 		if (beat.getStateChange() == ShardState.QUITTED) {
-			checkShardChangingState(source);
+			checkShardChangingState(sourceShard);
 			return;
 		}
-		source.addHeartbeat(beat);
+		sourceShard.addHeartbeat(beat);
 		if (beat.getCapacities()!=null) {
-			source.setCapacities(beat.getCapacities());
+			sourceShard.setCapacities(beat.getCapacities());
 		}
 		if (!beat.isReportedCapturedDuties()) {
 			return;
@@ -86,27 +86,27 @@ public class Bookkeeper {
 			for (final ShardEntity duty : beat.getReportedCapturedDuties()) {
 				if (duty.getState() == CONFIRMED) {
 					try {
-						changeStage(source, duty);
+						changeStage(sourceShard, duty);
 					} catch (ConcurrentDutyException cde) {
 						if (partitionTable.getHealth() == ClusterHealth.STABLE) {
 							// TODO 
 						}
-						logger.error("{}: Rebell shard: {}", getClass().getSimpleName(), source, cde);
+						logger.error("{}: Rebell shard: {}", getClass().getSimpleName(), sourceShard, cde);
 					}
 				} else if (duty.getState() == DANGLING) {
 					logger.error("{}: Shard {} reported Dangling Duty (follower's unconfident: {}): {}",
-							getClass().getSimpleName(), source.getShardID(), duty.getDutyEvent(), duty);
+							getClass().getSimpleName(), sourceShard.getShardID(), duty.getDutyEvent(), duty);
 					if (duty.getDutyEvent().is(EntityEvent.CREATE)) {
 					} else if (duty.getDutyEvent().is(EntityEvent.REMOVE)) {
 					}
 				}
 			}
 		} else {
-			analyzeReportedDuties(source, beat.getReportedCapturedDuties());
+			analyzeReportedDuties(sourceShard, beat.getReportedCapturedDuties());
 		}
 		// TODO perhaps in presence of Reallocation not ?
-		if (source.getState().isAlive()) {
-			declareHeartbeatAbsencesAsMissing(source, beat.getReportedCapturedDuties());
+		if (sourceShard.getState().isAlive()) {
+			declareHeartbeatAbsencesAsMissing(sourceShard, beat.getReportedCapturedDuties());
 		}
 	}
 
@@ -326,7 +326,7 @@ public class Bookkeeper {
 		for (final ShardEntity entity : dutiesFromAction) {
 			final boolean typeDuty = entity.getType()==ShardEntity.Type.DUTY;
 			final boolean found = (typeDuty && presentInPartition(entity)) || 
-					(!typeDuty && partitionTable.getStage().getPallets().contains(entity));
+					(!typeDuty && partitionTable.getStage().getPalletss().contains(entity));
 			final EntityEvent event = entity.getDutyEvent();
 			if (!event.isCrud()) {
 				throw new RuntimeException("Bad call");

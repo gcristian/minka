@@ -74,6 +74,61 @@ public class PartitionTable {
 	 */
 	public static class Stage {
 		
+		public static class StageExtractor {
+			private final Stage reference;
+			public StageExtractor(final Stage reference) {
+	         this.reference = reference;
+         }
+			public double getCapacity(final Pallet<?> pallet, final Shard quest) {
+				double total = 0;
+				for (final Shard shard: getShards()) {
+					if (quest==null || shard.equals(quest)) {
+						final Capacity cap = shard.getCapacities().get(pallet);
+						total+=cap!=null ? cap.getTotal() : 0;
+					}
+				}
+				return total;
+			}
+
+			public double getCapacityTotal(final Pallet<?> pallet) {
+				return getCapacity(pallet, null);
+			}
+			public int getSizeTotal() {
+				return getSize(null, null);
+			}
+			public int getSizeTotal(final Pallet<?> pallet) {
+				return getSize(pallet, null);
+			}
+			public int getSize(final Pallet<?> pallet, final Shard quest) {
+				int total = 0;
+				for (final ShardedPartition part: partitionsByShard.values()) {
+					if (quest==null || part.getId().equals(quest.getShardID())) {
+						total += (pallet == null ? part.getDuties().size() : part.getDuties(pallet).size());
+					}
+				}
+				return total;
+			}
+			
+			public double getWeightTotal(final Pallet<?> pallet) {
+				return getWeight(pallet, null);
+			}
+			public double getWeight(final Pallet<?> pallet, final Shard quest) {
+				int total = 0;
+				for (final ShardedPartition part: partitionsByShard.values()) {
+					if (quest==null || part.getId().equals(quest.getShardID())) {
+						total +=part.getWeight(pallet);
+					}
+				}
+				return total;
+			}
+			public Collection<ShardEntity> getPallets() {
+				return this.palletsById.values();
+			}
+			public Collection<Shard> getShards() {
+				return this.shardsByID.values();
+			}
+		}
+		
 		private final Map<ShardIdentifier, Shard> shardsByID;
 		private final Map<Shard, ShardedPartition> partitionsByShard;
 		private final Map<String, ShardEntity> palletsById;
@@ -84,48 +139,6 @@ public class PartitionTable {
 			this.palletsById = new HashMap<>();
 		}
 		
-		public double getCapacityTotal(final Pallet<?> pallet) {
-			return getCapacity(pallet, null);
-		}
-		public double getCapacity(final Pallet<?> pallet, final Shard quest) {
-			double total = 0;
-			for (final Shard shard: getShards()) {
-				if (quest==null || shard.equals(quest)) {
-					final Capacity cap = shard.getCapacities().get(pallet);
-					total+=cap!=null ? cap.getTotal() : 0;
-				}
-			}
-			return total;
-		}
-		public int getSizeTotal() {
-			return getSize(null, null);
-		}
-		public int getSizeTotal(final Pallet<?> pallet) {
-			return getSize(pallet, null);
-		}
-		public int getSize(final Pallet<?> pallet, final Shard quest) {
-			int total = 0;
-			for (final ShardedPartition part: partitionsByShard.values()) {
-				if (quest==null || part.getId().equals(quest.getShardID())) {
-					total += (pallet == null ? part.getDuties().size() : part.getDuties(pallet).size());
-				}
-			}
-			return total;
-		}
-		
-		public double getWeightTotal(final Pallet<?> pallet) {
-			return getWeight(pallet, null);
-		}
-		public double getWeight(final Pallet<?> pallet, final Shard quest) {
-			int total = 0;
-			for (final ShardedPartition part: partitionsByShard.values()) {
-				if (quest==null || part.getId().equals(quest.getShardID())) {
-					total +=part.getWeight(pallet);
-				}
-			}
-			return total;
-		}
-		
 		public List<Shard> getShardsByState(final ShardState filter) {
 			return shardsByID.values().stream().filter(i -> i.getState() == filter || filter == null)
 					.collect(Collectors.toList());
@@ -133,7 +146,7 @@ public class PartitionTable {
 		public ShardEntity getPalletById(final String id) {
 			return this.palletsById.get(id);
 		}
-		public Set<ShardEntity> getPallets() {
+		public Set<ShardEntity> getPalletss() {
 			return Collections.unmodifiableSet(new HashSet<>(this.palletsById.values()));
 		}
 		/**
@@ -194,7 +207,8 @@ public class PartitionTable {
 
 		public Set<ShardEntity> getDutiesByShard(final Pallet<?> pallet, final Shard shard) {
 			return Sets.newHashSet(getPartition(shard).getDuties().stream()
-					.filter(e -> e.getDuty().getPalletId().equals(pallet.getId())).collect(Collectors.toList()));
+					.filter(e -> e.getDuty().getPalletId().equals(pallet.getId()))
+					.collect(Collectors.toList()));
 		}
 
 		public Set<ShardEntity> getDutiesAttached() {
@@ -266,7 +280,7 @@ public class PartitionTable {
 			return ret;
 		}
 
-		public List<Shard> getShards() {
+		public List<Shard> getShardss() {
 			return Lists.newArrayList(this.shardsByID.values());
 		}
 

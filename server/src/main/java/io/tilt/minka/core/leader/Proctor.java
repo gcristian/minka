@@ -131,7 +131,7 @@ public class Proctor extends ServiceImpl {
 		for (final Shard shard: partitionTable.getStage().getShardsByState(null)) {
 			if (!shard.getState().equals(ShardState.GONE)) {
 				final DomainInfo dom = new DomainInfo();
-				dom.setDomainPallets(partitionTable.getStage().getPallets());
+				dom.setDomainPallets(partitionTable.getStage().getPalletss());
 				eventBroker.postEvent(shard.getBrokerChannel(), EVENT_SET, dom);
 			}
 		}
@@ -144,7 +144,7 @@ public class Proctor extends ServiceImpl {
 			}
 			logger.info(LogUtils
 					.titleLine("Analyzing Shards (i" + analysisCounter++ + ") by Leader: " + shardId.toString()));
-			final List<Shard> shards = partitionTable.getStage().getShards();
+			final List<Shard> shards = partitionTable.getStage().getShardss();
 			if (shards.isEmpty()) {
 				logger.warn("{}: Partition queue empty: no shards emiting heartbeats ?", getName());
 				return;

@@ -105,7 +105,7 @@ public class Plan implements Comparable<Plan> {
 		return ret;
 	}
 	
-	public String getElapsed() {
+	private String getElapsed() {
 	    return LogUtils.humanTimeDiff(getStarted().getMillis(), 
 	            getEnded()==null ? System.currentTimeMillis() : getEnded().getMillis());
 	}
@@ -132,6 +132,9 @@ public class Plan implements Comparable<Plan> {
 	        .orElse(null);
 	}
 	
+	/**
+	 * transforms shippings of transfers and overrides, into a consistent gradual change plan
+	 * @return whether or not there're deliveries to distribute. */
 	public boolean prepare() {
 		this.started= new DateTime(DateTimeZone.UTC);
 		int order = 0;
@@ -159,6 +162,8 @@ public class Plan implements Comparable<Plan> {
 		return lastDelivery;
 	}
 	
+	 /** @return whether or not all sent and pending deliveries were confirmed
+	  * and following enqueued deliveries can be requested */
     public boolean hasUnlatched() {
         return !deliveries.stream()
                 .filter(d -> d.checkStatus() != Delivery.Status.ENQUEUED)
