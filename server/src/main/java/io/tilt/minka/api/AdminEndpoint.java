@@ -25,6 +25,10 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -33,6 +37,7 @@ import com.wordnik.swagger.annotations.Api;
 
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.Status;
+import io.tilt.minka.core.leader.distributor.Plan;
 
 @Api("Minka Endpoint API")
 @Path("minka/admin")
@@ -91,7 +96,11 @@ public class AdminEndpoint {
 	@Path("/plans")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response plans() throws JsonProcessingException {
-		return Response.accepted(Status.elementToJson(table.getHistory())).build();
+		final List<Plan> history = table.getHistory();
+		final Map<String, Object> map = new HashMap<>(2);
+		map.put("plans", history.size());
+		map.put("history", history);
+        return Response.accepted(Status.elementToJson(map)).build();
 	}
 
 

@@ -44,6 +44,10 @@ public class SlidingSortedSet<E> {
 			set.pollLast();
 		}
 	}
+	
+	public E first() {
+	    return this.set.first();
+	}
 
 	public List<E> values() {
 		return new ArrayList<>(this.set);

@@ -79,7 +79,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		/* when created */
 		PREPARED,
 		/* status at leader after being sent */
-		SENT,
+		PENDING,
 		/* status at followet when arrives */
 		RECEIVED,
 		/* status at leader after the effect is confirmed */

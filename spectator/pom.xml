@@ -54,11 +54,6 @@
       <groupId>commons-lang</groupId>
       <artifactId>commons-lang</artifactId>
     </dependency>
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <version>19.0-fl-mahout-comp</version>
-    </dependency>
     <!-- LOGGING -->
     <dependency>
       <groupId>org.slf4j</groupId>

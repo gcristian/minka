@@ -335,10 +335,10 @@ public class Config {
 		private long startDelayMs;
 		protected final static long DELAY_MS = 3000;		
 		private long delayMs;
-		protected static final int ROADMAP_EXPIRATION_SEC = 30;
-		private int roadmapExpirationSec;
-		protected static final int REALLOCATION_MAX_RETRIES = 3;
-		private int roadmapMaxRetries;
+		protected static final int PLAN_EXPIRATION_SEC = 10;
+		private int planExpirationSec;
+		protected static final int PLAN_MAX_RETRIES = 3;
+		private int planMaxRetries;
 		
 		public boolean isRunConsistencyCheck() {
 			return this.runConsistencyCheck;
@@ -371,16 +371,16 @@ public class Config {
 			this.delayMs = delayMs;
 		}
 		public int getPlanExpirationSec() {
-			return this.roadmapExpirationSec;
+			return this.planExpirationSec;
 		}
-		public void setRoadmapExpirationSec(int roadmapExpirationSec) {
-			this.roadmapExpirationSec = roadmapExpirationSec;
+		public void setPlanExpirationSec(int planExpirationSec) {
+			this.planExpirationSec = planExpirationSec;
 		}
 		public int getPlanMaxRetries() {
-			return this.roadmapMaxRetries;
+			return this.planMaxRetries;
 		}
-		public void setRoadmapMaxRetries(int roadmapMaxRetries) {
-			this.roadmapMaxRetries = roadmapMaxRetries;
+		public void setPlanMaxRetries(int planMaxRetries) {
+			this.planMaxRetries = planMaxRetries;
 		}
 		
 	}

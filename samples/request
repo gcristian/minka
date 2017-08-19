@@ -1,0 +1,1 @@
+watch -d -n2 -c "curl -s $(./leader)/minka/admin/$1 | jq . -C "

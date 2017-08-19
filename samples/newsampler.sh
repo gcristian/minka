@@ -7,7 +7,7 @@ port_start=9000
 host='localhost'
 xms='512M'
 pp='broker.hostPort'
-dsfp=$(pwd)'/'${1:-'dataset-3pallets-fair-balancer-3shards'}
+dsfp=$(pwd)'/'${1:-'dataset-3pallets-fair-balancer-4shards'}
 another=false
 for i in {0..20}; do
 	echo $dsfp

@@ -29,6 +29,7 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.Follower;
@@ -62,8 +63,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 
 	public static Builder builder(final long sequenceId, final NetworkShardIdentifier shardId) {
 		Validate.notNull(shardId);
-		final Builder b = new Builder(sequenceId, shardId);
-		return b;
+		return new Builder(sequenceId, shardId);
 	}
 	
 	public static Builder builderFrom(final Heartbeat hb) {
@@ -150,14 +150,16 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		this.differences = differences;
 	}
 
+	@JsonProperty(index=9, value="reports-duties")
 	public boolean isReportedCapturedDuties() {
 		return this.isReportedCapturedDuties;
 	}
 	
+	@JsonProperty(index=2, value="has-differences")
 	public boolean hasDifferences() {
 		return this.differences!=null;
 	}
-	
+	@JsonIgnore
 	public List<DutyDiff> getDifferences() {
 		return this.differences;
 	}
@@ -165,27 +167,41 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	public void cleanDuties() {
 		this.reportedCapturedDuties = new ArrayList<>(1);
 	}
+	
 	@JsonIgnore
 	public DateTime getCreation() {
-		return this.creation;
+        return this.creation;
+    }
+	@JsonProperty(index=3, value="creation")
+	private String getCreation_() {
+		return this.creation.toString();
 	}
 
+	@JsonProperty(index=4, value="reception-delay")
 	public long getReceptionDelay() {
 		return reception.getMillis() - creation.getMillis();
 	}
+	
 	@JsonIgnore
 	public DateTime getReception() {
-		return this.reception;
+        return this.reception;
+    }
+	
+	@JsonProperty(index=5, value="reception")
+	private String getReception_() {
+		return this.reception.toString();
 	}
 
 	public void setReception(DateTime reception) {
 		this.reception = reception;
 	}
 
+	@JsonIgnore
 	public NetworkShardIdentifier getShardId() {
 		return this.shardId;
 	}
 
+	@JsonProperty(index=6, value="state-change")
 	public ShardState getStateChange() {
 		return this.stateChange;
 	}
@@ -199,10 +215,17 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		return this.reportedCapturedDuties;
 	}
 
+	@JsonProperty(index=7, value="reported-duties")
+	private int getDutySize() {
+        return this.reportedCapturedDuties!=null ? this.reportedCapturedDuties.size() : 0;
+    }
+
+	@JsonProperty(index=8, value="has-warning")
 	public boolean hasWarning() {
 		return warning;
 	}
 
+	@JsonProperty(index=1, value="sequence-id")
 	public long getSequenceId() {
 		return this.sequenceId;
 	}
@@ -275,6 +298,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		return this.shardId.getStringIdentity();
 	}
 	
+	@JsonIgnore
 	public Map<Pallet<?>, Capacity> getCapacities() {
 		return this.capacities;
 	}

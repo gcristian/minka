@@ -1,0 +1,32 @@
+
+# this file is read at the sample module, by the DatasetSampler class.
+# for locally sampling Minka with a testing static data
+
+=============================================
+
+# distribution of duties among the pallets
+
+# SIZE indicates a fixed assignation of duties to pallets, just for test
+# WEIGHT indicates an absolute or random weight between a range 0~N and in the same measure than shard capacities
+# BALANCER valid values are: 
+# 	FAIR_WEIGHT	assignation of duties according weights and nodes capacities
+#	EVEN_WEIGHT	same duty total weight to each shard regardless of capacities (non asked)
+#	EVEN_SIZE	same number of duties to all shards
+#	SPILL_OVER	progressive cluster usage by duty agluttination until completion
+#	COALESCE	shard agglutination of duties of the same pallet
+#	SHUFFLE_ONCE	shuffling assignation of duties
+#              NAME    SIZE     WEIGHT   BALANCER
+duties.pallets.Finwe = 20:	5	:FAIR_WEIGHT; 
+duties.pallets.Ewok  = 10:	10	:FAIR_WEIGHT; 
+duties.pallets.Manwe = 15:	7	:FAIR_WEIGHT;
+
+=============================================
+
+# the different weighing capacities each node will report for each pallet
+# (each sampler will lookup in this dataset it's truth table to report to the leader
+#                 SHARD  NAME   CAPACITY NAME  CAPACITY NAME   CAPACITY
+shards.capacities.9000 = Finwe:	150;	 Ewok: 24000; 	Manwe: 160; 
+shards.capacities.9001 = Finwe: 100;	 Ewok: 30; 	Manwe: 250; 
+shards.capacities.9002 = Finwe: 250;	 Ewok: 20; 	Manwe: 110; 
+shards.capacities.9003 = Finwe: 50;	 Ewok: 10; 	Manwe: 50; 
+

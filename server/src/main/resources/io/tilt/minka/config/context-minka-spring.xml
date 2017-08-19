@@ -139,6 +139,7 @@
     <!-- acceso write-only a la tabla -->
     <bean id="bookkeeper" class="io.tilt.minka.core.leader.Bookkeeper">
         <constructor-arg ref="partitionTable" />
+        <constructor-arg ref="scheduler" />
     </bean>
     
     <!-- Pastorea los followers -->

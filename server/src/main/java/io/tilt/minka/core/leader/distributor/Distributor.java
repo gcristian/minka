@@ -19,9 +19,7 @@ package io.tilt.minka.core.leader.distributor;
 import static io.tilt.minka.core.leader.distributor.Distributor.PlanStatus.EXPIRED;
 import static io.tilt.minka.core.leader.distributor.Distributor.PlanStatus.RETRY;
 import static io.tilt.minka.core.leader.distributor.Distributor.PlanStatus.VALID;
-import static io.tilt.minka.domain.ShardEntity.State.CONFIRMED;
 import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
-import static io.tilt.minka.domain.ShardEntity.State.SENT;
 import static io.tilt.minka.domain.ShardState.ONLINE;
 
 import java.util.ArrayList;
@@ -145,8 +143,8 @@ public class Distributor extends ServiceImpl {
 				return;
 			}
 			// skip if unstable unless a plan in progress or expirations will occurr and dismiss
-			Plan currentPlan = partitionTable.getCurrentPlan();
-			if ((currentPlan==null) && // || currentPlan.isEmpty()) && 
+			Plan plan = partitionTable.getCurrentPlan();
+			if ((plan==null) && // || currentPlan.isEmpty()) && 
 			        partitionTable.getVisibilityHealth() == ClusterHealth.UNSTABLE) {
 				logger.warn("{}: ({}) Posponing distribution until reaching cluster stability (", getName(), shardId);
 				return;
@@ -157,25 +155,32 @@ public class Distributor extends ServiceImpl {
 			if (online < min) {
 			    logger.info("{}: balancing posponed: not enough online shards (min:{}, now:{})", getName(), min, online);
 			    return;
-			}			
+			}
 		    if (!checkWithStorageWhenAllOnlines()) {
 		        return;
 		    }
 		    
-            boolean driveable = isDriveable(currentPlan);
-            PlanStatus driveRes = null;
+		    // distribution
+		    
+            boolean build = !isDriveable(plan);
+            PlanStatus res = null;
             int tries = 0;
-            while ((driveRes==RETRY && tries<=MAX_DRIVE_TRIES) || driveRes!=VALID ) {
-                if (!driveable) {
-                    driveRes = VALID;
-                    currentPlan = buildPlan(null);
+            while ((res==RETRY && tries<=MAX_DRIVE_TRIES) || res!=VALID ) {
+                if (build) {                    
+                    plan = build(res == null ? null : plan);
+                    res = VALID;
                 }
-                if (isDriveable(currentPlan)) {
-                    drive(currentPlan);
-                    driveRes = checkExpiration(System.currentTimeMillis(), currentPlan);
+                if (isDriveable(plan)) {
+                    res = drive(plan);
+                    if (res == VALID) {
+                        res = checkExpiration(System.currentTimeMillis(), plan);
+                    }
+                    if (res == RETRY) {
+                        res = retry(plan);
+                    }
                 }
-                if (driveRes == EXPIRED) {
-                    driveable = false;
+                if (res == EXPIRED) {
+                    build = true;
                 }
             }
 			communicateUpdates();
@@ -185,7 +190,7 @@ public class Distributor extends ServiceImpl {
 			logger.info(LogUtils.END_LINE);
 		}
 	}
-	
+
 	private boolean isDriveable(final Plan plan) {
 	    return plan!=null && !plan.isClosed();
 	}
@@ -198,10 +203,10 @@ public class Distributor extends ServiceImpl {
 		partitionTable.logStatus();
 	}
 
-	private Plan buildPlan(final Plan previousChange) {
-		final Plan plan = arranger.evaluate(partitionTable, previousChange);
+	private Plan build(final Plan previous) {
+		final Plan plan = arranger.evaluate(partitionTable, previous);
 		bookkeeper.cleanTemporaryDuties();
-		if (plan!=null && !plan.areShippingsEmpty()) {
+		if (!plan.areShippingsEmpty()) {
 			partitionTable.addPlan(plan);
 			this.partitionTable.setWorkingHealth(ClusterHealth.UNSTABLE);
 			plan.prepare();
@@ -214,28 +219,55 @@ public class Distributor extends ServiceImpl {
 		}
 	}
 	
-	private void drive(final Plan plan) {
+	
+	private PlanStatus retry(final Plan plan) {
+	    for (Delivery del: plan.getAllPendings()) {
+	        final PlanStatus res = send(del, true);
+	        if (res == PlanStatus.EXPIRED) {
+                return res;
+            }
+	    }
+	    return PlanStatus.VALID;
+	}
+	
+	private PlanStatus drive(final Plan plan) {
 	    logger.info("{}: Driving Plan: {}", getName(), plan.getId());
 		while (plan.hasNextAvailable()) {
-			final Delivery delivery = plan.next();
-			// check it's still in ptable
-			if (partitionTable.getStage().getShardsByState(ONLINE).contains(delivery.getShard())) {
-				final Collection<ShardEntity> duties = delivery.getDuties();
-				final Set<ShardEntity> sortedLog = new TreeSet<>(duties);
-				logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), delivery.getEvent().toVerb(),
-						delivery.getShard().getShardID(), duties.size(), ShardEntity.toStringIds(sortedLog));
-				delivery.markPending();
-				if (eventBroker.postEvents(delivery.getShard().getBrokerChannel(), new ArrayList<>(duties))) {				    
-					// dont mark to wait for those already confirmed (from fallen shards)
-					duties.forEach(duty -> duty.registerEvent((duty.getState() == PREPARED ? SENT : CONFIRMED)));
-				} else {
-					logger.error("{}: Couldnt transport current issues !!!", getName());
-				}
-			} else {
-				logger.error("{}: PartitionTable lost transport's target shard: {}", getName(), delivery.getShard());
+			final PlanStatus res = send(plan.next(), false);
+			if (res == PlanStatus.EXPIRED) {
+			    return res;
 			}
 		}
+		return PlanStatus.VALID;
 	}
+
+	/** @return if plan is still valid */
+    private PlanStatus send(final Delivery delivery, final boolean retrying) {
+        // check it's still in ptable
+        if (partitionTable.getStage().getShardsByState(ONLINE).contains(delivery.getShard())) {
+        	final Collection<ShardEntity> duties = delivery.getByState(retrying ? ShardEntity.State.PENDING : null);
+        	final Set<ShardEntity> sortedLog = new TreeSet<>(duties);
+        	logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), delivery.getEvent().toVerb(),
+        			delivery.getShard().getShardID(), duties.size(), ShardEntity.toStringIds(sortedLog));
+        	delivery.markPending();
+        	if (eventBroker.postEvents(delivery.getShard().getBrokerChannel(), new ArrayList<>(duties))) {				    
+        		// dont mark to wait for those already confirmed (from fallen shards)
+                for (ShardEntity duty: duties) {
+                    if (duty.getState() == PREPARED || retrying) { 
+                        duty.registerEvent(ShardEntity.State.PENDING);
+                    } else {
+                        duty.registerEvent(ShardEntity.State.CONFIRMED);
+                    }
+                }                
+        	} else {
+        		logger.error("{}: Couldnt transport current issues !!!", getName());
+        	}
+        	return PlanStatus.VALID;
+        } else {
+        	logger.error("{}: PartitionTable lost transport's target shard: {}", getName(), delivery.getShard());
+        	return PlanStatus.EXPIRED;
+        }
+    }
 	
 	public enum PlanStatus {
 	    /* hay que regenerar uno nuevo */
@@ -247,8 +279,7 @@ public class Distributor extends ServiceImpl {
 	}
 
 	private PlanStatus checkExpiration(final long now, final Plan currentPlan) {
-		final int maxSecs = config.getDistributor().getPlanExpirationSec() * 
-		        (int)config.getDistributor().getDelayMs()/1000;
+		int maxSecs = config.getDistributor().getPlanExpirationSec();  
 		final DateTime expiration = currentPlan.getCreation().plusSeconds(maxSecs);
 		if (expiration.isBefore(now)) {
 			if (currentPlan.getRetryCount() == config.getDistributor().getPlanMaxRetries()) {
@@ -369,7 +400,7 @@ public class Distributor extends ServiceImpl {
 				logger.info("{}: Transporting (update) Duty: {} to Shard: {}", getName(), updatedDuty.toString(), 
 						location.getShardID());
 				if (eventBroker.postEvent(location.getBrokerChannel(), updatedDuty)) {
-					updatedDuty.registerEvent(SENT);
+					updatedDuty.registerEvent(ShardEntity.State.PENDING);
 				}
 			}
 		}

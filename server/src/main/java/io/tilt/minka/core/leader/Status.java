@@ -140,9 +140,14 @@ public class Status {
 			crud.forEach(d->dettachedWeight.addAndGet(d.getDuty().getWeight()));
 
 			final List<DutyView> dutyRepList = new ArrayList<>();
-			table.getStage().getDutiesByPallet(pallet.getPallet()).forEach(d->dutyRepList.add(new DutyView(d.getDuty().getId(), d.getDuty().getWeight())));
+			table.getStage().getDutiesByPallet(pallet.getPallet())
+			    .forEach(d->dutyRepList.add(
+			            new DutyView(
+			                    d.getDuty().getId(), 
+			                    d.getDuty().getWeight())));
 			
-			ret.add(new PalletView(pallet.getPallet().getId(), 
+			ret.add(new PalletView(
+			            pallet.getPallet().getId(), 
 						table.getStage().getCapacityTotal(pallet.getPallet()), 
 						table.getStage().getSizeTotal(pallet.getPallet()), 
 						table.getStage().getWeightTotal(pallet.getPallet()), 
@@ -165,14 +170,24 @@ public class Status {
 			for (final ShardEntity pallet: table.getStage().getPallets()) {
 				final Set<ShardEntity> duties = table.getStage().getDutiesByShard(pallet.getPallet(), shard);
 				final List<DutyView> dutyRepList = new ArrayList<>();
-				duties.forEach(d->dutyRepList.add(new DutyView(d.getDuty().getId(), d.getDuty().getWeight())));
-				palletsAtShard.add(new PalletAtShardView(pallet.getPallet().getId(), 
-						table.getStage().getCapacity(pallet.getPallet(), shard), 
-					duties.size(), table.getStage().getWeight(pallet.getPallet(), shard), dutyRepList));
+				duties.forEach(d->dutyRepList.add(
+				        new DutyView(
+				                d.getDuty().getId(), 
+				                d.getDuty().getWeight())));
+				palletsAtShard.add(
+				        new PalletAtShardView(
+				                pallet.getPallet().getId(), 
+				                table.getStage().getCapacity(pallet.getPallet(), shard),
+				                duties.size(), 
+				                table.getStage().getWeight(pallet.getPallet(), shard), 
+				                dutyRepList));
 				
 			}
-			ret.add(new ShardView(shard.getShardID().getSynthetizedID(), shard.getFirstTimeSeen(), 
-					palletsAtShard, shard.getState().toString()));
+			ret.add(new ShardView(
+			        shard.getShardID().getSynthetizedID(), 
+			        shard.getFirstTimeSeen(), 
+					palletsAtShard, 
+					shard.getState().toString()));
 		}
 		return ret;
 	}
@@ -185,12 +200,11 @@ public class Status {
 	}
 	
 	public static class Global {
-		@JsonPropertyOrder({"shard-size", "duty-size", "pallet-size", "staged-size", "unstaged-size"})
-		@JsonProperty(index=1, value="shard-size") private final int shardSize;
-		@JsonProperty(index=2, value="duty-size") private final int dutySize;
-		@JsonProperty(index=3, value="pallet-size") private final int palletSize;
-		@JsonProperty(index=4, value="staged-size") private final int stagedSize;
-		@JsonProperty(index=5, value="unstaged-size") private final int unstagedSize;
+		@JsonProperty(index=1, value="size-shards") private final int shardSize;
+		@JsonProperty(index=2, value="size-pallets") private final int palletSize;
+		@JsonProperty(index=3, value="size-duties") private final int dutySize;
+		@JsonProperty(index=4, value="size-staged") private final int stagedSize;
+		@JsonProperty(index=5, value="size-unstaged") private final int unstagedSize;
 		protected Global(final int dutySize, final int stagedSize, final int unstagedSize, final int palletSize, final int shardSize) {
 			super();
 			this.dutySize = dutySize;
@@ -202,16 +216,15 @@ public class Status {
 	}
 	
 	public static class ShardView {
-		@JsonPropertyOrder({"host", "creation", "status", "pallets"})
-		private final String host;
-		private final String creation;
-		private final String status;
-		private final List<PalletAtShardView> pallets;
+		@JsonProperty(index=1, value="shard-id") private final String shardId;
+		@JsonProperty(index=2, value="creation") private final String creation;
+		@JsonProperty(index=3, value="status") private final String status;
+		@JsonProperty(index=4, value="pallets") private final List<PalletAtShardView> pallets;
 		
 		@JsonCreator
-		protected ShardView(final String host, final DateTime creation, final List<PalletAtShardView> pallets, final String status) {
+		protected ShardView(final String shardId, final DateTime creation, final List<PalletAtShardView> pallets, final String status) {
 			super();
-			this.host = host;
+			this.shardId = shardId;
 			this.creation = creation.toString();
 			this.pallets = pallets;
 			this.status = status;
@@ -220,7 +233,6 @@ public class Status {
 	
 	
 	public static class PalletAtShardView {
-		@JsonPropertyOrder({"id", "size", "capacity", "weight", "duties"})
 		@JsonProperty(index=1, value ="id") private final String id;
 		@JsonProperty(index=2, value ="size") private final int size;
 		@JsonProperty(index=3, value ="capacity") private final double capacity;
@@ -250,16 +262,15 @@ public class Status {
 	}
 	
 	public static class PalletView {
-		@JsonPropertyOrder({"id", "creation", "cluster-capacity", "allocation", "staged-size", 
-			"staged-weight", "unstaged-size", "unstaged-weight", "balancer", "balancer-metadata"})	@JsonProperty(index=1, value ="id") private final String id;
-		@JsonProperty(index=2, value ="creation") private final String creation;
-		@JsonProperty(index=3, value ="size") private final int size;
-		@JsonProperty(index=4, value ="cluster-capacity") private final double capacity;
-		@JsonProperty(index=5, value ="allocation") private final String allocationPercent;
-		@JsonProperty(index=6, value ="staged-size") private final int stagedSize;
-		@JsonProperty(index=7, value ="staged-weight") private final double stagedWeight;
-		@JsonProperty(index=8, value ="unstaged-size") private final int unstagedSize;
-		@JsonProperty(index=9, value ="unstaged-weight") private final double unstagedWeight;
+		@JsonProperty(index=1, value ="id") private final String id;		
+		@JsonProperty(index=2, value ="size") private final int size;
+		@JsonProperty(index=3, value ="cluster-capacity") private final double capacity;		
+		@JsonProperty(index=4, value ="size-staged") private final int stagedSize;
+		@JsonProperty(index=5, value ="size-unstaged") private final int unstagedSize;
+		@JsonProperty(index=6, value ="weight-staged") private final double stagedWeight;
+		@JsonProperty(index=7, value ="weight-unstaged") private final double unstagedWeight;
+		@JsonProperty(index=8, value ="allocation") private final String allocationPercent;
+		@JsonProperty(index=9, value ="creation") private final String creation;
 		@JsonProperty(index=10, value ="balancer-metadata") private final BalancerMetadata meta;		
 		@JsonProperty(index=11, value ="balancer") private final String balancer;
 		@JsonProperty(index=12, value ="duties") private final String duties;

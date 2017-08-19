@@ -46,12 +46,16 @@ import io.tilt.minka.utils.SlidingSortedSet;
 public class Shard implements Comparator<Shard> {
 
 	private static final int MAX_HEARBEATS_TO_EVALUATE = 50;
+	private static final int MAX_HEARBEATS_CHANGES_TO_KEEP = 10;
 
 	private final BrokerChannel brokerChannel;
 	private final NetworkShardIdentifier shardId;
+	
 	private final DateTime firstTimeSeen;
+	
 	private DateTime lastStatusChange;
 	private final SlidingSortedSet<Heartbeat> cardiacLapse;
+	private final SlidingSortedSet<Heartbeat> changesToKeep;
 	private ShardState serviceState;
 	private Map<Pallet<?>, Capacity> capacities;
 	
@@ -63,15 +67,17 @@ public class Shard implements Comparator<Shard> {
 		this.shardId = memberId;
 		this.serviceState = ShardState.JOINING;
 		this.cardiacLapse = new SlidingSortedSet<>(MAX_HEARBEATS_TO_EVALUATE);
+		this.changesToKeep = new SlidingSortedSet<>(MAX_HEARBEATS_CHANGES_TO_KEEP);
 		this.firstTimeSeen = new DateTime(DateTimeZone.UTC);
 		this.lastStatusChange = new DateTime(DateTimeZone.UTC);
 		this.capacities = new HashMap<>();
 	}
+	
 	@JsonIgnore
 	public DateTime getLastStatusChange() {
 		return this.lastStatusChange;
 	}
-	@JsonProperty("lastStatusChange")
+	@JsonProperty(index=2, value="last-change")
 	private String getLastStatusChange_() {
 		return this.lastStatusChange.toString();
 	}
@@ -79,7 +85,7 @@ public class Shard implements Comparator<Shard> {
 	public DateTime getFirstTimeSeen() {
 		return this.firstTimeSeen;
 	}
-	@JsonProperty("firstTimeSeen")
+	@JsonProperty(index=1, value="first-seen")
 	public String getFirstTime() {
 		return this.firstTimeSeen.toString();
 	}
@@ -107,12 +113,25 @@ public class Shard implements Comparator<Shard> {
 			this.serviceState = hb.getStateChange();
 		}
 		this.cardiacLapse.add(hb);
+		if (hb.hasDifferences() || hb.hasWarning()) {
+		    this.changesToKeep.add(hb);
+		}
 	}
 
 	@JsonIgnore
 	public List<Heartbeat> getHeartbeats() {
 		return this.cardiacLapse.values();
 	}
+	
+	@JsonProperty(index=3, value="heartbeat-last")
+	public Heartbeat getLast() {
+	    return this.cardiacLapse.first();
+	}
+	
+	@JsonProperty(index=4, value="heartbeat-changes")
+	public SlidingSortedSet<Heartbeat> getChangesToKeep() {
+        return this.changesToKeep;
+    }
 
 	public ShardState getState() {
 		return this.serviceState;

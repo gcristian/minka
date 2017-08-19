@@ -66,7 +66,7 @@ public class Arranger {
 		final Set<ShardEntity> dangling = table.getNextStage().getDutiesDangling();
 		registerMissing(table, plan, table.getNextStage().getDutiesMissing());
 		// add previous fallen and never confirmed migrations
-		dangling.addAll(restoreUnfinishedBusiness(previousChange));
+		dangling.addAll(restorePendings(previousChange));
 		// add danglings as creations prior to migrations
 		final List<ShardEntity> danglingAsCreations = new ArrayList<>();
 		dangling.forEach(i -> danglingAsCreations.add(ShardEntity.Builder.builderFrom(i).build()));
@@ -83,7 +83,6 @@ public class Arranger {
 		ents.addAll(dutyCreations);
 		final PalletCollector allColl = new PalletCollector(ents, table.getStage().getPallets());
 		final Iterator<Set<ShardEntity>> itPallet = allColl.getPalletsIterator();
-		boolean anyChange = false;
 		while (itPallet.hasNext()) {
 			try {
 				Iterator<ShardEntity> itDuties = itPallet.next().iterator();
@@ -106,7 +105,7 @@ public class Arranger {
 					final NextTable nextTable = new NextTable(pallet.getPallet(), index, adds, removes, plan, migra);
 					balancer.balance(nextTable);
 					if (!migra.isEmpty()) {
-						anyChange |=migra.execute();
+						migra.execute();
 					}
 				} else {
 					logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(), 
@@ -116,7 +115,7 @@ public class Arranger {
 				logger.error("Unexpected", e);
 			}
 		}
-		return anyChange ? plan : null;
+		return plan;
 	}
 
 	protected static void registerMissing(final PartitionTable table, final Plan realloc,
@@ -146,23 +145,23 @@ public class Arranger {
 	 * check waiting duties never confirmed (for fallen shards as previous
 	 * target candidates)
 	 */
-	protected List<ShardEntity> restoreUnfinishedBusiness(final Plan previous) {
-		List<ShardEntity> unfinishedWaiting = new ArrayList<>();
+	protected List<ShardEntity> restorePendings(final Plan previous) {
+		List<ShardEntity> pendings = new ArrayList<>();
 		if (previous != null && !previous.isClosed() && !previous.hasFinalized()) {
 			/*
 			 * .stream() no siempre la NO confirmacion sucede sobre un
 			 * fallen shard .filter(i->i.getServiceState()==QUITTED)
 			 * .collect(Collectors.toList())
 			 */
-			unfinishedWaiting.addAll(previous.getPending());
-			if (unfinishedWaiting.isEmpty()) {
+			pendings.addAll(previous.getAllPendingsFromAllDeliveries());
+			if (pendings.isEmpty()) {
 				logger.info("{}: Previous change although unfinished hasnt waiting duties", getClass().getSimpleName());
 			} else {
 				logger.info("{}: Previous change's unfinished business saved as Dangling: {}",
-						getClass().getSimpleName(), unfinishedWaiting.toString());
+						getClass().getSimpleName(), pendings.toString());
 			}
 		}
-		return unfinishedWaiting;
+		return pendings;
 	}
 
 	/* by user deleted */

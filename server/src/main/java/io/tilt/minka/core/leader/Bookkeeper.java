@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
@@ -37,6 +38,8 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
 import io.tilt.minka.core.leader.distributor.Delivery;
 import io.tilt.minka.core.leader.distributor.Plan;
+import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
@@ -58,9 +61,10 @@ public class Bookkeeper {
 	private static final int MAX_EVENT_DATE_FOR_DIRTY = 10000;
 
 	private final PartitionTable partitionTable;
-
-	public Bookkeeper(final PartitionTable partitionTable) {
+	   private final Scheduler scheduler;
+	public Bookkeeper(final PartitionTable partitionTable, final Scheduler scheduler) {
 		this.partitionTable = partitionTable;
+		     this.scheduler = java.util.Objects.requireNonNull(scheduler);
 	}
 
 	public void check(final Heartbeat beat, final Shard source) {
@@ -114,8 +118,8 @@ public class Bookkeeper {
 		if (plan.hasFinalized()) {
 		    logger.info("{}: Plan finished ! (all changes in stage)", getClass().getSimpleName());
 		    plan.close();
-		    //} else if (road.hasCurrentStepFinished()) {
-		    //  scheduler.forward(scheduler.get(Action.DISTRIBUTOR));
+		} else if (plan.hasUnlatched()) {
+		    scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
 		}
 	}
 	
@@ -256,7 +260,11 @@ public class Bookkeeper {
 
 	public void cleanTemporaryDuties() {
 		// partitionTable.getNextStage().removeCrudDuties();
-		partitionTable.getNextStage().getDutiesDangling().clear();
+	    partitionTable.getNextStage().getDutiesDangling().removeAll(
+	            partitionTable.getNextStage().getDutiesDangling().stream()
+    		        .filter(e->e.getState()!=ShardEntity.State.STUCK)
+    		        .collect(Collectors.toList()));
+		
 	}
 
 	public void registerDutiesFromSource(final List<Duty<?>> dutiesFromSource) {

@@ -115,35 +115,38 @@ public class FairWeightBalancer implements Balancer {
 			if (bascules.isEmpty()) {
 				return;
 			}
-		final Migrator migra = next.getMigrator();
-		final Iterator<Bascule<Shard, ShardEntity>> itBascs = bascules.iterator();
-		final Iterator<ShardEntity> itDuties = duties.iterator();
-		ShardEntity duty = null;
-		boolean lifted = true;
-		while (itBascs.hasNext()) {
-			final Bascule<Shard, ShardEntity> bascule = itBascs.next();
-			while (itDuties.hasNext()) {
-				if (lifted) {
-					duty = itDuties.next();
-				}
-				lifted = bascule.testAndLift(duty, duty.getDuty().getWeight());
-				if (lifted && !itBascs.hasNext() && itDuties.hasNext()) {
-					// without overwhelming we can irrespect the fair-weight-even desire
-					// adding those left aside by division remainders calc
-					while (itDuties.hasNext()) {
-						bascule.tryLift(duty = itDuties.next(), duty.getDuty().getWeight()); 
-					}
-				}
-				if (!lifted || !itBascs.hasNext() || !itDuties.hasNext()) {
-					migra.override(bascule.getOwner(), bascule.getCargo());
-					break;
-				}
-			}
-		}
-		if (itDuties.hasNext()) {
-			logger.error("{}: Insufficient cluster capacity for Pallet: {}, remaining duties without distribution {}", 
-				getClass().getSimpleName(), next.getPallet(), duty.toBrief());
-		}
+    		final Migrator migra = next.getMigrator();
+    		final Iterator<Bascule<Shard, ShardEntity>> itBascs = bascules.iterator();
+    		final Iterator<ShardEntity> itDuties = duties.iterator();
+    		ShardEntity duty = null;
+    		boolean lifted = true;
+    		while (itBascs.hasNext()) {
+    			final Bascule<Shard, ShardEntity> bascule = itBascs.next();
+    			while (itDuties.hasNext()) {
+    				if (lifted) {
+    					duty = itDuties.next();
+    				}
+    				lifted = bascule.testAndLift(duty, duty.getDuty().getWeight());
+    				if (lifted && !itBascs.hasNext() && itDuties.hasNext()) {
+    					// without overwhelming we can irrespect the fair-weight-even desire
+    					// adding those left aside by division remainders calc
+    					while (itDuties.hasNext()) {
+    						bascule.tryLift(duty = itDuties.next(), duty.getDuty().getWeight()); 
+    					}
+    				}
+    				if (!lifted || !itBascs.hasNext() || !itDuties.hasNext()) {
+    					migra.override(bascule.getOwner(), bascule.getCargo());
+    					break;
+    				}
+    			}
+    		}
+    		if (itDuties.hasNext()) {
+    			logger.error("{}: Insufficient cluster capacity for Pallet: {}, remaining duties without distribution {}", 
+    				getClass().getSimpleName(), next.getPallet(), duty.toBrief());
+    			while (itDuties.hasNext()) {
+    			    itDuties.next().registerEvent(ShardEntity.State.STUCK);
+    			}
+    		}
 		} else {
 			logger.error("{}: Out of sleeping budget !");
 		}

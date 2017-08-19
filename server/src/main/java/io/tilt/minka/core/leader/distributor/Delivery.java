@@ -7,8 +7,7 @@ package io.tilt.minka.core.leader.distributor;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -83,16 +82,21 @@ public class Delivery {
 	    // delivered 
 	    CONFIRMED,
 	}
-		
+	
+	public List<ShardEntity> getByState(final ShardEntity.State state) {
+	    return state == null ? duties :
+	        duties.stream()
+	            .filter(d->d.getState()==state)
+	            .collect(Collectors.toList());
+	}
+	
 	public Status checkStatus() {
 	    if (status == Status.PENDING) {
-    		final Set<ShardEntity> sortedLog = new TreeSet<>();
     		for (final ShardEntity duty : duties) {
     			if (duty.getState() != State.CONFIRMED) {
     				// TODO get Partition TAble and check if Shard has long fell offline
-    				sortedLog.add(duty);
     				Plan.logger.info("{}: waiting Shard: {} for at least Duties: {}", getClass().getSimpleName(), shard,
-    						ShardEntity.toStringIds(sortedLog));
+    						duty);
     				return status;
     			}
     		}

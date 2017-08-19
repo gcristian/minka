@@ -99,14 +99,24 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		 schedule(getAgentFactory().create(agent.getAction(), agent.getPriority(), Frequency.ONCE,
 		         agent.getTask()).build());
 		 schedule(agent); // go back to old
+         if (stop(agent, false)) {
+                schedule(getAgentFactory().create(
+                        agent.getAction(), 
+                        agent.getPriority(), 
+                        Frequency.ONCE,
+                        agent.getTask())
+                    .build());
+                schedule(agent); // re-schedule previus agent
+            }
+		 
 	}
 	
 	@Override
-	public void stop(final Synchronized synchro) {
-		stop(synchro, true);
+	public boolean stop(final Synchronized synchro) {
+		return stop(synchro, true);
 	}
 
-	private void stop(final Synchronized synchro, final boolean withFire) {
+	private boolean stop(final Synchronized synchro, final boolean withFire) {
 		Validate.notNull(synchro);
 		checkQueue();
 		final Callable<?> callable = this.callablesBySynchro.get(synchro);
@@ -123,11 +133,11 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		} else {
 			logger.error("{}: ({}) Runnable/Callable {} not found, finished or never scheduled", getName(), logName,
 				synchro.getAction().name());
-			return;
+			return false;
 		}
-
+		boolean cancelled = false;
 		if (future != null) {
-			boolean cancelled = future.cancel(withFire);
+			cancelled = future.cancel(withFire);
 			logger.warn("{}: ({}) Stopping - Task {} ({}) Cancelled = {}, Dequeued = {}", getName(), logName,
 				synchro.getAction().name(), runnable.getClass().getSimpleName(), cancelled, dequeued);
 		} else {
@@ -136,6 +146,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		}
 		this.executor.purge();
 		agentsByAction.remove(synchro.getAction());
+		return cancelled;
 	}
 
 	@Override

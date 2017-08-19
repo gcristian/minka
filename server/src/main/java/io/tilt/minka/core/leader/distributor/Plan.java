@@ -23,8 +23,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -62,7 +65,8 @@ import io.tilt.minka.utils.SlidingSortedSet;
 public class Plan implements Comparable<Plan> {
 
 	static final Logger logger = LoggerFactory.getLogger(Plan.class);
-	private static List<EntityEvent> sortedEvents = Arrays.asList(
+	
+	private static List<EntityEvent> consistentEventsOrder = Arrays.asList(
 	        EntityEvent.REMOVE, 
 	        EntityEvent.DETACH, 
 	        EntityEvent.CREATE, 
@@ -82,17 +86,20 @@ public class Plan implements Comparable<Plan> {
 	private int retryCounter;
 
 	@JsonIgnore
-	public List<ShardEntity> getPending() {
+	public List<Delivery> getAllPendings() {
+	    return deliveries.stream()
+	            .filter(d->d.checkStatus()==Delivery.Status.PENDING)
+	            .collect(Collectors.toList());
+	}
+	
+	@JsonIgnore
+	public List<ShardEntity> getAllPendingsFromAllDeliveries() {	    
 		final List<ShardEntity> ret = new ArrayList<>();
 		for (final Delivery delivery: deliveries) {
 			for (final ShardEntity duty: delivery.getDuties()) {
-			    // PREPARED -> SENT -> CONFIRMED
-				if (duty.getState()==State.SENT) {
+				if (duty.getState()==State.PENDING) {
 					ret.add(duty);
 				}
-			}
-			if (delivery.equals(lastDelivery)) {
-				break;
 			}
 		}
 		return ret;
@@ -128,12 +135,13 @@ public class Plan implements Comparable<Plan> {
 	public boolean prepare() {
 		this.started= new DateTime(DateTimeZone.UTC);
 		int order = 0;
-		for (final EntityEvent event: sortedEvents) {
+		for (final EntityEvent event: consistentEventsOrder) {
 			final Map<Shard, List<ShardEntity>> map = getOrPut(shippings, event, ()->new HashMap<>());
 			for (final Entry<Shard, List<ShardEntity>> e: map.entrySet()) {
 				deliveries.add(new Delivery(e.getValue(), e.getKey(), event, order++));
 			}
 		}
+		//checkAllEventsPaired();
 		this.shippings.clear();
 		iterator = deliveries.iterator();
 		return iterator.hasNext();
@@ -151,6 +159,55 @@ public class Plan implements Comparable<Plan> {
 		return lastDelivery;
 	}
 	
+    public boolean hasUnlatched() {
+        return !deliveries.stream()
+                .filter(d -> d.checkStatus() != Delivery.Status.ENQUEUED)
+                .findFirst()
+                .isPresent();
+    }
+
+    /** @return the inverse operation expected at another shard */
+    private EntityEvent inverse(Delivery del) {
+        // we care only movements
+        if (del.getEvent() == EntityEvent.ATTACH) {
+            return EntityEvent.DETACH;
+        } else if (del.getEvent() == EntityEvent.DETACH) {
+            return EntityEvent.ATTACH;
+        }
+        return null;
+    }
+
+    /** @throws Exception last check for paired movement operations: 
+     * a DETACH must be followed by an ATTACH and viceversa */
+    private void checkAllEventsPaired() {
+        final Set<ShardEntity> paired = new TreeSet<>();
+        for (Delivery del : deliveries) {
+            final EntityEvent toPair = inverse(del);
+            if (toPair == null) {
+                continue;
+            }
+            for (ShardEntity entity : del.getDuties()) {
+                if (!paired.contains(entity)) {
+                    boolean pair = false;
+                    for (Delivery tmp : deliveries) {
+                        pair |= tmp.getDuties().stream()
+                                .filter(e -> e.equals(entity) && e.getDutyEvent() == toPair)
+                                .findFirst()
+                                .isPresent();
+                        if (pair) {
+                            paired.add(entity);
+                            break;
+                        }
+                    }
+                    if (!pair) {
+                        throw new IllegalStateException("Invalid Plan with an operation unpaired: " + entity.toBrief());
+                    }
+                }
+            }
+        }
+    }
+
+    /** @return whether caller has permission to get next delivery   */
     public boolean hasNextAvailable() {
         if (started==null) {
             throw new IllegalStateException("Plan not prepared yet !");
@@ -166,6 +223,7 @@ public class Plan implements Comparable<Plan> {
 		}		
 	    final EntityEvent nextDeliveryEvent = deliveries.get(deliveryIdx).getEvent();
         if (nextDeliveryEvent==lastDelivery.getEvent()) {
+            
             deliveries.forEach(d->d.checkStatus());
             // same future events (attach/dettach) are parallelized
             return true;

@@ -76,7 +76,7 @@ public interface Scheduler extends Semaphore {
 	void schedule(Agent agent);
 
 	/* stop the agent of running */
-	void stop(Synchronized agent);
+	boolean stop(Synchronized agent);
 
 	/* forward to execute it now, leaving future schedules intact */
 	void forward(Agent agent);

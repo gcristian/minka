@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.follower.Follower;
@@ -56,14 +57,18 @@ public class NetworkShardIDImpl implements NetworkShardIdentifier, Closeable {
 
 	private static final int PORT_SEARCHES_MAX = 100;
 
+	@JsonProperty(index=1, value="id")
 	private String id;
+	@JsonProperty(index=2, value="server-hostname")
 	private final InetAddress sourceHost;
+	@JsonProperty(index=3, value="server-port")
 	private int port;
 	@JsonIgnore
 	private final int configuredPort;  
 	@JsonIgnore
 	private final DateTime creation;
 	private transient ServerSocket bookedSocket;
+	@JsonProperty(index=4, value="web-host-port")
     private String webhostport;   
 
 	//	private Journal journal;

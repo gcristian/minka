@@ -78,7 +78,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		// add reported: as confirmed if previously assigned, dangling otherwise.
 		final List<ShardEntity> temp = new ArrayList<>(reportedDuties.size() + partition.getDuties().size()); 
 		boolean issues = addReported(builder, reportedDuties, temp);
-		issues|=addAbsents(reportedDuties, temp);
+		issues |= addAbsents(reportedDuties, temp);
 		final boolean exclusionExpired = lastIncludedDutiesTimestamp == 0 || now - lastIncludedDutiesTimestamp > includeDutiesFrequency;
 		if (issues || exclusionExpired || partition.wasRecentlyUpdated()) {			
 			temp.forEach(d->builder.addReportedCapturedDuty(d));
