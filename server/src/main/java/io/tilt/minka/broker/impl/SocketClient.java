@@ -45,6 +45,7 @@ import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
+import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.spectator.MessageMetadata;
 
 /**
@@ -55,14 +56,14 @@ import io.tilt.minka.spectator.MessageMetadata;
  */
 public class SocketClient {
 
-	private final Logger logger = LoggerFactory.getLogger(getClass());
+	final Logger logger = LoggerFactory.getLogger(getClass());
 
 	/* for client */
 	private EventLoopGroup clientGroup;
 	private SocketClientHandler clientHandler;
 	private final AtomicBoolean alive;
 	private final AtomicInteger retry;
-	private String loggingName;
+	String loggingName;
 
 	private long creation;
 	private long lastUsage;
@@ -71,8 +72,13 @@ public class SocketClient {
 	private final AtomicBoolean antiflapper;
 	private final int maxQueueThreshold;
 
-	protected SocketClient(final BrokerChannel channel, final Scheduler scheduler, final int retryDelay,
-			final int maxRetries, final String loggingName, final Config config) {
+	protected SocketClient(
+	        final BrokerChannel channel, 
+	        final Scheduler scheduler, 
+	        final int retryDelay,
+			final int maxRetries, 
+			final String loggingName, 
+			final Config config) {
 
 		this.loggingName = loggingName;
 		this.clientHandler = new SocketClientHandler();
@@ -164,13 +170,16 @@ public class SocketClient {
 			logger.info("{}: ({}) Building client (retry:{}) for outbound messages to: {}", getClass().getSimpleName(),
 					loggingName, retry, channel.getAddress());
 			final Bootstrap b = new Bootstrap();
-			b.group(clientGroup).channel(NioSocketChannel.class).handler(new ChannelInitializer<SocketChannel>() {
+			b.group(clientGroup)
+			    .channel(NioSocketChannel.class)
+			    .handler(new ChannelInitializer<SocketChannel>() {
 				@Override
 				public void initChannel(SocketChannel ch) throws Exception {
 					ch.pipeline().addLast(
 							new ObjectEncoder(), 
 							new ObjectDecoder(ClassResolvers.cacheDisabled(null)),
-							clientHandler);
+							clientHandler)
+					.addLast(new ExceptionHandler());
 				}
 			});
 			this.alive.set(true);
@@ -220,6 +229,9 @@ public class SocketClient {
 					if (msg != null) {
 						logger.debug("{}: ({}) Writing: {}", getClass().getSimpleName(), loggingName, msg.getPayloadType());
 						//ctx.writeAndFlush(new MessageMetadata(msg.getPayload(), msg.getInbox()));
+						if (msg.getPayload() instanceof DomainInfo) {
+						    int i = 9;
+						}
 						ctx.writeAndFlush(msg);
 					} else {
 						logger.error("{}: ({}) Waiting for messages to be enqueued: {}", getClass().getSimpleName(),

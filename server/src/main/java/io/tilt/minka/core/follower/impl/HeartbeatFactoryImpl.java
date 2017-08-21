@@ -20,7 +20,7 @@ import static io.tilt.minka.domain.ShardEntity.State.CONFIRMED;
 import static io.tilt.minka.domain.ShardEntity.State.DANGLING;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
@@ -111,13 +111,15 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 					builder.withWarning();
 					includeDuties = true;
 				} else {
-					shardedDuty.registerEvent(CONFIRMED);
+					shardedDuty.addEvent(CONFIRMED);
 				}
 			} else {
 				includeDuties = true;
 				shardedDuty = ShardEntity.Builder.builder(duty).build();
 				// shardedDuty.registerEvent(PartitionEvent.ASSIGN, State.DANGLING);
-				shardedDuty.registerEvent(EntityEvent.CREATE, DANGLING);
+				shardedDuty.addEvent(EntityEvent.CREATE, DANGLING, 
+				        this.partition.getId().getStringIdentity(), 
+                        -1);
 				log.error("{}: ({}) Reporting a Dangling Duty (by Addition): {}", getClass().getSimpleName(),
 						partition.getId(), shardedDuty);
 				builder.withWarning();
@@ -134,7 +136,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			reportedDuties = dependencyPlaceholder.getDelegate().reportCapture();
 		} catch (Exception e) {
 			log.error("{}: ({}) PartitionDelegate failure", getClass().getSimpleName(), config.getLoggingShardId(), e);
-			reportedDuties = new HashSet<>();
+			reportedDuties = Collections.emptySet();
 		}
 		return reportedDuties;
 	}
@@ -163,9 +165,14 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		for (final ShardEntity existing : partition.getDuties()) {
 			if (ret = !reportedDuties.contains(existing.getEntity())) {
 				if (existing.getDuty().isLazyFinalized()) { 
-					existing.registerEvent(EntityEvent.REMOVE, ShardEntity.State.FINALIZED);
+					existing.addEvent(EntityEvent.REMOVE, 
+					        ShardEntity.State.FINALIZED, 
+					        this.partition.getId().getStringIdentity(), 
+					        -1);
 				} else {
-					existing.registerEvent(EntityEvent.REMOVE, DANGLING);
+					existing.addEvent(EntityEvent.REMOVE, DANGLING, 
+					        this.partition.getId().getStringIdentity(), 
+                            -1);
 				}
 				log.error("{}: ({}) Reporting a Dangling Duty (by Erasure): {}", getClass().getSimpleName(),
 						partition.getId(), existing);
@@ -177,6 +184,9 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 
 
 	private void logDebugNicely(final Heartbeat hb) {
+	    if (!log.isDebugEnabled()) {
+	        return;
+	    }
 		final StringBuilder sb = new StringBuilder();
 		List<ShardEntity> sorted = hb.getReportedCapturedDuties();
 		if (!sorted.isEmpty()) {

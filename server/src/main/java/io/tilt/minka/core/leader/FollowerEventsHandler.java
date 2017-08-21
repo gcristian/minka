@@ -32,7 +32,7 @@ import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardState;
+import io.tilt.minka.domain.Shard.ShardState;
 
 /**
  * Drives follower's events like {@linkplain Heartbeat} 

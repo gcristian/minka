@@ -16,13 +16,10 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
-import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
-
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
@@ -36,10 +33,10 @@ import io.tilt.minka.core.leader.balancer.BalancingException;
 import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
+import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
-import io.tilt.minka.domain.ShardState;
 
 /** 
  * Media for {@linkplain Balancer} to request transfers and overrides on the {@linkplain Plan}
@@ -206,12 +203,12 @@ public class Migrator {
 		if (overrides!=null) {
 			checkExclusions(); // balancers using transfers only make delta changes, without reassigning
 			for (final Override ov: overrides) {			
-				anyChange = ov.applyDeltas(roadmap, table);
+				anyChange = ov.compute(roadmap, table);
 			}
 		}
 		if (transfers!=null) {
 			for (Transfer tr: transfers) {
-				anyChange|=tr.dettachAttach(roadmap, table);
+				anyChange|=tr.compute(roadmap, table);
 			}
 		}
 		return anyChange;
@@ -238,161 +235,37 @@ public class Migrator {
 	}
 	private void checkExclusions() {
 		for (final ShardEntity duty: table.getNextStage().getDutiesCrudWithFilters(EntityEvent.CREATE, State.PREPARED)) {
-			if (duty.getDuty().getPalletId().equals(pallet.getId()) && !inTransfers(duty) && 
-					!inOverrides(duty) && unfairlyIgnored(duty)) {
+			if (duty.getDuty().getPalletId().equals(pallet.getId()) && 
+			        !inTransfers(duty) && 
+					!inOverrides(duty) && 
+					unfairlyIgnored(duty)) {
 				log.warn("bad exclusion: duty: {} was just marked for creation, it must be balanced !", duty.toBrief());
 			}
 		}
-		Set<ShardEntity> deletions = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
+		final Set<ShardEntity> deletions = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
 		for (final ShardEntity curr: table.getStage().getDutiesAttached()) {
-			if (curr.getDuty().getPalletId().equals(pallet.getId()) && !deletions.contains(curr) && 
-					!inTransfers(curr) && !inOverrides(curr) && unfairlyIgnored(curr)) {
+			if (curr.getDuty().getPalletId().equals(pallet.getId()) && 
+			        !deletions.contains(curr) && 
+					!inTransfers(curr) && 
+					!inOverrides(curr) && 
+					unfairlyIgnored(curr)) {
 				log.warn("bad exclusion: duty: " + curr.toBrief() + " is in ptable and was excluded from balancing !");
 			}
 		}
 	}
 
 	private boolean inTransfers(final ShardEntity duty) {
-		return transfers!=null && transfers.stream().filter(t->t.getEntity().equals(duty)).count()>0;
+		return transfers!=null && 
+		        transfers.stream()
+    	            .filter(t->t.getEntity().equals(duty))
+    	            .count()>0;
 	}
 
 	private boolean inOverrides(final ShardEntity duty) {
-		return overrides!=null && overrides.stream().filter(o->o.getEntities().contains(duty)).count()>0;
-	}
-
-	protected static class Override {
-		private final Pallet<?> pallet;
-		private final Shard shard;
-		private final Set<ShardEntity> entities;
-		private final double remainingCap;
-		protected Override(final Pallet<?> pallet, Shard shard, final Set<ShardEntity> entities, final double remainingCap) {
-			super();
-			this.pallet = pallet;
-			this.shard = shard;
-			this.entities = entities;
-			this.remainingCap = remainingCap;;
-		}
-		public Pallet<?> getPallet() {
-			return this.pallet;
-		}
-		public Shard getShard() {
-			return this.shard;
-		}
-		public Set<ShardEntity> getEntities() {
-			return this.entities;
-		}
-		public double getRemainingCap() {
-			return this.remainingCap;
-		}
-
-	    public boolean applyDeltas(final Plan plan, final PartitionTable table) {
-	        boolean anyChange = false;
-	        final Set<ShardEntity> current = table.getStage().getDutiesByShard(getPallet(), getShard());
-	        if (log.isDebugEnabled()) {
-	            log.debug("{}: cluster built {}", getClass().getSimpleName(), getEntities());
-	            log.debug("{}: currents at shard {} ", getClass().getSimpleName(), current);
-	        }
-	        anyChange|=dettachDelta(plan, table, getEntities(), getShard(), current);
-	        anyChange|=attachDelta(plan, table, getEntities(), getShard(), current);
-	        if (!anyChange) {
-	            log.info("{}: Shard: {}, unchanged", getClass().getSimpleName(), shard);
-	        }
-	        return anyChange;
-	    }
-	    
-		/* dettach anything living in the shard outside what's coming
-	    * null or empty cluster translates to: dettach all existing */
-	    private final boolean dettachDelta(final Plan plan, final PartitionTable table, 
-	            final Set<ShardEntity> clusterSet, final Shard shard, final Set<ShardEntity> currents) {
-	        List<ShardEntity> detaching = clusterSet==null ? new ArrayList<>(currents) :
-	            currents.stream().filter(i -> !clusterSet.contains(i)).collect(Collectors.toList());
-	        if (!detaching.isEmpty()) {
-	            StringBuilder logg = new StringBuilder();
-	            for (ShardEntity detach : detaching) {
-	                // copy because in latter cycles this will be assigned
-	                // so they're traveling different places
-	                final ShardEntity copy = ShardEntity.Builder.builderFrom(detach).build();
-	                copy.registerEvent(EntityEvent.DETACH, PREPARED);
-	                plan.ship(shard, copy);
-	                logg.append(copy.getEntity().getId()).append(", ");
-	            }
-	            log.info("{}: Shipping dettaches from: {}, duties: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
-	                detaching.size(), logg.toString());
-	            return true;
-	        }
-	        return false;
-	    }
-	    
-	    /* attach what's not already living in that shard */
-	    private final boolean attachDelta(final Plan roadmap, final PartitionTable table, 
-	            final Set<ShardEntity> clusterSet, final Shard shard, final Set<ShardEntity> currents) {
-	        StringBuilder logg;
-	        if (clusterSet != null) {
-	            final List<ShardEntity> attaching = clusterSet.stream().filter(i -> !currents.contains(i))
-	                    .collect(Collectors.toList());
-	            if (!attaching.isEmpty()) {
-	                logg = new StringBuilder();
-	                for (ShardEntity attach : attaching) {
-	                    // copy because in latter cycles this will be assigned
-	                    // so they're traveling different places
-	                    final ShardEntity copy = ShardEntity.Builder.builderFrom(attach).build();
-	                    copy.registerEvent(EntityEvent.ATTACH, PREPARED);
-	                    roadmap.ship(shard, copy);
-	                    logg.append(copy.getEntity().getId()).append(", ");
-	                }
-	                log.info("{}: Shipping attaches shard: {}, duty: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
-	                    attaching.size(), logg.toString());
-	                return true;
-	            }
-	        }
-	        return false;
-	    }
-	}
-	
-	protected static class Transfer {
-		private final Shard source;
-		private final Shard target;
-		private final ShardEntity entity;
-		protected Transfer(Shard source, Shard target, ShardEntity entity) {
-			super();
-			this.source = source;
-			this.target = target;
-			this.entity = entity;
-		}
-		public Shard getSource() {
-			return this.source;
-		}
-		public Shard getTarget() {
-			return this.target;
-		}
-		public ShardEntity getEntity() {
-			return this.entity;
-		}
-		public String toString() {
-			return entity.toBrief() + source.toString() + " ==> " + target.toString(); 
-		}
-		
-
-	    /* dettach in prev. source, attach to next target */
-	    public boolean dettachAttach(final Plan plan, final PartitionTable table) {
-	        final ShardEntity entity = getEntity();
-	        final Shard location = table.getStage().getDutyLocation(entity);
-	        if (location!=null && location.equals(getTarget())) {
-	            log.info("{}: Transfers mean no change for Duty: {}", getClass().getSimpleName(), toString());
-	            return false;
-	        }
-	        if (getSource()!=null) {
-	            getEntity().registerEvent(EntityEvent.DETACH, PREPARED);
-	            plan.ship(getSource(), entity);
-	        }
-	        ShardEntity assign = ShardEntity.Builder.builderFrom(entity).build();
-	        assign.registerEvent(EntityEvent.ATTACH, PREPARED);
-	        plan.ship(getTarget(), assign);
-	        log.info("{}: Shipping transfer from: {} to: {}, Duty: {}", getClass().getSimpleName(),
-	            getSource()!=null ? getSource().getShardID() : "[new]", getTarget().getShardID(), assign.toString());
-	        return true;
-	    }
-
+		return overrides!=null && 
+		        overrides.stream()
+		            .filter(o->o.getEntities().contains(duty))
+		            .count()>0;
 	}
 
 }

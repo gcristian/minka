@@ -19,7 +19,6 @@ package io.tilt.minka.core.leader;
 import static io.tilt.minka.broker.EventBroker.ChannelHint.EVENT_SET;
 import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.STABLE;
 import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.UNSTABLE;
-import static io.tilt.minka.domain.ShardState.QUARANTINE;
 import static io.tilt.minka.utils.LogUtils.HEALTH_DOWN;
 import static io.tilt.minka.utils.LogUtils.HEALTH_UP;
 
@@ -47,7 +46,7 @@ import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardState;
+import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.utils.LogUtils;
 
 /**
@@ -131,7 +130,7 @@ public class Proctor extends ServiceImpl {
 		for (final Shard shard: partitionTable.getStage().getShardsByState(null)) {
 			if (!shard.getState().equals(ShardState.GONE)) {
 				final DomainInfo dom = new DomainInfo();
-				dom.setDomainPallets(partitionTable.getStage().getPalletss());
+				dom.setDomainPallets(partitionTable.getStage().getPallets());
 				eventBroker.postEvent(shard.getBrokerChannel(), EVENT_SET, dom);
 			}
 		}
@@ -144,7 +143,7 @@ public class Proctor extends ServiceImpl {
 			}
 			logger.info(LogUtils
 					.titleLine("Analyzing Shards (i" + analysisCounter++ + ") by Leader: " + shardId.toString()));
-			final List<Shard> shards = partitionTable.getStage().getShardss();
+			final List<Shard> shards = partitionTable.getStage().getShards();
 			if (shards.isEmpty()) {
 				logger.warn("{}: Partition queue empty: no shards emiting heartbeats ?", getName());
 				return;
@@ -230,13 +229,13 @@ public class Proctor extends ServiceImpl {
 						msg = "sick lapse > max. sick to stay online";
 						newState = ShardState.QUARANTINE;
 					}
-				} else if (pastLapseSize <= minToBeGone && currentState == QUARANTINE) {
+				} else if (pastLapseSize <= minToBeGone && currentState == ShardState.QUARANTINE) {
 					msg = "sick lapse < min to gone";
 					newState = ShardState.GONE;
 				} else if (pastLapseSize > 0 && currentState == ShardState.ONLINE) {
 					msg = "sick lapse > 0 (" + pastLapseSize + ")";
 					newState = ShardState.QUARANTINE;
-				} else if (pastLapseSize == 0 && currentState == QUARANTINE) {
+				} else if (pastLapseSize == 0 && currentState == ShardState.QUARANTINE) {
 					msg = "sick lapse = 0 ";
 					newState = ShardState.GONE;
 				} else {

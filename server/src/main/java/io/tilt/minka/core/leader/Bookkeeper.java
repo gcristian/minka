@@ -20,20 +20,16 @@ import static io.tilt.minka.domain.EntityEvent.CREATE;
 import static io.tilt.minka.domain.ShardEntity.State.CONFIRMED;
 import static io.tilt.minka.domain.ShardEntity.State.DANGLING;
 
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
-import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
 import io.tilt.minka.core.leader.distributor.Delivery;
@@ -43,8 +39,8 @@ import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
+import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardState;
 
 /**
  * Maintainer and only writer of {@linkplain PartitionTable} 
@@ -105,7 +101,7 @@ public class Bookkeeper {
 			analyzeReportedDuties(sourceShard, beat.getReportedCapturedDuties());
 		}
 		// TODO perhaps in presence of Reallocation not ?
-		if (sourceShard.getState().isAlive()) {
+		if (beat.isReportedCapturedDuties() && sourceShard.getState().isAlive()) {
 			declareHeartbeatAbsencesAsMissing(sourceShard, beat.getReportedCapturedDuties());
 		}
 	}
@@ -113,38 +109,42 @@ public class Bookkeeper {
 	private void analyzeReportedDuties(final Shard source, final List<ShardEntity> heartbeatDuties) {
 		final Plan plan = partitionTable.getCurrentPlan();
 		final Delivery delivery = plan.getDelivery(source);
-		confirmReallocated(source, heartbeatDuties, delivery);
-		confirmAbsences(source, heartbeatDuties, delivery);
-		if (plan.hasFinalized()) {
-		    logger.info("{}: Plan finished ! (all changes in stage)", getClass().getSimpleName());
-		    plan.close();
-		} else if (plan.hasUnlatched()) {
-		    scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
+		if (delivery!=null) {
+    		confirmReallocated(source, heartbeatDuties, delivery);
+    		confirmAbsences(source, heartbeatDuties, delivery);
+    		if (plan.hasFinalized()) {
+    		    logger.info("{}: Plan finished ! (all changes in stage)", getClass().getSimpleName());
+    		    plan.close();
+    		} else if (plan.hasUnlatched()) {
+    		    logger.info("{}: Plan unlatched, fwd >> distributor agent ", getClass().getSimpleName());
+    		    scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
+    		}
+		} else {
+		    logger.error("{}: no pending Delivery for heartbeat's shard: {} ", 
+		            getClass().getSimpleName(), source.getShardID().toString());
 		}
 	}
 	
 	 /*this checks partition table looking for missing duties (not declared dangling, that's diff) */
-	private void declareHeartbeatAbsencesAsMissing(final Shard shard, final List<ShardEntity> heartbeatDuties) {
-		final Set<ShardEntity> sortedLog = new TreeSet<>();
-		final Map<String, AtomicInteger> absencesPerHeartbeat = new HashMap<>();
+	private void declareHeartbeatAbsencesAsMissing(final Shard shard, final List<ShardEntity> hbDuties) {
+		Set<ShardEntity> sortedLog = null;
 		for (final ShardEntity duty : partitionTable.getStage().getDutiesByShard(shard)) {
 			boolean found = false;
-			for (ShardEntity hbDuty : heartbeatDuties) {
+			for (ShardEntity hbDuty : hbDuties) {
 				if (duty.equals(hbDuty)) {
 					found = true;
 					break;
 				}
 			}
 			if (!found) {
-				AtomicInteger ai = absencesPerHeartbeat.get(duty.getEntity().getId());
-				if (ai == null) {
-					absencesPerHeartbeat.put(duty.getEntity().getId(), ai = new AtomicInteger(0));
-				}
+			    if (sortedLog==null) {
+			        sortedLog = new TreeSet<>();
+			    }
 				sortedLog.add(duty);
-				partitionTable.getNextStage().getDutiesMissing().add(duty);
+				partitionTable.getNextStage().addMissing(duty);
 			}
 		}
-		if (!sortedLog.isEmpty()) {
+		if (sortedLog!=null) {
 			logger.warn("{}: ShardID: {}, Missing Duties in heartbeat {}, Added to PartitionTable",
 					getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(sortedLog));
 		}
@@ -152,42 +152,47 @@ public class Bookkeeper {
 
 	/* find the up-coming */
 	private void confirmReallocated(final Shard shard, final List<ShardEntity> heartbeatDuties, final Delivery delivery) {
-
-		final Set<ShardEntity> sortedLogConfirmed = new TreeSet<>();
-		final Set<ShardEntity> sortedLogDirty = new TreeSet<>();
+		Set<ShardEntity> sortedLogConfirmed = null;
+		Set<ShardEntity> sortedLogDirty = null;
 		for (final ShardEntity heartbeatDuty : heartbeatDuties) {
 			for (ShardEntity prescriptedDuty : delivery.getDuties()) {
 				if (prescriptedDuty.equals(heartbeatDuty)) {
 					if (heartbeatDuty.getState() == CONFIRMED
 							&& prescriptedDuty.getDutyEvent() == heartbeatDuty.getDutyEvent()) {
+					    if (sortedLogConfirmed==null) {
+					        sortedLogConfirmed = new TreeSet<>();
+					    }
 						sortedLogConfirmed.add(heartbeatDuty);
 						// remove the one holding older State
-						prescriptedDuty.registerEvent(CONFIRMED);
+						prescriptedDuty.addEvent(CONFIRMED);
 						changeStage(shard, heartbeatDuty);
 						break;
 					} else {
-						final DateTime fact = prescriptedDuty.getEventDateForState(prescriptedDuty.getState());
+						/*final DateTime fact = prescriptedDuty.getEventDateForState(prescriptedDuty.getState());
 						final long now = System.currentTimeMillis();
 						if (now - fact.getMillis() > MAX_EVENT_DATE_FOR_DIRTY) {
+						    if (sortedLogDirty==null) {
+						        sortedLogDirty = new TreeSet<>();
+	                        }
 							sortedLogDirty.add(heartbeatDuty);
-						}
+						}*/
 					}
 				}
 			}
 		}
-		if (!sortedLogConfirmed.isEmpty()) {
+		if (sortedLogConfirmed!=null) {
 			logger.info("{}: ShardID: {}, Confirming partition event for Duties: {}", getClass().getSimpleName(),
 					shard.getShardID(), ShardEntity.toStringIds(sortedLogConfirmed));
 		}
-		if (!sortedLogDirty.isEmpty()) {
+		/*if (sortedLogDirty!=null) {
 			logger.warn("{}: ShardID: {}, Reporting DIRTY partition event for Duties: {}", getClass().getSimpleName(),
 					shard.getShardID(), ShardEntity.toStringIds(sortedLogDirty));
-		}
+		}*/
 	}
 
 	private void changeStage(final Shard shard, final ShardEntity duty) {
 		if (partitionTable.getStage().confirmDutyAboutShard(duty, shard)) {
-			if (!partitionTable.getNextStage().getDutiesCrud().remove(duty)) {
+			if (!partitionTable.getNextStage().removeCrud(duty)) {
 				
 			}
 		}
@@ -195,18 +200,22 @@ public class Bookkeeper {
 
 	/* check un-coming as unassign */
 	private void confirmAbsences(final Shard shard, final List<ShardEntity> heartbeatDuties, final Delivery delivery) {
-		final Set<ShardEntity> sortedLog = new TreeSet<>();
-		for (ShardEntity reallocatedDuty :delivery.getDuties()) {
-			if ((reallocatedDuty.getDutyEvent().is(EntityEvent.DETACH)
-					|| reallocatedDuty.getDutyEvent().is(EntityEvent.REMOVE))
+		Set<ShardEntity> sortedLog = null;
+		for (ShardEntity deliveredDuty :delivery.getDuties()) {
+			if ((deliveredDuty.getDutyEvent().is(EntityEvent.DETACH)
+					|| deliveredDuty.getDutyEvent().is(EntityEvent.REMOVE))
 					&& !heartbeatDuties.stream().anyMatch(
-							i -> i.equals(reallocatedDuty) && i.getDutyEvent() != reallocatedDuty.getDutyEvent())) {
-				sortedLog.add(reallocatedDuty);
-				reallocatedDuty.registerEvent(CONFIRMED);
-				changeStage(shard, reallocatedDuty);
+							i -> i.equals(deliveredDuty) && i.getDutyEvent() != deliveredDuty.getDutyEvent())) {
+			    if (sortedLog==null) {
+			        sortedLog = new TreeSet<>();
+			    }
+				sortedLog.add(deliveredDuty);
+				deliveredDuty.addEvent(CONFIRMED);
+				
+				changeStage(shard, deliveredDuty);
 			}
 		}
-		if (!sortedLog.isEmpty()) {
+		if (sortedLog!=null) {
 			logger.info("{}: ShardID: {}, Confirming (by absence) partioning event for Duties: {}",
 					getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(sortedLog));
 		}
@@ -250,54 +259,51 @@ public class Bookkeeper {
 
 		logger.info("{}: Removing Shard: {} from partition table", getClass().getSimpleName(), shard);
 		partitionTable.getStage().removeShard(shard);
-		partitionTable.getNextStage().getDutiesDangling().addAll(dangling);
+		partitionTable.getNextStage().addDangling(dangling);
 	}
 
 	private boolean presentInPartition(final ShardEntity duty) {
-		final Shard shardLocation = partitionTable.getStage().getDutyLocation(duty);
+		final Shard shardLocation = partitionTable.getStage().getDutyLocation(duty.getDuty());
 		return shardLocation != null && shardLocation.getState().isAlive();
 	}
 
-	public void cleanTemporaryDuties() {
-		// partitionTable.getNextStage().removeCrudDuties();
-	    partitionTable.getNextStage().getDutiesDangling().removeAll(
-	            partitionTable.getNextStage().getDutiesDangling().stream()
-    		        .filter(e->e.getState()!=ShardEntity.State.STUCK)
-    		        .collect(Collectors.toList()));
-		
-	}
+    private boolean presentInPartition(final Duty<?> duty) {
+        final Shard shardLocation = partitionTable.getStage().getDutyLocation(duty);
+        return shardLocation != null && shardLocation.getState().isAlive();
+    }
 
-	public void registerDutiesFromSource(final List<Duty<?>> dutiesFromSource) {
-		final Set<ShardEntity> sortedLog = new TreeSet<>();
+	public void enterDutiesFromSource(final List<Duty<?>> dutiesFromSource) {
+		Set<Duty<?>> sortedLog = null;
 		final Iterator<Duty<?>> it = dutiesFromSource.iterator();
 		while (it.hasNext()) {
 			final Duty<?> duty = it.next();
 			final ShardEntity pallet = partitionTable.getStage().getPalletById(duty.getPalletId());
-			final ShardEntity.Builder builder = ShardEntity.Builder.builder(duty);
-			if (pallet!=null) {
-				builder.withRelatedEntity(pallet);
-			}
-			final ShardEntity potential = builder.build();
-			if (presentInPartition(potential)) {
-				sortedLog.add(potential);
+			if (presentInPartition(duty)) {
+			    if (sortedLog==null) {
+			        sortedLog = new TreeSet<>();
+			    }
+				sortedLog.add(duty);
 				it.remove();
 			} else {
 				if (pallet!=null) {
-					logger.info("{}: Adding New Duty: {}", getClass().getSimpleName(), potential);
-					partitionTable.getNextStage().addCrudDuty(potential);
+				    final ShardEntity newone = ShardEntity.Builder
+				            .builder(duty)
+				            .withRelatedEntity(pallet)
+				            .build();
+					logger.info("{}: Adding New Duty: {}", getClass().getSimpleName(), newone);
+					partitionTable.getNextStage().addCrudDuty(newone);
 				} else {
 					logger.error("{}: Skipping Duty CRUD {}: Pallet Not found (pallet id: {})", getClass().getSimpleName(),
-							potential, potential.getDuty().getPalletId());
+							duty, duty.getPalletId());
 				}
 			}
 		}
-		if (!sortedLog.isEmpty()) {
-			logger.info("{}: Skipping Duty CRUD already in PTable: {}", getClass().getSimpleName(),
-					ShardEntity.toStringIds(sortedLog));
+		if (sortedLog!=null) {
+			logger.info("{}: Skipping Duty CRUD already in PTable: {}", getClass().getSimpleName(), sortedLog);
 		}
 	}
 
-	public void registerPalletsFromSource(final List<Pallet<?>> palletsFromSource) {
+	public void enterPalletsFromSource(final List<Pallet<?>> palletsFromSource) {
 		final Set<ShardEntity> sortedLog = new TreeSet<>();
 		final Iterator<Pallet<?>> it = palletsFromSource.iterator();
 		while (it.hasNext()) {
@@ -322,11 +328,11 @@ public class Bookkeeper {
 	 * according their action and the current partition table
 	 * @param 	dutiesFromAction entities to act on
 	 */
-	public void registerCRUD(ShardEntity... dutiesFromAction) {
+	public void enterCRUD(ShardEntity... dutiesFromAction) {
 		for (final ShardEntity entity : dutiesFromAction) {
 			final boolean typeDuty = entity.getType()==ShardEntity.Type.DUTY;
 			final boolean found = (typeDuty && presentInPartition(entity)) || 
-					(!typeDuty && partitionTable.getStage().getPalletss().contains(entity));
+					(!typeDuty && partitionTable.getStage().getPallets().contains(entity));
 			final EntityEvent event = entity.getDutyEvent();
 			if (!event.isCrud()) {
 				throw new RuntimeException("Bad call");

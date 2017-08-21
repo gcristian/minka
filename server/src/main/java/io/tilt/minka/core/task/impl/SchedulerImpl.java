@@ -107,7 +107,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
                         agent.getTask())
                     .build());
                 schedule(agent); // re-schedule previus agent
-            }
+        }
 		 
 	}
 	

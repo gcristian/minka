@@ -16,15 +16,6 @@
  */
 package io.tilt.minka.api;
 
-import javax.inject.Inject;
-import javax.inject.Named;
-import javax.inject.Singleton;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +25,15 @@ import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.wordnik.swagger.annotations.Api;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.Status;
@@ -68,7 +68,7 @@ public class AdminEndpoint {
 	@Path("/distro")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response status() throws JsonProcessingException {
-		return Response.accepted(Status.toJson(table)).build();
+		return Response.accepted(Status.distributionToJson(table)).build();
 	}
 
 	@GET
@@ -82,7 +82,7 @@ public class AdminEndpoint {
 	@Path("/shards")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response shards() throws JsonProcessingException {
-		return Response.accepted(Status.Shards.toJson(table)).build();
+		return Response.accepted(Status.shardsToJson(table)).build();
 	}
 
 	@GET
@@ -91,6 +91,12 @@ public class AdminEndpoint {
 	public Response duties() throws JsonProcessingException {
 		return Response.accepted(Status.dutiesToJson(table)).build();
 	}
+    @GET
+    @Path("/entities")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response entities() throws JsonProcessingException {
+        return Response.accepted(Status.entitiesToJson(table)).build();
+    }
 
 	@GET
 	@Path("/plans")

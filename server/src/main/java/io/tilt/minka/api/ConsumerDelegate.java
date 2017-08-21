@@ -1,14 +1,14 @@
 package io.tilt.minka.api;
 
 import static io.tilt.minka.api.ConsumerDelegate.Event.activation;
+import static io.tilt.minka.api.ConsumerDelegate.Event.capture;
+import static io.tilt.minka.api.ConsumerDelegate.Event.capturePallet;
 import static io.tilt.minka.api.ConsumerDelegate.Event.deactivation;
 import static io.tilt.minka.api.ConsumerDelegate.Event.loadduties;
 import static io.tilt.minka.api.ConsumerDelegate.Event.loadpallets;
 import static io.tilt.minka.api.ConsumerDelegate.Event.release;
 import static io.tilt.minka.api.ConsumerDelegate.Event.releasePallet;
 import static io.tilt.minka.api.ConsumerDelegate.Event.report;
-import static io.tilt.minka.api.ConsumerDelegate.Event.capture;
-import static io.tilt.minka.api.ConsumerDelegate.Event.capturePallet;
 import static io.tilt.minka.api.ConsumerDelegate.Event.transfer;
 import static io.tilt.minka.api.ConsumerDelegate.Event.transferPallet;
 import static io.tilt.minka.api.ConsumerDelegate.Event.update;

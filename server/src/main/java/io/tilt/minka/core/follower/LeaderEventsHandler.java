@@ -39,11 +39,11 @@ import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.core.task.impl.ServiceImpl;
-import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardedPartition;
 
 /**
  * Leader event handler.

@@ -45,6 +45,7 @@ import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
+import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.spectator.MessageMetadata;
 
 /**
@@ -129,15 +130,23 @@ public class SocketServer {
 
 		try {
 			final ServerBootstrap b = new ServerBootstrap();
-			b.group(serverWorkerGroup).channel(NioServerSocketChannel.class)
-					//.channel(OioServerSocketChannel.class)
-					.handler(new LoggingHandler(LogLevel.INFO)).childHandler(new ChannelInitializer<SocketChannel>() {
-						@Override
-						public void initChannel(SocketChannel ch) throws Exception {
-							ch.pipeline().addLast(new ObjectEncoder(),
-									new ObjectDecoder(ClassResolvers.cacheDisabled(null)), serverHandler);
-						}
-					});
+			b.group(serverWorkerGroup)
+			    .channel(NioServerSocketChannel.class)
+				//.channel(OioServerSocketChannel.class)
+				.handler(new LoggingHandler(LogLevel.INFO))
+				.childHandler(new ChannelInitializer<SocketChannel>() {
+					@Override
+					public void initChannel(SocketChannel ch) throws Exception {
+						ch.pipeline()
+						    .addLast(
+						        new ObjectEncoder(),
+								new ObjectDecoder(ClassResolvers.cacheDisabled(null)), 
+								serverHandler)
+						    .addLast(new ExceptionHandler())
+						    ;
+					}
+				})
+				;
 			logger.info("{}: Listening for client connections..", getClass().getSimpleName());
 			b.childOption(ChannelOption.SO_KEEPALIVE, true);
 
@@ -201,6 +210,9 @@ public class SocketServer {
 					return;
 				}
 				MessageMetadata meta = (MessageMetadata) msg;
+				if (meta.getPayload() instanceof DomainInfo) {
+				    int i = 0;
+				}
 				logger.debug("{}: ({}) Reading: {}", getClass().getSimpleName(), loggingName, meta.getPayloadType());
 				scheduler.schedule(scheduler.getAgentFactory().create(
 						Action.BROKER_INCOMING_MESSAGE, PriorityLock.HIGH_ISOLATED, Frequency.ONCE, 

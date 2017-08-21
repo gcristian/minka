@@ -85,6 +85,17 @@ public class Plan implements Comparable<Plan> {
 	private DateTime ended;
 	private int retryCounter;
 
+    public Plan(final long id) {
+        this.id = id;
+        this.created = new DateTime(DateTimeZone.UTC);
+        this.shippings = new HashMap<>();
+        this.deliveries = new ArrayList<>();
+    }
+
+    public Plan() {
+        this(sequenceNumberator.incrementAndGet());
+    }
+
 	@JsonIgnore
 	public List<Delivery> getAllPendings() {
 	    return deliveries.stream()
@@ -93,11 +104,14 @@ public class Plan implements Comparable<Plan> {
 	}
 	
 	@JsonIgnore
-	public List<ShardEntity> getAllPendingsFromAllDeliveries() {	    
+	public List<ShardEntity> getAllNonConfirmedFromAllDeliveries() {	    
 		final List<ShardEntity> ret = new ArrayList<>();
 		for (final Delivery delivery: deliveries) {
 			for (final ShardEntity duty: delivery.getDuties()) {
-				if (duty.getState()==State.PENDING) {
+				if (duty.getState()==State.PENDING || 
+				        duty.getState() == State.PREPARED ||
+				        duty.getState() == State.MISSING ||
+				        duty.getState() == State.STUCK) {
 					ret.add(duty);
 				}
 			}
@@ -105,9 +119,10 @@ public class Plan implements Comparable<Plan> {
 		return ret;
 	}
 	
+	@JsonProperty("elapsed-ms")
 	private String getElapsed() {
-	    return LogUtils.humanTimeDiff(getStarted().getMillis(), 
-	            getEnded()==null ? System.currentTimeMillis() : getEnded().getMillis());
+	    return LogUtils.humanTimeDiff(getStarted().getMillis(), getEnded()==null ? 
+                System.currentTimeMillis() : getEnded().getMillis());
 	}
 	
 	@JsonProperty("deliveries")
@@ -115,16 +130,6 @@ public class Plan implements Comparable<Plan> {
 		return this.deliveries;
 	}
 	
-	public Plan(final long id) {
-	    this.id = id;
-        this.created = new DateTime(DateTimeZone.UTC);      
-        this.shippings = new HashMap<>();
-        this.deliveries = new ArrayList<>();
-	}
-	public Plan() {
-		this(sequenceNumberator.incrementAndGet());
-	}
-
 	public Delivery getDelivery(final Shard shard) {
 	    return deliveries.stream()
 	        .filter(d->d.checkStatus()==Delivery.Status.PENDING && d.getShard().equals(shard))
@@ -144,7 +149,7 @@ public class Plan implements Comparable<Plan> {
 				deliveries.add(new Delivery(e.getValue(), e.getKey(), event, order++));
 			}
 		}
-		//checkAllEventsPaired();
+		checkAllEventsPaired();
 		this.shippings.clear();
 		iterator = deliveries.iterator();
 		return iterator.hasNext();
@@ -181,22 +186,22 @@ public class Plan implements Comparable<Plan> {
         }
         return null;
     }
-
+    
     /** @throws Exception last check for paired movement operations: 
      * a DETACH must be followed by an ATTACH and viceversa */
     private void checkAllEventsPaired() {
         final Set<ShardEntity> paired = new TreeSet<>();
         for (Delivery del : deliveries) {
-            final EntityEvent toPair = inverse(del);
-            if (toPair == null) {
+            final EntityEvent toPairFirstTime = inverse(del);
+            if (toPairFirstTime != null) {
                 continue;
             }
-            for (ShardEntity entity : del.getDuties()) {
-                if (!paired.contains(entity)) {
+            for (final ShardEntity entity : del.getDuties()) {
+                if (!paired.contains(entity) && entity.hasEverBeenDistributed()) {
                     boolean pair = false;
                     for (Delivery tmp : deliveries) {
                         pair |= tmp.getDuties().stream()
-                                .filter(e -> e.equals(entity) && e.getDutyEvent() == toPair)
+                                .filter(e -> e.equals(entity) && e.getDutyEvent() == toPairFirstTime)
                                 .findFirst()
                                 .isPresent();
                         if (pair) {
@@ -282,10 +287,14 @@ public class Plan implements Comparable<Plan> {
 		
 	/* declare a dettaching or attaching step to deliver on a shard */
 	public synchronized void ship(final Shard shard, final ShardEntity duty) {
-		final List<ShardEntity> list = getOrPut(
-				getOrPut(shippings, duty.getDutyEvent(), ()->new HashMap<>()), 
-				shard, ()->new ArrayList<>());
-		list.add(duty);
+		getOrPut(
+		    getOrPut(
+	            shippings, 
+		        duty.getDutyEvent(), 
+		        ()->new HashMap<>()), 
+		    shard, 
+		    ()->new ArrayList<>())
+	    .add(duty);
 	}
 
 	public boolean isClosed() {
@@ -332,7 +341,7 @@ public class Plan implements Comparable<Plan> {
 		return this.id;
 	}
 
-	@Override
+	@java.lang.Override
 	public int compareTo(Plan o) {
 		return o.getCreation().compareTo(getCreation());
 	}

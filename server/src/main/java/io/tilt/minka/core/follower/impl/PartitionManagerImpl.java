@@ -37,10 +37,10 @@ import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.core.task.Semaphore.Action;
-import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardedPartition;
 
 public class PartitionManagerImpl implements PartitionManager {
 

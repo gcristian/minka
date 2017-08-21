@@ -86,7 +86,7 @@ public class Shard implements Comparator<Shard> {
 		return this.firstTimeSeen;
 	}
 	@JsonProperty(index=1, value="first-seen")
-	public String getFirstTime() {
+	private String getFirstTime() {
 		return this.firstTimeSeen.toString();
 	}
 
@@ -124,12 +124,12 @@ public class Shard implements Comparator<Shard> {
 	}
 	
 	@JsonProperty(index=3, value="heartbeat-last")
-	public Heartbeat getLast() {
+	private Heartbeat getLast() {
 	    return this.cardiacLapse.first();
 	}
 	
 	@JsonProperty(index=4, value="heartbeat-changes")
-	public SlidingSortedSet<Heartbeat> getChangesToKeep() {
+	private SlidingSortedSet<Heartbeat> getChangesToKeep() {
         return this.changesToKeep;
     }
 
@@ -195,6 +195,67 @@ public class Shard implements Comparator<Shard> {
 				return ret == 0 ? -1 : ret;
 			}
 		}
+	}
+
+	public enum ShardState {
+
+	    /**
+	     * all nodes START in this state
+	     * while becoming Online after a Quarantine period
+	     */
+	    JOINING,
+	    /** 
+	    * the node has been continuously online for a long time
+	    * so it can trustworthly receive work 
+	    */
+	    ONLINE,
+	    /**
+	        * the node interrupted heartbeats time enough to be
+	        * considered not healthly online.
+	        * in this state all nodes tend to rapidly go ONLINE or fall GONE 
+	        */
+	    QUARANTINE,
+
+	    /** 
+	    * the node emited a last heartbeat announcing offline mode
+	    * either being manually stopped or cleanly shuting down
+	    * so its ignored by the master
+	    */
+	    QUITTED,
+
+	    /**
+	    * the server discontinued heartbeats and cannot longer
+	    * be considered alive, recover its reserved duties
+	    */
+	    GONE
+
+	    ;
+
+	    public boolean isAlive() {
+	        return this == ONLINE || this == QUARANTINE || this == JOINING;
+	    }
+
+	    public enum Reason {
+
+	        INITIALIZING,
+	        /*
+	         * the shard persistently ignores commands from the Follower shard
+	         */
+	        REBELL,
+	        /*
+	         * "inconsistent behaviour measured in short lapses"
+	         *
+	         * not trustworthly shard
+	         */
+	        FLAPPING,
+	        /*
+	         * "no recent HBs from the shard, long enough"
+	         * 
+	         * the node has ceased to send heartbeats for time enough to be
+	         * considered gone and unrecoverable so it is ignored by the master
+	         */
+	        LOST;
+	    }
 	}
 
 }

@@ -34,6 +34,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
+import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.spectator.NodeCacheable.Identifiable;
 
@@ -206,7 +207,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		return this.stateChange;
 	}
 
-	public void setStateChange(ShardState stateChange) {
+	public void setStateChange(final ShardState stateChange) {
 		this.stateChange = stateChange;
 	}
 
@@ -238,7 +239,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 				.toHashCode();
 	}
 
-	public boolean equalsInContent(Heartbeat hb) {
+	public boolean equalsInContent(final Heartbeat hb) {
 		if (hb == null || !hb.getShardId().equals(getShardId())) {
 			return false;
 		} else {

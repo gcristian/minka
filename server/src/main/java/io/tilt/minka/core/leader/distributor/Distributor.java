@@ -17,10 +17,10 @@
 package io.tilt.minka.core.leader.distributor;
 
 import static io.tilt.minka.core.leader.distributor.Distributor.PlanStatus.EXPIRED;
+import static io.tilt.minka.core.leader.distributor.Distributor.PlanStatus.INVALID;
 import static io.tilt.minka.core.leader.distributor.Distributor.PlanStatus.RETRY;
 import static io.tilt.minka.core.leader.distributor.Distributor.PlanStatus.VALID;
 import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
-import static io.tilt.minka.domain.ShardState.ONLINE;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -57,6 +57,7 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
+import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.utils.LogUtils;
@@ -123,13 +124,13 @@ public class Distributor extends ServiceImpl {
 		this.arranger = new Arranger(config);
 	}
 
-	@Override
+	@java.lang.Override
 	public void start() {
 		logger.info("{}: Starting. Scheduling constant periodic check", getName());
 		scheduler.schedule(distributor);
 	}
 
-	@Override
+	@java.lang.Override
 	public void stop() {
 		logger.info("{}: Stopping", getName());
 		this.scheduler.stop(distributor);
@@ -150,39 +151,18 @@ public class Distributor extends ServiceImpl {
 				return;
 			}
 			logStatus();
-			final int online = partitionTable.getStage().getShardsByState(ONLINE).size();
+			final int online = partitionTable.getStage().getShardsByState(ShardState.ONLINE).size();
 			final int min = config.getProctor().getMinShardsOnlineBeforeSharding();
 			if (online < min) {
 			    logger.info("{}: balancing posponed: not enough online shards (min:{}, now:{})", getName(), min, online);
 			    return;
 			}
-		    if (!checkWithStorageWhenAllOnlines()) {
+		    if (!loadFromClientWhenAllOnlines()) {
 		        return;
 		    }
 		    
 		    // distribution
-		    
-            boolean build = !isDriveable(plan);
-            PlanStatus res = null;
-            int tries = 0;
-            while ((res==RETRY && tries<=MAX_DRIVE_TRIES) || res!=VALID ) {
-                if (build) {                    
-                    plan = build(res == null ? null : plan);
-                    res = VALID;
-                }
-                if (isDriveable(plan)) {
-                    res = drive(plan);
-                    if (res == VALID) {
-                        res = checkExpiration(System.currentTimeMillis(), plan);
-                    }
-                    if (res == RETRY) {
-                        res = retry(plan);
-                    }
-                }
-                if (res == EXPIRED) {
-                    build = true;
-                }
-            }
+            drive(plan);
 			communicateUpdates();
 		} catch (Exception e) {
 			logger.error("{}: Unexpected ", getName(), e);
@@ -191,21 +171,37 @@ public class Distributor extends ServiceImpl {
 		}
 	}
 
+    private void drive(Plan plan) {
+        boolean build = !isDriveable(plan);
+        PlanStatus res = null;
+        int tries = 0;
+        while ((res==RETRY && tries<=MAX_DRIVE_TRIES) || res!=VALID ) {
+            if (build) {                    
+                plan = build(res == null ? null : plan);
+                res = VALID;
+            }
+            if (isDriveable(plan)) {
+                res = pushAvailable(plan);
+                if (res == VALID) {
+                    res = checkExpiration(System.currentTimeMillis(), plan);
+                }
+                if (res == RETRY) {
+                    res = repush(plan);
+                }
+            }
+            if (res == EXPIRED || res == INVALID) {
+                build = true;
+            }
+        }
+    }
+
 	private boolean isDriveable(final Plan plan) {
 	    return plan!=null && !plan.isClosed();
-	}
-	
-	private void logStatus() {
-		StringBuilder title = new StringBuilder();
-		title.append("Distributor (i").append(++distributionCounter)
-			.append(" by Leader: ").append(shardId.toString());
-		logger.info(LogUtils.titleLine(title.toString()));
-		partitionTable.logStatus();
 	}
 
 	private Plan build(final Plan previous) {
 		final Plan plan = arranger.evaluate(partitionTable, previous);
-		bookkeeper.cleanTemporaryDuties();
+		partitionTable.getNextStage().cleanAllocatedDanglings();
 		if (!plan.areShippingsEmpty()) {
 			partitionTable.addPlan(plan);
 			this.partitionTable.setWorkingHealth(ClusterHealth.UNSTABLE);
@@ -219,64 +215,65 @@ public class Distributor extends ServiceImpl {
 		}
 	}
 	
+    public enum PlanStatus {
+        /* hay que regenerar uno nuevo */
+        EXPIRED,
+        /* hay que reintentar el drive */
+        RETRY,
+        /* no hay que hacer nada drive anduvo bien */
+        VALID,
+        /* hay cambios imposibles de hacer (ej: shard caido) */
+        INVALID;
+    }
 	
-	private PlanStatus retry(final Plan plan) {
-	    for (Delivery del: plan.getAllPendings()) {
-	        final PlanStatus res = send(del, true);
-	        if (res == PlanStatus.EXPIRED) {
+	private PlanStatus repush(final Plan plan) {
+	    for (Delivery delivery: plan.getAllPendings()) {
+	        final PlanStatus res = push(delivery, true);
+	        if (res == EXPIRED || res == INVALID) {
                 return res;
             }
 	    }
-	    return PlanStatus.VALID;
+	    return VALID;
 	}
 	
-	private PlanStatus drive(final Plan plan) {
+	private PlanStatus pushAvailable(final Plan plan) {
 	    logger.info("{}: Driving Plan: {}", getName(), plan.getId());
 		while (plan.hasNextAvailable()) {
-			final PlanStatus res = send(plan.next(), false);
-			if (res == PlanStatus.EXPIRED) {
+			final PlanStatus res = push(plan.next(), false);
+			if (res == EXPIRED || res == INVALID) {
 			    return res;
 			}
 		}
-		return PlanStatus.VALID;
+		return VALID;
 	}
 
 	/** @return if plan is still valid */
-    private PlanStatus send(final Delivery delivery, final boolean retrying) {
+    private PlanStatus push(final Delivery delivery, final boolean retrying) {
         // check it's still in ptable
-        if (partitionTable.getStage().getShardsByState(ONLINE).contains(delivery.getShard())) {
+        if (partitionTable.getStage().getShardsByState(ShardState.ONLINE).contains(delivery.getShard())) {
         	final Collection<ShardEntity> duties = delivery.getByState(retrying ? ShardEntity.State.PENDING : null);
         	final Set<ShardEntity> sortedLog = new TreeSet<>(duties);
         	logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), delivery.getEvent().toVerb(),
         			delivery.getShard().getShardID(), duties.size(), ShardEntity.toStringIds(sortedLog));
         	delivery.markPending();
-        	if (eventBroker.postEvents(delivery.getShard().getBrokerChannel(), new ArrayList<>(duties))) {				    
+        	if (eventBroker.postEvents(delivery.getShard().getBrokerChannel(), new ArrayList<>(duties))) {
         		// dont mark to wait for those already confirmed (from fallen shards)
                 for (ShardEntity duty: duties) {
                     if (duty.getState() == PREPARED || retrying) { 
-                        duty.registerEvent(ShardEntity.State.PENDING);
+                        duty.addEvent(ShardEntity.State.PENDING);
                     } else {
-                        duty.registerEvent(ShardEntity.State.CONFIRMED);
+                        // is already confirmed 
                     }
                 }                
         	} else {
         		logger.error("{}: Couldnt transport current issues !!!", getName());
         	}
-        	return PlanStatus.VALID;
+        	return VALID;
         } else {
         	logger.error("{}: PartitionTable lost transport's target shard: {}", getName(), delivery.getShard());
-        	return PlanStatus.EXPIRED;
+        	return INVALID;
         }
     }
-	
-	public enum PlanStatus {
-	    /* hay que regenerar uno nuevo */
-	    EXPIRED,
-	    /* hay que reintentar el drive */
-	    RETRY,
-	    /* no hay que hacer nada drive anduvo bien */
-	    VALID
-	}
 
 	private PlanStatus checkExpiration(final long now, final Plan currentPlan) {
 		int maxSecs = config.getDistributor().getPlanExpirationSec();  
@@ -285,23 +282,23 @@ public class Distributor extends ServiceImpl {
 			if (currentPlan.getRetryCount() == config.getDistributor().getPlanMaxRetries()) {
 				logger.info("{}: Abandoning Plan expired ! (max secs:{}) ", getName(), maxSecs);
 				//buildAndDrivePlan(currentPlan);
-				return PlanStatus.EXPIRED;
+				return EXPIRED;
 			} else {
 				currentPlan.incrementRetry();
 				logger.info("{}: ReSending Plan expired: Retry {} (max secs:{}) ", getName(),
 						currentPlan.getRetryCount(), maxSecs);
 				//drive(currentPlan);
-				return PlanStatus.RETRY;
+				return RETRY;
 			}
 		} else {
 			logger.info("{}: Drive in progress waiting recent deliveries ({}'s to expire)", getName(),
 					currentPlan.getId(), (expiration.getMillis() - now) / 1000);
-			return PlanStatus.VALID;
+			return VALID;
 		}		
 	}
 
-	/* read from storage only first time */
-	private boolean checkWithStorageWhenAllOnlines() {
+	/** @return if distribution can continue, read from storage only first time */
+	private boolean loadFromClientWhenAllOnlines() {
 		if (initialAdding || (config.getDistributor().isReloadDutiesFromStorage()
 				&& config.getDistributor().getReloadDutiesFromStorageEachPeriods() == counter++)) {
 			logger.info("{}: reloading duties from storage", getName());
@@ -324,9 +321,9 @@ public class Distributor extends ServiceImpl {
 					config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster",
 					duties.size());
 				final List<Pallet<?>> copyP = Lists.newArrayList(pallets);
-				bookkeeper.registerPalletsFromSource(copyP);
+				bookkeeper.enterPalletsFromSource(copyP);
 				final List<Duty<?>> copy = Lists.newArrayList(duties);
-				bookkeeper.registerDutiesFromSource(copy);
+				bookkeeper.enterDutiesFromSource(copy);
 				initialAdding = false;
 			}
 			if (partitionTable.getNextStage().getDutiesCrud().isEmpty()) {
@@ -353,7 +350,7 @@ public class Distributor extends ServiceImpl {
 			if (!sorted.isEmpty()) {
 				logger.error("{}: Consistency check: Absent duties going as Missing [ {}]", getName(),
 						ShardEntity.toStringIds(sorted));
-				partitionTable.getNextStage().getDutiesMissing().addAll(sorted);
+				partitionTable.getNextStage().addMissing(sorted);
 			}
 		}
 	}
@@ -400,10 +397,16 @@ public class Distributor extends ServiceImpl {
 				logger.info("{}: Transporting (update) Duty: {} to Shard: {}", getName(), updatedDuty.toString(), 
 						location.getShardID());
 				if (eventBroker.postEvent(location.getBrokerChannel(), updatedDuty)) {
-					updatedDuty.registerEvent(ShardEntity.State.PENDING);
+					updatedDuty.addEvent(ShardEntity.State.PENDING);
 				}
 			}
 		}
 	}
 
+    private void logStatus() {
+        StringBuilder title = new StringBuilder("Distributor (i")
+                .append(++distributionCounter).append(" by Leader: ").append(shardId.toString());
+        logger.info(LogUtils.titleLine(title.toString()));
+        partitionTable.logStatus();
+    }
 }

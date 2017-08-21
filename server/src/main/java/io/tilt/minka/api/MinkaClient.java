@@ -17,6 +17,7 @@
 package io.tilt.minka.api;
 
 import java.io.Serializable;
+import java.util.Map;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
@@ -33,10 +34,10 @@ import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.impl.ZookeeperLeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
+import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.State;
 import io.tilt.minka.domain.ShardIdentifier;
-import io.tilt.minka.domain.ShardState;
 
 /**
  * Facility to CRUD {@linkplain ShardEntity}
@@ -79,8 +80,8 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	 * A representation Status of Minka's domain objects
 	 * @return a nonempty Status only when the curent shard is the Leader 
 	 */
-	public Status getStatus() {
-		return Status.build(table);
+	public Map<String, Object> getStatus() {
+		return Status.buildDistribution(table);
 	}
 	/**
 	* Remove duties already running/distributed by Minka
@@ -148,7 +149,9 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 			builder.withPayload(userPayload);
 		}
 		final ShardEntity entity = builder.build();
-		entity.registerEvent(event, State.PREPARED);
+		entity.addEvent(event, State.PREPARED, 
+		        getShardIdentity(), 
+                -1);
 		if (leader.inService()) {
 			logger.info("{}: Recurring to local leader !", getClass().getSimpleName());
 			clientMediator.mediateOnEntity(entity);

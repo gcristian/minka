@@ -17,7 +17,10 @@
 package io.tilt.minka.core.leader;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -36,6 +39,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.common.util.concurrent.AtomicDouble;
 
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.core.leader.PartitionTable.Stage.StageExtractor;
 import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
@@ -52,27 +56,6 @@ import io.tilt.minka.domain.ShardIdentifier;
 @JsonPropertyOrder({"global", "shards", "pallets", "roadmaps"})
 public class Status {
 	
-	
-	public static class Shards {
-		private List<Shard> shards;
-		private ShardIdentifier leaderShardId;
-	
-		public static String toJson(final PartitionTable table) throws JsonProcessingException {
-			Validate.notNull(table);
-			return mapper.writeValueAsString(build(table));
-		}
-		public static Shards build(final PartitionTable table) {
-			Validate.notNull(table);
-			return new Shards(table.getStage().getShards(), table.getLeaderShardContainer().getLeaderShardId());
-		}
-		private Shards(final List<Shard> shards, final ShardIdentifier leaderId) {
-			this.shards = shards;
-			this.leaderShardId = leaderId;
-		}
-	}
-	
-	
-	
 	protected static final ObjectMapper mapper; 
 	static {
 		mapper = new ObjectMapper();
@@ -84,41 +67,48 @@ public class Status {
 		mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
 		mapper.configure(Feature.WRITE_NUMBERS_AS_STRINGS, true);
 	}
-	
-	protected final List<ShardView> shards;
-	protected final Global global;
-	
-	@JsonCreator
-	private Status(final List<ShardView> shards, final Global global) {
-		super();
-		this.shards = shards;
-		this.global = global;
-	}
 
 	public static String elementToJson(final Object o) throws JsonProcessingException {
 		Validate.notNull(o);
 		return mapper.writeValueAsString(o);
 	}
-	
-	public static String toJson(final PartitionTable table) throws JsonProcessingException {
+
+    public static String shardsToJson(final PartitionTable table) throws JsonProcessingException {
+        Validate.notNull(table);
+        return mapper.writeValueAsString(buildShards(table));
+    }
+
+    public static Map<String, Object> buildShards(final PartitionTable table) {
+        Validate.notNull(table);
+        final Map<String, Object> map = new LinkedHashMap<>();
+        map.put("shards", table.getStage().getShards());
+        map.put("leaderShardId", table.getLeaderShardContainer().getLeaderShardId());
+        return map;
+    }
+
+	public static String distributionToJson(final PartitionTable table) throws JsonProcessingException {
 		Validate.notNull(table);
-		return mapper.writeValueAsString(build(table));
+		return mapper.writeValueAsString(buildDistribution(table));
 	}
 	
-	public static Status build(final PartitionTable table) {
+	public static Map<String, Object> buildDistribution(final PartitionTable table) {
 		Validate.notNull(table);
-		return new Status(
-				buildShardRep(table), 
-				buildGlobal(table));
+		final Map<String, Object> map = new LinkedHashMap<>();
+		map.put("global", buildGlobal(table));
+		map.put("distribution", buildShardRep(table));
+		return map;
 	}
 
 	public static String dutiesToJson(final PartitionTable table) throws JsonProcessingException {
-		return elementToJson(buildDuties(table));
+		return elementToJson(buildDuties(table, false));
 	}
-	private static List<Duty<?>> buildDuties(final PartitionTable table) {
+	public static String entitiesToJson(final PartitionTable table) throws JsonProcessingException {
+        return elementToJson(buildDuties(table, true));
+    }
+	private static List<Object> buildDuties(final PartitionTable table, boolean entities) {
 		Validate.notNull(table);
-		final List<Duty<?>> ret = new ArrayList<>();
-		table.getStage().getDuties().forEach(e->ret.add(e.getDuty()));
+		final List<Object> ret = new ArrayList<>();
+		table.getStage().getDuties().forEach(e->ret.add(entities ? e: e.getDuty()));
 		return ret;
 	}
 
@@ -127,12 +117,14 @@ public class Status {
 		return elementToJson(buildPallets(table));
 	}
 		
-	private static List<PalletView> buildPallets(final PartitionTable table) {
-		final List<PalletView> ret = new ArrayList<>();
+	private static List<Map<String, Object>> buildPallets(final PartitionTable table) {
+		final List<Map<String, Object>> ret = new ArrayList<>();
 		
-		for (final ShardEntity pallet: table.getStage().getPallets()) {
-			final Set<ShardEntity> crud = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.CREATE, 
-					ShardEntity.State.PREPARED).stream()
+		StageExtractor extractor = new StageExtractor(table.getStage());
+		
+		for (final ShardEntity pallet: extractor.getPallets()) {
+			final Set<ShardEntity> crud = table.getNextStage()
+			        .getDutiesCrudWithFilters(EntityEvent.CREATE, ShardEntity.State.PREPARED).stream()
 					.filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId()))
 					.collect(Collectors.toSet());
 								
@@ -146,15 +138,15 @@ public class Status {
 			                    d.getDuty().getId(), 
 			                    d.getDuty().getWeight())));
 			
-			ret.add(new PalletView(
+			ret.add(palletView(
 			            pallet.getPallet().getId(), 
-						table.getStage().getCapacityTotal(pallet.getPallet()), 
-						table.getStage().getSizeTotal(pallet.getPallet()), 
-						table.getStage().getWeightTotal(pallet.getPallet()), 
+			            extractor.getCapacityTotal(pallet.getPallet()), 
+			            extractor.getSizeTotal(pallet.getPallet()), 
+			            extractor.getWeightTotal(pallet.getPallet()), 
 						pallet.getPallet().getMetadata().getBalancer().getName(), 
 						crud.size(), 
 						dettachedWeight.get(), 
-						pallet.getEventDateForPartition(EntityEvent.CREATE),
+						new DateTime(pallet.getEventLog().getFirst().getHead()),
 						pallet.getPallet().getMetadata(),
 						dutyRepList
 					));
@@ -162,21 +154,21 @@ public class Status {
 		return ret;
 	}
 
-	private static List<ShardView> buildShardRep(final PartitionTable table) {
-		final List<ShardView> ret = new ArrayList<>();
-		final StageExtractor extractor = new StageExtractor(table.getStage());
-		for (final Shard shard: extractor.getShards()) {
-			final List<PalletAtShardView> palletsAtShard =new ArrayList<>();
+	private static List<Map<String, Object>> buildShardRep(final PartitionTable table) {	    
+	    final List<Map<String, Object>> ret = new LinkedList<>();
+	    final StageExtractor extractor = new StageExtractor(table.getStage());
+	    for (final Shard shard: extractor.getShards()) {
+			final List<Map<String , Object>> palletsAtShard =new LinkedList<>();
 			
 			for (final ShardEntity pallet: extractor.getPallets()) {
 				final Set<ShardEntity> duties = table.getStage().getDutiesByShard(pallet.getPallet(), shard);
-				final List<DutyView> dutyRepList = new ArrayList<>();
+				final List<DutyView> dutyRepList = new LinkedList<>();
 				duties.forEach(d->dutyRepList.add(
 				        new DutyView(
 				                d.getDuty().getId(), 
 				                d.getDuty().getWeight())));
 				palletsAtShard.add(
-				        new PalletAtShardView(
+				        palletAtShardView(
 				                pallet.getPallet().getId(), 
 				                extractor.getCapacity(pallet.getPallet(), shard),
 				                duties.size(), 
@@ -184,7 +176,7 @@ public class Status {
 				                dutyRepList));
 				
 			}
-			ret.add(new ShardView(
+			ret.add(shardView(
 			        shard.getShardID().getSynthetizedID(), 
 			        shard.getFirstTimeSeen(), 
 					palletsAtShard, 
@@ -193,66 +185,51 @@ public class Status {
 		return ret;
 	}
 
-	private static Global buildGlobal(final PartitionTable table) {
+	private static Map<String, Object> buildGlobal(final PartitionTable table) {
+	    StageExtractor extractor = new StageExtractor(table.getStage());
 		final int unstaged = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.CREATE, null).size();
-		final int staged = table.getStage().getSizeTotal();
-		return new Global(staged +unstaged, staged, unstaged, table.getStage().getPallets().size(), 
-				table.getStage().getShards().size());
-	}
-	
-	public static class Global {
-		@JsonProperty(index=1, value="size-shards") private final int shardSize;
-		@JsonProperty(index=2, value="size-pallets") private final int palletSize;
-		@JsonProperty(index=3, value="size-duties") private final int dutySize;
-		@JsonProperty(index=4, value="size-staged") private final int stagedSize;
-		@JsonProperty(index=5, value="size-unstaged") private final int unstagedSize;
-		protected Global(final int dutySize, final int stagedSize, final int unstagedSize, final int palletSize, final int shardSize) {
-			super();
-			this.dutySize = dutySize;
-			this.unstagedSize = unstagedSize;
-			this.stagedSize = stagedSize;
-			this.palletSize = palletSize;
-			this.shardSize = shardSize;
-		}
-	}
-	
-	public static class ShardView {
-		@JsonProperty(index=1, value="shard-id") private final String shardId;
-		@JsonProperty(index=2, value="creation") private final String creation;
-		@JsonProperty(index=3, value="status") private final String status;
-		@JsonProperty(index=4, value="pallets") private final List<PalletAtShardView> pallets;
-		
-		@JsonCreator
-		protected ShardView(final String shardId, final DateTime creation, final List<PalletAtShardView> pallets, final String status) {
-			super();
-			this.shardId = shardId;
-			this.creation = creation.toString();
-			this.pallets = pallets;
-			this.status = status;
-		}
+		final int staged = extractor.getSizeTotal();		
+		final Map<String, Object> map = new LinkedHashMap<>();
+		map.put("size-duties", staged+unstaged);
+		map.put("size-pallets", extractor.getPallets().size());
+		map.put("size-staged", staged);
+		map.put("size-unstaged", unstaged);
+		map.put("size-shards", extractor.getShards().size());
+		return map;
 	}
 	
 	
-	public static class PalletAtShardView {
-		@JsonProperty(index=1, value ="id") private final String id;
-		@JsonProperty(index=2, value ="size") private final int size;
-		@JsonProperty(index=3, value ="capacity") private final double capacity;
-		@JsonProperty(index=4, value ="weight") private final double weight;
-		@JsonProperty(index=5, value ="duties") private final String duties;
-		protected PalletAtShardView(final String id, final double capacity, final int size, final double weight, 
-				final List<DutyView> duties) {
-			super();
-			this.id = id;
-			this.capacity = capacity;
-			this.size = size;
-			this.weight = weight;
-			StringBuilder sb = new StringBuilder();
-			duties.forEach(d->sb.append(d.id).append(":").append(d.weight).append(","));
-			this.duties=sb.toString();
-		}
+	private static Map<String, Object> shardView(
+	        final String shardId, 
+	        final DateTime creation, 
+	        final List<Map<String , Object>> pallets, 
+	        final String status) {
+			
+		final Map<String, Object> map = new LinkedHashMap<>();
+		map.put("shard-id", shardId);
+		map.put("creation", creation.toString());
+		map.put("status", status);
+		map.put("pallets", pallets);
+		return map;
 	}
 	
-	public static class DutyView {
+	
+	private static Map<String , Object> palletAtShardView (
+	        final String id, final double capacity, final int size, final double weight, 
+            final List<DutyView> duties) {
+	    
+		final Map<String , Object> map = new LinkedHashMap<>();
+		map.put("id", id);
+		map.put("size", size);
+		map.put("capacity", capacity);
+		map.put("weight", weight);
+		StringBuilder sb = new StringBuilder();
+		duties.forEach(d->sb.append(d.id).append(":").append(d.weight).append(","));
+		map.put("duties",sb.toString());
+		return map;
+	}
+	
+	private static class DutyView {
 		private final String id;
 		private final double weight;
 		protected DutyView(final String id, final double weight) {
@@ -262,41 +239,30 @@ public class Status {
 		}
 	}
 	
-	public static class PalletView {
-		@JsonProperty(index=1, value ="id") private final String id;		
-		@JsonProperty(index=2, value ="size") private final int size;
-		@JsonProperty(index=3, value ="cluster-capacity") private final double capacity;		
-		@JsonProperty(index=4, value ="size-staged") private final int stagedSize;
-		@JsonProperty(index=5, value ="size-unstaged") private final int unstagedSize;
-		@JsonProperty(index=6, value ="weight-staged") private final double stagedWeight;
-		@JsonProperty(index=7, value ="weight-unstaged") private final double unstagedWeight;
-		@JsonProperty(index=8, value ="allocation") private final String allocationPercent;
-		@JsonProperty(index=9, value ="creation") private final String creation;
-		@JsonProperty(index=10, value ="balancer-metadata") private final BalancerMetadata meta;		
-		@JsonProperty(index=11, value ="balancer") private final String balancer;
-		@JsonProperty(index=12, value ="duties") private final String duties;
-		protected PalletView(final String id, final double capacity, final int stagedSize, final double stagedWeight, 
-				final String balancer, final int unstagedSize, final double unstagedWeight, final DateTime creation, 
-				final BalancerMetadata meta, final List<DutyView> duties) {
-			super();
-			this.id = id;
-			this.capacity = capacity;
-			this.stagedSize = stagedSize;
-			this.stagedWeight = stagedWeight;
-			this.balancer = balancer;
-			this.unstagedSize = unstagedSize;
-			this.unstagedWeight = unstagedWeight;
-			this.size = unstagedSize + stagedSize;
-			String str = "0";
-			if (size > 0 && stagedSize > 0) {
-				str = String.valueOf((stagedSize*100) / size) ;
-			}
-			this.allocationPercent = str + "%";
-			this.creation = creation.toString();
-			this.meta = meta;
-			StringBuilder sb = new StringBuilder();
-			duties.forEach(d->sb.append(d.id).append(":").append(d.weight).append(","));
-			this.duties=sb.toString();
-		}
+	private static Map<String, Object> palletView(final String id, final double capacity, final int stagedSize, 
+	        final double stagedWeight, final String balancer, final int unstagedSize, 
+	        final double unstagedWeight, final DateTime creation, final BalancerMetadata meta, 
+	        final List<DutyView> duties) {
+		
+		final Map<String, Object> map = new LinkedHashMap<>();
+		map.put("id", id);
+		map.put("size", unstagedSize + stagedSize);
+		map.put("cluster-capacity", capacity);
+		map.put("size-staged", stagedSize);
+		map.put("size-unstaged", unstagedSize);
+        map.put("weight-staged", stagedWeight);
+		map.put("weight-unstaged", unstagedWeight);
+		String str = "0";
+        if (unstagedSize + stagedSize > 0 && stagedSize > 0) {
+            str = String.valueOf((stagedSize*100) / (unstagedSize + stagedSize)) ;
+        }
+        map.put("allocation", str + "%");
+		map.put("creation", creation.toString());
+		map.put("balancer-metadata", meta);
+		map.put("balancer", balancer);
+		StringBuilder sb = new StringBuilder();
+		duties.forEach(d->sb.append(d.id).append(":").append(d.weight).append(","));
+		map.put("duties", sb.toString());
+		return map;
 	}
 }

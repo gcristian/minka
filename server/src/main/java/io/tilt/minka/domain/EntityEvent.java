@@ -24,25 +24,27 @@ package io.tilt.minka.domain;
 public enum EntityEvent {
 
 	/* user creates a duty from MinkaClient */
-	CREATE(true, "Creating"),
+	CREATE('c', true, "Creating"),
 	/* user prompts to delete as a kill state */
-	REMOVE(true, "Removing"),
+	REMOVE('r', true, "Removing"),
 	/* user updates something related to the duty that leader must notify the shard */
-	UPDATE(true, "Updating"),
+	UPDATE('u', true, "Updating"),
 	/* unrelated to the entity, just a message to it's delegate */
-	TRANSFER(false, "Transferring" ),
+	TRANSFER('t', false, "Transferring" ),
 
 	/* leader assigns to a Shard */
-	ATTACH(false, "Attaching"),
+	ATTACH('a', false, "Attaching"),
 	/* leader takes off the duty from the shard for any reason may be */
-	DETACH(false, "Dettaching"),
+	DETACH('d', false, "Dettaching"),
 	
 	;
 
-	boolean crud;
-	String verb;
+	private final boolean crud;
+	private final char code;
+	private final String verb;
 
-	EntityEvent(boolean crud, final String verb) {
+	EntityEvent(final char code, final boolean crud, final String verb) {
+	    this.code = code;
 		this.crud = crud;
 		this.verb = verb;
 	}
@@ -59,6 +61,19 @@ public enum EntityEvent {
 		return verb;
 	}
 
+	public char getCode() {
+	    return this.code;
+	}
+	
+	public EntityEvent fromCode(final char code) {
+	    for (EntityEvent ee: EntityEvent.values()) {
+	        if (ee.getCode() == code) {
+	            return ee;
+	        }
+	    }
+	    throw new IllegalArgumentException("entity event code: " + code + " doesnt exist");
+	}
+	
 /*	
     @Override
 	public String toString() {

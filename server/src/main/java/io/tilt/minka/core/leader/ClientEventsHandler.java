@@ -16,8 +16,6 @@
  */
 package io.tilt.minka.core.leader;
 
-import static io.tilt.minka.domain.ShardState.ONLINE;
-
 import java.io.Serializable;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
@@ -35,6 +33,7 @@ import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
+import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 
@@ -83,13 +82,13 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 
 	private void cleanShutdown(final ShardCommand op) {
 		//Locks.stopCandidate(Names.getLeaderName(config.getServiceName()), false);		
-		for (Shard slave : partitionTable.getStage().getShardsByState(ONLINE)) {
+		for (Shard slave : partitionTable.getStage().getShardsByState(ShardState.ONLINE)) {
 			eventBroker.postEvent(slave.getBrokerChannel(), op);
 		}
 		boolean offline = false;
 		while (!offline && !Thread.interrupted()) {
 			LockSupport.parkUntil(5000l);
-			offline = partitionTable.getStage().getShardsByState(ONLINE).size() == 0;
+			offline = partitionTable.getStage().getShardsByState(ShardState.ONLINE).size() == 0;
 		}
 		// only then close subscriptions
 		stop();
@@ -156,7 +155,7 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 				}
 			}
 		} else {
-			bookkeeper.registerCRUD(entity);
+			bookkeeper.enterCRUD(entity);
 		}
 	}
 

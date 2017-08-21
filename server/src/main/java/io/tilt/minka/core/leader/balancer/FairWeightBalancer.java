@@ -113,6 +113,8 @@ public class FairWeightBalancer implements Balancer {
 		if (meta.getDispersion()==Dispersion.EVEN) {
 			final Set<Bascule<Shard, ShardEntity>> bascules = buildBascules(next.getPallet(), next.getIndex().keySet(), duties);
 			if (bascules.isEmpty()) {
+			    /*for (final Iterator<ShardEntity> itDuties = duties.iterator(); itDuties.hasNext(); 
+			            itDuties.next().registerEvent(ShardEntity.State.STUCK));*/
 				return;
 			}
     		final Migrator migra = next.getMigrator();
@@ -127,13 +129,17 @@ public class FairWeightBalancer implements Balancer {
     					duty = itDuties.next();
     				}
     				lifted = bascule.testAndLift(duty, duty.getDuty().getWeight());
-    				if (lifted && !itBascs.hasNext() && itDuties.hasNext()) {
+    				final boolean saveLooseRemainders = lifted && !itBascs.hasNext() && itDuties.hasNext();
+                    if (saveLooseRemainders) {
     					// without overwhelming we can irrespect the fair-weight-even desire
     					// adding those left aside by division remainders calc
     					while (itDuties.hasNext()) {
-    						bascule.tryLift(duty = itDuties.next(), duty.getDuty().getWeight()); 
+    						if (!bascule.tryLift(duty = itDuties.next(), duty.getDuty().getWeight())) {
+    						    duty.addEvent(ShardEntity.State.STUCK);
+    						}
     					}
     				}
+    				// si esta bascula no la levanto y no queda otra y no hay mas duties
     				if (!lifted || !itBascs.hasNext() || !itDuties.hasNext()) {
     					migra.override(bascule.getOwner(), bascule.getCargo());
     					break;
@@ -144,7 +150,7 @@ public class FairWeightBalancer implements Balancer {
     			logger.error("{}: Insufficient cluster capacity for Pallet: {}, remaining duties without distribution {}", 
     				getClass().getSimpleName(), next.getPallet(), duty.toBrief());
     			while (itDuties.hasNext()) {
-    			    itDuties.next().registerEvent(ShardEntity.State.STUCK);
+    			    itDuties.next().addEvent(ShardEntity.State.STUCK);
     			}
     		}
 		} else {
@@ -152,7 +158,11 @@ public class FairWeightBalancer implements Balancer {
 		}
 	}
 
-	private final Set<Bascule<Shard, ShardEntity>> buildBascules(Pallet<?> pallet, Set<Shard> onlineShards, final Set<ShardEntity> duties) {
+	private final Set<Bascule<Shard, ShardEntity>> buildBascules(
+	        final Pallet<?> pallet, 
+	        final Set<Shard> onlineShards, 
+	        final Set<ShardEntity> duties) {
+	    
 		final Bascule<Shard, ShardEntity> whole = new Bascule<>();
 		duties.forEach(d->whole.lift(d.getDuty().getWeight()));
 		final Set<Bascule<Shard, ShardEntity>> bascules = new LinkedHashSet<>();
