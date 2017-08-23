@@ -130,7 +130,7 @@ public class Arranger {
 				missed.addEvent(EntityEvent.REMOVE, State.CONFIRMED, 
 				        lazy.getShardID().getStringIdentity(), 
 				        plan.getId());
-				table.getStage().confirmDutyAboutShard(missed, lazy);
+				table.getStage().writeDuty(missed, lazy);
 			}
 			missed.addEvent(EntityEvent.CREATE, State.PREPARED,
 			        "n/a", 

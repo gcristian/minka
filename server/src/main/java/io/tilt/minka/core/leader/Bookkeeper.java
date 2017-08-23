@@ -22,8 +22,11 @@ import static io.tilt.minka.domain.ShardEntity.State.DANGLING;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +44,8 @@ import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardEntity.DateState;
+import io.tilt.minka.domain.ShardEntity.EventLog;
 
 /**
  * Maintainer and only writer of {@linkplain PartitionTable} 
@@ -151,23 +156,24 @@ public class Bookkeeper {
 	}
 
 	/* find the up-coming */
-	private void confirmReallocated(final Shard shard, final List<ShardEntity> heartbeatDuties, final Delivery delivery) {
-		Set<ShardEntity> sortedLogConfirmed = null;
-		Set<ShardEntity> sortedLogDirty = null;
-		for (final ShardEntity heartbeatDuty : heartbeatDuties) {
-			for (ShardEntity prescriptedDuty : delivery.getDuties()) {
-				if (prescriptedDuty.equals(heartbeatDuty)) {
-					if (heartbeatDuty.getState() == CONFIRMED
-							&& prescriptedDuty.getDutyEvent() == heartbeatDuty.getDutyEvent()) {
-					    if (sortedLogConfirmed==null) {
-					        sortedLogConfirmed = new TreeSet<>();
-					    }
-						sortedLogConfirmed.add(heartbeatDuty);
-						// remove the one holding older State
-						prescriptedDuty.addEvent(CONFIRMED);
-						changeStage(shard, heartbeatDuty);
-						break;
-					} else {
+	private void confirmReallocated(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
+		Set<ShardEntity> sortedLogConfirmed = new TreeSet<>();
+		//Set<ShardEntity> sortedLogDirty = null;
+		for (final ShardEntity beated : beatedDuties) {
+			for (ShardEntity prescripted : delivery.getDuties()) {
+				if (prescripted.equals(beated)) {
+				    if (findReallocationEventLogForHeartbeat(shard, beated, prescripted, 
+				            (waiting)-> {
+				                sortedLogConfirmed.add(beated);
+				                // remove the one holding older State
+		                        prescripted.addEvent(waiting.getEvent(), 
+		                                CONFIRMED, 
+		                                shard.getShardID().getStringIdentity(), 
+		                                partitionTable.getCurrentPlan().getId());
+		                        changeStage(shard, beated);
+				            })) {
+				        break;
+				    } else {
 						/*final DateTime fact = prescriptedDuty.getEventDateForState(prescriptedDuty.getState());
 						final long now = System.currentTimeMillis();
 						if (now - fact.getMillis() > MAX_EVENT_DATE_FOR_DIRTY) {
@@ -190,35 +196,98 @@ public class Bookkeeper {
 		}*/
 	}
 
+	/** @return whether or not an expected event was found */
+    private boolean findReallocationEventLogForHeartbeat(
+            final Shard shard, 
+            final ShardEntity beated, 
+            final ShardEntity prescripted, 
+            final Consumer<EventLog> waiter) {
+
+        // beated duty must belong to current non-expired plan
+        final long pid = partitionTable.getCurrentPlan().getId();
+        // match specific events
+        for (final Iterator<EventLog> it = beated.getEventLog().descendingIterator(); it.hasNext();) {
+            final EventLog declared = it.next();
+            // now which event is confirming (dettaches and attaches logged alike in the same instance)
+            if (declared.getPlanId() == pid && declared.getStates().getLast().getState() == CONFIRMED ) {
+                for (final EventLog expected: prescripted.getEventLog()) {
+                    if (declared.getEvent() == expected.getEvent()
+                        && declared.getTargetId().equals(expected.getTargetId())
+                        && expected.getPlanId() == pid) { 
+                        // alcoyana/alcoyana
+                        waiter.accept(expected);
+                        return true;                                    
+                    } else if (pid!=expected.getPlanId()) {
+                        // keep looping but avoid reading phantom events 
+                    }
+                }
+            } else if (pid > declared.getPlanId()) {
+                // obsolete heartbeat
+                return false;
+            }
+        }
+        return false;
+    }
+
 	private void changeStage(final Shard shard, final ShardEntity duty) {
-		if (partitionTable.getStage().confirmDutyAboutShard(duty, shard)) {
+		if (partitionTable.getStage().writeDuty(duty, shard)) {
 			if (!partitionTable.getNextStage().removeCrud(duty)) {
 				
 			}
 		}
 	}
-
-	/* check un-coming as unassign */
-	private void confirmAbsences(final Shard shard, final List<ShardEntity> heartbeatDuties, final Delivery delivery) {
+	
+	/** treat un-coming as detaches
+	/** @return whether or not there was an absence confirmed */
+	private boolean confirmAbsences(final Shard shard, final List<ShardEntity> heartbeatDuties, final Delivery delivery) {
+	    boolean ret = false;
 		Set<ShardEntity> sortedLog = null;
-		for (ShardEntity deliveredDuty :delivery.getDuties()) {
-			if ((deliveredDuty.getDutyEvent().is(EntityEvent.DETACH)
-					|| deliveredDuty.getDutyEvent().is(EntityEvent.REMOVE))
-					&& !heartbeatDuties.stream().anyMatch(
-							i -> i.equals(deliveredDuty) && i.getDutyEvent() != deliveredDuty.getDutyEvent())) {
-			    if (sortedLog==null) {
-			        sortedLog = new TreeSet<>();
-			    }
-				sortedLog.add(deliveredDuty);
-				deliveredDuty.addEvent(CONFIRMED);
-				
-				changeStage(shard, deliveredDuty);
-			}
+        // beated duty must belong to current non-expired plan
+        final long pid = partitionTable.getCurrentPlan().getId();
+		for (ShardEntity prescripted : delivery.getDuties()) {
+		    for (final Iterator<EventLog> it = prescripted.getEventLog().descendingIterator(); it.hasNext();) {
+	            final EventLog expected = it.next();
+	            // now which event is confirming (dettaches and attaches logged alike in the same instance)
+	            if (expected.getPlanId() == pid && (expected.getEvent().is(EntityEvent.DETACH) ||
+	                    expected.getEvent().is(EntityEvent.REMOVE))) {
+	                boolean absent = true;
+	                for (ShardEntity beated: heartbeatDuties) {
+	                    if (beated.equals(prescripted)) {
+	                        for (final EventLog declared: beated.getEventLog()) {
+	                            if (declared.getTargetId().equals(expected.getTargetId()) 
+	                                && declared.getEvent()!=expected.getEvent() 
+	                                && declared.getPlanId()==pid) {
+	                                absent = false;
+	                            } else if (declared.getPlanId()!=pid) {
+	                                break; // obsolete heartbeat but there can be others valid (..)
+	                            }
+	                        }
+	                    }
+	                }
+	                if (absent) {
+	                    if (sortedLog==null) {
+	                        sortedLog = new TreeSet<>();
+	                    }
+	                    sortedLog.add(prescripted);
+	                    prescripted.addEvent(expected.getEvent(), 
+	                            CONFIRMED,
+	                            shard.getShardID().getStringIdentity(),
+	                            pid);
+	                    changeStage(shard, prescripted);
+	                    ret = true;
+	                    break; // there can be more 
+	                }
+	            } else if (pid!=expected.getPlanId()) {
+                    // avoid reading phantom events
+                    break;
+	            }
+		    }
 		}
 		if (sortedLog!=null) {
 			logger.info("{}: ShardID: {}, Confirming (by absence) partioning event for Duties: {}",
 					getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(sortedLog));
 		}
+		return ret;
 	}
 
 	public void checkShardChangingState(final Shard shard) {

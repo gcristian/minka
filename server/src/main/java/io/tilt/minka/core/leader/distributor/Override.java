@@ -52,8 +52,8 @@ class Override {
             Migrator.log.debug("{}: cluster built {}", getClass().getSimpleName(), getEntities());
             Migrator.log.debug("{}: currents at shard {} ", getClass().getSimpleName(), current);
         }
-        anyChange|=dettachDelta(plan, table, getEntities(), getShard(), current);
-        anyChange|=attachDelta(plan, table, getEntities(), getShard(), current);
+        anyChange|=dettachDelta(plan, getEntities(), getShard(), current);
+        anyChange|=attachDelta(plan, getEntities(), getShard(), current);
         if (!anyChange) {
             Migrator.log.info("{}: Shard: {}, unchanged", getClass().getSimpleName(), shard);
         }
@@ -63,8 +63,7 @@ class Override {
 	/* dettach anything living in the shard outside what's coming
     * null or empty cluster translates to: dettach all existing */
     private final boolean dettachDelta(
-            final Plan plan, final 
-            PartitionTable table, 
+            final Plan plan, 
             final Set<ShardEntity> clusterSet, 
             final Shard shard, 
             final Set<ShardEntity> currents) {
@@ -78,17 +77,12 @@ class Override {
         if (!detaching.isEmpty()) {
             StringBuilder logg = new StringBuilder(detaching.size() * 16);
             for (ShardEntity detach : detaching) {
-                // copy because in latter cycles this will be assigned
-                // so they're traveling different places
-                final ShardEntity copy = ShardEntity.Builder.builderFrom(detach).build();
-                copy.addEvent(EntityEvent.DETACH, 
+                detach.addEvent(EntityEvent.DETACH, 
                         PREPARED, 
                         shard.getShardID().getStringIdentity(), 
                         plan.getId());
-                // testing: con buen soporte de eventg log ahora puedo usar la misma entidad
-                // ademas se confirman en serie no en paralelo, no hay problema
-                plan.ship(shard, copy);
-                logg.append(copy.getEntity().getId()).append(", ");
+                plan.ship(shard, detach);
+                logg.append(detach.getEntity().getId()).append(", ");
             }
             Migrator.log.info("{}: Shipping dettaches from: {}, duties: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
                 detaching.size(), logg.toString());
@@ -100,7 +94,6 @@ class Override {
     /* attach what's not already living in that shard */
     private final boolean attachDelta(
             final Plan plan, 
-            final PartitionTable table, 
             final Set<ShardEntity> clusterSet, 
             final Shard shard, 
             final Set<ShardEntity> currents) {
@@ -113,15 +106,12 @@ class Override {
             if (!attaching.isEmpty()) {
                 logg = new StringBuilder(attaching.size() * 16);
                 for (ShardEntity attach : attaching) {
-                    // copy because in latter cycles this will be assigned
-                    // so they're traveling different places
-                    final ShardEntity copy = ShardEntity.Builder.builderFrom(attach).build();
-                    copy.addEvent(EntityEvent.ATTACH, 
+                    attach.addEvent(EntityEvent.ATTACH, 
                             PREPARED,
                             shard.getShardID().getStringIdentity(), 
                             plan.getId());
-                    plan.ship(shard, copy);
-                    logg.append(copy.getEntity().getId()).append(", ");
+                    plan.ship(shard, attach);
+                    logg.append(attach.getEntity().getId()).append(", ");
                 }
                 Migrator.log.info("{}: Shipping attaches shard: {}, duty: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
                     attaching.size(), logg.toString());

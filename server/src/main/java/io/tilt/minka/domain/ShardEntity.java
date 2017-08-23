@@ -96,7 +96,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
         private static final long serialVersionUID = -8873965041941783628L;
         private final Date head;
 	    private final EntityEvent event;
-	    private final List<DateState> states;
+	    private final LinkedList<DateState> states;
 	    private final String targetId;
 	    private final long planId;
         public EventLog(final Date head, final EntityEvent event, final String targetId, final long planId) {
@@ -105,7 +105,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
             this.event = event;
             this.targetId = targetId;
             this.planId = planId;
-            this.states = new ArrayList<>(3);
+            this.states = new LinkedList<>();
         }
 	    public Date getHead() {
             return this.head;
@@ -113,7 +113,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	    public EntityEvent getEvent() {
             return this.event;
         }
-	    public List<DateState> getStates() {
+	    public LinkedList<DateState> getStates() {
             return this.states;
         }
 	    private void addState(final State state) {

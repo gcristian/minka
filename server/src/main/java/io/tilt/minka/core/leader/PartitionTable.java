@@ -183,7 +183,7 @@ public class PartitionTable {
 		 * @param duty the entity to act on
 		 * @param where	the sard where it resides 
 		 * @return if there was a Stage change caused by the confirmation after reallocation phase */
-		public boolean confirmDutyAboutShard(final ShardEntity duty, final Shard where) {
+		public boolean writeDuty(final ShardEntity duty, final Shard where) {
 			if (duty.getDutyEvent().is(EntityEvent.ATTACH) || duty.getDutyEvent().is(EntityEvent.CREATE)) {
 				checkDuplicationFailure(duty, where);
 				getPartition(where).add(duty);
