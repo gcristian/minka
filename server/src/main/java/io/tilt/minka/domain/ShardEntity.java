@@ -16,17 +16,9 @@
  */
 package io.tilt.minka.domain;
 
-import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
-import static java.util.Objects.requireNonNull;
-
 import java.io.Serializable;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.Date;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
 
 import org.apache.commons.lang.Validate;
@@ -43,7 +35,6 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.EntityPayload;
 import io.tilt.minka.api.Pallet;
-
 /**
  * Representation of a {@linkplain Duty} selected for an action in a {@linkplain Shard}  
  * 
@@ -54,203 +45,30 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	@JsonIgnore
 	private final Logger logger = LoggerFactory.getLogger(getClass());
-	private final static SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd.hhmmss");
 
 	private static final long serialVersionUID = 4519763920222729635L;
 	@JsonIgnore
 	private final Entity<?> from;
 	private final Type type;
-	private EntityEvent event;
-	private State state;
-	@JsonIgnore
-	private StuckCause stuckCause;
+	private EventTrack eventTrack;
 	private EntityPayload userPayload;
-	
 	private ShardEntity relatedEntity;
 	
 	public enum Type {
 		DUTY, PALLET
 	}
-	
-	public static class DateState implements Serializable {
-        private static final long serialVersionUID = -3611519717574368897L;
-        private final Date date;
-	    private final State state;
-        public DateState(final Date date, final State state) {
-            super();
-            this.date = date;
-            this.state = state;
-        }
-        public Date getDate() {
-            return this.date;
-        }
-        public State getState() {
-            return this.state;
-        }
-	}
 
-	@JsonIgnore
-	private LinkedList<EventLog> eventLog;
-		
-	public static class EventLog implements Serializable {
-        private static final long serialVersionUID = -8873965041941783628L;
-        private final Date head;
-	    private final EntityEvent event;
-	    private final LinkedList<DateState> states;
-	    private final String targetId;
-	    private final long planId;
-        public EventLog(final Date head, final EntityEvent event, final String targetId, final long planId) {
-            super();
-            this.head = head;
-            this.event = event;
-            this.targetId = targetId;
-            this.planId = planId;
-            this.states = new LinkedList<>();
-        }
-	    public Date getHead() {
-            return this.head;
-        }
-	    public EntityEvent getEvent() {
-            return this.event;
-        }
-	    public LinkedList<DateState> getStates() {
-            return this.states;
-        }
-	    private void addState(final State state) {
-	        this.states.add(new DateState(new Date(), state));
-	    }
-	    public String getTargetId() {
-            return this.targetId;
-        }
-	    public long getPlanId() {
-            return this.planId;
-        }
-	    @Override
-	    public String toString() {
-	        final StringBuilder sb = new StringBuilder(20)
-	                .append("dt:").append(sdf.format(head)).append(" ")
-	                .append("ev:").append(event).append(" ")
-	                .append("sh:").append(targetId).append(" ")
-	                .append("p:").append(planId);	        
-	        return sb.toString();
-	    }
-	}
-	
-	@JsonProperty("event-log-size")
-	public int eventSize() {
-	    return this.eventLog == null ? 0 : this.eventLog.size();
-	}
-	
-	@JsonProperty("event-log")
-	public List<String> getStringEventLog() {
-	    final List<String> tmp = new LinkedList<>();
-	    for (EventLog el: getEventLog()) {
-	        final String main = new StringBuilder(30)
-                    .append("ev:").append(el.getEvent()).append(" ")
-                    .append("sh:").append(el.getTargetId()).append(" ")
-                    .append("p:").append(el.getPlanId()).append(" ")
-                    .toString();
-	        for (final DateState ds: el.getStates()) {
-	            final StringBuilder sb= new StringBuilder(main)
-    	            .append("dt:").append(sdf.format(ds.getDate())).append(" ")
-                    .append("st:").append(ds.getState());
-	            tmp.add(sb.toString());
-	        }
-	    }
-	    return tmp;
-	}
-	
-	
-    public void addEvent(final EntityEvent event, final State state, final String targetId, final long id) {
-        if (event != null) {
-            this.event = event;
-        }
-        this.state = requireNonNull(state);
-        EventLog log = eventLog.isEmpty() ? null : eventLog.getLast();
-        if (log == null || (log.getEvent() != event && event != null)
-                || (targetId != null && !log.getTargetId().equals(targetId))) {
-            this.eventLog.add(log = new EventLog(new Date(), event, targetId, id));
-        }
-        log.addState(state);
-    }
-
-    public void addEvent(final State state) {
-        addEvent(null, state, null, 0);
-    }
-	
-	/**
-	 * states while the duty travels along the wire and the action is confirmed
-	 * because it takes time, and inconsistencies will happen
-	 */
-	public enum State {
-		/* when created */
-		PREPARED('p'),
-		/* status at leader after being sent */
-		PENDING('n'),
-		/* status at followet when arrives */
-		RECEIVED('r'),
-		/* status at leader after the effect is confirmed */
-		CONFIRMED('c'),
-		/* status at leader when a follower falls, and at follower when absent in its delegate's report */
-		DANGLING('d'),
-		/* suddenly stop being reported from follower: no solution yet */
-		MISSING('m'),
-		/* status at a leader or follower when there's no viable solution for a duty */
-		STUCK('s'),
-		/* status at a follower when absent in delegate's report, only for lazy ones */
-		FINALIZED('f')
-		;
-	    
-	    private final char code;
-	    State(final char c) {
-	        this.code = c;
-	    }
-	    public State fromCode(final char code) {
-	        for (State s: State.values()) {
-	            if (s.code == code) {
-	                return s;
-	            }
-	        }
-	        throw new IllegalArgumentException("shardentity state code: " + code + " not exists");
-	    }
-	}
-
-	public enum StuckCause {
-		/* at follower: when Delegate does not release or take the duty */
-		UNRELEASED, UNTAKEN,
-		/*
-		 * at leader: at distribution when duty is too big to fit in any
-		 * available shard
-		 */
-		UNSUITABLE,
-	}
-	
-	public boolean hasEverBeenDistributed() {
-	    for (final EventLog log: eventLog) {
-	        if (log.getEvent()==EntityEvent.ATTACH) {
-	            for (final DateState ds: log.getStates()) {
-	                if (ds.getState()==State.CONFIRMED) {
-	                    return true;
-	                }
-	            }
-	        }
-	    }
-	    return false;
-	}
 	
 	private ShardEntity(final Entity<?> entity, Type type) {
 		this.from = entity;
-		this.event = EntityEvent.CREATE;
 		this.type = type;
-		this.state = PREPARED;
-		this.eventLog = new LinkedList<>();
-		addEvent(EntityEvent.CREATE, PREPARED, "n/a", -1);
+		this.eventTrack = new EventTrack();
+		this.eventTrack.addEvent(EntityEvent.CREATE, EntityState.PREPARED, "n/a", -1);
 	}
 	
 	public static class Builder {
 		
 		private EntityPayload userPayload;
-		private EntityEvent event;
 		private ShardEntity relatedEntity;
 		private final Duty<?> duty;
 		private final Pallet<?> pallet;
@@ -277,17 +95,10 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 			this.userPayload = userPayload;
 			return this;
 		}
-		public Builder withEvent(final EntityEvent event) {
-			Validate.notNull(event);
-			this.event = event;
-			return this;
-		}
 		public ShardEntity build() {
 			if (from!=null) {
 				final ShardEntity t = new ShardEntity(from.getEntity(), from.getType());
-				t.setEventLog(from.getEventLog());
-				t.setState(from.getState());
-				t.setPartitionEvent(from.getDutyEvent());
+				t.setEventTrack(from.getEventTrack());
 				if (userPayload==null) {
 					t.setUserPayload(from.getUserPayload());
 				}
@@ -322,14 +133,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	public ShardEntity getRelatedEntity() {
 		return this.relatedEntity;
 	}
-	private void setPartitionEvent(EntityEvent dutyEvent) {
-		this.event = dutyEvent;
-	}
-
-	private void setState(State state) {
-		this.state = state;
-	}
-
+	
 	@JsonIgnore
 	public Pallet<?> getPallet() {
 		if (this.from instanceof Pallet<?>) {
@@ -361,12 +165,12 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	}
 
 	public boolean is(EntityEvent e) {
-		return this.event == e;
+		return getEventTrack().getLast().getEvent() == e;
 	}
 
 	@JsonProperty("event")
-	public EntityEvent getDutyEvent() {
-		return this.event;
+	public EntityEvent getLastEvent() {
+		return getEventTrack().getLast().getEvent();
 	}
 	
 	private void setUserPayload(final EntityPayload userPayload) {
@@ -421,12 +225,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 			if (type == Type.DUTY) {
 				sb.append(" w:").append(((Duty<?>) getEntity()).getWeight());
 			}
-			sb.append(" ev:").append(getDutyEvent());
-			sb.append(" s:").append(getState());
-
-			if (!getEventLog().isEmpty()) {
-			    sb.append(" c:").append(this.getEventLog().getFirst().getHead());
-			}
 			return sb.toString();
 		} catch (Exception e) {
 			logger.error("tostring", e);
@@ -453,15 +251,17 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	}
 
 	@JsonProperty("state")
-	public State getState() {
-		return this.state;
+	public EntityState getLastState() {
+		return getEventTrack().getLast().getLastState();
 	}
 
-	public LinkedList<EventLog> getEventLog() {
-        return this.eventLog;
+	
+	public EventTrack getEventTrack() {
+        return this.eventTrack;
     }
-	private void setEventLog(final LinkedList<EventLog> log) {
-	    this.eventLog = log;
+		
+	private void setEventTrack(final EventTrack track) {
+	    this.eventTrack = track;
 	}
 	
 	public int hashCode() {
@@ -481,10 +281,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	@Override
 	public int compare(ShardEntity o1, ShardEntity o2) {
 		return o1.compareTo(o2);
-	}
-
-	public StuckCause getStuckCause() {
-		return this.stuckCause;
 	}
 
 	public Type getType() {
@@ -509,8 +305,8 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		private static final long serialVersionUID = 3709876521530551544L;
 		@Override
 		public int compare(final ShardEntity o1, final ShardEntity o2) {
-			int i = o1.getEventLog().getFirst().getHead()
-					.compareTo(o2.getEventLog().getFirst().getHead());
+			int i = o1.getEventTrack().getFirst().getHead()
+					.compareTo(o2.getEventTrack().getFirst().getHead());
 			if (i == 0) {
 				i = altCompare(o1, o2);
 			}

@@ -17,36 +17,32 @@
 package io.tilt.minka.core.leader;
 
 import static io.tilt.minka.domain.EntityEvent.CREATE;
-import static io.tilt.minka.domain.ShardEntity.State.CONFIRMED;
-import static io.tilt.minka.domain.ShardEntity.State.DANGLING;
 
+import java.time.Instant;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
 import io.tilt.minka.core.leader.distributor.Delivery;
 import io.tilt.minka.core.leader.distributor.Plan;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.EventTrack.Track;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardEntity.DateState;
-import io.tilt.minka.domain.ShardEntity.EventLog;
-
+import io.tilt.minka.domain.EntityState;
 /**
  * Maintainer and only writer of {@linkplain PartitionTable} 
  * Accounts coming heartbeats, detects anomalies
@@ -55,20 +51,22 @@ import io.tilt.minka.domain.ShardEntity.EventLog;
  * @author Cristian Gonzalez
  * @since Jan 4, 2016
  */
-public class Bookkeeper {
+public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private static final int MAX_EVENT_DATE_FOR_DIRTY = 10000;
 
 	private final PartitionTable partitionTable;
-	   private final Scheduler scheduler;
+	private final Scheduler scheduler;
+	
 	public Bookkeeper(final PartitionTable partitionTable, final Scheduler scheduler) {
 		this.partitionTable = partitionTable;
-		     this.scheduler = java.util.Objects.requireNonNull(scheduler);
+		this.scheduler = java.util.Objects.requireNonNull(scheduler);
 	}
 
-	public void check(final Heartbeat beat, final Shard sourceShard) {
+	@Override
+	public void accept(final Heartbeat beat, final Shard sourceShard) {
 		if (beat.getStateChange() == ShardState.QUITTED) {
 			checkShardChangingState(sourceShard);
 			return;
@@ -77,56 +75,51 @@ public class Bookkeeper {
 		if (beat.getCapacities()!=null) {
 			sourceShard.setCapacities(beat.getCapacities());
 		}
-		if (!beat.isReportedCapturedDuties()) {
-			return;
-		}
 			
-		if (partitionTable.getCurrentPlan() == null || partitionTable.getCurrentPlan().isClosed()) {
-			// believe only when online: to avoid Dirty efects after follower's hangs/stucks
-			// so it clears itself before trusting their HBs
-			for (final ShardEntity duty : beat.getReportedCapturedDuties()) {
-				if (duty.getState() == CONFIRMED) {
-					try {
-						changeStage(sourceShard, duty);
-					} catch (ConcurrentDutyException cde) {
-						if (partitionTable.getHealth() == ClusterHealth.STABLE) {
-							// TODO 
-						}
-						logger.error("{}: Rebell shard: {}", getClass().getSimpleName(), sourceShard, cde);
-					}
-				} else if (duty.getState() == DANGLING) {
-					logger.error("{}: Shard {} reported Dangling Duty (follower's unconfident: {}): {}",
-							getClass().getSimpleName(), sourceShard.getShardID(), duty.getDutyEvent(), duty);
-					if (duty.getDutyEvent().is(EntityEvent.CREATE)) {
-					} else if (duty.getDutyEvent().is(EntityEvent.REMOVE)) {
-					}
-				}
-			}
+		if (partitionTable.getCurrentPlan() == null || partitionTable.getCurrentPlan().getResult().isClosed()) {
+			logDanglings(beat, sourceShard);
 		} else {
 			analyzeReportedDuties(sourceShard, beat.getReportedCapturedDuties());
 		}
 		// TODO perhaps in presence of Reallocation not ?
-		if (beat.isReportedCapturedDuties() && sourceShard.getState().isAlive()) {
+		if (sourceShard.getState().isAlive()) {
 			declareHeartbeatAbsencesAsMissing(sourceShard, beat.getReportedCapturedDuties());
 		}
 	}
 
+    private void logDanglings(final Heartbeat beat, final Shard sourceShard) {
+        // believe only when online: to avoid Dirty efects after follower's hangs/stucks
+        // so it clears itself before trusting their HBs
+        for (final ShardEntity duty : beat.getReportedCapturedDuties()) {
+        	if (duty.getLastState() == EntityState.DANGLING) {
+        		logger.error("{}: Shard {} reported Dangling Duty (follower's unconfident: {}): {}",
+        				getClass().getSimpleName(), sourceShard.getShardID(), 
+        				duty.getEventTrack().getLast().getEvent(), duty);
+        	}
+        }
+    }
+
 	private void analyzeReportedDuties(final Shard source, final List<ShardEntity> heartbeatDuties) {
 		final Plan plan = partitionTable.getCurrentPlan();
 		final Delivery delivery = plan.getDelivery(source);
-		if (delivery!=null) {
-    		confirmReallocated(source, heartbeatDuties, delivery);
-    		confirmAbsences(source, heartbeatDuties, delivery);
-    		if (plan.hasFinalized()) {
-    		    logger.info("{}: Plan finished ! (all changes in stage)", getClass().getSimpleName());
-    		    plan.close();
-    		} else if (plan.hasUnlatched()) {
+		if (delivery!=null && delivery.getPlanId()==plan.getId()) {
+		    boolean changed = false;
+    		changed|=confirmReallocated(source, heartbeatDuties, delivery);
+    		changed|=confirmAbsences(source, heartbeatDuties, delivery);
+    		if (changed) {
+    		    delivery.checkState();
+    		}
+    		if (!plan.getResult().isClosed() && plan.hasUnlatched()) {
     		    logger.info("{}: Plan unlatched, fwd >> distributor agent ", getClass().getSimpleName());
     		    scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
     		}
 		} else {
-		    logger.error("{}: no pending Delivery for heartbeat's shard: {} ", 
-		            getClass().getSimpleName(), source.getShardID().toString());
+			logger.warn("{}: no pending Delivery for heartbeat's shard: {} - current/delivery plan id: {}/{}", 
+	            getClass().getSimpleName(), source.getShardID().toString(), plan!=null ? plan.getId() : "unk", 
+	            		delivery!=null ? delivery.getPlanId() : "unk");
+		}
+		if (plan.getResult().isClosed()) {
+		    logger.info("{}: Plan finished ! (all changes in stage)", getClass().getSimpleName());
 		}
 	}
 	
@@ -156,32 +149,36 @@ public class Bookkeeper {
 	}
 
 	/* find the up-coming */
-	private void confirmReallocated(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
-		Set<ShardEntity> sortedLogConfirmed = new TreeSet<>();
-		//Set<ShardEntity> sortedLogDirty = null;
+	private boolean confirmReallocated(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
+		final Set<ShardEntity> sortedLogConfirmed = new TreeSet<>();
+		Set<ShardEntity> sortedLogDirty = null;
+		boolean[] ret = new boolean[1];
 		for (final ShardEntity beated : beatedDuties) {
 			for (ShardEntity prescripted : delivery.getDuties()) {
 				if (prescripted.equals(beated)) {
-				    if (findReallocationEventLogForHeartbeat(shard, beated, prescripted, 
-				            (waiting)-> {
-				                sortedLogConfirmed.add(beated);
-				                // remove the one holding older State
-		                        prescripted.addEvent(waiting.getEvent(), 
-		                                CONFIRMED, 
-		                                shard.getShardID().getStringIdentity(), 
-		                                partitionTable.getCurrentPlan().getId());
-		                        changeStage(shard, beated);
-				            })) {
+				    if (findPrescriptionForHeartbeat(beated, prescripted, (expected)-> {
+			                sortedLogConfirmed.add(beated);
+			                // remove the one holding older State
+	                        prescripted.getEventTrack().addEvent(expected.getEvent(), 
+	                                EntityState.CONFIRMED, 
+	                                shard.getShardID().getStringIdentity(), 
+	                                partitionTable.getCurrentPlan().getId());
+	                		if (partitionTable.getStage().writeDuty(prescripted, shard)) {
+	                		    ret[0] = true;
+	                			// TODO warn: if a remove comes from client while a running plan, we might be avoidint it 
+	                			partitionTable.getNextStage().removeCrud(prescripted);
+                			}
+			            })) {
 				        break;
 				    } else {
-						/*final DateTime fact = prescriptedDuty.getEventDateForState(prescriptedDuty.getState());
+						final Date fact = prescripted.getEventTrack().getLast().getHead();
 						final long now = System.currentTimeMillis();
-						if (now - fact.getMillis() > MAX_EVENT_DATE_FOR_DIRTY) {
+						if (now - fact.getTime() > MAX_EVENT_DATE_FOR_DIRTY) {
 						    if (sortedLogDirty==null) {
 						        sortedLogDirty = new TreeSet<>();
 	                        }
-							sortedLogDirty.add(heartbeatDuty);
-						}*/
+							sortedLogDirty.add(beated);
+						}
 					}
 				}
 			}
@@ -190,97 +187,82 @@ public class Bookkeeper {
 			logger.info("{}: ShardID: {}, Confirming partition event for Duties: {}", getClass().getSimpleName(),
 					shard.getShardID(), ShardEntity.toStringIds(sortedLogConfirmed));
 		}
-		/*if (sortedLogDirty!=null) {
+		if (sortedLogDirty!=null) {
 			logger.warn("{}: ShardID: {}, Reporting DIRTY partition event for Duties: {}", getClass().getSimpleName(),
 					shard.getShardID(), ShardEntity.toStringIds(sortedLogDirty));
-		}*/
+		}
+		return ret[0];
 	}
 
 	/** @return whether or not an expected event was found */
-    private boolean findReallocationEventLogForHeartbeat(
-            final Shard shard, 
+    private boolean findPrescriptionForHeartbeat(
             final ShardEntity beated, 
             final ShardEntity prescripted, 
-            final Consumer<EventLog> waiter) {
+            final Consumer<Track> waiter) {
 
         // beated duty must belong to current non-expired plan
         final long pid = partitionTable.getCurrentPlan().getId();
         // match specific events
-        for (final Iterator<EventLog> it = beated.getEventLog().descendingIterator(); it.hasNext();) {
-            final EventLog declared = it.next();
-            // now which event is confirming (dettaches and attaches logged alike in the same instance)
-            if (declared.getPlanId() == pid && declared.getStates().getLast().getState() == CONFIRMED ) {
-                for (final EventLog expected: prescripted.getEventLog()) {
-                    if (declared.getEvent() == expected.getEvent()
-                        && declared.getTargetId().equals(expected.getTargetId())
-                        && expected.getPlanId() == pid) { 
-                        // alcoyana/alcoyana
-                        waiter.accept(expected);
+        for (final Iterator<Track> it = beated.getEventTrack().getDescendingIterator(); it.hasNext();) {
+            final Track beatedTrack = it.next();
+            // now which event is confirming (de/attaches are logged alike in the same instance)
+            final EntityState state = beatedTrack.getLastState();
+			if (beatedTrack.getPlanId() == pid && (state == EntityState.CONFIRMED  || state == EntityState.RECEIVED)) {
+            	for (final Iterator<Track> desc = prescripted.getEventTrack().getDescendingIterator(); it.hasNext();) {
+            		final Track prescriptedTrack = desc.next();
+                    if (beatedTrack.getEvent() == prescriptedTrack.getEvent()
+                        && beatedTrack.getTargetId().equals(prescriptedTrack.getTargetId())
+                        && prescriptedTrack.getPlanId() == pid) {
+                    	// report it only once
+                    	if (prescriptedTrack.getLastState()!= EntityState.CONFIRMED) {
+                    		waiter.accept(prescriptedTrack);
+                    	}
                         return true;                                    
-                    } else if (pid!=expected.getPlanId()) {
+                    } else if (pid!=prescriptedTrack.getPlanId()) {
                         // keep looping but avoid reading phantom events 
                     }
                 }
-            } else if (pid > declared.getPlanId()) {
+            } else if (pid > beatedTrack.getPlanId()) {
                 // obsolete heartbeat
                 return false;
             }
         }
         return false;
     }
-
-	private void changeStage(final Shard shard, final ShardEntity duty) {
-		if (partitionTable.getStage().writeDuty(duty, shard)) {
-			if (!partitionTable.getNextStage().removeCrud(duty)) {
-				
-			}
-		}
-	}
 	
 	/** treat un-coming as detaches
 	/** @return whether or not there was an absence confirmed */
-	private boolean confirmAbsences(final Shard shard, final List<ShardEntity> heartbeatDuties, final Delivery delivery) {
+	private boolean confirmAbsences(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
 	    boolean ret = false;
 		Set<ShardEntity> sortedLog = null;
-        // beated duty must belong to current non-expired plan
         final long pid = partitionTable.getCurrentPlan().getId();
 		for (ShardEntity prescripted : delivery.getDuties()) {
-		    for (final Iterator<EventLog> it = prescripted.getEventLog().descendingIterator(); it.hasNext();) {
-	            final EventLog expected = it.next();
-	            // now which event is confirming (dettaches and attaches logged alike in the same instance)
-	            if (expected.getPlanId() == pid && (expected.getEvent().is(EntityEvent.DETACH) ||
-	                    expected.getEvent().is(EntityEvent.REMOVE))) {
-	                boolean absent = true;
-	                for (ShardEntity beated: heartbeatDuties) {
-	                    if (beated.equals(prescripted)) {
-	                        for (final EventLog declared: beated.getEventLog()) {
-	                            if (declared.getTargetId().equals(expected.getTargetId()) 
-	                                && declared.getEvent()!=expected.getEvent() 
-	                                && declared.getPlanId()==pid) {
-	                                absent = false;
-	                            } else if (declared.getPlanId()!=pid) {
-	                                break; // obsolete heartbeat but there can be others valid (..)
-	                            }
-	                        }
-	                    }
-	                }
-	                if (absent) {
-	                    if (sortedLog==null) {
-	                        sortedLog = new TreeSet<>();
-	                    }
+		    for (final Iterator<Track> it = prescripted.getEventTrack().getDescendingIterator(); it.hasNext();) {
+	            final Track track = it.next();	            
+	            if ((track.getEvent().is(EntityEvent.DETACH) 
+                    || track.getEvent().is(EntityEvent.REMOVE))
+	            		// avoid reading phantom events
+	            		&& track.getPlanId() == pid 
+	            		&& !beatedDuties.contains(prescripted)) {
+	            	// confirm and write only once 
+                    if (track.getLastState()==EntityState.PENDING 
+                            || track.getLastState()==EntityState.MISSING) {
+                        if (sortedLog==null) {
+                            sortedLog = new TreeSet<>();
+                        }
 	                    sortedLog.add(prescripted);
-	                    prescripted.addEvent(expected.getEvent(), 
-	                            CONFIRMED,
+	                    prescripted.getEventTrack().addEvent(track.getEvent(), 
+	                            EntityState.CONFIRMED,
 	                            shard.getShardID().getStringIdentity(),
 	                            pid);
-	                    changeStage(shard, prescripted);
-	                    ret = true;
-	                    break; // there can be more 
-	                }
-	            } else if (pid!=expected.getPlanId()) {
-                    // avoid reading phantom events
-                    break;
-	            }
+	                    boolean written = partitionTable.getStage().writeDuty(prescripted, shard);
+                        if (written && track.getEvent().isCrud()) {
+                    		kickFromNextStage(prescripted, track);
+	                    }
+                    }
+                    ret = true;
+                    break; // there can be more 
+                }
 		    }
 		}
 		if (sortedLog!=null) {
@@ -289,6 +271,18 @@ public class Bookkeeper {
 		}
 		return ret;
 	}
+
+    private void kickFromNextStage(final ShardEntity prescripted, final Track track) {
+        for (ShardEntity duty: partitionTable.getNextStage().getDutiesCrud()) {
+        	if (duty.equals(prescripted)) {
+        		final Instant lastEventOnCrud = duty.getEventTrack().getLast().getHead().toInstant();
+        		if (track.getHead().toInstant().isAfter(lastEventOnCrud)) {
+        			partitionTable.getNextStage().removeCrud(prescripted);
+        			break;
+        		}
+        	}
+        }
+    }
 
 	public void checkShardChangingState(final Shard shard) {
 		switch (shard.getState()) {
@@ -402,7 +396,7 @@ public class Bookkeeper {
 			final boolean typeDuty = entity.getType()==ShardEntity.Type.DUTY;
 			final boolean found = (typeDuty && presentInPartition(entity)) || 
 					(!typeDuty && partitionTable.getStage().getPallets().contains(entity));
-			final EntityEvent event = entity.getDutyEvent();
+			final EntityEvent event = entity.getEventTrack().getLast().getEvent();
 			if (!event.isCrud()) {
 				throw new RuntimeException("Bad call");
 			}

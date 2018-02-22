@@ -14,29 +14,23 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.utils;
 
-import java.util.Collection;
-import java.util.Iterator;
+package io.tilt.minka.domain;
 
-import org.apache.commons.lang.Validate;
+import java.util.Set;
 
-public class CircularCollection<T> {
-	Collection<T> source;
-	Iterator<T> it;
+import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.Pallet;
 
-	public CircularCollection(final Collection<T> collection) {
-		Validate.notEmpty(collection);
-		source = collection;
-	}
+/** 
+ * a basic cluster emulator that provides constant contents (the same entities in every shard)
+ * every time a different shard takes leadership role, and reports specific capacities for every shard configured. 
+ */
+public interface ClusterEmulatorProvider {
+	
+    Set<Duty<String>> loadDuties();
 
-	public T next() {
-		if (it == null || !it.hasNext()) {
-			it = source.iterator();
-			if (!it.hasNext()) {
-				return null;
-			}
-		}
-		return it.next();
-	}
+    Set<Pallet<String>> loadPallets();
+    
+    double loadShardCapacity(Pallet<String> pallet, Set<Duty<String>> allDuties, String shardIdentifier);	    
 }

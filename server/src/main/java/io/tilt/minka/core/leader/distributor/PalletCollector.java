@@ -67,6 +67,20 @@ public class PalletCollector {
 			}
 		}
 	}
+	
+	protected void add2(ShardEntity entity, ShardEntity pallet) {
+		Validate.notNull(pallet, "Cannot handle a null pallet, all duties require a pallet !");
+		Validate.notNull(entity, "Cannot handle a null entity!");
+		final String pkey = pallet.getPallet().getId();
+		if (this.palletById.containsKey(pkey)) {
+			this.palletById.put(pkey, ShardEntity.Builder.builder(pallet.getPallet()).build());
+		}
+		Set<ShardEntity> set = this.pallets.get(pallet);
+		if (set == null) {
+			this.pallets.put(pallet, set = new HashSet<>());
+		}
+		set.add(entity);
+	}
 
 	protected void add(ShardEntity entity, ShardEntity pallet) {
 		Validate.notNull(pallet, "Cannot handle a null pallet, all duties require a pallet !");

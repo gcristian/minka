@@ -31,7 +31,7 @@ import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.utils.CircularCollection;
+import io.tilt.minka.utils.CollectionUtils;
 
 /**
  * Type balanced.
@@ -96,7 +96,7 @@ public class EvenSizeBalancer implements Balancer {
 			logger.info("{}: Evenly distributed already (no sharding deltas out of threshold)", getClass().getSimpleName());
 		} else if (!receptors.isEmpty()) {
 			// 2nd step: assign migrations and creations in serie
-			final CircularCollection<Shard> receptiveCircle = new CircularCollection<>(receptors);
+			final CollectionUtils.CircularCollection<Shard> receptiveCircle = CollectionUtils.circular(receptors);
 			final Migrator migra = next.getMigrator();
 			for (final Shard emisorShard : emisors) {
 				final Set<ShardEntity> duties = next.getIndex().get(emisorShard);

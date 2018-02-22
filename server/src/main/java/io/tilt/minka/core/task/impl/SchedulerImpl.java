@@ -180,44 +180,48 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	 */
 	@SuppressWarnings("unchecked")
 	private <R> R runSynchronized(final Synchronized sync) {
-		Validate.notNull(sync);
-		checkQueue();
-		if (sync.getPriority() == PriorityLock.HIGH_ISOLATED) {
-			call(sync, false);
-			return (R) new Boolean(true);
-		}
-
-		final boolean untilGrant = sync.getPriority() == PriorityLock.MEDIUM_BLOCKING;
-		int retries = 0;
-		while (!Thread.interrupted()) {
-			final Permission p = untilGrant ? acquireBlocking(sync.getAction()) : acquire(sync.getAction());
-			if (logger.isDebugEnabled()) {
-				logger.debug("{}: ({}) {} operation {} to {}", getName(), logName, sync.getAction(), p,
-					sync.getTask().getClass().getSimpleName());
-			}
-			if (p == GRANTED) {
-				return call(sync, true);
-			} else if (p == RETRY && untilGrant) {
-				if (retries++ < getConfig().getScheduler().getSemaphoreUnlockMaxRetries()) {
-					if (logger.isDebugEnabled()) {
-						logger.warn("{}: ({}) Sleeping while waiting to acquire lock: {}", getName(), logName,
-							sync.getAction());
-					}
-					// TODO: WTF -> LockSupport.parkUntil(Config.SEMAPHORE_UNLOCK_RETRY_DELAY_MS);
-					try {
-						Thread.sleep(getConfig().getScheduler().getSemaphoreUnlockRetryDelayMs());
-					} catch (InterruptedException e) {
-						logger.error("{}: ({}) While sleeping for unlock delay", getName(), logName, e);
-					}
-				} else {
-					logger.warn("{}: ({}) Coordination starved ({}) for action: {} too many retries ({})", getName(),
-						logName, p, sync.getAction(), retries);
-				}
-			} else {
-				logger.error("{}: Unexpected situation !", getName());
-				break;
-			}
-		}
+	    try {
+    		Validate.notNull(sync);
+    		checkQueue();
+    		if (sync.getPriority() == PriorityLock.HIGH_ISOLATED) {
+    			call(sync, false);
+    			return (R) new Boolean(true);
+    		}
+    
+    		final boolean untilGrant = sync.getPriority() == PriorityLock.MEDIUM_BLOCKING;
+    		int retries = 0;
+    		while (!Thread.interrupted()) {
+    			final Permission p = untilGrant ? acquireBlocking(sync.getAction()) : acquire(sync.getAction());
+    			if (logger.isDebugEnabled()) {
+    				logger.debug("{}: ({}) {} operation {} to {}", getName(), logName, sync.getAction(), p,
+    					sync.getTask().getClass().getSimpleName());
+    			}
+    			if (p == GRANTED) {
+    				return call(sync, true);
+    			} else if (p == RETRY && untilGrant) {
+    				if (retries++ < getConfig().getScheduler().getSemaphoreUnlockMaxRetries()) {
+    					if (logger.isDebugEnabled()) {
+    						logger.warn("{}: ({}) Sleeping while waiting to acquire lock: {}", getName(), logName,
+    							sync.getAction());
+    					}
+    					// TODO: WTF -> LockSupport.parkUntil(Config.SEMAPHORE_UNLOCK_RETRY_DELAY_MS);
+    					try {
+    						Thread.sleep(getConfig().getScheduler().getSemaphoreUnlockRetryDelayMs());
+    					} catch (InterruptedException e) {
+    						logger.error("{}: ({}) While sleeping for unlock delay", getName(), logName, e);
+    					}
+    				} else {
+    					logger.warn("{}: ({}) Coordination starved ({}) for action: {} too many retries ({})", getName(),
+    						logName, p, sync.getAction(), retries);
+    				}
+    			} else {
+    				logger.error("{}: Unexpected situation !", getName());
+    				break;
+    			}
+    		}
+	    } catch (Exception e) {
+	        logger.error("{}: Unexpected ", getName(), e);
+	    }
 		return null;
 	}
 

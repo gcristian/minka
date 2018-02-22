@@ -148,7 +148,7 @@ public class NetworkShardIDImpl implements NetworkShardIdentifier, Closeable {
 		final int pos = getStringIdentity().indexOf(':');
 		String idd = getStringIdentity().substring(1, pos - 1);
 		int len = idd.length();
-		return idd.substring(1, len > MAX_SHARDID_NAME ? len - MAX_SHARDID_NAME : len)
+		return ".." + idd.substring(1, len > MAX_SHARDID_NAME ? len - MAX_SHARDID_NAME : len)
 				+ getStringIdentity().substring(pos);
 	}
 
@@ -238,12 +238,13 @@ public class NetworkShardIDImpl implements NetworkShardIdentifier, Closeable {
 	}
 
 	@Override
-	public boolean equals(Object obj) {
-		if (obj != null && obj instanceof NetworkShardIDImpl) {
-			NetworkShardIDImpl other = (NetworkShardIDImpl) obj;
-			return other.getStringIdentity().equals(getStringIdentity());
+	public boolean equals(final Object obj) {
+		if (obj == null || !(obj instanceof NetworkShardIDImpl)) {
+		    return false;
+		} else if (obj==this) {
+		    return true;
 		} else {
-			return false;
+			return ((NetworkShardIDImpl) obj).getStringIdentity().equals(getStringIdentity());
 		}
 	}
 

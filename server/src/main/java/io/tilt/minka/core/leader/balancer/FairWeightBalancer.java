@@ -33,6 +33,7 @@ import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.CapacityComparer;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.EntityState;
 
 /**
  * Type balanced.
@@ -114,7 +115,7 @@ public class FairWeightBalancer implements Balancer {
 			final Set<Bascule<Shard, ShardEntity>> bascules = buildBascules(next.getPallet(), next.getIndex().keySet(), duties);
 			if (bascules.isEmpty()) {
 			    /*for (final Iterator<ShardEntity> itDuties = duties.iterator(); itDuties.hasNext(); 
-			            itDuties.next().registerEvent(ShardEntity.State.STUCK));*/
+			            itDuties.next().registerEvent(EventTrack.State.STUCK));*/
 				return;
 			}
     		final Migrator migra = next.getMigrator();
@@ -135,7 +136,7 @@ public class FairWeightBalancer implements Balancer {
     					// adding those left aside by division remainders calc
     					while (itDuties.hasNext()) {
     						if (!bascule.tryLift(duty = itDuties.next(), duty.getDuty().getWeight())) {
-    						    duty.addEvent(ShardEntity.State.STUCK);
+    						    duty.getEventTrack().addState(EntityState.STUCK);
     						}
     					}
     				}
@@ -150,7 +151,7 @@ public class FairWeightBalancer implements Balancer {
     			logger.error("{}: Insufficient cluster capacity for Pallet: {}, remaining duties without distribution {}", 
     				getClass().getSimpleName(), next.getPallet(), duty.toBrief());
     			while (itDuties.hasNext()) {
-    			    itDuties.next().addEvent(ShardEntity.State.STUCK);
+    			    itDuties.next().getEventTrack().addState(EntityState.STUCK);
     			}
     		}
 		} else {

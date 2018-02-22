@@ -16,6 +16,7 @@
  */
 package io.tilt.minka.core.leader;
 
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import org.joda.time.DateTime;
@@ -47,18 +48,18 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 
 	private final Config config;
 	private final PartitionTable partitionTable;
-	private final Bookkeeper bookkeeper;
+	private final BiConsumer<Heartbeat, Shard> hbConsumer;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
 	private final NetworkShardIdentifier shardId;
 
 
-	public FollowerEventsHandler(final Config config, final PartitionTable partitionTable, final Bookkeeper bookkeeper,
+	public FollowerEventsHandler(final Config config, final PartitionTable partitionTable, final BiConsumer<Heartbeat, Shard> hbConsumer,
 			final EventBroker eventBroker, final Scheduler scheduler, final NetworkShardIdentifier shardId) {
 
 		this.config = config;
 		this.partitionTable = partitionTable;
-		this.bookkeeper = bookkeeper;
+		this.hbConsumer = hbConsumer;
 		this.eventBroker = eventBroker;
 		this.scheduler = scheduler;
 		this.shardId = shardId;
@@ -107,7 +108,7 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 								hb.getStateChange());
 						partitionTable.getStage().getShard(shard.getShardID()).setState(ShardState.QUITTED);
 					}
-					bookkeeper.check(hb, shard);
+					hbConsumer.accept(hb, shard);
 				}));
 	}
 

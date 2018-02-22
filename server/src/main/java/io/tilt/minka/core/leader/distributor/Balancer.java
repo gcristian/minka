@@ -37,11 +37,12 @@ import io.tilt.minka.core.leader.balancer.SpillOverBalancer;
 import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.EntityState;
 
 /**
  * Analyze the current {@linkplain PartitionTable} and if neccesary modify the {@linkplain Plan}
  * through the {@linkplain Migrator} facility, which registers {@linkplain ShardEntity} 
- * with a {@linkplain EntityEvent} and a {@linkplain ShardEntity.State}.
+ * with a {@linkplain EntityEvent} and a {@linkplain EntityState}.
  * Representing migrations of duties, deletions, creations, dangling, etc.
  *
  * @author Cristian Gonzalez

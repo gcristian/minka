@@ -18,6 +18,7 @@ package io.tilt.minka.core.follower;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -41,6 +42,7 @@ import io.tilt.minka.core.task.Service;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.DomainInfo;
+import io.tilt.minka.domain.EventTrack.Track;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
@@ -85,8 +87,15 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 		this.dependencyPlaceholder.getDelegate().activate();
 		logger.info("{}: ({}) Preparing for leader events", getName(), config.getLoggingShardId());
 		final long sinceNow = System.currentTimeMillis();
-		eventBroker.subscribeEvents(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, partition.getId()),
-				this, sinceNow, ShardEntity.class, Clearance.class, ArrayList.class, DomainInfo.class);
+		eventBroker.subscribeEvents(
+				eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, partition.getId()),
+				this, 
+				sinceNow, 
+				ShardEntity.class, 
+				Clearance.class, 
+				ArrayList.class, 
+				DomainInfo.class);
+		
 		/*eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()),
 				Clearance.class, this, sinceNow);
 		eventBroker.subscribeEvents(
@@ -119,15 +128,21 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 			//partitionManager.handleClusterOperation((ShardCommand) event);
 		} else if (event instanceof ShardEntity) {
 			logger.info("{}: ({}) Receiving 1: {}", getName(), config.getLoggingShardId(), event);
-			Synchronized handler = scheduler.getFactory().build(Action.INSTRUCT_DELEGATE, PriorityLock.MEDIUM_BLOCKING,
-					() -> handleDuty((ShardEntity) event));
-			scheduler.run(handler);
+			scheduler.run(scheduler.getFactory()
+			        .build(Action.INSTRUCT_DELEGATE, PriorityLock.MEDIUM_BLOCKING,
+					() -> handleDuty((ShardEntity) event)));
 		} else if (event instanceof ArrayList) {
 			logger.info("{}: ({}) Receiving {}: {}", getName(), config.getLoggingShardId(), ((ArrayList<ShardEntity>) event).size(), event);
 			final List<ShardEntity> list = (ArrayList<ShardEntity>) event;
-			final Synchronized handler = scheduler.getFactory().build(Action.INSTRUCT_DELEGATE,
+			if (list.isEmpty()) {
+				throw new IllegalStateException("leader is sending an empty duty list");
+			}
+			final Synchronized handler = scheduler.getFactory().build(
+					Action.INSTRUCT_DELEGATE,
 					PriorityLock.MEDIUM_BLOCKING, () -> {
-						if (list.stream().collect(Collectors.groupingBy(ShardEntity::getDutyEvent)).size() > 1) {
+						if (list.stream()
+								.collect(Collectors.groupingBy(ShardEntity::getLastEvent))
+								.size() > 1) {
 							list.forEach(d -> handleDuty(d));
 						} else {
 							handleDuty(list.toArray(new ShardEntity[list.size()]));
@@ -158,24 +173,32 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 
 	private void handleDuty(final ShardEntity... duties) {
 		try {
-			switch (duties[0].getDutyEvent()) {
-			case ATTACH:
-				partitionManager.attach(Lists.newArrayList(duties));
-				break;
-			case DETACH:
-				partitionManager.dettach(Lists.newArrayList(duties));
-				break;
-			case TRANSFER:
-			case UPDATE:
-				partitionManager.update(Lists.newArrayList(duties));
-				break;
-			case REMOVE:
-				partitionManager.finalized(Lists.newArrayList(duties));
-				break;
-			default:
-				logger.error("{}: ({}) Not allowed: {}", duties[0].getDutyEvent(), config.getLoggingShardId());
+			for (ShardEntity duty: duties) {
+				for (Iterator<Track> it = duty.getEventTrack().getDescendingIterator(); it.hasNext();) {
+					final Track track = it.next();
+					if (track.getTargetId().equals(partition.getId().getStringIdentity())) {
+						switch (track.getEvent()) {
+						case ATTACH:
+							partitionManager.attach(Lists.newArrayList(duty));
+							break;
+						case DETACH:
+							partitionManager.dettach(Lists.newArrayList(duty));
+							break;
+						case TRANSFER:
+						case UPDATE:
+							partitionManager.update(Lists.newArrayList(duty));
+							break;
+						case REMOVE:
+							partitionManager.finalized(Lists.newArrayList(duty));
+							break;
+						default:
+							logger.error("{}: ({}) Not allowed: {}", track.getEvent(), config.getLoggingShardId());
+						}
+						// read and act on the last event only
+						break;
+					}
+				}
 			}
-			;
 		} catch (Exception e) {
 			logger.error("{}: ({}) Unexpected while handling Duty:{}", getName(), config.getLoggingShardId(), duties,
 					e);

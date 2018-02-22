@@ -42,7 +42,7 @@ import io.tilt.minka.domain.Shard.CapacityComparer;
 import io.tilt.minka.domain.Shard.DateComparer;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardEntity.State;
+import io.tilt.minka.domain.EntityState;
 
 /**
  * Type unbalanced.
@@ -167,14 +167,14 @@ public class SpillOverBalancer implements Balancer {
 		for (final ShardEntity newcomer : dutiesForBalance) {
 			final Shard receptor = makeSpaceIntoReceptors(loadStrat, newcomer, spaceByReceptor);
 			if (receptor != null) {
-				newcomer.addEvent(EntityEvent.ATTACH, State.PREPARED,
+				newcomer.getEventTrack().addEvent(EntityEvent.ATTACH, EntityState.PREPARED,
 				        receptor.getShardID().getStringIdentity(), 
                         next.getPlan().getId());
 				next.getPlan().ship(receptor, newcomer);
 				logger.info("{}: Assigning to Shard: {} (space left: {}), Duty: {}", getClass().getSimpleName(),
 						receptor.getShardID(), spaceByReceptor.get(receptor), newcomer.toBrief());
 			} else {
-				newcomer.addEvent(EntityEvent.ATTACH, State.STUCK,
+				newcomer.getEventTrack().addEvent(EntityEvent.ATTACH, EntityState.STUCK,
 				        "unk", 
                         next.getPlan().getId());
 				//newcomer.setStuckCause(StuckCause.UNSUITABLE);
@@ -194,7 +194,7 @@ public class SpillOverBalancer implements Balancer {
 			for (final ShardEntity emitted : emitting) {
 				final Shard receptor = makeSpaceIntoReceptors(loadStrat, emitted, spaceByReceptor);
 				if (receptor == null) {
-					emitted.addEvent(EntityEvent.ATTACH, State.STUCK,
+					emitted.getEventTrack().addEvent(EntityEvent.ATTACH, EntityState.STUCK,
 					        emisor.getShardID().getStringIdentity(), 
 	                        next.getPlan().getId());
 					//emitted.setStuckCause(StuckCause.UNSUITABLE);
@@ -211,8 +211,11 @@ public class SpillOverBalancer implements Balancer {
 
 
 	/* elect duties from emisors and compute receiving size at receptors */
-	private SetMultimap<Shard, ShardEntity> collectTransceivers(final NextTable next, final boolean loadStrat, 
-			final Map<Shard, AtomicDouble> spaceByReceptor, final Metadata meta) {
+	private SetMultimap<Shard, ShardEntity> collectTransceivers(
+	        final NextTable next, 
+	        final boolean loadStrat, 
+			final Map<Shard, AtomicDouble> spaceByReceptor, 
+			final Metadata meta) {
 
 		final SetMultimap<Shard, ShardEntity> transmitting = HashMultimap.create();
 		

@@ -1,1 +1,3 @@
-watch -d -n2 -c "curl -s $(./leader)/minka/admin/$1 | jq . -C "
+#!/bin/bash
+cmd="echo ========== $1 ==========; curl -s $(./leader)/minka/admin/$1 | jq . -C "
+watch -d -n1 -tc $cmd

@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.ShardIdentifier;
-import io.tilt.minka.utils.SynchronizedSlidingQueue;
+import io.tilt.minka.utils.CollectionUtils;
 
 /**
  * @author Cristian Gonzalez
@@ -47,7 +47,7 @@ public class TransportlessLeaderShardContainer extends ServiceImpl implements Le
 		private Set<Consumer<NetworkShardIdentifier>> observers;
 
 		public TransportlessLeaderShardContainer(final ShardIdentifier myShardId) {
-			this.previousLeaders = new SynchronizedSlidingQueue<NetworkShardIdentifier>(10);
+			this.previousLeaders = new CollectionUtils.SynchronizedSlidingQueue<NetworkShardIdentifier>(10);
 			this.observers = new HashSet<>();
 			this.myShardId = myShardId;
 		}

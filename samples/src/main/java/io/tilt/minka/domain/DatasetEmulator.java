@@ -1,4 +1,19 @@
-
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership. The ASF
+ * licenses this file to You under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package io.tilt.minka.domain;
 
 import java.util.HashMap;
@@ -23,13 +38,38 @@ import io.tilt.minka.api.DutyBuilder;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
-import io.tilt.minka.domain.SimpleClientApplication.EntityProvider;
 
 /**
- * Samples an scenario of pallets and duties using a properties file with certain keys/values.
- *  
+ * A simulator that samples a content from a properties with certain keys and values.
+
+  5 =============================================
+  6 
+  7 # distribution of duties among the pallets
+  8 
+  9 # SIZE indicates a fixed assignation of duties to pallets, just for test
+ 10 # WEIGHT indicates an absolute or random weight between a range 0~N and in the same measure than shard capacities
+ 11 # BALANCER valid values are: 
+ 12 #       FAIR_WEIGHT     assignation of duties according weights and nodes capacities
+ 13 #       EVEN_WEIGHT     same duty total weight to each shard regardless of capacities (non asked)
+ 14 #       EVEN_SIZE       same number of duties to all shards
+ 15 #       SPILL_OVER      progressive cluster usage by duty agluttination until completion
+ 16 #       COALESCE        shard agglutination of duties of the same pallet
+ 17 #       SHUFFLE_ONCE    shuffling assignation of duties
+ 18 #              NAME    SIZE     WEIGHT   BALANCER
+ 19 duties.pallets.Manwe = 4:       10:      FAIR_WEIGHT;
+ 20 
+ 21 =============================================
+ 22 
+ 23 # the different weighing capacities each node will report for each pallet
+ 24 # (each sampler will lookup in this dataset it's truth table to report to the leader
+ 25 #                 SHARD  NAME   CAPACITY NAME  CAPACITY NAME   CAPACITY
+ 26 shards.capacities.9000 = Finwe: 150;     Ewok: 24000;   Manwe: 50;
+ 27 shards.capacities.9001 = Finwe: 100;     Ewok: 30;      Manwe: 50;
+ 28 shards.capacities.9002 = Finwe: 250;     Ewok: 20;      Manwe: 110;
+ 29 shards.capacities.9003 = Finwe: 50;      Ewok: 10;      Manwe: 50;
+
  */
-public class DatasetSampler implements EntityProvider {
+public class DatasetEmulator implements ClusterEmulatorProvider {
 
 	private static final String POWER = "*";
 
@@ -54,11 +94,11 @@ public class DatasetSampler implements EntityProvider {
 	private static final String SHARD_CAP_FRMT_EXPLAIN = "bad format on " + SHARDS_CAPACITIES + 
 			": {palletId:[fixed int.|*n]} but provided:";
 	
-	private static final Logger logger = LoggerFactory.getLogger(DatasetSampler.class);
+	private static final Logger logger = LoggerFactory.getLogger(DatasetEmulator.class);
 	private static final Random rnd = new Random();
 	private Properties prop;
 	
-	public DatasetSampler(final Properties prop) throws Exception {
+	public DatasetEmulator(final Properties prop) throws Exception {
 		this.prop = prop;
 		System.out.println(prop);
 	}
@@ -76,7 +116,7 @@ public class DatasetSampler implements EntityProvider {
 		        Validate.isTrue(dutyPalletFrmtTermPt.matcher(chunk).find(), DUTIES_PALLETS_FRMT_EXPLAIN + chunk);
 		        parseDutyFromString(key.toString(), chunk, (duty)->duties.add(duty), numerator);
 		    }
-		}		
+		}
 		return duties;
 	}
 

@@ -1,24 +1,13 @@
 #!/bin/bash
 # discover rest port of the leader shard
-CLASS='DatasetSampler.main'
-JQ=`which jq`
-CURL=`which curl`
-NETSTAT=`which netstat`
-JPS=`which jps`
-GREP=`which grep`
-CUT=`which cut`
-AWK=`which awk`
-for PID in `$JPS -mlv | $GREP $CLASS | $CUT -d' ' -f1`; do
-	declare -a LOCAL_ADDRESS
-	LOCAL_ADDRESS=$($NETSTAT -pltn 2>/dev/null | $GREP $PID | $AWK '{print $4}'); 
-	for i in "${LOCAL_ADDRESS[@]}"; do
-		url="${i}"
-		LEADER=$($CURL $i/minka/admin/shards -XGET -sn | $JQ '.leaderShardId."web-host-port"' | tr -d '"'); 
-		if [ "$?" != 1 ]; then
-			echo "$LEADER"
-			exit 0
-		fi
+for PID in `$(which jps) -mlv | $(which grep) minka | $(which cut) -d' ' -f1`; do
+	LOCAL_ADDRESS=$($(which netstat) -pltn 2>/dev/null | $(which grep) $PID | $(which awk) '{print $4}'); 
+	for HOSTPORT in ${LOCAL_ADDRESS[@]}; do
+		LEADER="$(which curl) $HOSTPORT/minka/admin/shards -XGET -sn "
+		LEADER=$($LEADER | $(which jq) '.leaderShardId."web-host-port" ' | $(which tr) -d '\" ')
+		[ "$?" == 0 ] && echo $LEADER && exit 0
 	done
 done
+echo "no leader found!"
 exit 1
 

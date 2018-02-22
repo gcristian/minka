@@ -38,7 +38,7 @@ import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardEntity.State;
+import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.utils.LogUtils;
 
 /**
@@ -58,7 +58,9 @@ public class Arranger {
 	}
 
 	public final Plan evaluate(final PartitionTable table, final Plan previousChange) {
-		final Plan plan = new Plan();
+		final Plan plan = new Plan(
+				config.getDistributor().getPlanExpirationSec(), 
+				config.getDistributor().getPlanMaxRetries());
 		final List<Shard> onlineShards = table.getStage().getShardsByState(ShardState.ONLINE);
 		// recently fallen shards
 		final Set<ShardEntity> dangling = new HashSet<>(table.getNextStage().getDutiesDangling());
@@ -67,13 +69,13 @@ public class Arranger {
 		dangling.addAll(restorePendings(previousChange));
 		// add danglings as creations prior to migrations
 		final List<ShardEntity> danglingAsCreations = new ArrayList<>();
-		dangling.forEach(i -> danglingAsCreations.add(ShardEntity.Builder.builderFrom(i).build()));
-		final Set<ShardEntity> dutyCreations = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.CREATE, null); //State.PREPARED); evidentemente al subir y bajar queda alguno con CREATED y STUCK ?
+		dangling.forEach(dang -> danglingAsCreations.add(ShardEntity.Builder.builderFrom(dang).build()));
+		final Set<ShardEntity> dutyCreations = table.getNextStage().getDutiesCrud(EntityEvent.CREATE, null); //State.PREPARED); evidentemente al subir y bajar queda alguno con CREATED y STUCK ?
 		dutyCreations.addAll(danglingAsCreations);
 		
-		final Set<ShardEntity> dutyDeletions = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.REMOVE, null); //State.PREPARED);
+		final Set<ShardEntity> dutyDeletions = table.getNextStage().getDutiesCrud(EntityEvent.REMOVE, null); //State.PREPARED);
 		// lets add those duties of a certain deleting pallet
-		table.getNextStage().getPalletsCrudWithFilters(EntityEvent.REMOVE, State.PREPARED)
+		table.getNextStage().getPalletsCrud(EntityEvent.REMOVE, EntityState.PREPARED)
 			.forEach(p->dutyDeletions.addAll(table.getStage().getDutiesByPallet(p.getPallet())));
 		registerDeletions(table, plan, dutyDeletions);
 		
@@ -127,12 +129,12 @@ public class Arranger {
 			if (lazy != null) {
 				// missing duties are a confirmation per-se from the very shards,
 				// so the ptable gets fixed right away without a realloc.
-				missed.addEvent(EntityEvent.REMOVE, State.CONFIRMED, 
+				missed.getEventTrack().addEvent(EntityEvent.REMOVE, io.tilt.minka.domain.EntityState.CONFIRMED, 
 				        lazy.getShardID().getStringIdentity(), 
 				        plan.getId());
 				table.getStage().writeDuty(missed, lazy);
 			}
-			missed.addEvent(EntityEvent.CREATE, State.PREPARED,
+			missed.getEventTrack().addEvent(EntityEvent.CREATE, EntityState.PREPARED,
 			        "n/a", 
                     plan.getId());
 			table.getNextStage().addCrudDuty(missed);
@@ -151,7 +153,7 @@ public class Arranger {
 	 */
 	protected List<ShardEntity> restorePendings(final Plan previous) {
 		List<ShardEntity> pendings = new ArrayList<>();
-		if (previous != null && !previous.isClosed() && !previous.hasFinalized()) {
+		if (previous != null && !previous.getResult().isClosed()) {
 			/*
 			 * .stream() no siempre la NO confirmacion sucede sobre un
 			 * fallen shard .filter(i->i.getServiceState()==QUITTED)
@@ -174,7 +176,7 @@ public class Arranger {
 
 		for (final ShardEntity deletion : deletions) {
 			final Shard shard = table.getStage().getDutyLocation(deletion);
-			deletion.addEvent(EntityEvent.DETACH, State.PREPARED,
+			deletion.getEventTrack().addEvent(EntityEvent.DETACH, EntityState.PREPARED,
 			        shard.getShardID().getStringIdentity(), 
                     plan.getId());
 			plan.ship(shard, deletion);

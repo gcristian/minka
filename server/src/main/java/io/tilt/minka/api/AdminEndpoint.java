@@ -20,12 +20,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.wordnik.swagger.annotations.Api;
-
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -35,8 +29,14 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.wordnik.swagger.annotations.Api;
+
 import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.core.leader.Status;
+import io.tilt.minka.core.leader.StateViews;
 import io.tilt.minka.core.leader.distributor.Plan;
 
 @Api("Minka Endpoint API")
@@ -68,34 +68,34 @@ public class AdminEndpoint {
 	@Path("/distro")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response status() throws JsonProcessingException {
-		return Response.accepted(Status.distributionToJson(table)).build();
+		return Response.accepted(StateViews.distributionToJson(table)).build();
 	}
 
 	@GET
 	@Path("/pallets")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response pallets() throws JsonProcessingException {
-		return Response.accepted(Status.palletsToJson(table)).build();
+		return Response.accepted(StateViews.palletsToJson(table)).build();
 	}
 	                    
 	@GET
 	@Path("/shards")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response shards() throws JsonProcessingException {
-		return Response.accepted(Status.shardsToJson(table)).build();
+		return Response.accepted(StateViews.shardsToJson(table)).build();
 	}
 
 	@GET
 	@Path("/duties")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response duties() throws JsonProcessingException {
-		return Response.accepted(Status.dutiesToJson(table)).build();
+		return Response.accepted(StateViews.dutiesToJson(table)).build();
 	}
     @GET
     @Path("/entities")
     @Produces(MediaType.APPLICATION_JSON)
     public Response entities() throws JsonProcessingException {
-        return Response.accepted(Status.entitiesToJson(table)).build();
+        return Response.accepted(StateViews.entitiesToJson(table)).build();
     }
 
 	@GET
@@ -106,7 +106,7 @@ public class AdminEndpoint {
 		final Map<String, Object> map = new HashMap<>(2);
 		map.put("plans", history.size());
 		map.put("history", history);
-        return Response.accepted(Status.elementToJson(map)).build();
+        return Response.accepted(StateViews.elementToJson(map)).build();
 	}
 
 

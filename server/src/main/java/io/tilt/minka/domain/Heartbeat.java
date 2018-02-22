@@ -18,6 +18,7 @@ package io.tilt.minka.domain;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +57,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	private DateTime reception;
 	private final boolean warning;
 	private final long sequenceId;
-	private final boolean isReportedCapturedDuties;
+	private final boolean reportsDuties;
 	private List<DutyDiff> differences;
 	
 	/* only set when change is owned by follower */
@@ -96,6 +97,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 				this.differences = new ArrayList<>();
 			}
 			this.differences.add(dutyDifference);
+			this.reportsCapturedDuties = true;
 			return this;
 		}
 		public Builder addReportedCapturedDuty(final ShardEntity reportedCapturedDuty) {
@@ -138,22 +140,28 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		;
 	}
 	
-	private Heartbeat(final List<ShardEntity> duties, final boolean warning, final NetworkShardIdentifier id,
-			final long sequenceId, final Map<Pallet<?>, Capacity> capacities, final boolean includesDuties, 
-			final DateTime creation, List<DutyDiff> differences) {
-		this.reportedCapturedDuties = duties;
+	private Heartbeat(
+			final List<ShardEntity> duties, 
+			final boolean warning, 
+			final NetworkShardIdentifier id,
+			final long sequenceId, 
+			final Map<Pallet<?>, Capacity> capacities, 
+			final boolean reportsDuties, 
+			final DateTime creation, 
+			final List<DutyDiff> differences) {
+		this.reportedCapturedDuties = duties == null ? Collections.emptyList() : duties;
 		this.warning = warning;
 		this.shardId = id;
 		this.creation = creation;
 		this.sequenceId = sequenceId;
 		this.capacities = capacities;
-		this.isReportedCapturedDuties = includesDuties;
+		this.reportsDuties = reportsDuties;
 		this.differences = differences;
 	}
 
-	@JsonProperty(index=9, value="reports-duties")
-	public boolean isReportedCapturedDuties() {
-		return this.isReportedCapturedDuties;
+	@JsonProperty(index=9, value="reports-duties")	
+	public boolean reportsDuties(){
+		return this.reportsDuties;
 	}
 	
 	@JsonProperty(index=2, value="has-differences")
@@ -249,8 +257,9 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 				for (ShardEntity duty : getReportedCapturedDuties()) {
 					boolean found = false;
 					for (ShardEntity other : hb.getReportedCapturedDuties()) {
-						found |= duty.equals(other) && duty.getState() == other.getState()
-								&& duty.getDutyEvent() == other.getDutyEvent();
+						found |= duty.equals(other) 
+								&& duty.getEventTrack().getLast().getLastState() == other.getLastState()
+								&& duty.getEventTrack().getLast().getEvent() == other.getLastEvent();
 						if (found) {
 							break;
 						}
@@ -284,7 +293,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 				.append(" Sequence: ").append(sequenceId)
 				.append(" - Created: ").append(getCreation())
 				.append(" - ShardID: ").append(getShardId())
-				.append(" - Duties: ").append(isReportedCapturedDuties() ? 
+				.append(" - Duties: ").append(reportsDuties() ? 
 						getReportedCapturedDuties().size() : "<single>")
 				.toString();
 	}

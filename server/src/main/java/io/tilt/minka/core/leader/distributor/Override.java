@@ -1,10 +1,21 @@
-/**
- *  Copyright (c) 2011-2015 Zauber S.A.  -- All rights reserved
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership. The ASF
+ * licenses this file to You under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package io.tilt.minka.core.leader.distributor;
-
-import static io.tilt.minka.domain.ShardEntity.State.PREPARED;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +27,7 @@ import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.EntityState;
 
 /**
  * A migration strategy in the override style which replaces a shard's content with given duties.
@@ -28,7 +40,7 @@ class Override {
 	private final Set<ShardEntity> entities;
 	private final double remainingCap;
 	
-	Override(final Pallet<?> pallet, Shard shard, final Set<ShardEntity> entities, final double remainingCap) {
+	protected Override(final Pallet<?> pallet, Shard shard, final Set<ShardEntity> entities, final double remainingCap) {
 		super();
 		this.pallet = pallet;
 		this.shard = shard;
@@ -77,8 +89,8 @@ class Override {
         if (!detaching.isEmpty()) {
             StringBuilder logg = new StringBuilder(detaching.size() * 16);
             for (ShardEntity detach : detaching) {
-                detach.addEvent(EntityEvent.DETACH, 
-                        PREPARED, 
+                detach.getEventTrack().addEvent(EntityEvent.DETACH, 
+                        EntityState.PREPARED, 
                         shard.getShardID().getStringIdentity(), 
                         plan.getId());
                 plan.ship(shard, detach);
@@ -106,8 +118,8 @@ class Override {
             if (!attaching.isEmpty()) {
                 logg = new StringBuilder(attaching.size() * 16);
                 for (ShardEntity attach : attaching) {
-                    attach.addEvent(EntityEvent.ATTACH, 
-                            PREPARED,
+                    attach.getEventTrack().addEvent(EntityEvent.ATTACH, 
+                            EntityState.PREPARED,
                             shard.getShardID().getStringIdentity(), 
                             plan.getId());
                     plan.ship(shard, attach);

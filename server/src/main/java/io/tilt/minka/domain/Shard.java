@@ -34,7 +34,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
-import io.tilt.minka.utils.SlidingSortedSet;
+import io.tilt.minka.utils.CollectionUtils;
+import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 
 /**
  * Compound information about a node, maintained by the Leader
@@ -66,8 +67,8 @@ public class Shard implements Comparator<Shard> {
 		this.brokerChannel = channel;
 		this.shardId = memberId;
 		this.serviceState = ShardState.JOINING;
-		this.cardiacLapse = new SlidingSortedSet<>(MAX_HEARBEATS_TO_EVALUATE);
-		this.changesToKeep = new SlidingSortedSet<>(MAX_HEARBEATS_CHANGES_TO_KEEP);
+		this.cardiacLapse = CollectionUtils.sliding(MAX_HEARBEATS_TO_EVALUATE);
+		this.changesToKeep = CollectionUtils.sliding(MAX_HEARBEATS_CHANGES_TO_KEEP);
 		this.firstTimeSeen = new DateTime(DateTimeZone.UTC);
 		this.lastStatusChange = new DateTime(DateTimeZone.UTC);
 		this.capacities = new HashMap<>();
@@ -147,12 +148,13 @@ public class Shard implements Comparator<Shard> {
 	}
 
 	@Override
-	public boolean equals(Object obj) {
-		if (obj instanceof Shard) {
-			Shard other = (Shard) obj;
-			return other.getShardID().equals(getShardID());
-		} else {
-			return false;
+	public boolean equals(final Object obj) {
+	    if (obj==null || !(obj instanceof Shard)) {
+	        return false;
+	    } else if (obj==this) {
+	        return true;
+	    } else {
+			return ((Shard)obj).getShardID().equals(getShardID());
 		}
 	}
 

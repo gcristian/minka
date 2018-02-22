@@ -121,31 +121,30 @@ public class ShardedPartition {
 		return this.duties.stream().filter(d->d.getDuty().getPalletId().equals(pallet.getId()))
 				.collect(Collectors.toSet());
 	}
-	public void addAllPallets(final Collection<ShardEntity> all) {
+	public void addAllPallets(final Collection<ShardEntity> all) {		
 		this.pallets.addAll(all);
+		updateLastChange();
 	}
-	public void addAllDuties(final Collection<ShardEntity> all) {
+	public void addAllDuties(final Collection<ShardEntity> all) {		
 		this.duties.addAll(all);
+		updateLastChange();
 	}
 	public boolean add(final ShardEntity entity) {
+		updateLastChange();
 		if (entity.getType()==ShardEntity.Type.DUTY) {
-			this.lastUpdateTimestamp = System.currentTimeMillis();
 			return this.duties.add(entity);
 		} else {
-			this.lastUpdateTimestamp = System.currentTimeMillis();
 			return this.pallets.add(entity);
 		}
 	}
 	public boolean remove(final ShardEntity entity) {
+		updateLastChange();
 		if (entity.getType()==ShardEntity.Type.DUTY) {
-			this.lastUpdateTimestamp = System.currentTimeMillis();
 			return this.duties.remove(entity);
 		} else {
-			this.lastUpdateTimestamp = System.currentTimeMillis();
 			return this.pallets.remove(entity);
 		}
 	}
-
 	public boolean contains(final ShardEntity entity) {
 		if (entity.getType()==ShardEntity.Type.DUTY) {
 			return this.duties.contains(entity);
@@ -153,8 +152,11 @@ public class ShardedPartition {
 			return this.pallets.contains(entity);
 		}
 	} 	
-
 	public boolean wasRecentlyUpdated() {
 		return (System.currentTimeMillis() - lastUpdateTimestamp) < recentUpdateThreshold;
 	}
+	private void updateLastChange() {
+		this.lastUpdateTimestamp = System.currentTimeMillis();
+	}
+
 }

@@ -28,8 +28,6 @@ import org.apache.commons.lang.Validate;
 import org.joda.time.DateTime;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonGenerator.Feature;
@@ -38,23 +36,22 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.common.util.concurrent.AtomicDouble;
 
-import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.leader.PartitionTable.Stage.StageExtractor;
 import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardIdentifier;
+import io.tilt.minka.domain.EntityState;
 
 /**
- * Plain representation of the domain objects
+ * JSON views of process states 
  * 
  * @author Cristian Gonzalez
  * @since Nov 6, 2016
  */
 @SuppressWarnings("unused")
 @JsonPropertyOrder({"global", "shards", "pallets", "roadmaps"})
-public class Status {
+public class StateViews {
 	
 	protected static final ObjectMapper mapper; 
 	static {
@@ -81,8 +78,8 @@ public class Status {
     public static Map<String, Object> buildShards(final PartitionTable table) {
         Validate.notNull(table);
         final Map<String, Object> map = new LinkedHashMap<>();
-        map.put("shards", table.getStage().getShards());
         map.put("leaderShardId", table.getLeaderShardContainer().getLeaderShardId());
+        map.put("shards", table.getStage().getShards());
         return map;
     }
 
@@ -124,7 +121,7 @@ public class Status {
 		
 		for (final ShardEntity pallet: extractor.getPallets()) {
 			final Set<ShardEntity> crud = table.getNextStage()
-			        .getDutiesCrudWithFilters(EntityEvent.CREATE, ShardEntity.State.PREPARED).stream()
+			        .getDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED).stream()
 					.filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId()))
 					.collect(Collectors.toSet());
 								
@@ -146,7 +143,7 @@ public class Status {
 						pallet.getPallet().getMetadata().getBalancer().getName(), 
 						crud.size(), 
 						dettachedWeight.get(), 
-						new DateTime(pallet.getEventLog().getFirst().getHead()),
+						new DateTime(pallet.getEventTrack().getFirst().getHead()),
 						pallet.getPallet().getMetadata(),
 						dutyRepList
 					));
@@ -177,7 +174,7 @@ public class Status {
 				
 			}
 			ret.add(shardView(
-			        shard.getShardID().getSynthetizedID(), 
+			        shard.getShardID().getStringIdentity(), 
 			        shard.getFirstTimeSeen(), 
 					palletsAtShard, 
 					shard.getState().toString()));
@@ -187,7 +184,7 @@ public class Status {
 
 	private static Map<String, Object> buildGlobal(final PartitionTable table) {
 	    StageExtractor extractor = new StageExtractor(table.getStage());
-		final int unstaged = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.CREATE, null).size();
+		final int unstaged = table.getNextStage().getDutiesCrud(EntityEvent.CREATE, null).size();
 		final int staged = extractor.getSizeTotal();		
 		final Map<String, Object> map = new LinkedHashMap<>();
 		map.put("size-duties", staged+unstaged);

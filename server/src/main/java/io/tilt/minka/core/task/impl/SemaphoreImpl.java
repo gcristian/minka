@@ -246,8 +246,12 @@ public class SemaphoreImpl extends ServiceImpl implements Semaphore {
 	}
 
 	private String nameForDistributedLock(final Action action, final String id) {
-		return new StringBuilder().append(SpectatorSupplier.MINKA_SUBDOMAIN).append("/").append(config.getBootstrap().getServiceName())
-				.append("/").append(action.toString()).append((id == null ? "" : "-" + id)).toString();
+		return new StringBuilder()
+		        .append(SpectatorSupplier.MINKA_SUBDOMAIN).append("/")
+		        .append(config.getBootstrap().getServiceName()).append("/")
+		        .append(action.toString())
+		        .append((id == null ? "" : "-" + id))
+		        .toString();
 	}
 
 	private ReentrantLock g(final Action a) {

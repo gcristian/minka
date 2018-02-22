@@ -36,7 +36,6 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AtomicDouble;
 
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Distributor;
 import io.tilt.minka.core.leader.distributor.Plan;
@@ -47,10 +46,11 @@ import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardEntity.State;
 import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.ShardedPartition;
-import io.tilt.minka.utils.SlidingSortedSet;
+import io.tilt.minka.domain.EntityState;
+import io.tilt.minka.utils.CollectionUtils;
+import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 import jersey.repackaged.com.google.common.collect.Sets;
 
 /**
@@ -184,11 +184,15 @@ public class PartitionTable {
 		 * @param where	the sard where it resides 
 		 * @return if there was a Stage change caused by the confirmation after reallocation phase */
 		public boolean writeDuty(final ShardEntity duty, final Shard where) {
-			if (duty.getDutyEvent().is(EntityEvent.ATTACH) || duty.getDutyEvent().is(EntityEvent.CREATE)) {
+			if (duty.getEventTrack().getLast().getEvent().is(EntityEvent.ATTACH) 
+					|| duty.getEventTrack().getLast().getEvent().is(EntityEvent.CREATE)) {
 				checkDuplicationFailure(duty, where);
-				getPartition(where).add(duty);
+				if (!getPartition(where).add(duty)) {
+					throw new IllegalStateException("Attach failure. Confirmed attach/creation already exists");
+				}
 				return true;
-			} else if (duty.getDutyEvent().is(EntityEvent.DETACH) || duty.getDutyEvent().is(EntityEvent.REMOVE)) {
+			} else if (duty.getEventTrack().getLast().getEvent().is(EntityEvent.DETACH) 
+					|| duty.getLastEvent().is(EntityEvent.REMOVE)) {
 				if (!getPartition(where).remove(duty)) {
 					throw new IllegalStateException("Absence failure. Confirmed deletion actually doesnt exist or it " + 
 							"was already confirmed");
@@ -322,7 +326,7 @@ public class PartitionTable {
 		public void cleanAllocatedDanglings() {
 	        dutyDangling.removeAll(
 	            dutyDangling.stream()
-                    .filter(e->e.getState()!=ShardEntity.State.STUCK)
+                    .filter(e->e.getLastState()!=EntityState.STUCK)
                     .collect(Collectors.toList()));
 		}
 
@@ -332,12 +336,8 @@ public class PartitionTable {
 
 		/* add it for the next Distribution cycle consideration */
 		public void addCrudDuty(final ShardEntity duty) {
-			if (duty.getDutyEvent().isCrud()) {
-				dutyCrud.remove(duty);
-				dutyCrud.add(duty);
-			} else {
-				throw new RuntimeException("bad idea");
-			}
+			dutyCrud.remove(duty);
+			dutyCrud.add(duty);
 		}
 		public Set<ShardEntity> getDutiesCrud() {
 			return Collections.unmodifiableSet(this.dutyCrud);
@@ -353,7 +353,7 @@ public class PartitionTable {
 		public void clearAllocatedMissing() {
 		    dutyMissings.removeAll(
 		            dutyMissings.stream()
-                        .filter(e->e.getState()!=ShardEntity.State.STUCK)
+                        .filter(e->e.getLastState()!=EntityState.STUCK)
                         .collect(Collectors.toList()));
 		}
 		
@@ -370,18 +370,18 @@ public class PartitionTable {
 		private Set<ShardEntity> getEntityCrudWithFilter(
 		        final ShardEntity.Type type, 
 		        final EntityEvent event,
-				final State state) {
+				final EntityState state) {
 			return (type == ShardEntity.Type.DUTY ? 
 			        getDutiesCrud() : 
 		            palletCrud).stream()
-    					.filter(i -> (event == null || i.getDutyEvent() == event) && 
-    					        (state == null || i.getState() == state))
+    					.filter(e -> (event == null || e.getEventTrack().getLast().getEvent() == event) && 
+    					        (state == null || e.getEventTrack().getLast().getLastState() == state))
     					.collect(Collectors.toCollection(HashSet::new));
 		}
-		public Set<ShardEntity> getDutiesCrudWithFilters(final EntityEvent event, final State state) {
+		public Set<ShardEntity> getDutiesCrud(final EntityEvent event, final EntityState state) {
 			return getEntityCrudWithFilter(ShardEntity.Type.DUTY, event, state);
 		}
-		public Set<ShardEntity> getPalletsCrudWithFilters(final EntityEvent event, final State state) {
+		public Set<ShardEntity> getPalletsCrud(final EntityEvent event, final EntityState state) {
 			return getEntityCrudWithFilter(ShardEntity.Type.PALLET, event, state);
 		}
 	}
@@ -391,6 +391,7 @@ public class PartitionTable {
 	private ClusterCapacity capacity;
 	private final Stage stage;
 	private final NextStage nextStage;
+	private NextStage previousNextStage;
 	private Plan currentPlan;
 	private SlidingSortedSet<Plan> history;
 	
@@ -427,7 +428,7 @@ public class PartitionTable {
 		this.capacity = ClusterCapacity.IDLE;
 		this.stage = new Stage();
 		this.nextStage = new NextStage();
-		this.history = new SlidingSortedSet<>(20);
+		this.history = CollectionUtils.sliding(20);
 		this.leaderShardContainer = container;
 
 	}
@@ -444,7 +445,7 @@ public class PartitionTable {
 		return this.currentPlan;
 	}
 
-	public void addPlan(Plan change) {
+	public void addPlan(final Plan change) {
 		this.currentPlan = change;
 		this.history.add(change);
 	}
@@ -510,12 +511,8 @@ public class PartitionTable {
 
 	/* add without considerations (they're staged but not distributed per se) */
 	public void addCrudPallet(final ShardEntity pallet) {
-		if (pallet.getDutyEvent().isCrud()) {
-			getStage().palletsById.put(pallet.getPallet().getId(), pallet);
-			getNextStage().palletCrud.add(pallet);
-		} else {
-			throw new RuntimeException("bad idea");			
-		}
+		getStage().palletsById.put(pallet.getPallet().getId(), pallet);
+		getNextStage().palletCrud.add(pallet);
 	}
 
 	public void logStatus() {

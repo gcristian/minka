@@ -36,7 +36,7 @@ import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardEntity.State;
+import io.tilt.minka.domain.EntityState;
 
 /** 
  * Media for {@linkplain Balancer} to request transfers and overrides on the {@linkplain Plan}
@@ -167,10 +167,10 @@ public class Migrator {
 		} else if (source.equals(target)) {
 			throw new BalancingException("bad transfer: duty %s has the same source and target");
 		}
-		if (entity.getDutyEvent()==EntityEvent.REMOVE) {
+		if (entity.getEventTrack().getLast().getEvent()==EntityEvent.REMOVE) {
 			throw new BalancingException("bad transfer: duty: %s is marked for deletion, cannot be balanced", entity);
 		}
-		for (ShardEntity duty: table.getNextStage().getDutiesCrudWithFilters(EntityEvent.REMOVE, State.PREPARED)) {
+		for (ShardEntity duty: table.getNextStage().getDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED)) {
 			if (duty.equals(entity)) {
 				throw new BalancingException("bad transfer: duty: %s is just marked for deletion, cannot be balanced", entity);
 			}
@@ -234,7 +234,7 @@ public class Migrator {
 		return true;
 	}
 	private void checkExclusions() {
-		for (final ShardEntity duty: table.getNextStage().getDutiesCrudWithFilters(EntityEvent.CREATE, State.PREPARED)) {
+		for (final ShardEntity duty: table.getNextStage().getDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED)) {
 			if (duty.getDuty().getPalletId().equals(pallet.getId()) && 
 			        !inTransfers(duty) && 
 					!inOverrides(duty) && 
@@ -242,7 +242,7 @@ public class Migrator {
 				log.warn("bad exclusion: duty: {} was just marked for creation, it must be balanced !", duty.toBrief());
 			}
 		}
-		final Set<ShardEntity> deletions = table.getNextStage().getDutiesCrudWithFilters(EntityEvent.REMOVE, State.PREPARED);
+		final Set<ShardEntity> deletions = table.getNextStage().getDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED);
 		for (final ShardEntity curr: table.getStage().getDutiesAttached()) {
 			if (curr.getDuty().getPalletId().equals(pallet.getId()) && 
 			        !deletions.contains(curr) && 

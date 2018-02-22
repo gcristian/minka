@@ -29,15 +29,15 @@ import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.ClientEventsHandler;
 import io.tilt.minka.core.leader.Leader;
 import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.core.leader.Status;
+import io.tilt.minka.core.leader.StateViews;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.impl.ZookeeperLeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardEntity.State;
 import io.tilt.minka.domain.ShardIdentifier;
+import io.tilt.minka.domain.EntityState;
 
 /**
  * Facility to CRUD {@linkplain ShardEntity}
@@ -81,7 +81,7 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	 * @return a nonempty Status only when the curent shard is the Leader 
 	 */
 	public Map<String, Object> getStatus() {
-		return Status.buildDistribution(table);
+		return StateViews.buildDistribution(table);
 	}
 	/**
 	* Remove duties already running/distributed by Minka
@@ -98,10 +98,10 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	* @return whether or not the operation succeed
 	*/
 	public boolean remove(final Duty<D> duty) {
-		return send(duty, EntityEvent.REMOVE, null);
+		return push(duty, EntityEvent.REMOVE, null);
 	}
 	public boolean remove(final Pallet<P> pallet) {
-		return send(pallet, EntityEvent.REMOVE, null);
+		return push(pallet, EntityEvent.REMOVE, null);
 	}
 	
 	/**
@@ -116,11 +116,11 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	* @return whether or not the operation succeed
 	*/
 	public boolean add(final Duty<D> duty) {
-		return send(duty, EntityEvent.CREATE, null);
+		return push(duty, EntityEvent.CREATE, null);
 	}
 
 	public boolean add(final Pallet<P> pallet) {
-		return send(pallet, EntityEvent.CREATE, null);
+		return push(pallet, EntityEvent.CREATE, null);
 	}
 
 	/**
@@ -129,19 +129,19 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	* @return whether or not the operation succeed
 	*/
 	public boolean update(final Duty<D> duty) {
-		return send(duty, EntityEvent.UPDATE, null);
+		return push(duty, EntityEvent.UPDATE, null);
 	}
 	public boolean update(final Pallet<P> pallet) {
-		return send(pallet, EntityEvent.UPDATE, null);
+		return push(pallet, EntityEvent.UPDATE, null);
 	}
 	public boolean transfer(final Duty<D> duty, final EntityPayload userPayload) {
-		return send(duty, EntityEvent.TRANSFER, userPayload);
+		return push(duty, EntityEvent.TRANSFER, userPayload);
 	}
 	public boolean transfer(final Pallet<P> pallet, final EntityPayload userPayload) {
-		return send(pallet, EntityEvent.TRANSFER, userPayload);
+		return push(pallet, EntityEvent.TRANSFER, userPayload);
 	}
 	
-	private boolean send(final Entity<?> raw, final EntityEvent event, final EntityPayload userPayload) {
+	private boolean push(final Entity<?> raw, final EntityEvent event, final EntityPayload userPayload) {
 		Validate.notNull(raw, "an entity is required");
 		boolean sent = true;
 		final ShardEntity.Builder builder = ShardEntity.Builder.builder(raw);
@@ -149,7 +149,7 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 			builder.withPayload(userPayload);
 		}
 		final ShardEntity entity = builder.build();
-		entity.addEvent(event, State.PREPARED, 
+		entity.getEventTrack().addEvent(event, EntityState.PREPARED, 
 		        getShardIdentity(), 
                 -1);
 		if (leader.inService()) {

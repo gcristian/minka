@@ -13,6 +13,8 @@ import java.util.function.Supplier;
 
 import org.apache.commons.lang.Validate;
 import org.glassfish.grizzly.http.server.HttpServer;
+import org.glassfish.grizzly.http.server.NetworkListener;
+import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.uri.internal.JerseyUriBuilder;
@@ -154,9 +156,16 @@ public class Minka<D extends Serializable, P extends Serializable> {
 
 	public void startWebserver() {
 		final ResourceConfig res = new ResourceConfig(AdminEndpoint.class);
+		
 		res.property("contextConfig", tenant.getContext());
 		final HttpServer webServer = GrizzlyHttpServerFactory.createHttpServer(
 		        resolveWebServerBindAddress(tenant.getConfig()), res);
+		final NetworkListener listener = webServer.getListeners().iterator().next();
+		final ThreadPoolConfig thx=listener.getTransport().getWorkerThreadPoolConfig();
+        thx.setCorePoolSize(5); 
+        thx.setMaxPoolSize(5);
+        thx.setPoolName("minka-grizzly-webserver");
+        // TODO disable ssl etc
 		tenants.get(tenant.getConfig().getBootstrap().getServiceName()).setWebServer(webServer);
 		try {
 			webServer.start();
