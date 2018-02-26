@@ -167,15 +167,15 @@ public class SpillOverBalancer implements Balancer {
 		for (final ShardEntity newcomer : dutiesForBalance) {
 			final Shard receptor = makeSpaceIntoReceptors(loadStrat, newcomer, spaceByReceptor);
 			if (receptor != null) {
-				newcomer.getEventTrack().addEvent(EntityEvent.ATTACH, EntityState.PREPARED,
-				        receptor.getShardID().getStringIdentity(), 
+				newcomer.getLog().addEvent(EntityEvent.ATTACH, EntityState.PREPARED,
+				        receptor.getShardID(), 
                         next.getPlan().getId());
 				next.getPlan().ship(receptor, newcomer);
 				logger.info("{}: Assigning to Shard: {} (space left: {}), Duty: {}", getClass().getSimpleName(),
 						receptor.getShardID(), spaceByReceptor.get(receptor), newcomer.toBrief());
 			} else {
-				newcomer.getEventTrack().addEvent(EntityEvent.ATTACH, EntityState.STUCK,
-				        "unk", 
+				newcomer.getLog().addEvent(EntityEvent.ATTACH, EntityState.STUCK,
+				        null, 
                         next.getPlan().getId());
 				//newcomer.setStuckCause(StuckCause.UNSUITABLE);
 				//next.getRoadmap().getProblems().put(null, newcomer);
@@ -194,8 +194,8 @@ public class SpillOverBalancer implements Balancer {
 			for (final ShardEntity emitted : emitting) {
 				final Shard receptor = makeSpaceIntoReceptors(loadStrat, emitted, spaceByReceptor);
 				if (receptor == null) {
-					emitted.getEventTrack().addEvent(EntityEvent.ATTACH, EntityState.STUCK,
-					        emisor.getShardID().getStringIdentity(), 
+					emitted.getLog().addEvent(EntityEvent.ATTACH, EntityState.STUCK,
+					        emisor.getShardID(), 
 	                        next.getPlan().getId());
 					//emitted.setStuckCause(StuckCause.UNSUITABLE);
 					//next.getRoadmap().getProblems().put(null, emitted);

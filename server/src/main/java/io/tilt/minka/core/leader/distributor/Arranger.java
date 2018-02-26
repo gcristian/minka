@@ -129,13 +129,13 @@ public class Arranger {
 			if (lazy != null) {
 				// missing duties are a confirmation per-se from the very shards,
 				// so the ptable gets fixed right away without a realloc.
-				missed.getEventTrack().addEvent(EntityEvent.REMOVE, io.tilt.minka.domain.EntityState.CONFIRMED, 
-				        lazy.getShardID().getStringIdentity(), 
+				missed.getLog().addEvent(EntityEvent.REMOVE, io.tilt.minka.domain.EntityState.CONFIRMED, 
+				        lazy.getShardID(), 
 				        plan.getId());
 				table.getStage().writeDuty(missed, lazy);
 			}
-			missed.getEventTrack().addEvent(EntityEvent.CREATE, EntityState.PREPARED,
-			        "n/a", 
+			missed.getLog().addEvent(EntityEvent.CREATE, EntityState.PREPARED,
+			        null, 
                     plan.getId());
 			table.getNextStage().addCrudDuty(missed);
 		}
@@ -176,8 +176,8 @@ public class Arranger {
 
 		for (final ShardEntity deletion : deletions) {
 			final Shard shard = table.getStage().getDutyLocation(deletion);
-			deletion.getEventTrack().addEvent(EntityEvent.DETACH, EntityState.PREPARED,
-			        shard.getShardID().getStringIdentity(), 
+			deletion.getLog().addEvent(EntityEvent.DETACH, EntityState.PREPARED,
+			        shard.getShardID(), 
                     plan.getId());
 			plan.ship(shard, deletion);
 			logger.info("{}: Deleting from: {}, Duty: {}", getClass().getSimpleName(), shard.getShardID(),

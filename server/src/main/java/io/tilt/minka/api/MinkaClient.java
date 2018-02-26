@@ -149,8 +149,8 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 			builder.withPayload(userPayload);
 		}
 		final ShardEntity entity = builder.build();
-		entity.getEventTrack().addEvent(event, EntityState.PREPARED, 
-		        getShardIdentity(), 
+		entity.getLog().addEvent(event, EntityState.PREPARED, 
+				this.shardId,
                 -1);
 		if (leader.inService()) {
 			logger.info("{}: Recurring to local leader !", getClass().getSimpleName());

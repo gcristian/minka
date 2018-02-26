@@ -37,7 +37,7 @@ import io.tilt.minka.core.leader.distributor.Plan;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EventTrack.Track;
+import io.tilt.minka.domain.EntityLog.Log;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
@@ -67,6 +67,46 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 
 	@Override
 	public void accept(final Heartbeat beat, final Shard sourceShard) {
+		
+		
+/**
+ *       "deliveries": [
+        {
+          "order": "0",
+          "shard": "192.168.0.102:9000",
+          "event": "DETACH",
+          "state": {
+            "CONFIRMED": "1, "
+          },
+          "step": "DONE",
+          "planId": "27"
+        },
+        {
+          "order": "1",
+          "shard": "192.168.0.102:9001",
+          "event": "ATTACH",
+          "state": {
+            "CONFIRMED": "1, "
+          },
+          "step": "PENDING",
+          "planId": "27"
+        }
+      ],
+      "result": "CLOSED_EXPIRED"
+
+		
+		COMO ESTOY MANEJANDO EL SPLITTING VIRTUAL DE UN DUTY ???
+		ES POSIBLE Q ACA EL CONFIRMADO ESTA SOBRE 1 EVENTO PERO LO ESTOY 
+		LEYENDO SOBRE EL EVENTO DEL OTRO SHARD, PORQUE NO HAY 2 DUTIES
+		SINO 1 SOLO CON 1 SOLO LOG
+		
+		SI NO HAY SPLIT...ENTONCES EL REGISTRO DEBE HACERSE EN EL EVENTO CORRECTO
+		NADA MAS, DEBERIA FUNCIUONAR...
+		
+ */
+		
+		
+		
 		if (beat.getStateChange() == ShardState.QUITTED) {
 			checkShardChangingState(sourceShard);
 			return;
@@ -94,7 +134,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
         	if (duty.getLastState() == EntityState.DANGLING) {
         		logger.error("{}: Shard {} reported Dangling Duty (follower's unconfident: {}): {}",
         				getClass().getSimpleName(), sourceShard.getShardID(), 
-        				duty.getEventTrack().getLast().getEvent(), duty);
+        				duty.getLastEvent(), duty);
         	}
         }
     }
@@ -159,10 +199,10 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 				    if (findPrescriptionForHeartbeat(beated, prescripted, (expected)-> {
 			                sortedLogConfirmed.add(beated);
 			                // remove the one holding older State
-	                        prescripted.getEventTrack().addEvent(expected.getEvent(), 
+	                        prescripted.getLog().addEvent(expected.getEvent(), 
 	                                EntityState.CONFIRMED, 
-	                                shard.getShardID().getStringIdentity(), 
-	                                partitionTable.getCurrentPlan().getId());
+	                                shard.getShardID(), 	                                
+	                                delivery.getPlanId());
 	                		if (partitionTable.getStage().writeDuty(prescripted, shard)) {
 	                		    ret[0] = true;
 	                			// TODO warn: if a remove comes from client while a running plan, we might be avoidint it 
@@ -171,7 +211,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 			            })) {
 				        break;
 				    } else {
-						final Date fact = prescripted.getEventTrack().getLast().getHead();
+						final Date fact = prescripted.getLog().getLast().getHead();
 						final long now = System.currentTimeMillis();
 						if (now - fact.getTime() > MAX_EVENT_DATE_FOR_DIRTY) {
 						    if (sortedLogDirty==null) {
@@ -197,32 +237,30 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 	/** @return whether or not an expected event was found */
     private boolean findPrescriptionForHeartbeat(
             final ShardEntity beated, 
-            final ShardEntity prescripted, 
-            final Consumer<Track> waiter) {
+            final ShardEntity delivered, 
+            final Consumer<Log> waiter) {
 
         // beated duty must belong to current non-expired plan
         final long pid = partitionTable.getCurrentPlan().getId();
         // match specific events
-        for (final Iterator<Track> it = beated.getEventTrack().getDescendingIterator(); it.hasNext();) {
-            final Track beatedTrack = it.next();
+        for (final Iterator<Log> it = beated.getLog().getDescendingIterator(); it.hasNext();) {
+        	final Log log1 = it.next();
             // now which event is confirming (de/attaches are logged alike in the same instance)
-            final EntityState state = beatedTrack.getLastState();
-			if (beatedTrack.getPlanId() == pid && (state == EntityState.CONFIRMED  || state == EntityState.RECEIVED)) {
-            	for (final Iterator<Track> desc = prescripted.getEventTrack().getDescendingIterator(); it.hasNext();) {
-            		final Track prescriptedTrack = desc.next();
-                    if (beatedTrack.getEvent() == prescriptedTrack.getEvent()
-                        && beatedTrack.getTargetId().equals(prescriptedTrack.getTargetId())
-                        && prescriptedTrack.getPlanId() == pid) {
+            final EntityState state = log1.getLastState();
+			if (log1.getPlanId() == pid && (state == EntityState.CONFIRMED  || state == EntityState.RECEIVED)) {
+            	for (final Iterator<Log> desc = delivered.getLog().getDescendingIterator(); desc.hasNext();) {
+            		final Log log2 = desc.next();
+                    if (log1.matches(log2)) {
                     	// report it only once
-                    	if (prescriptedTrack.getLastState()!= EntityState.CONFIRMED) {
-                    		waiter.accept(prescriptedTrack);
+                    	if (log2.getLastState()!= EntityState.CONFIRMED) {
+                    		waiter.accept(log2);
                     	}
                         return true;                                    
-                    } else if (pid!=prescriptedTrack.getPlanId()) {
+                    } else if (pid!=log2.getPlanId()) {
                         // keep looping but avoid reading phantom events 
                     }
                 }
-            } else if (pid > beatedTrack.getPlanId()) {
+            } else if (pid > log1.getPlanId()) {
                 // obsolete heartbeat
                 return false;
             }
@@ -237,23 +275,23 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		Set<ShardEntity> sortedLog = null;
         final long pid = partitionTable.getCurrentPlan().getId();
 		for (ShardEntity prescripted : delivery.getDuties()) {
-		    for (final Iterator<Track> it = prescripted.getEventTrack().getDescendingIterator(); it.hasNext();) {
-	            final Track track = it.next();	            
+		    for (final Iterator<Log> it = prescripted.getLog().getDescendingIterator(); it.hasNext();) {
+	            final Log track = it.next();	            
 	            if ((track.getEvent().is(EntityEvent.DETACH) 
                     || track.getEvent().is(EntityEvent.REMOVE))
 	            		// avoid reading phantom events
 	            		&& track.getPlanId() == pid 
 	            		&& !beatedDuties.contains(prescripted)) {
-	            	// confirm and write only once 
+	                // confirm and write only once 
                     if (track.getLastState()==EntityState.PENDING 
                             || track.getLastState()==EntityState.MISSING) {
                         if (sortedLog==null) {
                             sortedLog = new TreeSet<>();
                         }
 	                    sortedLog.add(prescripted);
-	                    prescripted.getEventTrack().addEvent(track.getEvent(), 
+	                    prescripted.getLog().addEvent(track.getEvent(), 
 	                            EntityState.CONFIRMED,
-	                            shard.getShardID().getStringIdentity(),
+	                            shard.getShardID(),
 	                            pid);
 	                    boolean written = partitionTable.getStage().writeDuty(prescripted, shard);
                         if (written && track.getEvent().isCrud()) {
@@ -272,10 +310,10 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		return ret;
 	}
 
-    private void kickFromNextStage(final ShardEntity prescripted, final Track track) {
+    private void kickFromNextStage(final ShardEntity prescripted, final Log track) {
         for (ShardEntity duty: partitionTable.getNextStage().getDutiesCrud()) {
         	if (duty.equals(prescripted)) {
-        		final Instant lastEventOnCrud = duty.getEventTrack().getLast().getHead().toInstant();
+        		final Instant lastEventOnCrud = duty.getLog().getLast().getHead().toInstant();
         		if (track.getHead().toInstant().isAfter(lastEventOnCrud)) {
         			partitionTable.getNextStage().removeCrud(prescripted);
         			break;
@@ -396,7 +434,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 			final boolean typeDuty = entity.getType()==ShardEntity.Type.DUTY;
 			final boolean found = (typeDuty && presentInPartition(entity)) || 
 					(!typeDuty && partitionTable.getStage().getPallets().contains(entity));
-			final EntityEvent event = entity.getEventTrack().getLast().getEvent();
+			final EntityEvent event = entity.getLastEvent();
 			if (!event.isCrud()) {
 				throw new RuntimeException("Bad call");
 			}

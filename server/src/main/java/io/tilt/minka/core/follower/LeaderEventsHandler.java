@@ -42,7 +42,7 @@ import io.tilt.minka.core.task.Service;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.DomainInfo;
-import io.tilt.minka.domain.EventTrack.Track;
+import io.tilt.minka.domain.EntityLog.Log;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
@@ -174,8 +174,8 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 	private void handleDuty(final ShardEntity... duties) {
 		try {
 			for (ShardEntity duty: duties) {
-				for (Iterator<Track> it = duty.getEventTrack().getDescendingIterator(); it.hasNext();) {
-					final Track track = it.next();
+				for (Iterator<Log> it = duty.getLog().getDescendingIterator(); it.hasNext();) {
+					final Log track = it.next();
 					if (track.getTargetId().equals(partition.getId().getStringIdentity())) {
 						switch (track.getEvent()) {
 						case ATTACH:

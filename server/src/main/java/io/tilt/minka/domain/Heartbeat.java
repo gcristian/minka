@@ -258,8 +258,8 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 					boolean found = false;
 					for (ShardEntity other : hb.getReportedCapturedDuties()) {
 						found |= duty.equals(other) 
-								&& duty.getEventTrack().getLast().getLastState() == other.getLastState()
-								&& duty.getEventTrack().getLast().getEvent() == other.getLastEvent();
+								&& duty.getLastState() == other.getLastState()
+								&& duty.getLastEvent() == other.getLastEvent();
 						if (found) {
 							break;
 						}

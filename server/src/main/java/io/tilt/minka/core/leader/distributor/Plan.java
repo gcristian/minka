@@ -69,13 +69,7 @@ import io.tilt.minka.utils.LogUtils;
 public class Plan implements Comparable<Plan> {
 
 	static final Logger logger = LoggerFactory.getLogger(Plan.class);
-	
-	private static List<EntityEvent> consistentEventsOrder = Arrays.asList(
-	        EntityEvent.REMOVE, 
-	        EntityEvent.DETACH, 
-	        EntityEvent.CREATE, 
-	        EntityEvent.ATTACH);
-	
+		
 	private static final AtomicLong sequence = new AtomicLong();
 	private final long id;
 	private final Date created;
@@ -108,24 +102,21 @@ public class Plan implements Comparable<Plan> {
         
     public static enum Result {
     	/* still a running plan */
-    	RUNNING(false),
+    	RUNNING,
     	/* resending deliveries for a nth time */
-    	RETRYING(false),
+    	RETRYING,
     	/* all deliveries passed from enqueued to pending and confirmed */
-    	CLOSED_APPLIED(true),
+    	CLOSED_APPLIED,
     	/* plan contains invalid shippings unable to deliver */
-    	CLOSED_ERROR(false),
+    	CLOSED_ERROR,
     	/* some deliveries became obsolete/impossible, rebuilding is required */
-    	CLOSED_OBSOLETE(false),
+    	CLOSED_OBSOLETE,
     	/* some deliveries were never confirmed beyond retries/waiting limits */
-    	CLOSED_EXPIRED(false)
+    	CLOSED_EXPIRED
     	;
-    	private final boolean success;
-    	Result(final boolean success) {
-    		this.success = success;
-    	}
+
     	public boolean isSuccess() {
-    		return this.success;
+    		return this == CLOSED_APPLIED;
     	}
     	public boolean isClosed() {
     	    return this != RUNNING && this !=RETRYING;
@@ -164,18 +155,7 @@ public class Plan implements Comparable<Plan> {
 		}
 		return ret;
 	}
-	
-	@JsonProperty("elapsed-ms")
-	private String getElapsed() {
-	    return LogUtils.humanTimeDiff(getStarted().getTime(), getEnded()==null ? 
-                System.currentTimeMillis() : getEnded().getTime());
-	}
-	
-	@JsonProperty("deliveries")
-	private List<Delivery> getDeliveries() {
-		return this.deliveries;
-	}
-	
+		
 	public Delivery getDelivery(final Shard shard) {
 	    return deliveries.stream()
 	        .filter(d->d.getStep()==Delivery.Step.PENDING && d.getShard().equals(shard))
@@ -183,6 +163,12 @@ public class Plan implements Comparable<Plan> {
 	        .orElse(null);
 	}
 	
+	private static List<EntityEvent> consistentEventsOrder = Arrays.asList(
+	        EntityEvent.REMOVE, 
+	        EntityEvent.DETACH, 
+	        EntityEvent.CREATE, 
+	        EntityEvent.ATTACH);
+
 	/**
 	 * transforms shippings of transfers and overrides, into a consistent gradual change plan
 	 * @return whether or not there're deliveries to distribute. */
@@ -190,9 +176,13 @@ public class Plan implements Comparable<Plan> {
 		this.started= new Date();
 		int order = 0;
 		for (final EntityEvent event: consistentEventsOrder) {
-			final Map<Shard, List<ShardEntity>> map = CollectionUtils.getOrPut(shippings, event, ()->new HashMap<>());
-			for (final Entry<Shard, List<ShardEntity>> e: map.entrySet()) {
-				deliveries.add(new Delivery(e.getValue(), e.getKey(), event, order++, id));
+			if (shippings.containsKey(event)) {
+				for (final Entry<Shard, List<ShardEntity>> e: shippings.get(event).entrySet()) {
+					// one delivery for each shard
+					if (!e.getValue().isEmpty()) {
+						deliveries.add(new Delivery(e.getValue(), e.getKey(), event, order++, id));
+					}
+				}
 			}
 		}
 		checkAllEventsPaired();
@@ -218,7 +208,7 @@ public class Plan implements Comparable<Plan> {
     }
 
     /** @return the inverse operation expected at another shard */
-    private EntityEvent inverse(Delivery del) {
+    private EntityEvent inverse(final Delivery del) {
         // we care only movements
         if (del.getEvent() == EntityEvent.ATTACH) {
             return EntityEvent.DETACH;
@@ -239,13 +229,13 @@ public class Plan implements Comparable<Plan> {
             }
             for (final ShardEntity entity : del.getDuties()) {
                 if (!paired.contains(entity) 
-                		&& entity.getEventTrack().hasEverBeenDistributed() 
-                		&& entity.getEventTrack().getLast().getEvent()!=EntityEvent.REMOVE) {
+                		&& entity.getLog().hasEverBeenDistributed() 
+                		&& entity.getLastEvent()!=EntityEvent.REMOVE) {
                     boolean pair = false;
                     for (Delivery tmp : deliveries) {
                         pair |= tmp.getDuties().stream()
                                 .filter(e -> e.equals(entity) 
-                                		&& e.getEventTrack().getLast().getEvent() == toPairFirstTime)
+                                		&& e.getLastEvent() == toPairFirstTime)
                                 .findFirst()
                                 .isPresent();
                         if (pair) {
@@ -353,16 +343,26 @@ public class Plan implements Comparable<Plan> {
     	}
     }	
 
-	
-	
-		
-	/* declare a dettaching or attaching step to deliver on a shard */
+	/** 
+	 * declare a dettaching or attaching step to deliver on a shard
+	 * 
+	 * suppose all shards went offline except for shard 2
+	 * 
+	 * event:dettach->{
+	 * 		{shard1:[duty1, duty2]}, 
+	 * 		{shard3:[duty3]}
+	 * }
+	 * event:attach-> {
+	 * 		{shard2:[duty1, duty2]}, 
+	 * 		{shard2:[duty3]}
+	 * }
+	 */
 	public void ship(final Shard shard, final ShardEntity duty) {
 	    withLock(()-> {
     		CollectionUtils.getOrPut(
     			CollectionUtils.getOrPut(
     	            shippings, 
-    		        duty.getEventTrack().getLast().getEvent(), 
+    		        duty.getLastEvent(), 
     		        ()->new HashMap<>()), 
     		    shard, 
     		    ()->new ArrayList<>())
@@ -384,6 +384,28 @@ public class Plan implements Comparable<Plan> {
 		return this.started;
 	}
 
+	public long getId() {
+		return this.id;
+	}
+
+	@java.lang.Override
+	public int compareTo(Plan o) {
+		return o.getCreation().compareTo(getCreation());
+	}
+	
+	/////// serialization ///////
+	
+	@JsonProperty("elapsed-ms")
+	private String getElapsed() {
+		return LogUtils.humanTimeDiff(getStarted().getTime(),
+				getEnded() == null ? System.currentTimeMillis() : getEnded().getTime());
+	}
+
+	@JsonProperty("deliveries")
+	private List<Delivery> getDeliveries() {
+		return this.deliveries;
+	}
+
 	@JsonProperty("created")
 	private String getCreation_() {
 		return created.toString();
@@ -399,23 +421,15 @@ public class Plan implements Comparable<Plan> {
 	private String getEnded_() {
 		if (ended==null) {
 			return "";
-		}return ended.toString();
+		}
+		return ended.toString();
 	}
-
+	
 	@JsonIgnore
 	public Date getCreation() {
 		return this.created;
 	}
 
-	public long getId() {
-		return this.id;
-	}
-
-	@java.lang.Override
-	public int compareTo(Plan o) {
-		return o.getCreation().compareTo(getCreation());
-	}
-	
 	public static void main(String[] args) throws InterruptedException {
         
 	    final CollectionUtils.SlidingSortedSet<Plan> set = CollectionUtils.sliding(5);

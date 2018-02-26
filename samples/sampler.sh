@@ -5,10 +5,9 @@
 # ------------------------------------------------------------
 port_start=9000
 host='localhost'
-xms='512M'
+xms='64M'
 pp='broker.hostPort'
 dsfp=$(pwd)'/'${1:-'dataset-3pallets-fair-balancer-4shards'}
-another='false'
 for i in {0..20}; do
 	echo $dsfp
 	i=$(($i+$port_start))
@@ -17,7 +16,6 @@ for i in {0..20}; do
 	if [ -z "$x" ] && [ -z "$y" ]; then
 		echo "Using port: $i"
 		cmd="mvn -o "
-		if $another ; then cmd=$cmd" compile install -DskipTests "; fi
 		p=$p"-DXms$xms -DXmx$xms exec:java "
 		p=$p"-Dexec.mainClass=FileDatasetEmulator.main "
 		p=$p"-Dmins=1440 -D$pp=$host:$i "

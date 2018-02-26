@@ -50,7 +50,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	@JsonIgnore
 	private final Entity<?> from;
 	private final Type type;
-	private EventTrack eventTrack;
+	private EntityLog log;
 	private EntityPayload userPayload;
 	private ShardEntity relatedEntity;
 	
@@ -62,8 +62,8 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	private ShardEntity(final Entity<?> entity, Type type) {
 		this.from = entity;
 		this.type = type;
-		this.eventTrack = new EventTrack();
-		this.eventTrack.addEvent(EntityEvent.CREATE, EntityState.PREPARED, "n/a", -1);
+		this.log = new EntityLog();
+		this.log.addEvent(EntityEvent.CREATE, EntityState.PREPARED, null, -1);
 	}
 	
 	public static class Builder {
@@ -98,7 +98,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		public ShardEntity build() {
 			if (from!=null) {
 				final ShardEntity t = new ShardEntity(from.getEntity(), from.getType());
-				t.setEventTrack(from.getEventTrack());
+				t.setEventTrack(from.getLog());
 				if (userPayload==null) {
 					t.setUserPayload(from.getUserPayload());
 				}
@@ -165,12 +165,12 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	}
 
 	public boolean is(EntityEvent e) {
-		return getEventTrack().getLast().getEvent() == e;
+		return getLog().getLast().getEvent() == e;
 	}
 
 	@JsonProperty("event")
 	public EntityEvent getLastEvent() {
-		return getEventTrack().getLast().getEvent();
+		return getLog().getLast().getEvent();
 	}
 	
 	private void setUserPayload(final EntityPayload userPayload) {
@@ -252,16 +252,16 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	@JsonProperty("state")
 	public EntityState getLastState() {
-		return getEventTrack().getLast().getLastState();
+		return getLog().getLast().getLastState();
 	}
 
 	
-	public EventTrack getEventTrack() {
-        return this.eventTrack;
+	public EntityLog getLog() {
+        return this.log;
     }
 		
-	private void setEventTrack(final EventTrack track) {
-	    this.eventTrack = track;
+	private void setEventTrack(final EntityLog track) {
+	    this.log = track;
 	}
 	
 	public int hashCode() {
@@ -270,11 +270,14 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	@Override
 	public boolean equals(Object obj) {
-		if (obj != null && obj instanceof ShardEntity && getEntity() != null) {
-			ShardEntity st = (ShardEntity) obj;
-			return getEntity().getId().equals(st.getEntity().getId());
-		} else {
+		if (obj==null || !(obj instanceof ShardEntity)) {
 			return false;
+		} else if (obj == this) {
+			return true;
+		} else {
+			final ShardEntity o = (ShardEntity) obj;
+			return getEntity()!=null
+					&& getEntity().getId().equals(o.getEntity().getId());
 		}
 	}
 
@@ -305,8 +308,8 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		private static final long serialVersionUID = 3709876521530551544L;
 		@Override
 		public int compare(final ShardEntity o1, final ShardEntity o2) {
-			int i = o1.getEventTrack().getFirst().getHead()
-					.compareTo(o2.getEventTrack().getFirst().getHead());
+			int i = o1.getLog().getFirst().getHead()
+					.compareTo(o2.getLog().getFirst().getHead());
 			if (i == 0) {
 				i = altCompare(o1, o2);
 			}

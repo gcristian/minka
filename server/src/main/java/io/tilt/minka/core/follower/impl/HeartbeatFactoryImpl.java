@@ -34,7 +34,7 @@ import io.tilt.minka.core.follower.HeartbeatFactory;
 import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.DutyDiff;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EventTrack.Track;
+import io.tilt.minka.domain.EntityLog.Log;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
@@ -116,14 +116,14 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 					builder.withWarning();
 					includeDuties = true;
 				} else {
-					for (Iterator<Track> it=shardedDuty.getEventTrack().getDescendingIterator(); it.hasNext();) {
-						final Track track = it.next(); 
+					for (Iterator<Log> it=shardedDuty.getLog().getDescendingIterator(); it.hasNext();) {
+						final Log track = it.next(); 
 						// TODO avoid expired tracks thru a best-guessed calculation of inactivity
 						// or filter tracks thru planId grabing it thru DomainInfo facility
 						if (track.getTargetId().equals(partition.getId().getStringIdentity())) {
 							// consider only the last action logged to this shard
 							if (track.getLastState()!=EntityState.CONFIRMED) {
-								shardedDuty.getEventTrack().addState(EntityState.CONFIRMED);
+								shardedDuty.getLog().addState(EntityState.CONFIRMED);
 								includeDuties = true;
 							}
 							break;
@@ -134,9 +134,9 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 				includeDuties = true;
 				shardedDuty = ShardEntity.Builder.builder(duty).build();
 				// shardedDuty.registerEvent(PartitionEvent.ASSIGN, State.DANGLING);
-				shardedDuty.getEventTrack().addEvent(EntityEvent.ATTACH, 
+				shardedDuty.getLog().addEvent(EntityEvent.ATTACH, 
 				        EntityState.DANGLING, 
-				        this.partition.getId().getStringIdentity(), 
+				        this.partition.getId(), 
                         -1);
 				log.error("{}: ({}) Reporting a Dangling Duty (by Addition): {}", getClass().getSimpleName(),
 						partition.getId(), shardedDuty);
@@ -183,14 +183,14 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		for (final ShardEntity existing : partition.getDuties()) {
 			if (ret = !reportedDuties.contains(existing.getEntity())) {
 				if (existing.getDuty().isLazyFinalized()) { 
-					existing.getEventTrack().addEvent(EntityEvent.REMOVE, 
+					existing.getLog().addEvent(EntityEvent.REMOVE, 
 					        EntityState.FINALIZED, 
-					        this.partition.getId().getStringIdentity(), 
+					        this.partition.getId(), 
 					        -1);
 				} else {
-					existing.getEventTrack().addEvent(EntityEvent.REMOVE, 
+					existing.getLog().addEvent(EntityEvent.REMOVE, 
 					        EntityState.DANGLING, 
-					        this.partition.getId().getStringIdentity(), 
+					        this.partition.getId(), 
                             -1);
 				}
 				log.error("{}: ({}) Reporting a Dangling Duty (by Erasure): {}", getClass().getSimpleName(),

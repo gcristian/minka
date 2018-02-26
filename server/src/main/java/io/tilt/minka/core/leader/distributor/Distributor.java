@@ -56,7 +56,7 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
-import io.tilt.minka.domain.EventTrack.Track;
+import io.tilt.minka.domain.EntityLog.Log;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
@@ -255,7 +255,7 @@ public class Distributor extends ServiceImpl {
             logger.error("{}: PartitionTable lost transport's target shard: {}", getName(), delivery.getShard());
             plan.obsolete();
         } else {
-        	final Map<ShardEntity, Track> trackByDuty = retrying ? 
+        	final Map<ShardEntity, Log> trackByDuty = retrying ? 
         			delivery.getByState(EntityState.PENDING) :
     				delivery.getByState();
         	if (trackByDuty.isEmpty()) {
@@ -374,8 +374,8 @@ public class Distributor extends ServiceImpl {
 
 	private void communicateUpdates() {
 		final Set<ShardEntity> updates = partitionTable.getNextStage().getDutiesCrud().stream()
-				.filter(i -> i.getEventTrack().getLast().getEvent() == EntityEvent.UPDATE 
-					&& i.getEventTrack().getLast().getLastState() == EntityState.PREPARED)
+				.filter(i -> i.getLog().getLast().getEvent() == EntityEvent.UPDATE 
+					&& i.getLog().getLast().getLastState() == EntityState.PREPARED)
 				.collect(Collectors.toCollection(HashSet::new));
 		if (!updates.isEmpty()) {
 			for (ShardEntity updatedDuty : updates) {

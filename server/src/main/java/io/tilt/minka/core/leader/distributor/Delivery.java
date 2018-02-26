@@ -28,7 +28,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EventTrack.Track;
+import io.tilt.minka.domain.EntityLog.Log;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.EntityState;
@@ -77,24 +77,11 @@ public class Delivery {
 	public Shard getShard() {
 		return this.shard;
 	}
-	@JsonProperty("shard")
-	private String getShard_() {
-	    return shard.toString();
-	}
 	public EntityEvent getEvent() {
 		return event;
 	}
 	public long getPlanId() {
 		return this.planId;
-	}
-
-	@JsonProperty("state")
-	/* only for serialization */
-	final Map<EntityState, StringBuilder> getState() {
-		final Map<EntityState, StringBuilder> ret = new HashMap<>();
-		duties.forEach(duty-> CollectionUtils.getOrPut(ret, duty.getLastState(), ()->new StringBuilder())
-		        .append(duty.getDuty().getId()).append(", "));
-		return ret;
 	}
 	
 	public static enum Step {
@@ -106,23 +93,21 @@ public class Delivery {
 	    DONE,
 	}
 	
-	protected Map<ShardEntity, Track> getByState() {
+	protected Map<ShardEntity, Log> getByState() {
 		return getByState_(null);
 	}
 	
-	protected Map<ShardEntity, Track> getByState(final EntityState state) {
+	protected Map<ShardEntity, Log> getByState(final EntityState state) {
 		return getByState_(state);
 	}
 	
-	private Map<ShardEntity, Track> getByState_(final EntityState state) {
-		final Map<ShardEntity, Track> ret = new HashMap<>(duties.size());
+	private Map<ShardEntity, Log> getByState_(final EntityState state) {
+		final Map<ShardEntity, Log> ret = new HashMap<>(duties.size());
 	    for (ShardEntity duty: duties) {
-	    	for (Track track: duty.getEventTrack().getTracks()) {
-	    		if (track.getEvent()==getEvent()
-	    				&& track.getPlanId()==getPlanId()
-	    				&& track.getTargetId().equals(shard.getShardID().getStringIdentity())
-	    				&& (state == null || track.getLastState()==state)) {
-	    			ret.put(duty, track);
+	    	for (Log log: duty.getLog().getLogs()) {
+	    		if (log.matches(getEvent(), shard.getShardID().getStringIdentity(), (int)getPlanId())
+	    				&& (state == null || log.getLastState()==state)) {
+	    			ret.put(duty, log);
 	    			break;
 	    		}
 	    	}
@@ -146,14 +131,12 @@ public class Delivery {
             int pending = duties.size();
     		for (final ShardEntity duty : duties) {
     			// look up confirmation for the specific logged event matching this delivery
-    			for (Iterator<Track> elit = duty.getEventTrack().getDescendingIterator(); elit.hasNext();) {
-    				final Track log = elit.next();
+    			for (Iterator<Log> elit = duty.getLog().getDescendingIterator(); elit.hasNext();) {
+    				final Log log = elit.next();
     				if (log.getTargetId().isEmpty()) {
     				    throw new IllegalStateException("log target id is invalid (empty)");
     				}
-    				if (log.getTargetId().equals(shard.getShardID().getStringIdentity())
-    						&& log.getEvent() == getEvent()
-        					&& log.getPlanId() == getPlanId()) {
+    				if (log.matches(getEvent(), shard.getShardID().getStringIdentity(), (int)getPlanId())) {
     					if (log.getLastState()==EntityState.CONFIRMED) {
     					    pending--;
     					} else {
@@ -181,4 +164,22 @@ public class Delivery {
 	public String toString() {
 	    return event + "-" + shard + "-" + duties.size();
 	}
+	
+	@JsonProperty("shard")
+	private String getShard_() {
+	    return shard.toString();
+	}
+
+	@JsonProperty("state")
+	/* only for serialization */
+	final Map<EntityState, StringBuilder> getState() {
+		final Map<EntityState, StringBuilder> ret = new HashMap<>();
+		for (final ShardEntity duty: duties) {
+		    CollectionUtils.getOrPut(ret, duty.getLastState(), ()->new StringBuilder())
+		        .append(duty.getDuty().getId()).append(", ");
+		}
+		
+		return ret;
+	}
+
 }

@@ -167,7 +167,7 @@ public class Migrator {
 		} else if (source.equals(target)) {
 			throw new BalancingException("bad transfer: duty %s has the same source and target");
 		}
-		if (entity.getEventTrack().getLast().getEvent()==EntityEvent.REMOVE) {
+		if (entity.getLastEvent()==EntityEvent.REMOVE) {
 			throw new BalancingException("bad transfer: duty: %s is marked for deletion, cannot be balanced", entity);
 		}
 		for (ShardEntity duty: table.getNextStage().getDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED)) {

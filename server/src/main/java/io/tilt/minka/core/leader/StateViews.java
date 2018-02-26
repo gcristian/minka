@@ -143,7 +143,7 @@ public class StateViews {
 						pallet.getPallet().getMetadata().getBalancer().getName(), 
 						crud.size(), 
 						dettachedWeight.get(), 
-						new DateTime(pallet.getEventTrack().getFirst().getHead()),
+						new DateTime(pallet.getLog().getFirst().getHead()),
 						pallet.getPallet().getMetadata(),
 						dutyRepList
 					));
@@ -221,7 +221,7 @@ public class StateViews {
 		map.put("capacity", capacity);
 		map.put("weight", weight);
 		StringBuilder sb = new StringBuilder();
-		duties.forEach(d->sb.append(d.id).append(":").append(d.weight).append(","));
+		duties.forEach(d->sb.append(d.id).append(", "));
 		map.put("duties",sb.toString());
 		return map;
 	}

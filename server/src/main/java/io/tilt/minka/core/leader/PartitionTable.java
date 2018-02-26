@@ -184,15 +184,14 @@ public class PartitionTable {
 		 * @param where	the sard where it resides 
 		 * @return if there was a Stage change caused by the confirmation after reallocation phase */
 		public boolean writeDuty(final ShardEntity duty, final Shard where) {
-			if (duty.getEventTrack().getLast().getEvent().is(EntityEvent.ATTACH) 
-					|| duty.getEventTrack().getLast().getEvent().is(EntityEvent.CREATE)) {
+			final EntityEvent lastEvent = duty.getLastEvent();
+			if (lastEvent.is(EntityEvent.ATTACH) || lastEvent.is(EntityEvent.CREATE)) {
 				checkDuplicationFailure(duty, where);
 				if (!getPartition(where).add(duty)) {
 					throw new IllegalStateException("Attach failure. Confirmed attach/creation already exists");
 				}
 				return true;
-			} else if (duty.getEventTrack().getLast().getEvent().is(EntityEvent.DETACH) 
-					|| duty.getLastEvent().is(EntityEvent.REMOVE)) {
+			} else if (lastEvent.is(EntityEvent.DETACH) || lastEvent.is(EntityEvent.REMOVE)) {
 				if (!getPartition(where).remove(duty)) {
 					throw new IllegalStateException("Absence failure. Confirmed deletion actually doesnt exist or it " + 
 							"was already confirmed");
@@ -374,8 +373,8 @@ public class PartitionTable {
 			return (type == ShardEntity.Type.DUTY ? 
 			        getDutiesCrud() : 
 		            palletCrud).stream()
-    					.filter(e -> (event == null || e.getEventTrack().getLast().getEvent() == event) && 
-    					        (state == null || e.getEventTrack().getLast().getLastState() == state))
+    					.filter(e -> (event == null || e.getLog().getLast().getEvent() == event) && 
+    					        (state == null || e.getLog().getLast().getLastState() == state))
     					.collect(Collectors.toCollection(HashSet::new));
 		}
 		public Set<ShardEntity> getDutiesCrud(final EntityEvent event, final EntityState state) {

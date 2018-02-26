@@ -136,7 +136,7 @@ public class FairWeightBalancer implements Balancer {
     					// adding those left aside by division remainders calc
     					while (itDuties.hasNext()) {
     						if (!bascule.tryLift(duty = itDuties.next(), duty.getDuty().getWeight())) {
-    						    duty.getEventTrack().addState(EntityState.STUCK);
+    						    duty.getLog().addState(EntityState.STUCK);
     						}
     					}
     				}
@@ -151,7 +151,7 @@ public class FairWeightBalancer implements Balancer {
     			logger.error("{}: Insufficient cluster capacity for Pallet: {}, remaining duties without distribution {}", 
     				getClass().getSimpleName(), next.getPallet(), duty.toBrief());
     			while (itDuties.hasNext()) {
-    			    itDuties.next().getEventTrack().addState(EntityState.STUCK);
+    			    itDuties.next().getLog().addState(EntityState.STUCK);
     			}
     		}
 		} else {

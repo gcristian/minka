@@ -56,16 +56,16 @@ class Transfer {
             return false;
         }
         if (source!=null) {
-            getEntity().getEventTrack().addEvent(EntityEvent.DETACH, 
+            getEntity().getLog().addEvent(EntityEvent.DETACH, 
                     EntityState.PREPARED, 
-                    location.getShardID().getStringIdentity(), 
+                    location.getShardID(), 
                     plan.getId());
             plan.ship(source, entity);
         }
         final ShardEntity assign = ShardEntity.Builder.builderFrom(entity).build();
-        assign.getEventTrack().addEvent(EntityEvent.ATTACH, 
+        assign.getLog().addEvent(EntityEvent.ATTACH, 
                 EntityState.PREPARED,
-                target.getShardID().getStringIdentity(), 
+                target.getShardID(), 
                 plan.getId());
         plan.ship(target, assign);
         
