@@ -29,6 +29,7 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
 import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Migrator;
+import io.tilt.minka.core.leader.distributor.Plan;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.CapacityComparer;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
@@ -46,8 +47,8 @@ import io.tilt.minka.domain.EntityState;
  * shard weight = total duty weight * ( shard capacity / cluster capacity )
  * so all shards will reach their maximum load at the same time.
  *
- * when using ROUND_ROBIN, all shards are filled in serie so smaller shards earlier stops receiving
- * duties when reaching out of space, and bigger ones will still receive.
+ * when using ROUND_ROBIN, all shards are filled in serie so smaller shards will 
+ * stop receiving duties earlier when reaching out of space, while bigger ones will continue to receive.
  * 
  * @author Cristian Gonzalez
  */
@@ -114,8 +115,8 @@ public class FairWeightBalancer implements Balancer {
 		if (meta.getDispersion()==Dispersion.EVEN) {
 			final Set<Bascule<Shard, ShardEntity>> bascules = buildBascules(next.getPallet(), next.getIndex().keySet(), duties);
 			if (bascules.isEmpty()) {
-			    /*for (final Iterator<ShardEntity> itDuties = duties.iterator(); itDuties.hasNext(); 
-			            itDuties.next().registerEvent(EventTrack.State.STUCK));*/
+			    //for (final Iterator<ShardEntity> itDuties = duties.iterator(); itDuties.hasNext(); 
+			    //        itDuties.next().getLog().getLast().addState(EntityState.STUCK));
 				return;
 			}
     		final Migrator migra = next.getMigrator();
@@ -136,7 +137,11 @@ public class FairWeightBalancer implements Balancer {
     					// adding those left aside by division remainders calc
     					while (itDuties.hasNext()) {
     						if (!bascule.tryLift(duty = itDuties.next(), duty.getDuty().getWeight())) {
-    						    duty.getLog().addState(EntityState.STUCK);
+    						    duty.getLog().addEvent(
+    						    		duty.getLastEvent(), 
+    						    		EntityState.STUCK, 
+    						    		bascule.getOwner().getShardID(), 
+    						    		Plan.PLAN_WITHOUT);
     						}
     					}
     				}
@@ -151,8 +156,9 @@ public class FairWeightBalancer implements Balancer {
     			logger.error("{}: Insufficient cluster capacity for Pallet: {}, remaining duties without distribution {}", 
     				getClass().getSimpleName(), next.getPallet(), duty.toBrief());
     			while (itDuties.hasNext()) {
-    			    itDuties.next().getLog().addState(EntityState.STUCK);
-    			}
+    				ShardEntity ne = itDuties.next();
+    			    ne.getLog().addEvent(ne.getLastEvent(), EntityState.STUCK, null, -1);    			
+			    }
     		}
 		} else {
 			logger.error("{}: Out of sleeping budget !");

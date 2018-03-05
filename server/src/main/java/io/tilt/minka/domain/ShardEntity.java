@@ -35,6 +35,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.EntityPayload;
 import io.tilt.minka.api.Pallet;
+import io.tilt.minka.core.leader.distributor.Plan;
 /**
  * Representation of a {@linkplain Duty} selected for an action in a {@linkplain Shard}  
  * 
@@ -50,7 +51,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	@JsonIgnore
 	private final Entity<?> from;
 	private final Type type;
-	private EntityLog log;
+	private LogList log;
 	private EntityPayload userPayload;
 	private ShardEntity relatedEntity;
 	
@@ -62,8 +63,8 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	private ShardEntity(final Entity<?> entity, Type type) {
 		this.from = entity;
 		this.type = type;
-		this.log = new EntityLog();
-		this.log.addEvent(EntityEvent.CREATE, EntityState.PREPARED, null, -1);
+		this.log = new LogList();
+		this.log.addEvent(EntityEvent.CREATE, EntityState.PREPARED, null, Plan.PLAN_WITHOUT);
 	}
 	
 	public static class Builder {
@@ -256,11 +257,11 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	}
 
 	
-	public EntityLog getLog() {
+	public LogList getLog() {
         return this.log;
     }
 		
-	private void setEventTrack(final EntityLog track) {
+	private void setEventTrack(final LogList track) {
 	    this.log = track;
 	}
 	

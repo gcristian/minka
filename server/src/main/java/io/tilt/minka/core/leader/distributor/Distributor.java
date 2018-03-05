@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.Validate;
@@ -56,7 +55,7 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
-import io.tilt.minka.domain.EntityLog.Log;
+import io.tilt.minka.domain.LogList.Log;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
@@ -73,11 +72,6 @@ import io.tilt.minka.utils.LogUtils;
 public class Distributor extends ServiceImpl {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
-
-	private final static int MAX_DRIVE_REPUSHES = 3;
-	private final static int MAX_DRIVE_REBUILDS = 3;
-    private final AtomicInteger repushes = new AtomicInteger(0);
-    private final AtomicInteger rebuilds = new AtomicInteger(0);
 
     private final Config config;
 	private final Scheduler scheduler;
@@ -186,17 +180,14 @@ public class Distributor extends ServiceImpl {
         boolean firstTime = true;
         Plan p = plan;
         Result r = null;
-        //while (firstTime || (r == RETRYING && repushes.get()<=MAX_DRIVE_REPUSHES) 
-        //		|| ((r == CLOSED_OBSOLETE || r == CLOSED_EXPIRED) && rebuilds.get()<=MAX_DRIVE_REBUILDS)) {
         while (firstTime || rebuild) {
             if (rebuild) {
-                p = build(p);
                 rebuild = false;
+                p = buildPlan(p);
             }
             if (p!=null && !p.getResult().isClosed()) {
                 if (r == RETRYING) {
-                    repushes.incrementAndGet();
-                    repush(p);                    
+            		repushPendings(p);
                 } else {
                     pushAvailable(p);
                 }
@@ -204,7 +195,6 @@ public class Distributor extends ServiceImpl {
             }
             if (r == CLOSED_EXPIRED || r == CLOSED_OBSOLETE) {
                 rebuild = true;
-                rebuilds.incrementAndGet();
             } else if (p!=null) {
                 p.computeState();
             }
@@ -214,7 +204,7 @@ public class Distributor extends ServiceImpl {
 
 
 	/** @return a plan to drive built at balancer's request */
-	private Plan build(final Plan previous) {
+	private Plan buildPlan(final Plan previous) {
 		final Plan plan = arranger.evaluate(partitionTable, previous);
 		partitionTable.getNextStage().cleanAllocatedDanglings();
 		if (!plan.areShippingsEmpty()) {
@@ -231,7 +221,7 @@ public class Distributor extends ServiceImpl {
 	}
 	
 	/* retry already pushed deliveries with pending duties */
-	private void repush(final Plan plan) {
+	private void repushPendings(final Plan plan) {
 	    for (Delivery delivery: plan.getAllPendings()) {
 	        push(plan, delivery, true);
 	        if (plan.getResult() == CLOSED_OBSOLETE) {

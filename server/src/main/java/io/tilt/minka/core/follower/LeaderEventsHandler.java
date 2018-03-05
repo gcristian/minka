@@ -18,7 +18,6 @@ package io.tilt.minka.core.follower;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -42,7 +41,7 @@ import io.tilt.minka.core.task.Service;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.DomainInfo;
-import io.tilt.minka.domain.EntityLog.Log;
+import io.tilt.minka.domain.LogList.Log;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
@@ -174,30 +173,24 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 	private void handleDuty(final ShardEntity... duties) {
 		try {
 			for (ShardEntity duty: duties) {
-				for (Iterator<Log> it = duty.getLog().getDescendingIterator(); it.hasNext();) {
-					final Log track = it.next();
-					if (track.getTargetId().equals(partition.getId().getStringIdentity())) {
-						switch (track.getEvent()) {
-						case ATTACH:
-							partitionManager.attach(Lists.newArrayList(duty));
-							break;
-						case DETACH:
-							partitionManager.dettach(Lists.newArrayList(duty));
-							break;
-						case TRANSFER:
-						case UPDATE:
-							partitionManager.update(Lists.newArrayList(duty));
-							break;
-						case REMOVE:
-							partitionManager.finalized(Lists.newArrayList(duty));
-							break;
-						default:
-							logger.error("{}: ({}) Not allowed: {}", track.getEvent(), config.getLoggingShardId());
-						}
-						// read and act on the last event only
+				final Log log = duty.getLog().find(partition.getId());
+					switch (log.getEvent()) {
+					case ATTACH:
+						partitionManager.attach(Lists.newArrayList(duty));
 						break;
+					case DETACH:
+						partitionManager.dettach(Lists.newArrayList(duty));
+						break;
+					case TRANSFER:
+					case UPDATE:
+						partitionManager.update(Lists.newArrayList(duty));
+						break;
+					case REMOVE:
+						partitionManager.finalized(Lists.newArrayList(duty));
+						break;
+					default:
+						logger.error("{}: ({}) Not allowed: {}", log.getEvent(), config.getLoggingShardId());
 					}
-				}
 			}
 		} catch (Exception e) {
 			logger.error("{}: ({}) Unexpected while handling Duty:{}", getName(), config.getLoggingShardId(), duties,

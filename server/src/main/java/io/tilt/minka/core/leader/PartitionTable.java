@@ -183,16 +183,19 @@ public class PartitionTable {
 		 * @param duty the entity to act on
 		 * @param where	the sard where it resides 
 		 * @return if there was a Stage change caused by the confirmation after reallocation phase */
-		public boolean writeDuty(final ShardEntity duty, final Shard where) {
-			final EntityEvent lastEvent = duty.getLastEvent();
-			if (lastEvent.is(EntityEvent.ATTACH) || lastEvent.is(EntityEvent.CREATE)) {
+		public boolean writeDuty(final ShardEntity duty, final Shard where, final EntityEvent event) {
+			if (event.is(EntityEvent.ATTACH) || event.is(EntityEvent.CREATE)) {
 				checkDuplicationFailure(duty, where);
-				if (!getPartition(where).add(duty)) {
+				if (getPartition(where).add(duty)) {
+					logger.info("{}: Written {} with: {} on shard {}", getClass().getSimpleName(), event.toVerb(), duty, where);
+				} else {
 					throw new IllegalStateException("Attach failure. Confirmed attach/creation already exists");
 				}
 				return true;
-			} else if (lastEvent.is(EntityEvent.DETACH) || lastEvent.is(EntityEvent.REMOVE)) {
-				if (!getPartition(where).remove(duty)) {
+			} else if (event.is(EntityEvent.DETACH) || event.is(EntityEvent.REMOVE)) {
+				if (getPartition(where).remove(duty)) {
+					logger.info("{}: Written {} with: {} on shard {}", getClass().getSimpleName(), event.toVerb(), duty, where);
+				} else {
 					throw new IllegalStateException("Absence failure. Confirmed deletion actually doesnt exist or it " + 
 							"was already confirmed");
 				}
@@ -245,7 +248,7 @@ public class PartitionTable {
 			return allDuties;
 		}
 
-		private ShardedPartition getPartition(Shard shard) {
+		private synchronized ShardedPartition getPartition(Shard shard) {
 			ShardedPartition po = this.partitionsByShard.get(shard);
 			if (po == null) {
 				this.partitionsByShard.put(shard, 

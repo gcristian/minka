@@ -19,7 +19,6 @@ package io.tilt.minka.core.follower.impl;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
@@ -31,10 +30,11 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.follower.HeartbeatFactory;
+import io.tilt.minka.core.leader.distributor.Plan;
 import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.DutyDiff;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityLog.Log;
+import io.tilt.minka.domain.LogList.Log;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
@@ -116,18 +116,17 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 					builder.withWarning();
 					includeDuties = true;
 				} else {
-					for (Iterator<Log> it=shardedDuty.getLog().getDescendingIterator(); it.hasNext();) {
-						final Log track = it.next(); 
-						// TODO avoid expired tracks thru a best-guessed calculation of inactivity
-						// or filter tracks thru planId grabing it thru DomainInfo facility
-						if (track.getTargetId().equals(partition.getId().getStringIdentity())) {
-							// consider only the last action logged to this shard
-							if (track.getLastState()!=EntityState.CONFIRMED) {
-								shardedDuty.getLog().addState(EntityState.CONFIRMED);
-								includeDuties = true;
-							}
-							break;
-						}
+					// consider only the last action logged to this shard
+					final Log found = shardedDuty.getLog().find(partition.getId()); 
+					// TODO avoid expired tracks thru a best-guessed calculation of inactivity
+					// or filter tracks thru planId grabing it thru DomainInfo facility
+					if (found.getLastState()!=EntityState.CONFIRMED) {
+						shardedDuty.getLog().addEvent(
+								found.getEvent(), 
+								EntityState.CONFIRMED, 
+								partition.getId(), 
+								found.getPlanId());
+						includeDuties = true;
 					}
 				}
 			} else {
@@ -137,7 +136,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 				shardedDuty.getLog().addEvent(EntityEvent.ATTACH, 
 				        EntityState.DANGLING, 
 				        this.partition.getId(), 
-                        -1);
+                        Plan.PLAN_UNKNOWN);
 				log.error("{}: ({}) Reporting a Dangling Duty (by Addition): {}", getClass().getSimpleName(),
 						partition.getId(), shardedDuty);
 				builder.withWarning();
@@ -186,12 +185,12 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 					existing.getLog().addEvent(EntityEvent.REMOVE, 
 					        EntityState.FINALIZED, 
 					        this.partition.getId(), 
-					        -1);
+					        Plan.PLAN_UNKNOWN);
 				} else {
 					existing.getLog().addEvent(EntityEvent.REMOVE, 
 					        EntityState.DANGLING, 
 					        this.partition.getId(), 
-                            -1);
+					        Plan.PLAN_UNKNOWN);
 				}
 				log.error("{}: ({}) Reporting a Dangling Duty (by Erasure): {}", getClass().getSimpleName(),
 						partition.getId(), existing);

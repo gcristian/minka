@@ -167,7 +167,8 @@ public class SpillOverBalancer implements Balancer {
 		for (final ShardEntity newcomer : dutiesForBalance) {
 			final Shard receptor = makeSpaceIntoReceptors(loadStrat, newcomer, spaceByReceptor);
 			if (receptor != null) {
-				newcomer.getLog().addEvent(EntityEvent.ATTACH, EntityState.PREPARED,
+				newcomer.getLog().addEvent(EntityEvent.ATTACH, 
+						EntityState.PREPARED,
 				        receptor.getShardID(), 
                         next.getPlan().getId());
 				next.getPlan().ship(receptor, newcomer);
@@ -194,7 +195,8 @@ public class SpillOverBalancer implements Balancer {
 			for (final ShardEntity emitted : emitting) {
 				final Shard receptor = makeSpaceIntoReceptors(loadStrat, emitted, spaceByReceptor);
 				if (receptor == null) {
-					emitted.getLog().addEvent(EntityEvent.ATTACH, EntityState.STUCK,
+					emitted.getLog().addEvent(EntityEvent.ATTACH, 
+							EntityState.STUCK,
 					        emisor.getShardID(), 
 	                        next.getPlan().getId());
 					//emitted.setStuckCause(StuckCause.UNSUITABLE);

@@ -37,7 +37,7 @@ import io.tilt.minka.core.leader.distributor.Plan;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityLog.Log;
+import io.tilt.minka.domain.LogList.Log;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
@@ -67,46 +67,6 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 
 	@Override
 	public void accept(final Heartbeat beat, final Shard sourceShard) {
-		
-		
-/**
- *       "deliveries": [
-        {
-          "order": "0",
-          "shard": "192.168.0.102:9000",
-          "event": "DETACH",
-          "state": {
-            "CONFIRMED": "1, "
-          },
-          "step": "DONE",
-          "planId": "27"
-        },
-        {
-          "order": "1",
-          "shard": "192.168.0.102:9001",
-          "event": "ATTACH",
-          "state": {
-            "CONFIRMED": "1, "
-          },
-          "step": "PENDING",
-          "planId": "27"
-        }
-      ],
-      "result": "CLOSED_EXPIRED"
-
-		
-		COMO ESTOY MANEJANDO EL SPLITTING VIRTUAL DE UN DUTY ???
-		ES POSIBLE Q ACA EL CONFIRMADO ESTA SOBRE 1 EVENTO PERO LO ESTOY 
-		LEYENDO SOBRE EL EVENTO DEL OTRO SHARD, PORQUE NO HAY 2 DUTIES
-		SINO 1 SOLO CON 1 SOLO LOG
-		
-		SI NO HAY SPLIT...ENTONCES EL REGISTRO DEBE HACERSE EN EL EVENTO CORRECTO
-		NADA MAS, DEBERIA FUNCIUONAR...
-		
- */
-		
-		
-		
 		if (beat.getStateChange() == ShardState.QUITTED) {
 			checkShardChangingState(sourceShard);
 			return;
@@ -144,8 +104,8 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		final Delivery delivery = plan.getDelivery(source);
 		if (delivery!=null && delivery.getPlanId()==plan.getId()) {
 		    boolean changed = false;
-    		changed|=confirmReallocated(source, heartbeatDuties, delivery);
-    		changed|=confirmAbsences(source, heartbeatDuties, delivery);
+    		changed|=searchReallocations(source, heartbeatDuties, delivery);
+    		changed|=searchAbsences(source, heartbeatDuties, delivery);
     		if (changed) {
     		    delivery.checkState();
     		}
@@ -189,27 +149,29 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 	}
 
 	/* find the up-coming */
-	private boolean confirmReallocated(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
-		final Set<ShardEntity> sortedLogConfirmed = new TreeSet<>();
+	private boolean searchReallocations(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
+		Set<ShardEntity> sortedLogConfirmed = null;
 		Set<ShardEntity> sortedLogDirty = null;
-		boolean[] ret = new boolean[1];
+		boolean ret = false;
 		for (final ShardEntity beated : beatedDuties) {
 			for (ShardEntity prescripted : delivery.getDuties()) {
 				if (prescripted.equals(beated)) {
-				    if (findPrescriptionForHeartbeat(beated, prescripted, (expected)-> {
-			                sortedLogConfirmed.add(beated);
-			                // remove the one holding older State
-	                        prescripted.getLog().addEvent(expected.getEvent(), 
-	                                EntityState.CONFIRMED, 
-	                                shard.getShardID(), 	                                
-	                                delivery.getPlanId());
-	                		if (partitionTable.getStage().writeDuty(prescripted, shard)) {
-	                		    ret[0] = true;
-	                			// TODO warn: if a remove comes from client while a running plan, we might be avoidint it 
-	                			partitionTable.getNextStage().removeCrud(prescripted);
-                			}
-			            })) {
-				        break;
+					final Log expected = findPrescriptionForHeartbeat(beated, prescripted);
+				    if (expected!=null) {
+			    		if (sortedLogConfirmed==null) {
+			    			sortedLogConfirmed = new TreeSet<>();
+			    		}
+		                sortedLogConfirmed.add(beated);
+		                // remove the one holding older State
+                        prescripted.getLog().addEvent(expected.getEvent(), 
+                                EntityState.CONFIRMED, 
+                                shard.getShardID(), 	                                
+                                delivery.getPlanId());
+                		if (partitionTable.getStage().writeDuty(prescripted, shard, expected.getEvent())) {
+                		    ret = true;
+                			// TODO warn: if a remove comes from client while a running plan, we might be avoidint it 
+                			partitionTable.getNextStage().removeCrud(prescripted);
+            			}
 				    } else {
 						final Date fact = prescripted.getLog().getLast().getHead();
 						final long now = System.currentTimeMillis();
@@ -231,78 +193,73 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 			logger.warn("{}: ShardID: {}, Reporting DIRTY partition event for Duties: {}", getClass().getSimpleName(),
 					shard.getShardID(), ShardEntity.toStringIds(sortedLogDirty));
 		}
-		return ret[0];
+		return ret;
 	}
 
 	/** @return whether or not an expected event was found */
-    private boolean findPrescriptionForHeartbeat(
+    private Log findPrescriptionForHeartbeat(
             final ShardEntity beated, 
-            final ShardEntity delivered, 
-            final Consumer<Log> waiter) {
+            final ShardEntity delivered) {
 
         // beated duty must belong to current non-expired plan
         final long pid = partitionTable.getCurrentPlan().getId();
         // match specific events
         for (final Iterator<Log> it = beated.getLog().getDescendingIterator(); it.hasNext();) {
-        	final Log log1 = it.next();
+        	final Log commingLog = it.next();
             // now which event is confirming (de/attaches are logged alike in the same instance)
-            final EntityState state = log1.getLastState();
-			if (log1.getPlanId() == pid && (state == EntityState.CONFIRMED  || state == EntityState.RECEIVED)) {
-            	for (final Iterator<Log> desc = delivered.getLog().getDescendingIterator(); desc.hasNext();) {
-            		final Log log2 = desc.next();
-                    if (log1.matches(log2)) {
-                    	// report it only once
-                    	if (log2.getLastState()!= EntityState.CONFIRMED) {
-                    		waiter.accept(log2);
-                    	}
-                        return true;                                    
-                    } else if (pid!=log2.getPlanId()) {
-                        // keep looping but avoid reading phantom events 
-                    }
-                }
-            } else if (pid > log1.getPlanId()) {
+            final EntityState state = commingLog.getLastState();
+			if (commingLog.getPlanId() == pid && commingLog.getEvent()==EntityEvent.ATTACH) {
+				if (state == EntityState.CONFIRMED  || state == EntityState.RECEIVED) {
+	            	for (final Iterator<Log> desc = delivered.getLog().getDescendingIterator(); desc.hasNext();) {
+	            		final Log expectedLog = desc.next();
+	                    if (commingLog.matches(expectedLog)) {
+	                    	// report it only once
+	                    	if (expectedLog.getLastState()!= EntityState.CONFIRMED) {
+	                    		return expectedLog;
+	                    	}
+	                    } else if (pid!=expectedLog.getPlanId()) {
+	                        // keep looping but avoid reading phantom events 
+	                    }
+	                }
+				} else {
+					logger.error("{}: Reporting state: {} on Duty: {}", getClass().getSimpleName(), state);
+				}
+            } else if (pid > commingLog.getPlanId()) {
                 // obsolete heartbeat
-                return false;
+                return null;
             }
         }
-        return false;
+        return null;
     }
 	
 	/** treat un-coming as detaches
 	/** @return whether or not there was an absence confirmed */
-	private boolean confirmAbsences(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
+	private boolean searchAbsences(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
 	    boolean ret = false;
 		Set<ShardEntity> sortedLog = null;
         final long pid = partitionTable.getCurrentPlan().getId();
+        
 		for (ShardEntity prescripted : delivery.getDuties()) {
-		    for (final Iterator<Log> it = prescripted.getLog().getDescendingIterator(); it.hasNext();) {
-	            final Log track = it.next();	            
-	            if ((track.getEvent().is(EntityEvent.DETACH) 
-                    || track.getEvent().is(EntityEvent.REMOVE))
-	            		// avoid reading phantom events
-	            		&& track.getPlanId() == pid 
-	            		&& !beatedDuties.contains(prescripted)) {
-	                // confirm and write only once 
-                    if (track.getLastState()==EntityState.PENDING 
-                            || track.getLastState()==EntityState.MISSING) {
-                        if (sortedLog==null) {
-                            sortedLog = new TreeSet<>();
-                        }
-	                    sortedLog.add(prescripted);
-	                    prescripted.getLog().addEvent(track.getEvent(), 
-	                            EntityState.CONFIRMED,
-	                            shard.getShardID(),
-	                            pid);
-	                    boolean written = partitionTable.getStage().writeDuty(prescripted, shard);
-                        if (written && track.getEvent().isCrud()) {
-                    		kickFromNextStage(prescripted, track);
-	                    }
+			if (!beatedDuties.contains(prescripted)) {
+				final Log found = prescripted.getLog().find(pid, shard.getShardID(), EntityEvent.DETACH, EntityEvent.REMOVE);
+				if (found!=null && (found.getLastState()==EntityState.PENDING || found.getLastState()==EntityState.MISSING)) {
+					if (sortedLog==null) {
+                        sortedLog = new TreeSet<>();
                     }
-                    ret = true;
-                    break; // there can be more 
-                }
-		    }
+                    sortedLog.add(prescripted);
+                    prescripted.getLog().addEvent(found.getEvent(), 
+                            EntityState.CONFIRMED,
+                            shard.getShardID(),
+                            pid);
+                    boolean written = partitionTable.getStage().writeDuty(prescripted, shard, found.getEvent());
+                    if (written && found.getEvent().isCrud()) {
+                		kickFromNextStage(prescripted, found);
+                		ret = true;
+                    }
+				}
+			}
 		}
+		
 		if (sortedLog!=null) {
 			logger.info("{}: ShardID: {}, Confirming (by absence) partioning event for Duties: {}",
 					getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(sortedLog));
@@ -310,11 +267,11 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		return ret;
 	}
 
-    private void kickFromNextStage(final ShardEntity prescripted, final Log track) {
+    private void kickFromNextStage(final ShardEntity prescripted, final Log log) {
         for (ShardEntity duty: partitionTable.getNextStage().getDutiesCrud()) {
         	if (duty.equals(prescripted)) {
         		final Instant lastEventOnCrud = duty.getLog().getLast().getHead().toInstant();
-        		if (track.getHead().toInstant().isAfter(lastEventOnCrud)) {
+        		if (log.getHead().toInstant().isAfter(lastEventOnCrud)) {
         			partitionTable.getNextStage().removeCrud(prescripted);
         			break;
         		}

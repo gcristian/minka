@@ -28,7 +28,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityLog.Log;
+import io.tilt.minka.domain.LogList.Log;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.EntityState;
@@ -105,7 +105,7 @@ public class Delivery {
 		final Map<ShardEntity, Log> ret = new HashMap<>(duties.size());
 	    for (ShardEntity duty: duties) {
 	    	for (Log log: duty.getLog().getLogs()) {
-	    		if (log.matches(getEvent(), shard.getShardID().getStringIdentity(), (int)getPlanId())
+	    		if (log.matches(getEvent(), shard.getShardID().getStringIdentity(), getPlanId())
 	    				&& (state == null || log.getLastState()==state)) {
 	    			ret.put(duty, log);
 	    			break;
@@ -131,27 +131,18 @@ public class Delivery {
             int pending = duties.size();
     		for (final ShardEntity duty : duties) {
     			// look up confirmation for the specific logged event matching this delivery
-    			for (Iterator<Log> elit = duty.getLog().getDescendingIterator(); elit.hasNext();) {
-    				final Log log = elit.next();
-    				if (log.getTargetId().isEmpty()) {
-    				    throw new IllegalStateException("log target id is invalid (empty)");
-    				}
-    				if (log.matches(getEvent(), shard.getShardID().getStringIdentity(), (int)getPlanId())) {
-    					if (log.getLastState()==EntityState.CONFIRMED) {
-    					    pending--;
-    					} else {
-    					    // TODO get Partition TAble and check if Shard has long fell offline
-                            Plan.logger.info("{}: waiting Shard: {} for at least Duty: {} for: {} still in: {}", 
-                                    getClass().getSimpleName(), shard, duty, log.getEvent(), log.getLastState());
-                            if (log.getLastState()==EntityState.PENDING) {
-                                return;
-                            }
-    					}
-                        break;
-    				} else if (getPlanId() > log.getPlanId()) {
-    					// avoid phantom events
-    					break;
-    				}
+    			final Log found = duty.getLog().find(getPlanId(), shard.getShardID(), getEvent());
+    			if (found!=null) {
+    				if (found.getLastState()==EntityState.CONFIRMED) {
+					    pending--;
+					} else {
+					    // TODO get Partition TAble and check if Shard has long fell offline
+						if (found.getLastState()==EntityState.PENDING) {
+							Plan.logger.info("{}: waiting Shard: {} for at least Duty: {} for: {} still in: {}", 
+                                getClass().getSimpleName(), shard, duty, found.getEvent(), found.getLastState());
+							return;
+						}
+					}
     			}
     		}
     		if (pending==0) {

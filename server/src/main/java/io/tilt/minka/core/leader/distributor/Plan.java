@@ -69,8 +69,12 @@ import io.tilt.minka.utils.LogUtils;
 public class Plan implements Comparable<Plan> {
 
 	static final Logger logger = LoggerFactory.getLogger(Plan.class);
-		
+	
+	public static final int PLAN_UNKNOWN = -2;
+	public static final int PLAN_WITHOUT = -1;
+	
 	private static final AtomicLong sequence = new AtomicLong();
+	
 	private final long id;
 	private final Date created;
 
@@ -287,11 +291,12 @@ public class Plan implements Comparable<Plan> {
     			} else {	
     			    final EntityEvent nextDeliveryEvent = deliveries.get(deliveryIdx).getEvent();
     		        if (nextDeliveryEvent==lastDelivery.getEvent()) {
-    		            // same future events (attach/dettach) are parallelized
+    		            // identical future events are parallelized
     		            return true;
     			    } else {
-    			        // different future events require bookkeeper's confirmation (in stage)
-    			        for (Delivery d: deliveries) {
+    			        // future events require all past confirmed
+    			        for (int i = 0; i < deliveryIdx; i++) {
+    			        	final Delivery d = deliveries.get(i);
     			            if (d.getStep() == Delivery.Step.PENDING) {
     			                logger.info("{}: No more parallels: past deliveries yet pending", getClass().getSimpleName());
     			                return false;

@@ -23,12 +23,15 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.Validate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
+import io.tilt.minka.core.leader.PartitionTable;
 
 /**
  * An effectively assigned, running and continuously confirmed 
@@ -40,6 +43,8 @@ import io.tilt.minka.api.Pallet;
  */
 public class ShardedPartition {
 
+	private static final Logger logger = LoggerFactory.getLogger(ShardedPartition.class);
+	
 	private final NetworkShardIdentifier id;
 	private Set<ShardEntity> duties;
 	private Set<ShardEntity> pallets;
@@ -130,27 +135,19 @@ public class ShardedPartition {
 		updateLastChange();
 	}
 	public boolean add(final ShardEntity entity) {
+		logger.info("{}: Adding entity: {}", id, entity.toBrief());
 		updateLastChange();
-		if (entity.getType()==ShardEntity.Type.DUTY) {
-			return this.duties.add(entity);
-		} else {
-			return this.pallets.add(entity);
-		}
+		final Set<ShardEntity> set = entity.getType()==ShardEntity.Type.DUTY ? duties : pallets; 
+		return set.add(entity);
 	}
 	public boolean remove(final ShardEntity entity) {
 		updateLastChange();
-		if (entity.getType()==ShardEntity.Type.DUTY) {
-			return this.duties.remove(entity);
-		} else {
-			return this.pallets.remove(entity);
-		}
+		final Set<ShardEntity> set = entity.getType()==ShardEntity.Type.DUTY ? duties : pallets;
+		return set.remove(entity);
 	}
 	public boolean contains(final ShardEntity entity) {
-		if (entity.getType()==ShardEntity.Type.DUTY) {
-			return this.duties.contains(entity);
-		} else {
-			return this.pallets.contains(entity);
-		}
+		final Set<ShardEntity> set = entity.getType()==ShardEntity.Type.DUTY ? duties : pallets; 
+		return set.contains(entity);
 	} 	
 	public boolean wasRecentlyUpdated() {
 		return (System.currentTimeMillis() - lastUpdateTimestamp) < recentUpdateThreshold;

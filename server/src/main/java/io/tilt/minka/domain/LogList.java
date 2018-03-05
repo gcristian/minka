@@ -4,21 +4,49 @@
 
 package io.tilt.minka.domain;
 
+import static java.util.Objects.requireNonNull;
+
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import io.tilt.minka.domain.EntityLog.Log.TimeState;
+import io.tilt.minka.domain.LogList.Log.TimeState;
 
-public class EntityLog implements Serializable {
+/**
+ * 
+ * A list of {@linkplain Log} contained in a {@linkplain ShardEntity}
+ *  
+ * Deliveries are organized so events occurr in this order:
+ * 
+ * 	 event		state		shard	plan id
+ * 	 =====		=========	=====	=======
+ * 
+ * log1:  
+ *   DETTACH 	PREPARED	9000	 1
+ *   DETTACH 	PENDING		9000	 1
+ *   DETTACH 	CONFIRMED	9000	 1
+ *   
+ * log2:
+ * 	 ATTACH 	PREPARED	9001	 1
+ *   ATTACH 	PENDING		9001	 1
+ *   ATACH 		CONFIRMED	9001	 1
+ *  
+ *  @author Cristian Gonzalez
+ *  @since  Oct 15, 2018
+*/
+public class LogList implements Serializable {
 	
 	protected static final long serialVersionUID = 1L;
 
@@ -27,6 +55,37 @@ public class EntityLog implements Serializable {
 	@JsonIgnore
 	private final LinkedList<Log> logs = new LinkedList<>();
 
+	public final static String NOT_APPLIABLE = "N/A";
+	
+	/**
+	 * Add a new state to an existing key: event + shard + plan.
+	 * Create a new Log if the key not exists already.
+	 * 
+	 * @param event		create, attach, dettach, remove
+	 * @param state		pending, confirmed
+	 * @param shardid	shard1, shard2
+	 * @param planid	version of plan
+	 */
+	public void addEvent(
+	        final EntityEvent event, 
+	        final EntityState state, 
+	        final ShardIdentifier shardid,
+	        final long planid) {		
+        
+        String shid = null;
+        if (shardid==null) {
+        	shid = NOT_APPLIABLE;
+        } else { 
+        	shid = shardid.getStringIdentity();
+        }
+        
+        // look up the right log 
+		Log log = (planid > 0) ? find(planid, shardid, event) : null;
+		if (log==null) {
+            this.logs.add(log = new Log(new Date(), event, shid, planid));
+        }
+        log.addState(state);
+    }
 	
 	@JsonProperty("log-size")
 	public int eventSize() {
@@ -64,70 +123,84 @@ public class EntityLog implements Serializable {
 	    }
 	    return false;
 	}
-    /** add a state to the last event */
-    public void addState(final EntityState state) {
-        addEvent(null, state, null, 0);
-    }
-    
-    /*
-    	deliveries are organized so events occurr in this order:
-    	
-    	event		state		shard	plan id
-    	log1:    	
-    	DETTACH 	PREPARED	9000	 1
-    	DETTACH 	PENDING		9000	 1
-    	DETTACH 	CONFIRMED	9000	 1
-    	log2:
-    	ATTACH 		PREPARED	9001	 1    	
-    	ATTACH 		PENDING		9001	 1    	
-    	ATACH 		CONFIRMED	9001	 1
-    	
-    */ 
-	public void addEvent(
-	        final EntityEvent event, 
-	        final EntityState state, 
-	        final ShardIdentifier shardid,
-	        final long planid) {
-		
-        Log log = this.logs.isEmpty() ? null : this.logs.getLast();
-        final String shid = shardid==null ? "n/a" : shardid.getStringIdentity();
-		if (log == null || (log.getEvent() != event && event != null)
-                || (shid != null && !log.getTargetId().equals(shid))) {
-            this.logs.add(log = new Log(new Date(), event, shid, planid));
-        }
-        log.addState(state);
-    }
+
+	/** 
+	 * @return reading from latest to earliest a Log that matches given:
+	 * plan version, target shard and specific events, or any if null
+	 **/
+	public Log find(final long planid, final ShardIdentifier shardid, final EntityEvent...events) {
+		return find_(planid, shardid, events);
+	}
+	
+	/** 
+	 * @return reading from latest to earliest limited to the last plan
+	 * a Log that matches a target shard 
+	 **/
+	public Log find(final ShardIdentifier shardid) {
+		return find_(0, shardid, null);
+	}
+	
+	private Log find_(final long planid, final ShardIdentifier shardid, final EntityEvent...events) {
+		requireNonNull(shardid);
+		Log ret = null;
+		for (final Iterator<Log> it = getDescendingIterator(); it.hasNext();) {
+            final Log log = it.next();
+            if ((planid == 0 || log.getPlanId() == planid) 
+            		&& log.getTargetId().equals(shardid.getStringIdentity())) {
+            	if (events==null) {
+            		return log;
+            	} else {
+	            	for (EntityEvent ee: events) {
+	            		if (log.getEvent() == ee) {
+	            			return log;
+	            		}
+	            	}
+            	}
+            	break;
+            } else if (log.getPlanId() < planid) {
+            	// avoid phantom events
+            	break;
+            }
+		}
+		return ret;
+	}
 	
 	public Iterator<Log> getDescendingIterator() {
 		return this.logs.descendingIterator();
 	}
 	
+
 	@JsonProperty("log")
 	public List<String> getStringHistory() {
-		final List<String> tmp = new LinkedList<>();
+		final Map<TimeState, String> ordered = new TreeMap<>(new TimeState.DateComparer());
 	    for (Log el: logs) {
 	        final String main = new StringBuilder(30)
                     .append(el.getTargetId()).append(" / ")
                     .append(el.getPlanId()).append(" / ")
                     .toString();
-	        for (final TimeState ds: el.getStates()) {
+	        
+	        for (final TimeState ts: el.getStates()) {
 	            final StringBuilder sb= new StringBuilder(main)
-    	            .append(sdf.format(ds.getDate())).append(" / ")
+    	            .append(sdf.format(ts.getDate())).append(" / ")
                     .append(el.getEvent()).append(" / ")
-                    .append(ds.getState());
-	            tmp.add(sb.toString());
+                    .append(ts.getState());
+	            ordered.put(ts, sb.toString());
 	        }
 	    }
-	    return tmp;
+	    return new ArrayList<>(ordered.values());
 	}
-	
+
+	/**
+	 * a list of States {Prepared, Pending...Confirmed} 
+	 * for an EntityEvent {Create, Attach..Dettach}, a Shard and a Plan.
+	 */
 	public static class Log implements Serializable {
 
 	    private static final long serialVersionUID = -8873965041941783628L;
 	    
 	    private final Date head;
 	    private final EntityEvent event;
-	    private final LinkedList<TimeState> states;
+	    private final LinkedList<TimeState> states = new LinkedList<>();
 	    private final String targetId;
 	    private final long planId;
 	    
@@ -137,7 +210,6 @@ public class EntityLog implements Serializable {
 	        this.event = event;
 	        this.targetId = targetId;
 	        this.planId = planId;
-	        this.states = new LinkedList<>();
 	    }
 	    public Date getHead() {
 	        return this.head;
@@ -145,6 +217,14 @@ public class EntityLog implements Serializable {
 	    public EntityEvent getEvent() {
 	        return this.event;
 	    }
+	    public String getTargetId() {
+	        return this.targetId;
+	    }
+	    public long getPlanId() {
+	        return this.planId;
+	    }
+	    
+	    // ---------------------------------------------------------------------------------------------------
 	    
 	    public List<TimeState> getStates() {
 	        return Collections.unmodifiableList(states);
@@ -155,12 +235,11 @@ public class EntityLog implements Serializable {
 	    }
 	    
 	    public boolean matches(final Log log) {
-	    	return log.getEvent()== this.event
-	    			&& log.getTargetId().equals(this.targetId)
-	    			&& log.getPlanId() == this.planId;
+	    	return matches(log.getEvent(), log.getTargetId(), log.getPlanId());
 	    }
 	    
-	    public boolean matches(final EntityEvent event, final String targetId, final int planId) {
+	    /** @return whether passed log belongs to the same shard, version plan and type of event */	    
+	    public boolean matches(final EntityEvent event, final String targetId, final long planId) {
 	    	return event == this.event
 	    			&& targetId.equals(this.targetId)
 	    			&& planId == this.planId;
@@ -169,20 +248,15 @@ public class EntityLog implements Serializable {
 	    public void addState(final EntityState state) {
 	        this.states.add(new TimeState(new Date(), state));
 	    }
-	    public String getTargetId() {
-	        return this.targetId;
-	    }
-	    public long getPlanId() {
-	        return this.planId;
-	    }
 	    @Override
 	    public String toString() {
 	        final StringBuilder sb = new StringBuilder(20)
+	        		.append("p:").append(planId)
+	        		.append("dt:").append(sdf.format(head)).append(" ")
 	        		.append("ev:").append(event).append(" ")
-	                .append("dt:").append(sdf.format(head)).append(" ")
-	                
 	                .append("sh:").append(targetId).append(" ")
-	                .append("p:").append(planId);	        
+	                
+	                ;	        
 	        return sb.toString();
 	    }
 
@@ -215,8 +289,20 @@ public class EntityLog implements Serializable {
 		}
 	    
 	    
+		/**
+		 * A recording timestamp for a reached state 
+		 */
 	    public static class TimeState implements Serializable {
 	        private static final long serialVersionUID = -3611519717574368897L;
+	        
+	    	public static class DateComparer implements Comparator<TimeState>, Serializable {
+	    		private static final long serialVersionUID = 3709876521530551544L;
+	    		@Override
+	    		public int compare(final TimeState o1, final TimeState o2) {
+	    			return o1.getDate().compareTo(o2.getDate());
+	    		}
+	    	}
+
 	        private final Date date;
 	        private final EntityState state;
 	        public TimeState(final Date date, final EntityState state) {
