@@ -87,13 +87,19 @@ public class Bootstrap extends ServiceImpl {
 		this.eventBroker = eventBroker;
 		
 		this.bootLeadershipCandidate = scheduler
-				.getAgentFactory().create(Action.BOOTSTRAP_LEADERSHIP_CANDIDATURE, PriorityLock.HIGH_ISOLATED,
-						Frequency.ONCE_DELAYED, () -> bootLeadershipCandidate())
+				.getAgentFactory().create(
+						Action.BOOTSTRAP_LEADERSHIP_CANDIDATURE, 
+						PriorityLock.HIGH_ISOLATED,
+						Frequency.ONCE_DELAYED, 
+						() -> bootLeadershipCandidate())
 				.delayed(REPUBLISH_LEADER_CANDIDATE_AFTER_LOST_MS).build();
 
 		this.readyAwareBooting = scheduler
-				.getAgentFactory().create(Action.BOOTSTRAP_BULLETPROOF_START, PriorityLock.HIGH_ISOLATED,
-						Frequency.ONCE_DELAYED, () -> readyAwareBooting())
+				.getAgentFactory().create(
+						Action.BOOTSTRAP_BULLETPROOF_START, 
+						PriorityLock.HIGH_ISOLATED,
+						Frequency.ONCE_DELAYED, 
+						() -> readyAwareBooting())
 				.delayed(config.getBootstrap().getReadynessRetryDelayMs()).build();
 
 		if (autoStart) {

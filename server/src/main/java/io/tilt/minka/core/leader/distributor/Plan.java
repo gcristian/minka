@@ -70,8 +70,8 @@ public class Plan implements Comparable<Plan> {
 
 	static final Logger logger = LoggerFactory.getLogger(Plan.class);
 	
-	public static final int PLAN_UNKNOWN = -2;
-	public static final int PLAN_WITHOUT = -1;
+	public static final int PLAN_UNKNOWN = -1;
+	public static final int PLAN_WITHOUT = 0;
 	
 	private static final AtomicLong sequence = new AtomicLong();
 	
@@ -102,6 +102,10 @@ public class Plan implements Comparable<Plan> {
 
     public Plan(final int maxSeconds, final int maxRetries) {
         this(sequence.incrementAndGet(), maxSeconds, maxRetries);
+    }
+    
+    public void discard() {
+    	sequence.decrementAndGet();
     }
         
     public static enum Result {

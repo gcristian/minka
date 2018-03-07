@@ -116,7 +116,10 @@ public class Distributor extends ServiceImpl {
 		this.initialAdding = true;
 
 		this.distributor = scheduler.getAgentFactory()
-				.create(Action.DISTRIBUTOR, PriorityLock.MEDIUM_BLOCKING, Frequency.PERIODIC, () -> distribute())
+				.create(Action.DISTRIBUTOR, 
+						PriorityLock.MEDIUM_BLOCKING, 
+						Frequency.PERIODIC, 
+						() -> distribute())
 				.delayed(config.getDistributor().getStartDelayMs())
 				.every(config.getDistributor().getDelayMs())
 				.build();
@@ -214,6 +217,7 @@ public class Distributor extends ServiceImpl {
 			logger.info("{}: Balancer generated issues on Plan: {}", getName(), plan.getId());
 			return plan;
 		} else {
+			plan.discard();
 			this.partitionTable.setWorkingHealth(ClusterHealth.STABLE);
 			logger.info("{}: Distribution in Balance ", getName(), LogUtils.BALANCED_CHAR);
 			return null;

@@ -81,18 +81,27 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	public void start() {
 		if (server == null) {
 			this.leaderShardContainer.observeForChange((s) -> onLeaderChange(s));
-			scheduler
-					.schedule(scheduler
-							.getAgentFactory().create(Action.DISCARD_OBSOLETE_CONNECTIONS, PriorityLock.HIGH_ISOLATED,
-									Frequency.PERIODIC, () -> discardObsoleteClients())
-							.delayed(5000).every(2000).build());
+			scheduler.schedule(scheduler.getAgentFactory()
+					.create(Action.DISCARD_OBSOLETE_CONNECTIONS, 
+							PriorityLock.HIGH_ISOLATED,
+							Frequency.PERIODIC, 
+							() -> discardObsoleteClients())
+					.delayed(5000)
+					.every(2000)
+					.build());
 
 			logger.info("{}: Creating SocketServer", getClass().getSimpleName());
 			getShardId().leavePortReservation();
-			this.server = new SocketServer(this, config.getBroker().getConnectionHandlerThreads(),
-					getShardId().getInetPort(), getShardId().getInetAddress().getHostAddress(),
-					config.getBroker().getNetworkInterfase(), scheduler, config.getBroker().getRetryDelayMs(),
-					config.getBroker().getMaxRetries(), getShardId().toString());
+			this.server = new SocketServer(
+					this, 
+					config.getBroker().getConnectionHandlerThreads(),
+					getShardId().getInetPort(), 
+					getShardId().getInetAddress().getHostAddress(),
+					config.getBroker().getNetworkInterfase(), 
+					scheduler, 
+					config.getBroker().getRetryDelayMs(),
+					config.getBroker().getMaxRetries(), 
+					getShardId().toString());
 		}
 	}
 
@@ -153,8 +162,13 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 		if (client == null) {
 			logger.info("{}: ({}) CREATING SocketClient for Shard: {}", getClass().getSimpleName(), getShardId(),
 					channel.getAddress());
-			this.clients.put((DirectChannel)channel, client = new SocketClient(channel, scheduler,
-					config.getBroker().getRetryDelayMs(), config.getBroker().getMaxRetries(), getShardId().toString(), config));
+			client = new SocketClient(channel,
+					scheduler,
+					config.getBroker().getRetryDelayMs(), 
+					config.getBroker().getMaxRetries(), 
+					getShardId().toString(), 
+					config);
+			this.clients.put((DirectChannel)channel, client);
 		}
 
 		logger.debug("{}: ({}) Posting to Broker: {}:{} ({} into {}))", getClass().getSimpleName(), getShardId(),

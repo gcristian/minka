@@ -19,7 +19,7 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
-import io.tilt.minka.domain.NetworkShardIDImpl;
+import io.tilt.minka.domain.TCPShardIdentifier;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.CapacityComparer;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
@@ -59,7 +59,7 @@ public class ShardTest {
 	}
 
 	private Shard buildShard(final Pallet<String> p, final double cap) throws Exception {
-		final Shard s1 = new Shard(Mockito.mock(BrokerChannel.class), new NetworkShardIDImpl(new Config()));
+		final Shard s1 = new Shard(Mockito.mock(BrokerChannel.class), new TCPShardIdentifier(new Config()));
 		final Map<Pallet<?>, Capacity> c = new HashMap<>();
 		c.put(p, new Capacity(p, cap));
 		s1.setCapacities(c);

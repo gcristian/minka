@@ -79,16 +79,22 @@ public class Follower extends ServiceImpl {
 		this.scheduler = scheduler;
 
 		this.clearancer = scheduler.getAgentFactory()
-				.create(Action.FOLLOWER_POLICIES_CLEARANCE, PriorityLock.HIGH_ISOLATED, Frequency.PERIODIC,
+				.create(Action.FOLLOWER_POLICIES_CLEARANCE, 
+						PriorityLock.HIGH_ISOLATED, 
+						Frequency.PERIODIC,
 						() -> certifyClearance())
 				.delayed(config.getFollower().getClearanceCheckStartDelayMs())
-				.every(config.getFollower().getClearanceCheckDelayMs()).build();
+				.every(config.getFollower().getClearanceCheckDelayMs())
+				.build();
 
 		this.cardiologyst = scheduler.getAgentFactory()
-				.create(Action.STUCK_POLICY, PriorityLock.MEDIUM_BLOCKING, Frequency.PERIODIC,
+				.create(Action.STUCK_POLICY, 
+						PriorityLock.MEDIUM_BLOCKING, 
+						Frequency.PERIODIC,
 						() -> checkHeartattackPolicy())
 				.delayed(config.getFollower().getHeartattackCheckStartDelayMs())
-				.every(config.getFollower().getHeartattackCheckDelayMs()).build();
+				.every(config.getFollower().getHeartattackCheckDelayMs())
+				.build();
 
 		this.pump = scheduler.getAgentFactory()
 				.create(Action.HEARTBEAT_REPORT, PriorityLock.MEDIUM_BLOCKING, Frequency.PERIODIC,

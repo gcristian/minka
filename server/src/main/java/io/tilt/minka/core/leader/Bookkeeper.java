@@ -42,6 +42,7 @@ import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.EntityState;
 /**
  * Maintainer and only writer of {@linkplain PartitionTable} 
@@ -148,7 +149,10 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-	/* find the up-coming */
+	/** 
+	 * find the up-coming
+	 * @return if there were changes 
+	 */
 	private boolean searchReallocations(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
 		Set<ShardEntity> sortedLogConfirmed = null;
 		Set<ShardEntity> sortedLogDirty = null;
@@ -156,7 +160,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		for (final ShardEntity beated : beatedDuties) {
 			for (ShardEntity prescripted : delivery.getDuties()) {
 				if (prescripted.equals(beated)) {
-					final Log expected = findPrescriptionForHeartbeat(beated, prescripted);
+					final Log expected = findConfirmationPair(beated, prescripted, shard.getShardID());
 				    if (expected!=null) {
 			    		if (sortedLogConfirmed==null) {
 			    			sortedLogConfirmed = new TreeSet<>();
@@ -182,6 +186,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 							sortedLogDirty.add(beated);
 						}
 					}
+				    break;
 				}
 			}
 		}
@@ -196,38 +201,25 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		return ret;
 	}
 
-	/** @return whether or not an expected event was found */
-    private Log findPrescriptionForHeartbeat(
+	/** @return the expected delivered event matching the beated logs */
+    private Log findConfirmationPair(
             final ShardEntity beated, 
-            final ShardEntity delivered) {
+            final ShardEntity delivered,
+            final ShardIdentifier shardid) {
 
         // beated duty must belong to current non-expired plan
         final long pid = partitionTable.getCurrentPlan().getId();
-        // match specific events
-        for (final Iterator<Log> it = beated.getLog().getDescendingIterator(); it.hasNext();) {
-        	final Log commingLog = it.next();
-            // now which event is confirming (de/attaches are logged alike in the same instance)
-            final EntityState state = commingLog.getLastState();
-			if (commingLog.getPlanId() == pid && commingLog.getEvent()==EntityEvent.ATTACH) {
-				if (state == EntityState.CONFIRMED  || state == EntityState.RECEIVED) {
-	            	for (final Iterator<Log> desc = delivered.getLog().getDescendingIterator(); desc.hasNext();) {
-	            		final Log expectedLog = desc.next();
-	                    if (commingLog.matches(expectedLog)) {
-	                    	// report it only once
-	                    	if (expectedLog.getLastState()!= EntityState.CONFIRMED) {
-	                    		return expectedLog;
-	                    	}
-	                    } else if (pid!=expectedLog.getPlanId()) {
-	                        // keep looping but avoid reading phantom events 
-	                    }
-	                }
-				} else {
-					logger.error("{}: Reporting state: {} on Duty: {}", getClass().getSimpleName(), state);
-				}
-            } else if (pid > commingLog.getPlanId()) {
-                // obsolete heartbeat
-                return null;
-            }
+        final Log b = beated.getLog().find(pid, shardid, EntityEvent.ATTACH);
+        if (b!=null) {
+        	final EntityState es = b.getLastState();
+        	if (es==EntityState.CONFIRMED || es == EntityState.RECEIVED) {
+        		final Log d = delivered.getLog().find(pid, shardid, EntityEvent.ATTACH);
+        		if (d!=null && d.getLastState()!=EntityState.CONFIRMED) {
+        			return d;	
+        		}
+			} else {
+				logger.error("{}: Reporting state: {} on Duty: {}", getClass().getSimpleName(), es);
+        	}
         }
         return null;
     }

@@ -20,7 +20,7 @@
     
     
     <!-- ID del shard: entregado A Leader/Follower solo informativamente  -->
-    <bean id="shardId" class="io.tilt.minka.domain.NetworkShardIDImpl">
+    <bean id="shardId" class="io.tilt.minka.domain.TCPShardIdentifier">
         <constructor-arg ref="config" />
     </bean>
 

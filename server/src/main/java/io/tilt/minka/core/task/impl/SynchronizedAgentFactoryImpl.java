@@ -38,15 +38,21 @@ public class SynchronizedAgentFactoryImpl extends SynchronizedFactoryImpl
 		this.frequency = null;		
 	}
 	
-	protected SynchronizedAgentFactoryImpl(final Action action, final PriorityLock priority, final Frequency frequency,
-				final Runnable task) {
+	protected SynchronizedAgentFactoryImpl(
+			final Action action, 
+			final PriorityLock priority, 
+			final Frequency frequency,
+			final Runnable task) {
 		super(action, priority, task);
 		Validate.notNull(frequency);
 		this.frequency = frequency;
 	}
 
-	public AgentFactory create(final Action action, final PriorityLock priority,
-				final Frequency frequency, final Runnable task) {
+	public AgentFactory create(
+			final Action action, 
+			final PriorityLock priority,
+			final Frequency frequency, 
+			final Runnable task) {
 		return new SynchronizedAgentFactoryImpl(action, priority, frequency, task);
 	}
 

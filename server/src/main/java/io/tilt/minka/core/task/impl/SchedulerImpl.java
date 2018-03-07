@@ -72,11 +72,15 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		this.logName = shardId.toString();
 		this.agentFactory = agentFactory;
 		this.syncFactory = syncFactory;
-		this.executor = new ScheduledThreadPoolExecutor(config.getScheduler().getMaxConcurrency(),
-			new ThreadFactoryBuilder().setNameFormat(Config.SchedulerConf.THREAD_NAME_SCHEDULER + "-%d").build());
+		this.executor = new ScheduledThreadPoolExecutor(
+				config.getScheduler().getMaxConcurrency(),
+				new ThreadFactoryBuilder()
+					.setNameFormat(Config.SchedulerConf.THREAD_NAME_SCHEDULER + "-%d")
+					.build());
 		executor.setRemoveOnCancelPolicy(true);
 		executor.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
 		executor.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
+		
 
 		this.rules = new HashMap<>();
 		getLockingRules().forEach(rule -> this.rules.put(rule.getAction(), rule));
@@ -96,11 +100,17 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	public void forward(Agent agent) {
 		logger.info("{}: ({}) Forwarding task's execution ", getName(), logName, agent);
 		 stop(agent);        
-		 schedule(getAgentFactory().create(agent.getAction(), agent.getPriority(), Frequency.ONCE,
-		         agent.getTask()).build());
+		 schedule(getAgentFactory()
+			 .create(
+				 agent.getAction(), 
+				 agent.getPriority(), 
+				 Frequency.ONCE,
+		         agent.getTask())
+			 .build());
 		 schedule(agent); // go back to old
          if (stop(agent, false)) {
-                schedule(getAgentFactory().create(
+                schedule(getAgentFactory()
+            		.create(
                         agent.getAction(), 
                         agent.getPriority(), 
                         Frequency.ONCE,
@@ -161,8 +171,11 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		ScheduledFuture<?> future = null;
 		logger.debug("{}: ({}) Saving Agent = {} ", getName(), logName, agent.toString());
 		if (agent.getFrequency() == Frequency.PERIODIC) {
-			future = executor.scheduleWithFixedDelay(runnable = () -> runSynchronized(agent), agent.getDelay(),
-				agent.getPeriodicDelay(), agent.getTimeUnit());
+			future = executor.scheduleWithFixedDelay(
+					runnable = () -> runSynchronized(agent), 
+					agent.getDelay(),
+					agent.getPeriodicDelay(), 
+					agent.getTimeUnit());
 		} else if (agent.getFrequency() == Frequency.ONCE) {
 			executor.execute(runnable = () -> runSynchronized(agent));
 		} else if (agent.getFrequency() == Frequency.ONCE_DELAYED) {
@@ -207,17 +220,20 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
     					// TODO: WTF -> LockSupport.parkUntil(Config.SEMAPHORE_UNLOCK_RETRY_DELAY_MS);
     					try {
     						Thread.sleep(getConfig().getScheduler().getSemaphoreUnlockRetryDelayMs());
+    						continue;
     					} catch (InterruptedException e) {
     						logger.error("{}: ({}) While sleeping for unlock delay", getName(), logName, e);
+    						break;
     					}
     				} else {
     					logger.warn("{}: ({}) Coordination starved ({}) for action: {} too many retries ({})", getName(),
     						logName, p, sync.getAction(), retries);
+    					break;
     				}
     			} else {
     				logger.error("{}: Unexpected situation !", getName());
     				break;
-    			}
+    			}				
     		}
 	    } catch (Exception e) {
 	        logger.error("{}: Unexpected ", getName(), e);

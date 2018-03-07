@@ -45,7 +45,7 @@ import io.tilt.minka.core.follower.Follower;
  * @since Dec 3, 2015
  *
  */
-public class NetworkShardIDImpl implements NetworkShardIdentifier, Closeable {
+public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 
 	@JsonIgnore
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -74,7 +74,7 @@ public class NetworkShardIDImpl implements NetworkShardIdentifier, Closeable {
 	//	private Journal journal;
 
 	//public NetworkShardIDImpl(final Config config, final Journal journal) throws IOException {
-	public NetworkShardIDImpl(final Config config) throws Exception {
+	public TCPShardIdentifier(final Config config) throws Exception {
 		final String hostStr = config.getBroker().getHostPort();
 		final String[] brokerStr = hostStr.split(":");
 		Validate.isTrue(brokerStr.length>1, "Bad broker host format: " + hostStr + "([hostname]:[port])");
@@ -239,12 +239,12 @@ public class NetworkShardIDImpl implements NetworkShardIdentifier, Closeable {
 
 	@Override
 	public boolean equals(final Object obj) {
-		if (obj == null || !(obj instanceof NetworkShardIDImpl)) {
+		if (obj == null || !(obj instanceof TCPShardIdentifier)) {
 		    return false;
 		} else if (obj==this) {
 		    return true;
 		} else {
-			return ((NetworkShardIDImpl) obj).getStringIdentity().equals(getStringIdentity());
+			return ((TCPShardIdentifier) obj).getStringIdentity().equals(getStringIdentity());
 		}
 	}
 

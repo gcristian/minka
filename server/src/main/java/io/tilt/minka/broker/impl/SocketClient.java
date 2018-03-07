@@ -42,6 +42,7 @@ import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
@@ -72,6 +73,8 @@ public class SocketClient {
 	private final AtomicBoolean antiflapper;
 	private final int maxQueueThreshold;
 
+	private final Agent connector;
+
 	protected SocketClient(
 	        final BrokerChannel channel, 
 	        final Scheduler scheduler, 
@@ -86,8 +89,14 @@ public class SocketClient {
 		this.antiflapper = new AtomicBoolean(true);
 		this.alive = new AtomicBoolean();
 		this.retry  = new AtomicInteger();
-		scheduler.schedule(scheduler.getAgentFactory().create(Action.BROKER_CLIENT_START, PriorityLock.HIGH_ISOLATED,
-				Frequency.ONCE, () -> keepConnectedWithRetries(channel, maxRetries, retryDelay)).build());
+		this.connector = scheduler.getAgentFactory()
+			.create(
+				Action.BROKER_CLIENT_START, 
+				PriorityLock.HIGH_ISOLATED,
+				Frequency.ONCE, 
+				() -> keepConnectedWithRetries(channel, maxRetries, retryDelay))
+			.build();
+		scheduler.schedule(connector);
 		this.creation = System.currentTimeMillis();
 		this.clientExpiration = Math.max(config.getProctor().getDelayMs(), config.getFollower().getClearanceMaxAbsenceMs());
 		this.maxQueueThreshold = config.getBroker().getConnectionHandlerThreads();

@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -160,11 +161,16 @@ public class Minka<D extends Serializable, P extends Serializable> {
 		res.property("contextConfig", tenant.getContext());
 		final HttpServer webServer = GrizzlyHttpServerFactory.createHttpServer(
 		        resolveWebServerBindAddress(tenant.getConfig()), res);
-		final NetworkListener listener = webServer.getListeners().iterator().next();
-		final ThreadPoolConfig thx=listener.getTransport().getWorkerThreadPoolConfig();
-        thx.setCorePoolSize(5); 
-        thx.setMaxPoolSize(5);
-        thx.setPoolName("minka-grizzly-webserver");
+		
+		final Iterator<NetworkListener> it = webServer.getListeners().iterator();
+		while (it.hasNext()) {
+			final NetworkListener listener = it.next();
+			final ThreadPoolConfig thx=listener.getTransport().getWorkerThreadPoolConfig();
+	        thx.setCorePoolSize(1); 
+	        thx.setMaxPoolSize(1);
+	        thx.setPoolName("minka-grizzly-webserver");
+		}
+		
         // TODO disable ssl etc
 		tenants.get(tenant.getConfig().getBootstrap().getServiceName()).setWebServer(webServer);
 		try {

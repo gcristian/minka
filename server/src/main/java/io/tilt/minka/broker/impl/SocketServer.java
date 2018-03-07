@@ -75,9 +75,17 @@ public class SocketServer {
 
 	private Runnable shutdownCallback;
 
-	protected SocketServer(final Consumer<MessageMetadata> consumer, final int connectionHandlerThreads, final int serverPort,
-			final String serverAddress, final String networkInterfase, final Scheduler scheduler, final int retryDelay, 
-			final int maxRetries, String loggingName) {
+	protected SocketServer(
+			final Consumer<MessageMetadata> consumer, 
+			final int connectionHandlerThreads, 
+			final int serverPort,
+			final String serverAddress, 
+			final String networkInterfase, 
+			final Scheduler scheduler, 
+			final int retryDelay, 
+			final int maxRetries, 
+			String loggingName) {
+		
 		Validate.notNull(consumer);
 		Validate.notNull(scheduler);
 		
@@ -90,8 +98,12 @@ public class SocketServer {
 		this.scheduler = scheduler;
 		this.count = new AtomicLong();
 		this.loggingName = loggingName;
-		scheduler.schedule(scheduler.getAgentFactory().create(Action.BROKER_SERVER_START, PriorityLock.HIGH_ISOLATED,
-				Frequency.ONCE, () -> keepListeningWithRetries(maxRetries, retryDelay)).build());
+		scheduler.schedule(scheduler.getAgentFactory()
+			.create(
+				Action.BROKER_SERVER_START, 
+				PriorityLock.HIGH_ISOLATED,
+				Frequency.ONCE, () -> keepListeningWithRetries(maxRetries, retryDelay))
+			.build());
 	}
 
 	protected void setShutdownCallback(Runnable callback) {
@@ -103,8 +115,11 @@ public class SocketServer {
 	 * follower or leader
 	 */
 	private void keepListeningWithRetries(final int maxRetries, final int retryDelay) {
-		this.serverWorkerGroup = new NioEventLoopGroup(this.connectionHandlerThreads,
-				new ThreadFactoryBuilder().setNameFormat(Config.SchedulerConf.THREAD_NAME_BROKER_SERVER_WORKER).build());
+		this.serverWorkerGroup = new NioEventLoopGroup(
+				this.connectionHandlerThreads,
+				new ThreadFactoryBuilder()
+					.setNameFormat(Config.SchedulerConf.THREAD_NAME_BROKER_SERVER_WORKER)
+					.build());
 
 		boolean disconnected = true;
 		while (retry < maxRetries && disconnected) {

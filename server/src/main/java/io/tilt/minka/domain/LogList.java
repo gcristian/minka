@@ -168,23 +168,18 @@ public class LogList implements Serializable {
 	public Iterator<Log> getDescendingIterator() {
 		return this.logs.descendingIterator();
 	}
-	
 
 	@JsonProperty("log")
 	public List<String> getStringHistory() {
 		final Map<TimeState, String> ordered = new TreeMap<>(new TimeState.DateComparer());
-	    for (Log el: logs) {
-	        final String main = new StringBuilder(30)
-                    .append(el.getTargetId()).append(" / ")
-                    .append(el.getPlanId()).append(" / ")
-                    .toString();
-	        
+	    for (Log el: logs) {	    	
 	        for (final TimeState ts: el.getStates()) {
-	            final StringBuilder sb= new StringBuilder(main)
-    	            .append(sdf.format(ts.getDate())).append(" / ")
-                    .append(el.getEvent()).append(" / ")
-                    .append(ts.getState());
-	            ordered.put(ts, sb.toString());
+	        	ordered.put(ts, String.format("%s %s: %s (%s) at %s", 
+	        			el.getPlanId(), 
+	        			el.getEvent(), 
+	        			el.getTargetId(), 
+	        			ts.getState(), 
+	        			sdf.format(ts.getDate()))); 
 	        }
 	    }
 	    return new ArrayList<>(ordered.values());

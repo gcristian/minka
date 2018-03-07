@@ -21,7 +21,9 @@ public class DependencyPlaceholder {
 		initDefault();
 	}
 
-	public DependencyPlaceholder(final PartitionDelegate<? extends Serializable, ? extends Serializable> delegate, final PartitionMaster<? extends Serializable, ? extends Serializable> master) {
+	public DependencyPlaceholder(
+			final PartitionDelegate<? extends Serializable, ? extends Serializable> delegate, 
+			final PartitionMaster<? extends Serializable, ? extends Serializable> master) {
 		// NO Validar
 		this();
 		this.delegate = delegate;

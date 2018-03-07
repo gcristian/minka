@@ -14,7 +14,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.domain.NetworkShardIDImpl;
+import io.tilt.minka.domain.TCPShardIdentifier;
 
 public class NetworkShardIDTest {
 
@@ -23,7 +23,7 @@ public class NetworkShardIDTest {
 		final int port = 2323;
 		final Config config = new Config("", "localhost:" + port);
 		config.getBroker().setEnablePortFallback(false);
-		final NetworkShardIDImpl id = new NetworkShardIDImpl(config);
+		final TCPShardIdentifier id = new TCPShardIdentifier(config);
 		
 		ServerSocket ss1 = null;
 		try {
@@ -51,7 +51,7 @@ public class NetworkShardIDTest {
 		assert ss1.isBound();
 		final Config config = new Config("", "localhost:" + port);
 		config.getBroker().setEnablePortFallback(true);
-		final NetworkShardIDImpl id = new NetworkShardIDImpl(config);
+		final TCPShardIdentifier id = new TCPShardIdentifier(config);
 		
 		try {
 			final ServerSocket ss2 = new ServerSocket(port + 1);
@@ -69,7 +69,7 @@ public class NetworkShardIDTest {
 	public void test_acquires_a_correct_lan_address() throws Exception {
 		final int port = 2323;
 		final Config config = new Config("", "localhost:" + port);
-		final NetworkShardIDImpl id = new NetworkShardIDImpl(config);
+		final TCPShardIdentifier id = new TCPShardIdentifier(config);
 
 		final String hostname = config.getBroker().getHostPort().split(":")[0];
 		final Enumeration<NetworkInterface> enu = NetworkInterface.getNetworkInterfaces();

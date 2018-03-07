@@ -23,7 +23,7 @@ import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.impl.TransportlessLeaderShardContainer;
 import io.tilt.minka.domain.NetworkShardIdentifier;
-import io.tilt.minka.domain.NetworkShardIDImpl;
+import io.tilt.minka.domain.TCPShardIdentifier;
 import junit.framework.Assert;
 
 public abstract class AbstractBrokerTester {
@@ -50,12 +50,12 @@ public abstract class AbstractBrokerTester {
 		// network communication requires some time
 
 		final Config configL = buidConfig(22000);
-		final NetworkShardIDImpl shardL = new NetworkShardIDImpl(configL);
+		final TCPShardIdentifier shardL = new TCPShardIdentifier(configL);
 
 		final Config configF1 = buidConfig(22001);
-		final NetworkShardIDImpl shardF1 = new NetworkShardIDImpl(configF1);
+		final TCPShardIdentifier shardF1 = new TCPShardIdentifier(configF1);
 		final Config configF2 = buidConfig(22002);
-		final NetworkShardIDImpl shardF2 = new NetworkShardIDImpl(configF2);
+		final TCPShardIdentifier shardF2 = new TCPShardIdentifier(configF2);
 
 		final LeaderShardContainer container = new TransportlessLeaderShardContainer(shardL);
 		container.setNewLeader(shardL);
@@ -77,10 +77,10 @@ public abstract class AbstractBrokerTester {
 
 	public static class MetaBroker {
 		private final Config config;
-		private final NetworkShardIDImpl shard;
+		private final TCPShardIdentifier shard;
 		private final EventBroker broker;
 
-		public MetaBroker(final Config config, final NetworkShardIDImpl shard, final EventBroker broker) {
+		public MetaBroker(final Config config, final TCPShardIdentifier shard, final EventBroker broker) {
 			super();
 			this.config = config;
 			this.shard = shard;
@@ -91,7 +91,7 @@ public abstract class AbstractBrokerTester {
 			return this.config;
 		}
 
-		public NetworkShardIDImpl getShard() {
+		public TCPShardIdentifier getShard() {
 			return this.shard;
 		}
 
@@ -117,7 +117,7 @@ public abstract class AbstractBrokerTester {
 			while (!ports.add(port = rnd.nextInt(MAX_PORT_VALUE)) && port < MIN_PORT_VALUE)
 				;
 			final Config config = buidConfig(port);
-			final NetworkShardIDImpl shard = new NetworkShardIDImpl(config);
+			final TCPShardIdentifier shard = new TCPShardIdentifier(config);
 			if (container == null) {
 				container = new TransportlessLeaderShardContainer(shard);
 			}
