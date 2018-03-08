@@ -195,7 +195,6 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	private <R> R runSynchronized(final Synchronized sync) {
 	    try {
     		Validate.notNull(sync);
-    		checkQueue();
     		if (sync.getPriority() == PriorityLock.HIGH_ISOLATED) {
     			call(sync, false);
     			return (R) new Boolean(true);
@@ -212,6 +211,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
     			if (p == GRANTED) {
     				return call(sync, true);
     			} else if (p == RETRY && untilGrant) {
+    				checkQueue();
     				if (retries++ < getConfig().getScheduler().getSemaphoreUnlockMaxRetries()) {
     					if (logger.isDebugEnabled()) {
     						logger.warn("{}: ({}) Sleeping while waiting to acquire lock: {}", getName(), logName,
@@ -231,11 +231,13 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
     					break;
     				}
     			} else {
+    				checkQueue();
     				logger.error("{}: Unexpected situation !", getName());
     				break;
     			}				
     		}
 	    } catch (Exception e) {
+	    	checkQueue();
 	        logger.error("{}: Unexpected ", getName(), e);
 	    }
 		return null;

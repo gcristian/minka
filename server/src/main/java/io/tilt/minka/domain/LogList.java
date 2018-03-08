@@ -80,7 +80,7 @@ public class LogList implements Serializable {
         }
         
         // look up the right log 
-		Log log = (planid > 0) ? find(planid, shardid, event) : null;
+		Log log = (planid > 0) ? find_(planid, shid, event) : null;
 		if (log==null) {
             this.logs.add(log = new Log(new Date(), event, shid, planid));
         }
@@ -129,7 +129,7 @@ public class LogList implements Serializable {
 	 * plan version, target shard and specific events, or any if null
 	 **/
 	public Log find(final long planid, final ShardIdentifier shardid, final EntityEvent...events) {
-		return find_(planid, shardid, events);
+		return find_(planid, shardid.getStringIdentity(), events);
 	}
 	
 	/** 
@@ -137,16 +137,16 @@ public class LogList implements Serializable {
 	 * a Log that matches a target shard 
 	 **/
 	public Log find(final ShardIdentifier shardid) {
-		return find_(0, shardid, null);
+		return find_(0, shardid.getStringIdentity(), null);
 	}
 	
-	private Log find_(final long planid, final ShardIdentifier shardid, final EntityEvent...events) {
+	private Log find_(final long planid, final String shardid, final EntityEvent...events) {
 		requireNonNull(shardid);
 		Log ret = null;
 		for (final Iterator<Log> it = getDescendingIterator(); it.hasNext();) {
             final Log log = it.next();
             if ((planid == 0 || log.getPlanId() == planid) 
-            		&& log.getTargetId().equals(shardid.getStringIdentity())) {
+            		&& log.getTargetId().equals(shardid)) {
             	if (events==null) {
             		return log;
             	} else {

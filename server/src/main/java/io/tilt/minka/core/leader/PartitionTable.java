@@ -187,7 +187,7 @@ public class PartitionTable {
 			if (event.is(EntityEvent.ATTACH) || event.is(EntityEvent.CREATE)) {
 				checkDuplicationFailure(duty, where);
 				if (getPartition(where).add(duty)) {
-					logger.info("{}: Written {} with: {} on shard {}", getClass().getSimpleName(), event.toVerb(), duty, where);
+					logger.info("{}: Written {} with: {} on shard {}", getClass().getSimpleName(), event, duty, where);
 				} else {
 					throw new IllegalStateException("Attach failure. Confirmed attach/creation already exists");
 				}

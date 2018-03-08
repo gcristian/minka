@@ -20,12 +20,15 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import org.apache.commons.lang.Validate;
+import org.jboss.netty.handler.codec.marshalling.DefaultMarshallerProvider;
+import org.jboss.netty.handler.codec.marshalling.MarshallingEncoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -35,13 +38,18 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.ByteToMessageDecoder;
+import io.netty.handler.codec.MessageToByteEncoder;
 import io.netty.handler.codec.serialization.ClassResolvers;
+import io.netty.handler.codec.serialization.CompatibleObjectEncoder;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
+import io.netty.handler.codec.serialization.ObjectEncoderOutputStream;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
@@ -69,11 +77,15 @@ public class SocketServer {
 	private final String serverAddress;
 	private final String networkInterfase;
 	private final Scheduler scheduler;
+	private final Agent agent;
+	
 	private int retry;
 	private final AtomicLong count;
 	private final String loggingName;
 
 	private Runnable shutdownCallback;
+
+	private ChannelFuture channelFuture;
 
 	protected SocketServer(
 			final Consumer<MessageMetadata> consumer, 
@@ -84,7 +96,7 @@ public class SocketServer {
 			final Scheduler scheduler, 
 			final int retryDelay, 
 			final int maxRetries, 
-			String loggingName) {
+			final String loggingName) {
 		
 		Validate.notNull(consumer);
 		Validate.notNull(scheduler);
@@ -98,12 +110,14 @@ public class SocketServer {
 		this.scheduler = scheduler;
 		this.count = new AtomicLong();
 		this.loggingName = loggingName;
-		scheduler.schedule(scheduler.getAgentFactory()
+		this.agent = scheduler.getAgentFactory()
 			.create(
 				Action.BROKER_SERVER_START, 
 				PriorityLock.HIGH_ISOLATED,
-				Frequency.ONCE, () -> keepListeningWithRetries(maxRetries, retryDelay))
-			.build());
+				Frequency.PERIODIC, () -> listenWithRetries(maxRetries, retryDelay))
+			.every(2000l)
+			.build();
+		scheduler.schedule(agent);
 	}
 
 	protected void setShutdownCallback(Runnable callback) {
@@ -114,24 +128,29 @@ public class SocketServer {
 	 * a client for a shard's broker to send any type of messages, whether be
 	 * follower or leader
 	 */
-	private void keepListeningWithRetries(final int maxRetries, final int retryDelay) {
-		this.serverWorkerGroup = new NioEventLoopGroup(
-				this.connectionHandlerThreads,
-				new ThreadFactoryBuilder()
-					.setNameFormat(Config.SchedulerConf.THREAD_NAME_BROKER_SERVER_WORKER)
-					.build());
-
-		boolean disconnected = true;
-		while (retry < maxRetries && disconnected) {
-			if (retry++ > 0) {
-				try {
-					Thread.sleep(retryDelay);
-				} catch (InterruptedException e) {
-					logger.error("{}: ({}) Unexpected while waiting for next server bootup retry",
-							getClass().getSimpleName(), loggingName, e);
+	private void listenWithRetries(final int maxRetries, final int retryDelay) {
+		if (this.channelFuture==null || channelFuture.cause()!=null) {
+			this.serverWorkerGroup = new NioEventLoopGroup(
+					this.connectionHandlerThreads,
+					new ThreadFactoryBuilder()
+						.setNameFormat(Config.SchedulerConf.THREAD_NAME_BROKER_SERVER_WORKER)
+						.build());
+	
+			boolean disconnected = true;
+			while (retry < maxRetries && disconnected) {
+				if (retry++ > 0) {
+					try {
+						Thread.sleep(retryDelay);
+					} catch (InterruptedException e) {
+						logger.error("{}: ({}) Unexpected while waiting for next server bootup retry",
+								getClass().getSimpleName(), loggingName, e);
+					}
 				}
+				disconnected = keepListening();
 			}
-			disconnected = keepListening();
+			if (disconnected) {
+				scheduler.schedule(agent);
+			}
 		}
 	}
 
@@ -144,39 +163,35 @@ public class SocketServer {
 				getClass().getSimpleName(), loggingName, networkInterfase, this.connectionHandlerThreads);
 
 		try {
-			final ServerBootstrap b = new ServerBootstrap();
-			b.group(serverWorkerGroup)
+			final ServerBootstrap server = new ServerBootstrap();
+			server.group(serverWorkerGroup)
 			    .channel(NioServerSocketChannel.class)
-				//.channel(OioServerSocketChannel.class)
 				.handler(new LoggingHandler(LogLevel.INFO))
 				.childHandler(new ChannelInitializer<SocketChannel>() {
 					@Override
 					public void initChannel(SocketChannel ch) throws Exception {
 						ch.pipeline()
-						    .addLast(
-						        new ObjectEncoder(),
-								new ObjectDecoder(ClassResolvers.cacheDisabled(null)), 
-								serverHandler)
+						    .addLast("encoder", new ObjectEncoder())
+						    .addLast("decoder", new ObjectDecoder(ClassResolvers.weakCachingResolver(null)))
+						    .addLast("handler", serverHandler)
 						    .addLast(new ExceptionHandler())
 						    ;
 					}
-				})
-				;
-			logger.info("{}: Listening for client connections..", getClass().getSimpleName());
-			b.childOption(ChannelOption.SO_KEEPALIVE, true);
-
+				});			
+			server.childOption(ChannelOption.SO_KEEPALIVE, true);
+			server.childOption(ChannelOption.TCP_NODELAY, true);
+			server.childOption(ChannelOption.AUTO_READ, true);
+			server.childOption(ChannelOption.SO_REUSEADDR, true);
+			
 			logger.info("{}: ({}) Listening to client connections (using i:{}) with up to {} concurrent requests",
 					getClass().getSimpleName(), loggingName, networkInterfase, this.connectionHandlerThreads);
 
-			b.bind(this.serverAddress, this.serverPort).sync().channel().closeFuture().sync();
+			this.channelFuture = server.bind(this.serverAddress, this.serverPort);
 			disconnected = false;
 		} catch (Exception e) {
 			disconnected = true;
 			logger.error("{}: ({}) Unexpected interruption while listening incoming connections",
 					getClass().getSimpleName(), loggingName, e);
-		} finally {
-			logger.info("{}: ({}) Exiting server listening scope", getClass().getSimpleName(), loggingName);
-			shutdown();
 		}
 		return disconnected;
 	}
@@ -215,31 +230,29 @@ public class SocketServer {
 
 		@Override
 		public void channelRead(ChannelHandlerContext ctx, Object msg) {
-			consume(msg);
-		}
-
-		private void consume(Object msg) {
 			try {
 				if (msg == null) {
 					logger.error("({}) SocketServerHandler: incoming message came NULL", loggingName);
 					return;
 				}
 				MessageMetadata meta = (MessageMetadata) msg;
-				if (meta.getPayload() instanceof DomainInfo) {
-				    int i = 0;
-				}
 				logger.debug("{}: ({}) Reading: {}", getClass().getSimpleName(), loggingName, meta.getPayloadType());
-				scheduler.schedule(scheduler.getAgentFactory().create(
-						Action.BROKER_INCOMING_MESSAGE, PriorityLock.HIGH_ISOLATED, Frequency.ONCE, 
-						() -> consumer.accept(meta)).build());
+				scheduler.schedule(scheduler.getAgentFactory()
+						.create(
+							Action.BROKER_INCOMING_MESSAGE, 
+							PriorityLock.HIGH_ISOLATED, 
+							Frequency.ONCE, 
+							() -> consumer.accept(meta))
+						.build());
 			} catch (Exception e) {
 				logger.error("({}) SocketServerHandler: Unexpected while reading incoming message", loggingName, e);
 			}
 		}
-
+		
 		@Override
 		public void exceptionCaught(final ChannelHandlerContext ctx, final Throwable e) {
-			logger.error("({}) SocketServerHandler: Unexpected while reading incoming message", loggingName);
+			logger.error("({}) ChannelInboundHandlerAdapter: Unexpected while consuming (who else's using broker port ??)", 
+					loggingName, e);
 			ctx.close();
 		}
 	}

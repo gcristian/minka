@@ -105,7 +105,7 @@ public class Migrator {
 		}
 		cluster.forEach(d->checkDuplicate(d));
 		final double remainingCap = validateOverride(shard, cluster);
-		if (log.isInfoEnabled()) {
+		if (!cluster.isEmpty() && log.isInfoEnabled()) {
 			log.info("{}: Requesting Override: {}, remain cap: {}, with {}", getClass().getSimpleName(), shard, remainingCap, 
 				ShardEntity.toStringIds(cluster));
 		}

@@ -15,6 +15,7 @@ import java.util.function.Supplier;
 import org.apache.commons.lang.Validate;
 import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.grizzly.http.server.NetworkListener;
+import org.glassfish.grizzly.threadpool.GrizzlyExecutorService;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
@@ -162,13 +163,17 @@ public class Minka<D extends Serializable, P extends Serializable> {
 		final HttpServer webServer = GrizzlyHttpServerFactory.createHttpServer(
 		        resolveWebServerBindAddress(tenant.getConfig()), res);
 		
+		final ThreadPoolConfig config = ThreadPoolConfig.defaultConfig()
+				.setCorePoolSize(1)
+				.setMaxPoolSize(1);
+		
 		final Iterator<NetworkListener> it = webServer.getListeners().iterator();
 		while (it.hasNext()) {
 			final NetworkListener listener = it.next();
-			final ThreadPoolConfig thx=listener.getTransport().getWorkerThreadPoolConfig();
-	        thx.setCorePoolSize(1); 
-	        thx.setMaxPoolSize(1);
-	        thx.setPoolName("minka-grizzly-webserver");
+			((GrizzlyExecutorService)listener.getTransport().getWorkerThreadPool()).reconfigure(
+					config.copy().setPoolName(Config.SchedulerConf.THREAD_NAME_WEBSERVER_WORKER));
+			((GrizzlyExecutorService)listener.getTransport().getKernelThreadPool()).reconfigure(
+					config.copy().setPoolName(Config.SchedulerConf.THREAD_NAME_WEBSERVER_KERNEL));
 		}
 		
         // TODO disable ssl etc

@@ -16,6 +16,8 @@
  */
 package io.tilt.minka.broker.impl;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -24,6 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.SerializationUtils;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
@@ -36,6 +39,8 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.DelimiterBasedFrameDecoder;
+import io.netty.handler.codec.Delimiters;
 import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
@@ -47,6 +52,7 @@ import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.domain.DomainInfo;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.spectator.MessageMetadata;
 
 /**
@@ -64,7 +70,7 @@ public class SocketClient {
 	private SocketClientHandler clientHandler;
 	private final AtomicBoolean alive;
 	private final AtomicInteger retry;
-	String loggingName;
+	private String loggingName;
 
 	private long creation;
 	private long lastUsage;
@@ -73,6 +79,7 @@ public class SocketClient {
 	private final AtomicBoolean antiflapper;
 	private final int maxQueueThreshold;
 
+	private final Scheduler scheduler; 
 	private final Agent connector;
 
 	protected SocketClient(
@@ -89,16 +96,19 @@ public class SocketClient {
 		this.antiflapper = new AtomicBoolean(true);
 		this.alive = new AtomicBoolean();
 		this.retry  = new AtomicInteger();
+		this.scheduler = requireNonNull(scheduler);
 		this.connector = scheduler.getAgentFactory()
 			.create(
 				Action.BROKER_CLIENT_START, 
 				PriorityLock.HIGH_ISOLATED,
 				Frequency.ONCE, 
-				() -> keepConnectedWithRetries(channel, maxRetries, retryDelay))
+				() -> keepConnecting(channel, maxRetries, retryDelay))
 			.build();
 		scheduler.schedule(connector);
 		this.creation = System.currentTimeMillis();
-		this.clientExpiration = Math.max(config.getProctor().getDelayMs(), config.getFollower().getClearanceMaxAbsenceMs());
+		this.clientExpiration = Math.max(
+				requireNonNull(config).getProctor().getDelayMs(), 
+				config.getFollower().getClearanceMaxAbsenceMs());
 		this.maxQueueThreshold = config.getBroker().getConnectionHandlerThreads();
 	}
 
@@ -152,9 +162,11 @@ public class SocketClient {
 	 * a client for a shard's broker to send any type of messages, whether be
 	 * follower or leader
 	 */
-	private void keepConnectedWithRetries(final BrokerChannel channel, final int maxRetries, final int retryDelay) {
+	private void keepConnecting(final BrokerChannel channel, final int maxRetries, final int retryDelay) {
 		clientGroup = new NioEventLoopGroup(1,
-				new ThreadFactoryBuilder().setNameFormat(Config.SchedulerConf.THREAD_NANE_TCP_BROKER_CLIENT).build());
+				new ThreadFactoryBuilder()
+					.setNameFormat(Config.SchedulerConf.THREAD_NANE_TCP_BROKER_CLIENT)
+					.build());
 
 		boolean wronglyDisconnected = true;
 		while (retry.get() < maxRetries && wronglyDisconnected) {
@@ -167,37 +179,42 @@ public class SocketClient {
 							getClass().getSimpleName(), loggingName, e);
 				}
 			}
-			wronglyDisconnected = keepConnected(channel);
+			wronglyDisconnected = connect(channel);
+		}
+		if (wronglyDisconnected) {
+			this.scheduler.schedule(connector);
 		}
 	}
+	
 
-	private boolean keepConnected(final BrokerChannel channel) {
+	private boolean connect(final BrokerChannel channel) {
 		boolean wrongDisconnection;
 		try {
-			final String address = channel.getAddress().getInetAddress().getHostAddress();
-			final int port = channel.getAddress().getInetPort();
+			final NetworkShardIdentifier addr = channel.getAddress();
+			final String address = addr.getInetAddress().getHostAddress();
+			final int port = addr.getInetPort();
 			logger.info("{}: ({}) Building client (retry:{}) for outbound messages to: {}", getClass().getSimpleName(),
-					loggingName, retry, channel.getAddress());
-			final Bootstrap b = new Bootstrap();
-			b.group(clientGroup)
+					loggingName, retry, addr);
+			final Bootstrap bootstrap = new Bootstrap();
+			
+			bootstrap.group(clientGroup)
 			    .channel(NioSocketChannel.class)
 			    .handler(new ChannelInitializer<SocketChannel>() {
 				@Override
 				public void initChannel(SocketChannel ch) throws Exception {
-					ch.pipeline().addLast(
-							new ObjectEncoder(), 
-							new ObjectDecoder(ClassResolvers.cacheDisabled(null)),
-							clientHandler)
-					.addLast(new ExceptionHandler());
+					ch.pipeline()
+					    .addLast("encoder", new ObjectEncoder())
+					    .addLast("decoder", new ObjectDecoder(ClassResolvers.weakCachingResolver(null)))
+						.addLast("handler", clientHandler)
+						.addLast(new ExceptionHandler());
 				}
 			});
 			this.alive.set(true);
 			logger.info("{}: ({}) Binding to broker: {}:{} at channel: {}", getClass().getSimpleName(), loggingName,
 					address, port, channel.getChannel().name());
-			b.connect(channel.getAddress().getInetAddress().getHostAddress(), 
-					channel.getAddress().getInetPort())
-				.sync()
-				.channel().closeFuture().sync();
+			bootstrap.connect(addr.getInetAddress().getHostAddress(), addr.getInetPort())
+				.sync();
+				//.channel().closeFuture().sync();
 			wrongDisconnection = false;
 		} catch (InterruptedException ie) {
 			wrongDisconnection = false;
@@ -238,9 +255,6 @@ public class SocketClient {
 					if (msg != null) {
 						logger.debug("{}: ({}) Writing: {}", getClass().getSimpleName(), loggingName, msg.getPayloadType());
 						//ctx.writeAndFlush(new MessageMetadata(msg.getPayload(), msg.getInbox()));
-						if (msg.getPayload() instanceof DomainInfo) {
-						    int i = 9;
-						}
 						ctx.writeAndFlush(msg);
 					} else {
 						logger.error("{}: ({}) Waiting for messages to be enqueued: {}", getClass().getSimpleName(),
@@ -265,8 +279,8 @@ public class SocketClient {
 
 		@Override
 		public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-			logger.error("{}: ({}) Unexpected while posting message payload", getClass().getSimpleName(), loggingName,
-					cause);
+			logger.error("{}: ({}) ChannelInboundHandlerAdapter: Unexpected ", 
+					getClass().getSimpleName(), loggingName, cause);
 			ctx.close();
 		}
 

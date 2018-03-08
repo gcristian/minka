@@ -73,7 +73,11 @@ public class Config {
 	private ConsistencyConf consistency;
 
 	public static class SchedulerConf {
-		public static int MAX_CONCURRENCY= 10;
+		
+		// only 1 thread for all other continuous scheduled tasks is enough
+		// in case of bigger transportation payloads this can increase
+		// as the Scheduler will handle permissions thru Semaphore 
+		public static int MAX_CONCURRENCY = 1;
 		private int maxConcurrency; 
 		public int getMaxConcurrency() {
 			return this.maxConcurrency;
@@ -86,6 +90,9 @@ public class Config {
 		public static String THREAD_NAME_BROKER_SERVER_GROUP = PNAME + "BG";
 		public static String THREAD_NAME_BROKER_SERVER_WORKER = PNAME + "BW";
 		public static String THREAD_NANE_TCP_BROKER_CLIENT = PNAME + "BC";
+		
+		public static String THREAD_NAME_WEBSERVER_WORKER = PNAME + "-grizzly-webserver-workers";
+		public static String THREAD_NAME_WEBSERVER_KERNEL = PNAME + "-grizzly-webserver-kernel";
 
 		public static long SEMAPHORE_UNLOCK_RETRY_DELAY_MS = 100l; //50l;
 		private int semaphoreUnlockRetryDelayMs;
@@ -175,7 +182,10 @@ public class Config {
 		public final static int PORT = 5748;
 		protected final static String HOST_PORT = "localhost:" + PORT;
 		private String hostPort;
-		protected final static int CONNECTION_HANDLER_THREADS = 10;
+		// tested with a cluster of 10 nodes: 1 thread was enough
+		// either case Heartbeats from followers will compete for leader's atention at most
+		// and broker's messages range 8-30k bytes: which means a fast netty channel switch and no starvation   
+		protected final static int CONNECTION_HANDLER_THREADS = 1;
 		private int connectionHandlerThreads;
 		protected final static int MAX_RETRIES = 300;
 		private int maxRetries;
