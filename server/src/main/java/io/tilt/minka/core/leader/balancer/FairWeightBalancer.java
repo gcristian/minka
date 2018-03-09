@@ -18,6 +18,7 @@ package io.tilt.minka.core.leader.balancer;
 
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -26,7 +27,6 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
 import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.core.leader.distributor.Plan;
@@ -105,21 +105,27 @@ public class FairWeightBalancer implements Balancer {
 	 * this algorithm makes the best effort allocating all duties over it's fairness formula
 	 * also fixing division remainders, but without overwhelming shards. 
 	 */
-	public void balance(final NextTable next) {
-		final Metadata meta = (Metadata)next.getPallet().getMetadata();
+	public void balance(
+			final Pallet<?> pallet,
+			final Set<ShardEntity> stageDuties, 
+			final Map<Shard, Set<ShardEntity>> stageDistro,
+			final Set<ShardEntity> creations,
+			final Set<ShardEntity> deletions,
+			final Migrator migrator) {
+
+		final Metadata meta = (Metadata)pallet.getMetadata();
 		// order new ones and current ones in order to get a fair distro 
 		final Set<ShardEntity> duties = new TreeSet<>(meta.getPresort().getComparator());
-		duties.addAll(next.getCreations());
-		duties.addAll(next.getDuties());
-		duties.removeAll(next.getDeletions()); // delete those marked for deletion
+		duties.addAll(creations);
+		duties.addAll(duties);
+		duties.removeAll(deletions); // delete those marked for deletion
 		if (meta.getDispersion()==Dispersion.EVEN) {
-			final Set<Bascule<Shard, ShardEntity>> bascules = buildBascules(next.getPallet(), next.getIndex().keySet(), duties);
+			final Set<Bascule<Shard, ShardEntity>> bascules = buildBascules(pallet, stageDistro.keySet(), duties);
 			if (bascules.isEmpty()) {
 			    //for (final Iterator<ShardEntity> itDuties = duties.iterator(); itDuties.hasNext(); 
 			    //        itDuties.next().getLog().getLast().addState(EntityState.STUCK));
 				return;
 			}
-    		final Migrator migra = next.getMigrator();
     		final Iterator<Bascule<Shard, ShardEntity>> itBascs = bascules.iterator();
     		final Iterator<ShardEntity> itDuties = duties.iterator();
     		ShardEntity duty = null;
@@ -147,14 +153,14 @@ public class FairWeightBalancer implements Balancer {
     				}
     				// si esta bascula no la levanto y no queda otra y no hay mas duties
     				if (!lifted || !itBascs.hasNext() || !itDuties.hasNext()) {
-    					migra.override(bascule.getOwner(), bascule.getCargo());
+    					migrator.override(bascule.getOwner(), bascule.getCargo());
     					break;
     				}
     			}
     		}
     		if (itDuties.hasNext()) {
     			logger.error("{}: Insufficient cluster capacity for Pallet: {}, remaining duties without distribution {}", 
-    				getClass().getSimpleName(), next.getPallet(), duty.toBrief());
+    				getClass().getSimpleName(), pallet, duty.toBrief());
     			while (itDuties.hasNext()) {
     				ShardEntity ne = itDuties.next();
     			    ne.getLog().addEvent(ne.getLastEvent(), EntityState.STUCK, null, -1);    			

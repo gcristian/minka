@@ -32,17 +32,15 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.AtomicDouble;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.PartitionDelegate;
-import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
 import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Migrator;
-import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.CapacityComparer;
 import io.tilt.minka.domain.Shard.DateComparer;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.EntityState;
 
 /**
  * Type unbalanced.
@@ -124,60 +122,67 @@ public class SpillOverBalancer implements Balancer {
 
 
 	@Override
-	public void balance(final NextTable next) {
-		final Metadata meta = (Metadata)next.getPallet().getMetadata();
+	public void balance(
+			final Pallet<?> pallet,
+			final Set<ShardEntity> stageDuties, 
+			final Map<Shard, Set<ShardEntity>> stageDistro,
+			final Set<ShardEntity> creations,
+			final Set<ShardEntity> deletions,
+			final Migrator migrator) {
+
+		final Metadata meta = (Metadata)pallet.getMetadata();
 		if (meta.getMaxValue() < 0) {
-			final Shard receptorShard = getAnyReceptorShard(next);
+			final Shard receptorShard = getAnyReceptorShard(stageDistro);
 			logger.info("{}: For Unbounded duties (max = -1) found Shard receptor: {}", getClass().getSimpleName(),
 					receptorShard);
 			//creations.addAll(dangling);
-			moveAllToOne(next, receptorShard);
+			moveAllToOne(stageDistro, creations, deletions, migrator, receptorShard);
 		} else {
 			logger.info("{}: Computing Spilling strategy: {} with a Max Value: {}", getClass().getSimpleName(), meta.getMaxUnit(), 
 				meta.getMaxUnit() == MaxUnit.USE_CAPACITY ? "{shard's capacity}" : meta.getMaxValue());
 			
 			boolean loadStrat = meta.getMaxUnit() == MaxUnit.DUTY_WEIGHT || meta.getMaxUnit() == MaxUnit.USE_CAPACITY;
 			final Map<Shard, AtomicDouble> spaceByReceptor = new HashMap<>();
-			final SetMultimap<Shard, ShardEntity> trans = collectTransceivers(next, loadStrat, spaceByReceptor, meta);
+			final SetMultimap<Shard, ShardEntity> trans = collectTransceivers(pallet, stageDistro, loadStrat, spaceByReceptor, meta);
 			if (trans==null || (spaceByReceptor.isEmpty() && !trans.isEmpty())) {
 				logger.warn("{}: Couldnt find receptors to spill over to", getClass().getSimpleName());
 			} else {
 				logger.info("{}: Shard with space for allocating Duties: {}", getClass().getSimpleName(), spaceByReceptor);
 				final List<ShardEntity> unfitting = new ArrayList<>();
 				final List<ShardEntity> dutiesForBalance = new ArrayList<>();
-				dutiesForBalance.addAll(next.getCreations()); // priority for new comers
+				dutiesForBalance.addAll(creations); // priority for new comers
 				//dutiesForBalance.addAll(dangling);
 				if (loadStrat) {
 					// so we can get the biggest accomodation of duties instead of the heaviest
 					Collections.sort(dutiesForBalance, Collections.reverseOrder(new ShardEntity.WeightComparer()));
 				}
-				registerNewcomers(next, loadStrat, spaceByReceptor, unfitting, dutiesForBalance);
+				registerNewcomers(loadStrat, spaceByReceptor, unfitting, dutiesForBalance, migrator);
 				// then move those surplussing
-				registerMigrations(next, loadStrat, spaceByReceptor, unfitting, trans);
+				registerMigrations(pallet, stageDuties, stageDistro, creations, deletions, migrator, 
+						loadStrat, spaceByReceptor, unfitting, trans);
 				logger.error("{}: Add Shards !! No receptor has space for Duties: {}", getClass().getSimpleName(), 
 						ShardEntity.toStringIds(unfitting));
 			}
 		}
 	}
 
-	private void registerNewcomers(final NextTable next, final boolean loadStrat,
-			final Map<Shard, AtomicDouble> spaceByReceptor, final List<ShardEntity> unfitting,
-			final List<ShardEntity> dutiesForBalance) {
+	private void registerNewcomers(
+			final boolean loadStrat,
+			final Map<Shard, AtomicDouble> spaceByReceptor, 
+			final List<ShardEntity> unfitting,
+			final List<ShardEntity> dutiesForBalance,
+			final Migrator migrator) {
 
 		for (final ShardEntity newcomer : dutiesForBalance) {
 			final Shard receptor = makeSpaceIntoReceptors(loadStrat, newcomer, spaceByReceptor);
 			if (receptor != null) {
-				newcomer.getLog().addEvent(EntityEvent.ATTACH, 
-						EntityState.PREPARED,
-				        receptor.getShardID(), 
-                        next.getPlan().getId());
-				next.getPlan().ship(receptor, newcomer);
+				migrator.transfer(receptor, newcomer);				
 				logger.info("{}: Assigning to Shard: {} (space left: {}), Duty: {}", getClass().getSimpleName(),
 						receptor.getShardID(), spaceByReceptor.get(receptor), newcomer.toBrief());
 			} else {
-				newcomer.getLog().addEvent(EntityEvent.ATTACH, EntityState.STUCK,
-				        null, 
-                        next.getPlan().getId());
+				//newcomer.getLog().addEvent(EntityEvent.ATTACH, EntityState.STUCK,
+				//        null, 
+                //        planId);
 				//newcomer.setStuckCause(StuckCause.UNSUITABLE);
 				//next.getRoadmap().getProblems().put(null, newcomer);
 				unfitting.add(newcomer);
@@ -185,25 +190,33 @@ public class SpillOverBalancer implements Balancer {
 		}
 	}
 
-	private void registerMigrations(final NextTable next, final boolean loadStrat,
-			final Map<Shard, AtomicDouble> spaceByReceptor, final List<ShardEntity> unfitting,
+	private void registerMigrations(
+			final Pallet<?> pallet,
+			final Set<ShardEntity> stageDuties, 
+			final Map<Shard, Set<ShardEntity>> stageDistro,
+			final Set<ShardEntity> creations,
+			final Set<ShardEntity> deletions,
+			final Migrator migrator, 
+			final boolean loadStrat,
+			final Map<Shard, AtomicDouble> spaceByReceptor, 
+			final List<ShardEntity> unfitting,
 			final SetMultimap<Shard, ShardEntity> trans) {
 
-		final Migrator migra = next.getMigrator();
 		for (final Shard emisor : trans.keys()) {
 			final Set<ShardEntity> emitting = trans.get(emisor);
 			for (final ShardEntity emitted : emitting) {
 				final Shard receptor = makeSpaceIntoReceptors(loadStrat, emitted, spaceByReceptor);
 				if (receptor == null) {
-					emitted.getLog().addEvent(EntityEvent.ATTACH, 
+					/*emitted.getLog().addEvent(EntityEvent.ATTACH, 
 							EntityState.STUCK,
-					        emisor.getShardID(), 
-	                        next.getPlan().getId());
-					//emitted.setStuckCause(StuckCause.UNSUITABLE);
-					//next.getRoadmap().getProblems().put(null, emitted);
+					       emisor.getShardID(), 
+	                        planId);
+					emitted.setStuckCause(StuckCause.UNSUITABLE);
+					next.getRoadmap().getProblems().put(null, emitted);
+					*/
 					unfitting.add(emitted);
 				} else {
-					migra.transfer(emisor, receptor, emitted);
+					migrator.transfer(emisor, receptor, emitted);
 					logger.info("{}: Migrating from: {} to {}: Duty: {}", getClass().getSimpleName(), emisor, receptor,
 							emitted);
 				}
@@ -214,34 +227,35 @@ public class SpillOverBalancer implements Balancer {
 
 	/* elect duties from emisors and compute receiving size at receptors */
 	private SetMultimap<Shard, ShardEntity> collectTransceivers(
-	        final NextTable next, 
+			final Pallet<?> pallet,
+			final Map<Shard, Set<ShardEntity>> stageDistro,
 	        final boolean loadStrat, 
 			final Map<Shard, AtomicDouble> spaceByReceptor, 
 			final Metadata meta) {
 
 		final SetMultimap<Shard, ShardEntity> transmitting = HashMultimap.create();
 		
-		final List<Shard> sortedShards = new ArrayList<>(next.getIndex().keySet());
+		final List<Shard> sortedShards = new ArrayList<>(stageDistro.keySet());
 		final Comparator<Shard> comp = meta.getShardPresort() == ShardPresort.BY_WEIGHT_CAPACITY ? 
-				new CapacityComparer(next.getPallet()) : new DateComparer();
+				new CapacityComparer(pallet) : new DateComparer();
 		Collections.sort(sortedShards, meta.isAscending() ? comp : Collections.reverseOrder(comp));
 		
 		for (final Shard shard : sortedShards) {		
-			final Capacity cap = shard.getCapacities().get(next.getPallet());
+			final Capacity cap = shard.getCapacities().get(pallet);
 			double maxValue = 0;
 			if (meta.getMaxUnit() == MaxUnit.USE_CAPACITY) {
 				if (cap!=null) {
 					maxValue = cap.getTotal();
 				} else {
 					logger.error("{}: Aborting balance ! Shard: {} without reported capacity for pallet: {}", 
-							getClass().getSimpleName(), shard, next.getPallet());
+							getClass().getSimpleName(), shard, pallet);
 					return null;
 				}
 			} else {
 				maxValue = meta.getMaxValue();
 			}
 
-			final Set<ShardEntity> dutiesByShard = next.getIndex().get(shard);
+			final Set<ShardEntity> dutiesByShard = stageDistro.get(shard);
 			final List<ShardEntity> checkingDuties = new ArrayList<>(dutiesByShard);
 			if (loadStrat) {
 				// order it so we can obtain sequentially granulated reductions of the transmitting shard
@@ -277,7 +291,9 @@ public class SpillOverBalancer implements Balancer {
 		return transmitting;
 	}
 	
-	private Shard makeSpaceIntoReceptors(final boolean loadStrat, final ShardEntity duty,
+	private Shard makeSpaceIntoReceptors(
+			final boolean loadStrat, 
+			final ShardEntity duty,
 			final Map<Shard, AtomicDouble> spaceByReceptor) {
 
 		for (final Shard receptor : spaceByReceptor.keySet()) {
@@ -296,15 +312,19 @@ public class SpillOverBalancer implements Balancer {
 		return null;
 	}
 
-	private void moveAllToOne(final NextTable next, final Shard receptorShard) {
-		final Migrator migra = next.getMigrator();
-		for (final Shard shard : next.getIndex().keySet()) {
+	private void moveAllToOne(
+			final Map<Shard, Set<ShardEntity>> stageDistro,
+			final Set<ShardEntity> creations,
+			final Set<ShardEntity> deletions,
+			final Migrator migrator,
+			final Shard receptorShard) {
+		for (final Shard shard : stageDistro.keySet()) {
 			if (shard != receptorShard) {
-				Set<ShardEntity> dutiesByShard = next.getIndex().get(shard);
+				Set<ShardEntity> dutiesByShard = stageDistro.get(shard);
 				if (!dutiesByShard.isEmpty()) {
 					for (final ShardEntity duty : dutiesByShard) {
-						if (!next.getDeletions().contains(duty)) {
-							migra.transfer(shard, receptorShard, duty);
+						if (!deletions.contains(duty)) {
+							migrator.transfer(shard, receptorShard, duty);
 							logger.info("{}: Hoarding from Shard: {} to Shard: {}, Duty: {}", getClass().getSimpleName(),
 								shard, receptorShard, duty);
 						}
@@ -312,19 +332,19 @@ public class SpillOverBalancer implements Balancer {
 				}
 			}
 		}
-		for (ShardEntity creation: next.getCreations()) {
-			migra.transfer(receptorShard, creation);
+		for (ShardEntity creation: creations) {
+			migrator.transfer(receptorShard, creation);
 		}
 	}
 
-	private Shard getAnyReceptorShard(final NextTable next) {
-		for (Shard shard: next.getIndex().keySet()) {
-			Set<ShardEntity> dutiesByShard = next.getIndex().get(shard);
+	private Shard getAnyReceptorShard(final Map<Shard, Set<ShardEntity>> stageDistro) {
+		for (Shard shard: stageDistro.keySet()) {
+			Set<ShardEntity> dutiesByShard = stageDistro.get(shard);
 			if (!dutiesByShard.isEmpty()) {
 				return shard;
 			}
 		}
-		return next.getIndex().keySet().iterator().next();
+		return stageDistro.keySet().iterator().next();
 	}
 
 }

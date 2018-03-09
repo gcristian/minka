@@ -86,14 +86,20 @@ public class Distributor extends ServiceImpl {
 	private int distributionCounter;
 	private boolean initialAdding;
 	private int counter;
-	private Arranger arranger;
+	private PlanBuilder planner;
 
 
 	private final Agent distributor;
 
-	protected Distributor(final Config config, final Scheduler scheduler, final EventBroker eventBroker,
-			final PartitionTable partitionTable, final Bookkeeper bookkeeper, final ShardIdentifier shardId,
-			final EntityDao dutyDao, final DependencyPlaceholder dependencyPlaceholder, 
+	protected Distributor(
+			final Config config, 
+			final Scheduler scheduler, 
+			final EventBroker eventBroker,
+			final PartitionTable partitionTable, 
+			final Bookkeeper bookkeeper, 
+			final ShardIdentifier shardId,
+			final EntityDao dutyDao, 
+			final DependencyPlaceholder dependencyPlaceholder, 
 			final LeaderShardContainer leaderShardContainer) {
 
 		this.config = config;
@@ -124,7 +130,7 @@ public class Distributor extends ServiceImpl {
 				.every(config.getDistributor().getDelayMs())
 				.build();
 
-		this.arranger = new Arranger(config);
+		this.planner = new PlanBuilder(config);
 	}
 
 	@java.lang.Override
@@ -208,7 +214,7 @@ public class Distributor extends ServiceImpl {
 
 	/** @return a plan to drive built at balancer's request */
 	private Plan buildPlan(final Plan previous) {
-		final Plan plan = arranger.evaluate(partitionTable, previous);
+		final Plan plan = planner.build(partitionTable, previous);
 		partitionTable.getNextStage().cleanAllocatedDanglings();
 		if (!plan.areShippingsEmpty()) {
 			partitionTable.addPlan(plan);

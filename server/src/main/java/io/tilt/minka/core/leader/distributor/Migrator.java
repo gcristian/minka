@@ -56,19 +56,16 @@ public class Migrator {
 	protected static final Logger log = LoggerFactory.getLogger(Migrator.class);
 	
 	private final PartitionTable table;
-	private final Plan roadmap;
 	private final Pallet<?> pallet;
 	private Boolean isWeightedPallet;
 	private List<Override> overrides;
 	private List<Transfer> transfers;
 	
-	protected Migrator(final PartitionTable table, final Plan roadmap, final Pallet<?> pallet) {
+	protected Migrator(final PartitionTable table, final Pallet<?> pallet) {
 		super();
 		Validate.notNull(pallet);
-		Validate.notNull(roadmap);
 		Validate.notNull(table);
 		this.table = table;
-		this.roadmap = roadmap;
 		this.pallet = pallet;
 	}
 
@@ -192,10 +189,9 @@ public class Migrator {
 	
 	/** effectively write overrided and transfered operations to roadmap object 
 	 * @return if the execution effectively generated any changes */ 
-	protected final boolean execute() {
+	protected final boolean writePlan(final Plan plan) {
 		boolean anyChange = false;
 		if (isEmpty()) {
-			log.warn("{}: Nothing to execute (empty)", getClass().getSimpleName());
 			return false;
 		}
 		log.info("{}: Evaluating transfers: {} and overrides: {}", getClass().getSimpleName(), 
@@ -203,12 +199,12 @@ public class Migrator {
 		if (overrides!=null) {
 			checkExclusions(); // balancers using transfers only make delta changes, without reassigning
 			for (final Override ov: overrides) {			
-				anyChange = ov.compute(roadmap, table);
+				anyChange|=ov.compute(plan, table);
 			}
 		}
 		if (transfers!=null) {
 			for (Transfer tr: transfers) {
-				anyChange|=tr.compute(roadmap, table);
+				anyChange|=tr.compute(plan, table);
 			}
 		}
 		return anyChange;

@@ -16,8 +16,15 @@
  */
 package io.tilt.minka.core.leader.balancer;
 
-import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
+import io.tilt.minka.domain.Shard;
+import io.tilt.minka.domain.ShardEntity;
+
+import java.util.Map;
+import java.util.Set;
+
+import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Balancer;
+import io.tilt.minka.core.leader.distributor.Migrator;
 
 /**
  * Unbalanced strategy related to distribution.
@@ -68,7 +75,14 @@ public class CoalesceBalancer implements Balancer {
 	}
 	
 	@Override
-	public void balance(final NextTable next) {
+	public void balance(
+			final Pallet<?> pallet,
+			final Set<ShardEntity> stageDuties, 
+			final Map<Shard, Set<ShardEntity>> stageDistro,
+			final Set<ShardEntity> creations,
+			final Set<ShardEntity> deletions,
+			final Migrator migrator) {
+
 	}
 
 }

@@ -65,8 +65,13 @@ public class Follower extends ServiceImpl {
 
 	private boolean firstClearanceGot;
 
-	public Follower(final Config config, final Heartpump heartpump, final LeaderEventsHandler leaderConsumer,
-			final EventBroker eventBroker, final Scheduler scheduler, final HeartbeatFactory heartbeatFactory) {
+	public Follower(
+			final Config config, 
+			final Heartpump heartpump, 
+			final LeaderEventsHandler leaderConsumer,
+			final EventBroker eventBroker, 
+			final Scheduler scheduler, 
+			final HeartbeatFactory heartbeatFactory) {
 		super();
 
 		this.alive = true;

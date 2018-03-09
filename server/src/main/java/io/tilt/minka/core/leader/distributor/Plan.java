@@ -331,7 +331,7 @@ public class Plan implements Comparable<Plan> {
             this.result = Result.CLOSED_APPLIED;
             this.ended = new Date();
         } else {
-            final Instant expiration = getStarted().toInstant().plusSeconds(maxSeconds);
+            final Instant expiration = started.toInstant().plusSeconds(maxSeconds);
     		if (expiration.isBefore(Instant.now())) {
     			if (retryCounter == this.maxRetries) {
     				logger.info("{}: Abandoning Plan expired ! (max secs:{}) ", getClass().getSimpleName(), maxSeconds);
@@ -366,7 +366,7 @@ public class Plan implements Comparable<Plan> {
 	 * 		{shard2:[duty3]}
 	 * }
 	 */
-	public void ship(final Shard shard, final ShardEntity duty) {
+	protected void ship(final Shard shard, final ShardEntity duty) {
 	    withLock(()-> {
     		CollectionUtils.getOrPut(
     			CollectionUtils.getOrPut(
@@ -384,11 +384,7 @@ public class Plan implements Comparable<Plan> {
 	public boolean areShippingsEmpty() {
 		return shippings.isEmpty();
 	}
-	
-	public Date getEnded() {
-		return this.ended;
-	}
-	
+		
 	public Date getStarted() {
 		return this.started;
 	}
@@ -406,8 +402,8 @@ public class Plan implements Comparable<Plan> {
 	
 	@JsonProperty("elapsed-ms")
 	private String getElapsed() {
-		return LogUtils.humanTimeDiff(getStarted().getTime(),
-				getEnded() == null ? System.currentTimeMillis() : getEnded().getTime());
+		return LogUtils.humanTimeDiff(started.getTime(), 
+				ended == null ? System.currentTimeMillis() : ended.getTime());
 	}
 
 	@JsonProperty("deliveries")

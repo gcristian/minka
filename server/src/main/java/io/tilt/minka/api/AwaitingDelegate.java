@@ -8,6 +8,7 @@ import java.util.Set;
  * */
 public class AwaitingDelegate implements PartitionMaster<String, String> {
 
+	private final static String MESSAGE = "this's a transitional delegate: should not end up here";
 	@Override
 	public boolean isReady() {
 		return false;
@@ -15,42 +16,42 @@ public class AwaitingDelegate implements PartitionMaster<String, String> {
 
 	@Override
 	public void capture(Set<Duty<String>> duties) {
-		throw new IllegalStateException();
+		throw new IllegalStateException(MESSAGE);
 	}
 
 	@Override
 	public void release(Set<Duty<String>> duties) {
-		throw new IllegalStateException();
+		throw new IllegalStateException(MESSAGE);
 	}
 
 	@Override
 	public Set<Duty<String>> reportCapture() {
-		throw new IllegalStateException();
+		throw new IllegalStateException(MESSAGE);
 	}
 
 	@Override
 	public Set<Duty<String>> loadDuties() {
-		throw new IllegalStateException();
+		throw new IllegalStateException(MESSAGE);
 	}
 
 	@Override
 	public Set<Pallet<String>> loadPallets() {
-		throw new IllegalStateException();
+		throw new IllegalStateException(MESSAGE);
 	}
 
 	@Override
 	public double getTotalCapacity(Pallet<String> pallet) {
-		throw new IllegalStateException();
+		throw new IllegalStateException(MESSAGE);
 	}
 
 	@Override
 	public void capturePallet(Set<Pallet<String>> pallets) {
-		throw new IllegalStateException();
+		throw new IllegalStateException(MESSAGE);
 	}
 
 	@Override
 	public void releasePallet(Set<Pallet<String>> pallets) {
-		throw new IllegalStateException();
+		throw new IllegalStateException(MESSAGE);
 	}
 
 }

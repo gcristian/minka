@@ -39,7 +39,7 @@ import io.tilt.minka.domain.ShardEntity;
  */
 public class PalletCollector {
 
-	private static final Logger logger = LoggerFactory.getLogger(Arranger.class);
+	private static final Logger logger = LoggerFactory.getLogger(PlanBuilder.class);
 
 	final private Map<ShardEntity, Set<ShardEntity>> pallets;
 	final private Map<String, ShardEntity> palletById;

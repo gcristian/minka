@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -31,7 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
+import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.domain.Shard;
@@ -80,19 +81,25 @@ public class EvenWeightBalancer implements Balancer {
 	private final Clusterizer clusterizer = new WeightBasedClusterizer();
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public final void balance(final NextTable next) {
+	public final void balance(
+			final Pallet<?> pallet,
+			final Set<ShardEntity> stageDuties, 
+			final Map<Shard, Set<ShardEntity>> stageDistro,
+			final Set<ShardEntity> creations,
+			final Set<ShardEntity> deletions,
+			final Migrator migrator) {
 		// order new ones and current ones in order to get a fair distro 
-		final Comparator comparator = ((Metadata)next.getPallet().getMetadata()).getPresort().getComparator();
+		final Comparator comparator = ((Metadata)pallet.getMetadata()).getPresort().getComparator();
 		final Set<ShardEntity> duties = new TreeSet<>(comparator);
-		duties.addAll(next.getCreations()); // newcomers have ++priority than table
-		duties.addAll(next.getDuties());
-		duties.removeAll(next.getDeletions()); // delete those marked for deletion
+		duties.addAll(creations); // newcomers have ++priority than table
+		duties.addAll(stageDuties);
+		duties.removeAll(deletions); // delete those marked for deletion
 		final List<ShardEntity> dutiesSorted = new ArrayList<>(duties);
 		logger.debug("{}: Before Balance: {} ({})", getClass().getSimpleName(), ShardEntity.toStringIds(dutiesSorted));
-		final List<Shard> availShards = next.getIndex().keySet().stream().filter(s->s.getCapacities()
-				.get(next.getPallet())!=null).collect(Collectors.toList());
+		final List<Shard> availShards = stageDistro.keySet().stream().filter(s->s.getCapacities()
+				.get(pallet)!=null).collect(Collectors.toList());
 		if (availShards.isEmpty()) {
-			logger.error("{}: Still no shard reported capacity for pallet: {}!", getClass().getSimpleName(), next.getPallet());
+			logger.error("{}: Still no shard reported capacity for pallet: {}!", getClass().getSimpleName(), pallet);
 			return;
 		}
 		final List<List<ShardEntity>> clusters = formClusters(availShards, duties, dutiesSorted);
@@ -100,15 +107,14 @@ public class EvenWeightBalancer implements Balancer {
 			logger.error("{}: Cluster Partitioneer return empty distro !", getClass().getSimpleName());
 			return;
 		}
-		final Migrator migra = next.getMigrator();
 		final Iterator<List<ShardEntity>> itCluster = clusters.iterator();
 		final Iterator<Shard> itShards = availShards.iterator();
 		while(itCluster.hasNext()) {
 			final Shard shard = itShards.next();
 			final List<ShardEntity> selection = itCluster.next();
-			final Bascule<Shard, ShardEntity> bascule = new Bascule(shard, shard.getCapacities().get(next.getPallet()).getTotal());
+			final Bascule<Shard, ShardEntity> bascule = new Bascule(shard, shard.getCapacities().get(pallet).getTotal());
 			selection.forEach(d->bascule.tryLift(d, d.getDuty().getWeight()));
-			migra.override(bascule.getOwner(), bascule.getCargo());
+			migrator.override(bascule.getOwner(), bascule.getCargo());
 			if (!bascule.getDiscarded().isEmpty()) {
 				logger.error("{}: Discarding duties since: {} on already full shard {}, with only capacity "
 					+ "for {} out of selected {} ", getClass().getSimpleName(), bascule.getDiscarded(), shard, 

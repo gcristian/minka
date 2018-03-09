@@ -20,8 +20,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import org.apache.commons.lang.Validate;
-import org.jboss.netty.handler.codec.marshalling.DefaultMarshallerProvider;
-import org.jboss.netty.handler.codec.marshalling.MarshallingEncoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,13 +36,9 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.ByteToMessageDecoder;
-import io.netty.handler.codec.MessageToByteEncoder;
 import io.netty.handler.codec.serialization.ClassResolvers;
-import io.netty.handler.codec.serialization.CompatibleObjectEncoder;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
-import io.netty.handler.codec.serialization.ObjectEncoderOutputStream;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.tilt.minka.api.Config;
@@ -53,7 +47,6 @@ import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
-import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.spectator.MessageMetadata;
 
 /**
@@ -115,7 +108,7 @@ public class SocketServer {
 				Action.BROKER_SERVER_START, 
 				PriorityLock.HIGH_ISOLATED,
 				Frequency.PERIODIC, () -> listenWithRetries(maxRetries, retryDelay))
-			.every(2000l)
+			.every(5000l)
 			.build();
 		scheduler.schedule(agent);
 	}

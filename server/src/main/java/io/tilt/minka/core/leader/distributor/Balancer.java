@@ -20,6 +20,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
@@ -27,17 +28,18 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.balancer.CoalesceBalancer;
 import io.tilt.minka.core.leader.balancer.EvenSizeBalancer;
 import io.tilt.minka.core.leader.balancer.EvenWeightBalancer;
 import io.tilt.minka.core.leader.balancer.FairWeightBalancer;
-import io.tilt.minka.core.leader.balancer.ShuffleBalancer;
 import io.tilt.minka.core.leader.balancer.SpillOverBalancer;
-import io.tilt.minka.core.leader.distributor.Arranger.NextTable;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.EntityState;
+import io.tilt.minka.domain.Shard;
 
 /**
  * Analyze the current {@linkplain PartitionTable} and if neccesary modify the {@linkplain Plan}
@@ -53,14 +55,28 @@ public interface Balancer {
 	static final Logger logger = LoggerFactory.getLogger(Balancer.class);
 
 	/**
-	 * Analyze the current and next state of the partition table and 
-	 * apply overrides and transfers on a migrator. 
+	 * Analyze current distribution and apply overrides or transfers on a {@linkplain Migrator} 
 	 * Try to attach as much duties as possible, dont overwhelm: operation is cancelled.
 	 * 
-	 * @param 	nextTable: the new version of the partition table
+	 * Creations and duties (table's current assigned duties) must be balanced.
+	 * Note deletions are included in duties but must be ignored and removed from balancing,
+	 * i.e. they must not be included in overrides and transfers.
+	 * 
+	 * @param stageDuties	an immutable duty set representing all indexed contents
+	 * @param stageDistro	an immutable map repr. the partition table's duties assigned to shards
+	 * @param creations   	an immutable set of new duties that must be distibuted and doesnt exist in table object
+	 * 						including also recycled duties like danglings and missings which are not new
+	 * @param deletions		an immutable set of deletions that will cease to exist in the table (already marked)
+	 * @param migrator		a facility to request modifications for duty assignation for the next distribution
+	 * 		
 	 */
-	void balance(NextTable nextTable);
-	
+	void balance(
+			final Pallet<?> pallet,
+			final Set<ShardEntity> stageDuties, 
+			final Map<Shard, Set<ShardEntity>> stageDistro,
+			final Set<ShardEntity> creations,
+			final Set<ShardEntity> deletions,
+			final Migrator migrator);
 	
 	/** so clients can add new balancers */
 	public static class Directory {
@@ -133,7 +149,7 @@ public interface Balancer {
 		/* keep agglutination of duties: move them together wherever they are */
 		COALESCE(CoalesceBalancer.class, Type.UNBALANCED, Weighted.NOT),
 		/* random lazily spread distribution */
-		SCATTER(ShuffleBalancer.class, Type.UNBALANCED, Weighted.NOT),
+		//SCATTER(ShuffleBalancer.class, Type.UNBALANCED, Weighted.NOT),
 		;
 		Class<? extends Balancer> balancer;
 		Type type;

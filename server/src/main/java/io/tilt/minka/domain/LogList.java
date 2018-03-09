@@ -143,7 +143,7 @@ public class LogList implements Serializable {
 	private Log find_(final long planid, final String shardid, final EntityEvent...events) {
 		requireNonNull(shardid);
 		Log ret = null;
-		for (final Iterator<Log> it = getDescendingIterator(); it.hasNext();) {
+		for (final Iterator<Log> it = logs.descendingIterator(); it.hasNext();) {
             final Log log = it.next();
             if ((planid == 0 || log.getPlanId() == planid) 
             		&& log.getTargetId().equals(shardid)) {
@@ -163,10 +163,6 @@ public class LogList implements Serializable {
             }
 		}
 		return ret;
-	}
-	
-	public Iterator<Log> getDescendingIterator() {
-		return this.logs.descendingIterator();
 	}
 
 	@JsonProperty("log")

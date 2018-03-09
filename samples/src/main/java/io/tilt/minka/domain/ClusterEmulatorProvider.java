@@ -32,5 +32,8 @@ public interface ClusterEmulatorProvider {
 
     Set<Pallet<String>> loadPallets();
     
-    double loadShardCapacity(Pallet<String> pallet, Set<Duty<String>> allDuties, String shardIdentifier);	    
+    double loadShardCapacity(
+    		Pallet<String> pallet, 
+    		Set<Duty<String>> allDuties, 
+    		String shardIdentifier);	    
 }
