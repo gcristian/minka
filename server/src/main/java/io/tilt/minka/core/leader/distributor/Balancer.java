@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.lang.Validate;
+import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,7 +40,9 @@ import io.tilt.minka.core.leader.balancer.SpillOverBalancer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.EntityState;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
+import io.tilt.minka.domain.ShardCapacity.Capacity;
 
 /**
  * Analyze the current {@linkplain PartitionTable} and if neccesary modify the {@linkplain Plan}
@@ -67,16 +70,36 @@ public interface Balancer {
 	 * @param creations   	an immutable set of new duties that must be distibuted and doesnt exist in table object
 	 * 						including also recycled duties like danglings and missings which are not new
 	 * @param deletions		an immutable set of deletions that will cease to exist in the table (already marked)
-	 * @param migrator		a facility to request modifications for duty assignation for the next distribution
-	 * 		
+	 * @param migrator		a facility to request modifications for duty assignation for the next distribution		
 	 */
 	void balance(
 			final Pallet<?> pallet,
-			final Set<ShardEntity> stageDuties, 
-			final Map<Shard, Set<ShardEntity>> stageDistro,
-			final Set<ShardEntity> creations,
-			final Set<ShardEntity> deletions,
+			final Set<Duty<?>> stageDuties, 
+			final Map<Location, Set<Duty<?>>> stageDistro,
+			final Set<Duty<?>> creations,
+			final Set<Duty<?>> deletions,
 			final Migrator migrator);
+	
+	public static class Location {
+		private final Shard shard;
+		public Location(final Shard shard) {
+			this.shard = shard;
+		}
+		public Map<Pallet<?>, Capacity> getCapacities() {
+			return this.shard.getCapacities();
+		}
+		public NetworkShardIdentifier getId() {
+			return this.shard.getShardID();
+		}
+		public DateTime getCreation() {
+			return this.shard.getFirstTimeSeen();
+		}
+		@java.lang.Override
+		public String toString() {
+			return this.shard.toString();
+		}
+	}
+	
 	
 	/** so clients can add new balancers */
 	public static class Directory {
@@ -192,7 +215,7 @@ public interface Balancer {
 		 * Useful when the master list of duties has lot of changes in time, and low migration is required.
 		 * Use this in case your Duties represent Tasks of a short lifecycle.
 		 */
-		DATE(new ShardEntity.CreationComparer()),
+		DATE(new ShardEntity.HashComparer()),
 		/**
 		 * Use Workload order.
 		 * Use this to maximize the clustering algorithm's effectiveness.
@@ -206,11 +229,11 @@ public interface Balancer {
 		CUSTOM(null),
 		;
 		
-		private final Comparator<ShardEntity> comp;
-		PreSort(final Comparator<ShardEntity> comp) {
+		private final Comparator<Duty<?>> comp;
+		PreSort(final Comparator<Duty<?>> comp) {
 			this.comp = comp;
 		}
-		public Comparator<ShardEntity> getComparator() { 
+		public Comparator<Duty<?>> getComparator() { 
 			return this.comp;
 		}
 	}

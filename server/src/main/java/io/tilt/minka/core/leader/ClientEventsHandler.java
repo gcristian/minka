@@ -56,14 +56,19 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 	private final EventBroker eventBroker;
 	private final NetworkShardIdentifier shardId;
 
-	public ClientEventsHandler(Config config, PartitionTable partitionTable, Scheduler scheduler,
-			EventBroker eventBroker, Bookkeeper bookkeeper, NetworkShardIdentifier shardId) {
+	public ClientEventsHandler(
+			final Config config, 
+			final PartitionTable partitionTable, 
+			final Scheduler scheduler,
+			final Bookkeeper bookkeeper,
+			final EventBroker eventBroker, 
+			final NetworkShardIdentifier shardId) {
 
 		this.config = config;
 		this.partitionTable = partitionTable;
 		this.scheduler = scheduler;
-		this.eventBroker = eventBroker;
 		this.bookkeeper = bookkeeper;
+		this.eventBroker = eventBroker;
 		this.shardId = shardId;
 	}
 
@@ -73,8 +78,10 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 		if (op.getOperation() == io.tilt.minka.domain.ShardCommand.Command.CLUSTER_CLEAN_SHUTDOWN) {
 			lambda = () -> cleanShutdown(op);
 		}
-		scheduler.run(
-				scheduler.getFactory().build(op.getOperation().getAction(), PriorityLock.LOW_ON_PERMISSION, lambda));
+		scheduler.run(scheduler.getFactory().build(
+						op.getOperation().getAction(), 
+						PriorityLock.LOW_ON_PERMISSION, 
+						lambda));
 		//throw new IllegalStateException("Cannot perform cluster operation because scheduler disallowed so");
 		//}
 		return done;

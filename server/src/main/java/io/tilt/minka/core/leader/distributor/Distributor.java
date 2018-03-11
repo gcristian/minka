@@ -69,7 +69,7 @@ import io.tilt.minka.utils.LogUtils;
  * @author Cristian Gonzalez
  * @since Nov 17, 2015
  */
-public class Distributor extends ServiceImpl {
+class Distributor extends ServiceImpl {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -91,7 +91,7 @@ public class Distributor extends ServiceImpl {
 
 	private final Agent distributor;
 
-	protected Distributor(
+	Distributor(
 			final Config config, 
 			final Scheduler scheduler, 
 			final EventBroker eventBroker,
@@ -215,7 +215,7 @@ public class Distributor extends ServiceImpl {
 	/** @return a plan to drive built at balancer's request */
 	private Plan buildPlan(final Plan previous) {
 		final Plan plan = planner.build(partitionTable, previous);
-		partitionTable.getNextStage().cleanAllocatedDanglings();
+		partitionTable.getBackstage().cleanAllocatedDanglings();
 		if (!plan.areShippingsEmpty()) {
 			partitionTable.addPlan(plan);
 			this.partitionTable.setWorkingHealth(ClusterHealth.UNSTABLE);
@@ -310,7 +310,7 @@ public class Distributor extends ServiceImpl {
 				bookkeeper.enterDutiesFromSource(copy);
 				initialAdding = false;
 			}
-			if (partitionTable.getNextStage().getDutiesCrud().isEmpty()) {
+			if (partitionTable.getBackstage().getDutiesCrud().isEmpty()) {
 				logger.warn("{}: Aborting first distribution cause of no duties !", getName());
 				return false;
 			}
@@ -335,7 +335,7 @@ public class Distributor extends ServiceImpl {
 			if (!sorted.isEmpty()) {
 				logger.error("{}: Consistency check: Absent duties going as Missing [ {}]", getName(),
 						ShardEntity.toStringIds(sorted));
-				partitionTable.getNextStage().addMissing(sorted);
+				partitionTable.getBackstage().addMissing(sorted);
 			}
 		}
 	}
@@ -373,7 +373,7 @@ public class Distributor extends ServiceImpl {
 	}
 
 	private void communicateUpdates() {
-		final Set<ShardEntity> updates = partitionTable.getNextStage().getDutiesCrud().stream()
+		final Set<ShardEntity> updates = partitionTable.getBackstage().getDutiesCrud().stream()
 				.filter(i -> i.getLog().getLast().getEvent() == EntityEvent.UPDATE 
 					&& i.getLog().getLast().getLastState() == EntityState.PREPARED)
 				.collect(Collectors.toCollection(HashSet::new));

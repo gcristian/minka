@@ -26,11 +26,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Migrator;
-import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.utils.CollectionUtils;
 
 /**
@@ -79,10 +78,10 @@ public class EvenSizeBalancer implements Balancer {
 	 */
 	public void balance(
 			final Pallet<?> pallet,
-			final Set<ShardEntity> stageDuties, 
-			final Map<Shard, Set<ShardEntity>> stageDistro,
-			final Set<ShardEntity> creations,
-			final Set<ShardEntity> deletions,
+			final Set<Duty<?>> stageDuties, 
+			final Map<Location, Set<Duty<?>>> stageDistro,
+			final Set<Duty<?>> creations,
+			final Set<Duty<?>> deletions,
 			final Migrator migrator) {
 		// get a fair distribution
 		final int recount = stageDuties.size();
@@ -94,25 +93,25 @@ public class EvenSizeBalancer implements Balancer {
 				getClass().getSimpleName(), shardsSize, evenSize, creations.size(), deletions.size(), recount);
 
 		// split shards into receptors and emisors while calculating new fair distribution 
-		final Set<Shard> receptors = new HashSet<>();
-		final Set<Shard> emisors = new HashSet<>();
+		final Set<Location> receptors = new HashSet<>();
+		final Set<Location> emisors = new HashSet<>();
 		//deletions.addAll(dangling);]
-		final Map<Shard, Integer> deltas = checkDeltas(pallet, stageDuties, stageDistro, evenSize, receptors, emisors, deletions);
+		final Map<Location, Integer> deltas = checkDeltas(pallet, stageDuties, stageDistro, evenSize, receptors, emisors, deletions);
 		if (deltas.isEmpty()) {
 			logger.info("{}: Evenly distributed already (no sharding deltas out of threshold)", getClass().getSimpleName());
 		} else if (!receptors.isEmpty()) {
 			// 2nd step: assign migrations and creations in serie
-			final CollectionUtils.CircularCollection<Shard> receptiveCircle = CollectionUtils.circular(receptors);
-			for (final Shard emisorShard : emisors) {
-				final Set<ShardEntity> duties = stageDistro.get(emisorShard);
+			final CollectionUtils.CircularCollection<Location> receptiveCircle = CollectionUtils.circular(receptors);
+			for (final Location emisor : emisors) {
+				final Set<Duty<?>> duties = stageDistro.get(emisor);
 				int i = 0;
-				final Iterator<ShardEntity> it = duties.iterator();
-				while (it.hasNext() && i++ < Math.abs(deltas.get(emisorShard))) {
-					migrator.transfer(emisorShard, receptiveCircle.next(), it.next());
+				final Iterator<Duty<?>> it = duties.iterator();
+				while (it.hasNext() && i++ < Math.abs(deltas.get(emisor))) {
+					migrator.transfer(emisor, receptiveCircle.next(), it.next());
 				}
 			}
 			// Q pasa cuando una Dangling viene aca, sigue en la tabla asignada a ese shard ?
-			for (ShardEntity duty: creations) {
+			for (Duty<?> duty: creations) {
 				migrator.transfer(receptiveCircle.next(), duty);
 			}
 		} else {
@@ -121,19 +120,19 @@ public class EvenSizeBalancer implements Balancer {
 	}
 
 	/* evaluate which shards must emit or receive duties by deltas */
-	private Map<Shard, Integer> checkDeltas(
+	private Map<Location, Integer> checkDeltas(
 			final Pallet<?> pallet,
-			final Set<ShardEntity> stageDuties, 
-			final Map<Shard, Set<ShardEntity>> stageDistro,
+			final Set<Duty<?>> stageDuties, 
+			final Map<Location, Set<Duty<?>>> stageDistro,
 			final int evenSize, 
-			final Set<Shard> receptors, 
-			final Set<Shard> emisors, 
-			final Set<ShardEntity> deletions) {
+			final Set<Location> receptors, 
+			final Set<Location> emisors, 
+			final Set<Duty<?>> deletions) {
 
-		final Map<Shard, Integer> deltas = new HashMap<>();
+		final Map<Location, Integer> deltas = new HashMap<>();
 		final int maxDelta = ((Metadata)pallet.getMetadata()).getMaxDutiesDeltaBetweenShards();
-		for (final Shard shard : stageDistro.keySet()) {
-			final Set<ShardEntity> shardedDuties = stageDistro.get(shard);
+		for (final Location shard : stageDistro.keySet()) {
+			final Set<Duty<?>> shardedDuties = stageDistro.get(shard);
 			// check if this shard contains the deleting duties 
 			int sizeToRemove = (int) shardedDuties.stream().filter(i -> deletions.contains(i)).count();
 			final int assignedDuties = shardedDuties.size() - sizeToRemove;
@@ -142,12 +141,12 @@ public class EvenSizeBalancer implements Balancer {
 				// use only the spilling out of maxDelta (not delta per-se)
 				deltas.put(shard, delta);
 				logger.info("{}: found Emisor Shard: {} above threshold: {} with {} ", getClass().getSimpleName(),
-						shard.getShardID(), maxDelta, delta);
+						shard.getId(), maxDelta, delta);
 				emisors.add(shard);
 			} else if (delta <= -(maxDelta)) {
 				deltas.put(shard, delta);
 				logger.info("{}: found Receptor Shard: {} below threshold: {} with {}", getClass().getSimpleName(),
-						shard.getShardID(), maxDelta, delta);
+						shard.getId(), maxDelta, delta);
 				receptors.add(shard);
 			}
 		}

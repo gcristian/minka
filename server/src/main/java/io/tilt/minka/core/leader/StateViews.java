@@ -120,7 +120,7 @@ public class StateViews {
 		StageExtractor extractor = new StageExtractor(table.getStage());
 		
 		for (final ShardEntity pallet: extractor.getPallets()) {
-			final Set<ShardEntity> crud = table.getNextStage()
+			final Set<ShardEntity> crud = table.getBackstage()
 			        .getDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED).stream()
 					.filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId()))
 					.collect(Collectors.toSet());
@@ -184,7 +184,7 @@ public class StateViews {
 
 	private static Map<String, Object> buildGlobal(final PartitionTable table) {
 	    StageExtractor extractor = new StageExtractor(table.getStage());
-		final int unstaged = table.getNextStage().getDutiesCrud(EntityEvent.CREATE, null).size();
+		final int unstaged = table.getBackstage().getDutiesCrud(EntityEvent.CREATE, null).size();
 		final int staged = extractor.getSizeTotal();		
 		final Map<String, Object> map = new LinkedHashMap<>();
 		map.put("size-duties", staged+unstaged);

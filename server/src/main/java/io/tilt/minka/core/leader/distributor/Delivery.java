@@ -19,7 +19,6 @@ package io.tilt.minka.core.leader.distributor;
 import static java.util.Objects.requireNonNull;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -45,12 +44,13 @@ import io.tilt.minka.utils.CollectionUtils;
 @JsonPropertyOrder({"order", "shard", "event", "state"})
 public class Delivery {
     
-	private EntityEvent event;
-	private final Shard shard;
 	private final List<ShardEntity> duties;
+	private final Shard shard;
+	private final EntityEvent event;
 	private final int order;
-	private Step step;
 	private final long planId;
+
+	private Step step;
 
 	protected Delivery(
 	        final List<ShardEntity> duties, 

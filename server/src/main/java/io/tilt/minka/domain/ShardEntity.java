@@ -193,6 +193,12 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		return sb.toString();
 	}
 
+	public static String toDutyStringIds(Collection<Duty<?>> duties) {
+		final StringBuilder sb = new StringBuilder(duties.size() * 10);
+		duties.forEach(i -> sb.append(i.getId()).append(", "));
+		return sb.toString();
+	}
+
 	public static String toStringIds(Collection<ShardEntity> duties) {
 		final StringBuilder sb = new StringBuilder(duties.size()*10);
 		duties.forEach(i -> sb.append(i.getEntity().toString()).append(", "));
@@ -292,11 +298,11 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	}
 
 	
-	public static class WeightComparer implements Comparator<ShardEntity>, Serializable {
+	public static class WeightComparer implements Comparator<Duty<?>>, Serializable {
 		private static final long serialVersionUID = 2191475545082914908L;
 		@Override
-		public int compare(final ShardEntity o1, final ShardEntity o2) {
-			int ret = Double.compare(o1.getDuty().getWeight(), o2.getDuty().getWeight());
+		public int compare(final Duty<?> o1, final Duty<?> o2) {
+			int ret = Double.compare(o1.getWeight(), o2.getWeight());
 			// break comparator contract about same weight same entity yeah rightttttt
 			if (ret == 0) {
 				return altCompare(o1, o2);
@@ -305,20 +311,19 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		}
 	}
 	
-	public static class CreationComparer implements Comparator<ShardEntity>, Serializable {
+	public static class HashComparer implements Comparator<Duty<?>>, Serializable {
 		private static final long serialVersionUID = 3709876521530551544L;
 		@Override
-		public int compare(final ShardEntity o1, final ShardEntity o2) {
-			int i = o1.getLog().getFirst().getHead()
-					.compareTo(o2.getLog().getFirst().getHead());
+		public int compare(final Duty<?> o1, final Duty<?> o2) {
+			int i = o1.getId().compareTo(o2.getId());
 			if (i == 0) {
 				i = altCompare(o1, o2);
 			}
 			return i;
 		}
 	}
-	protected static int altCompare(final ShardEntity o1, final ShardEntity o2) {
-		int i = o1.compare(o1, o2);
+	protected static int altCompare(final Duty<?> o1, final Duty<?> o2) {
+		int i = o1.getPalletId().compareTo(o2.getPalletId());
 		if (i == 0) {
 			i = Integer.compare(o1.hashCode(), o2.hashCode());
 		}

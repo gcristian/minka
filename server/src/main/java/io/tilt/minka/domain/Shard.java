@@ -33,6 +33,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
+import io.tilt.minka.core.leader.distributor.Balancer.Location;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
@@ -168,16 +169,16 @@ public class Shard implements Comparator<Shard> {
 		return o1.getFirstTimeSeen().compareTo(o2.getFirstTimeSeen());
 	}
 	
-	public static class DateComparer implements Comparator<Shard>, Serializable {
+	public static class DateComparer implements Comparator<Location>, Serializable {
 		private static final long serialVersionUID = -2098725005810996576L;
 		@Override
-		public int compare(final Shard s, final Shard s2) {
-			return s.getFirstTimeSeen().compareTo(s2.getFirstTimeSeen());
+		public int compare(final Location s, final Location s2) {
+			return s.getCreation().compareTo(s2.getCreation());
 		}
 	}
 	
 	
-	public static class CapacityComparer implements Comparator<Shard>, Serializable {
+	public static class CapacityComparer implements Comparator<Location>, Serializable {
 		private static final long serialVersionUID = 2191475545082914908L;
 		private final Pallet<?> pallet;
 		public CapacityComparer(Pallet<?> pallet) {
@@ -185,7 +186,7 @@ public class Shard implements Comparator<Shard> {
 			this.pallet = pallet;
 		}
 		@Override
-		public int compare(final Shard s, final Shard s2) {
+		public int compare(final Location s, final Location s2) {
 			final Capacity cap1 = s.getCapacities().get(pallet);
 			final Capacity cap2 = s2.getCapacities().get(pallet);
 			if (cap1 == null) {

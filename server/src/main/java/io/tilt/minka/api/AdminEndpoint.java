@@ -40,7 +40,7 @@ import io.tilt.minka.core.leader.StateViews;
 import io.tilt.minka.core.leader.distributor.Plan;
 
 @Api("Minka Endpoint API")
-@Path("minka/admin")
+@Path("admin")
 
 @Singleton
 @Component
@@ -56,7 +56,17 @@ public class AdminEndpoint {
 	public AdminEndpoint(@Named("partitionTable") PartitionTable table) {
 		this.table = table;
 	}
+	/*
+	
+	@GET
+    @Path("view")
+    public Viewable index(@Context HttpServletRequest request) {
+        request.setAttribute("obj", new String("IT Works"));
+        System.out.println("/INDEXed");
+        return new Viewable("/index.jsp", null);
+    }
 
+*/
 	@GET
 	@Path("/config")
 	@Produces(MediaType.APPLICATION_JSON)

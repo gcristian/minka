@@ -134,6 +134,9 @@ public class Config {
 		protected static final String WEB_SERVER_HOST_PORT = "localhost:" + WEB_SERVER_PORT;
 		private String webServerHostPort;
 		
+		protected static final String WEB_SERVER_CONTEXT_PATH = "minka";
+		private String webServerContextPath;
+		
 		public String getServiceName() {
 			return serviceName;
 		}
@@ -175,6 +178,12 @@ public class Config {
 		}
 		public void setWebServerHostPort(String webServerHostPort) {
 			this.webServerHostPort = webServerHostPort;
+		}
+		public String getWebServerContextPath() {
+			return webServerContextPath;
+		}
+		public void setWebServerContextPath(String webServerContextPath) {
+			this.webServerContextPath = webServerContextPath;
 		}
 	}
 

@@ -1,5 +1,4 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with this
  * work for additional information regarding copyright ownership. The ASF
  * licenses this file to You under the Apache License, Version 2.0 (the
@@ -30,8 +29,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
+import io.tilt.minka.core.leader.distributor.Balancer.Location;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
@@ -48,74 +48,53 @@ import io.tilt.minka.utils.LogUtils;
  * @author Cristian Gonzalez
  * @since Ene 4, 2015
  */
-public class PlanBuilder {
+class PlanBuilder {
 
 	private static final Logger logger = LoggerFactory.getLogger(PlanBuilder.class);
 
 	private final Config config;
 
-	protected PlanBuilder(final Config config) {
+	PlanBuilder(final Config config) {
 		this.config = config;
 	}
 
-	public final Plan build(final PartitionTable table, final Plan previousChange) {
+	final Plan build(final PartitionTable table, final Plan previousChange) {
 		final Plan plan = new Plan(
 				config.getDistributor().getPlanExpirationSec(), 
 				config.getDistributor().getPlanMaxRetries());
 		final List<Shard> onlineShards = table.getStage().getShardsByState(ShardState.ONLINE);
 		// recently fallen shards
-		final Set<ShardEntity> dangling = new HashSet<>(table.getNextStage().getDutiesDangling());
+		final Set<ShardEntity> dangling = new HashSet<>(table.getBackstage().getDutiesDangling());
 		addMissingAsCrud(table, plan);
 		// add previous fallen and never confirmed migrations
 		dangling.addAll(restorePendings(previousChange));
 		// add danglings as creations prior to migrations
 		final List<ShardEntity> danglingAsCreations = new ArrayList<>();
 		dangling.forEach(dang -> danglingAsCreations.add(ShardEntity.Builder.builderFrom(dang).build()));
-		final Set<ShardEntity> dutyCreations = table.getNextStage().getDutiesCrud(EntityEvent.CREATE, null); //State.PREPARED); evidentemente al subir y bajar queda alguno con CREATED y STUCK ?
+		final Set<ShardEntity> dutyCreations = table.getBackstage().getDutiesCrud(EntityEvent.CREATE, null);
 		dutyCreations.addAll(danglingAsCreations);
 		
-		final Set<ShardEntity> dutyDeletions = table.getNextStage().getDutiesCrud(EntityEvent.REMOVE, null); //State.PREPARED);
+		final Set<ShardEntity> dutyDeletions = table.getBackstage().getDutiesCrud(EntityEvent.REMOVE, null);
 		// lets add those duties of a certain deleting pallet
-		table.getNextStage().getPalletsCrud(EntityEvent.REMOVE, EntityState.PREPARED)
-			.forEach(p->dutyDeletions.addAll(table.getStage().getDutiesByPallet(p.getPallet())));
+		for (ShardEntity p: table.getBackstage().getPalletsCrud(EntityEvent.REMOVE, EntityState.PREPARED)) {
+			dutyDeletions.addAll(table.getStage().getDutiesByPallet(p.getPallet()));
+		}
 		registerDeletions(table, plan, dutyDeletions);
 		
 		final Set<ShardEntity> ents = new HashSet<>(table.getStage().getDutiesAttached());
 		ents.addAll(dutyCreations);
-		final PalletCollector allColl = new PalletCollector(ents, table.getStage().getPallets());
-		final Iterator<Set<ShardEntity>> itPallet = allColl.getPalletsIterator();
+		final PalletCollector collector = new PalletCollector(ents, table.getStage().getPallets());
+		final Iterator<Set<ShardEntity>> itPallet = collector.getPalletsIterator();
 		boolean changes = false;
 		while (itPallet.hasNext()) {
 			try {
-				Iterator<ShardEntity> itDuties = itPallet.next().iterator();
-				final ShardEntity pallet = allColl.getPallet(itDuties.next().getDuty().getPalletId());
-				final BalancerMetadata meta = pallet.getPallet().getMetadata();
-				final Balancer balancer = Balancer.Directory.getByStrategy(meta.getBalancer());
-				
+				final Iterator<ShardEntity> itDuties = itPallet.next().iterator();
+				final ShardEntity pallet = collector.getPallet(itDuties.next().getDuty().getPalletId());
+				final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getPallet().getMetadata().getBalancer());
+				logStatus(table, onlineShards, dutyCreations, dutyDeletions, collector, pallet, balancer);
 				if (balancer!=null) {
-					final Set<ShardEntity> removes = dutyDeletions.stream()
-					        .filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId()))
-					        .collect(Collectors.toSet());
-					final Set<ShardEntity> adds = dutyCreations.stream()
-					        .filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId()))
-					        .collect(Collectors.toSet());
-					
-					logStatus(table, onlineShards, dutyCreations, dutyDeletions, allColl, pallet, balancer);
-					final Map<Shard, Set<ShardEntity>> entitiesByShard = new HashMap<>();
-					table.getStage().getShardsByState(ShardState.ONLINE).forEach(
-							s->entitiesByShard.put(s, table.getStage().getDutiesByShard(pallet.getPallet(), s)));
-					
-					final Migrator migrator = new Migrator(table, pallet.getPallet());					
-					final Set<ShardEntity> entities = new HashSet<>();
-					entitiesByShard.values().forEach(set->entities.addAll(set));
-					balancer.balance(
-							pallet.getPallet(),
-							Collections.unmodifiableSet(entities), 
-							entitiesByShard, 
-							Collections.unmodifiableSet(adds), 
-							Collections.unmodifiableSet(removes), 
-							migrator);
-					changes|=migrator.writePlan(plan);
+					final Migrator migra = balance(table, pallet, balancer, dutyCreations, dutyDeletions);
+					changes |=migra.write(plan);
 				} else {
 					logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(), 
 						pallet.getPallet().getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
@@ -127,8 +106,53 @@ public class PlanBuilder {
 		return plan;
 	}
 
+	private final Migrator balance(
+			final PartitionTable table,
+			final ShardEntity pallet,
+			final Balancer balancer,
+			final Set<ShardEntity> dutyCreations,
+			final Set<ShardEntity> dutyDeletions) {
+		
+			final Set<ShardEntity> removes = dutyDeletions.stream()
+			        .filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId()))
+			        .collect(Collectors.toSet());
+			final Set<ShardEntity> adds = dutyCreations.stream()
+			        .filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId()))
+			        .collect(Collectors.toSet());
+			
+			final Set<ShardEntity> sourceRefs = new HashSet<>(removes.size() + adds.size());
+			
+			final Map<Location, Set<Duty<?>>> entitiesByShard = new HashMap<>();
+			for (Shard shard: table.getStage().getShardsByState(ShardState.ONLINE)) {
+				final Set<ShardEntity> located = table.getStage().getDutiesByShard(pallet.getPallet(), shard);
+		        entitiesByShard.put(new Location(shard), refs(located));
+		        sourceRefs.addAll(located);
+			}
+			final Set<Duty<?>> entities = new HashSet<>();
+			entitiesByShard.values().forEach(set->entities.addAll(set));
+		    
+		    sourceRefs.addAll(removes);
+		    sourceRefs.addAll(adds);
+		    final Migrator migrator = new Migrator(table, pallet.getPallet(), sourceRefs);
+		    
+			balancer.balance(
+					pallet.getPallet(),
+					Collections.unmodifiableSet(entities), 
+					entitiesByShard, 
+					Collections.unmodifiableSet(refs(adds)), 
+					Collections.unmodifiableSet(refs(removes)), 
+					migrator);
+			return migrator;
+	}
+
+	private final Set<Duty<?>> refs(final Set<ShardEntity> entities) {
+	    final Set<Duty<?>> ret = new HashSet<>(entities.size());
+	    entities.forEach(e->ret.add(e.getDuty()));
+	    return ret;
+	}
+	
 	private static void addMissingAsCrud(final PartitionTable table, final Plan plan) {
-	    final Set<ShardEntity> missing = table.getNextStage().getDutiesMissing();
+	    final Set<ShardEntity> missing = table.getBackstage().getDutiesMissing();
 		for (final ShardEntity missed : missing) {
 			final Shard lazy = table.getStage().getDutyLocation(missed);
 			logger.info("{}: Registering {}, dangling Duty: {}", PlanBuilder.class.getSimpleName(),
@@ -146,21 +170,21 @@ public class PlanBuilder {
 					EntityState.PREPARED,
 			        null, 
                     plan.getId());
-			table.getNextStage().addCrudDuty(missed);
+			table.getBackstage().addCrudDuty(missed);
 		}
 		if (!missing.isEmpty()) {
 			logger.info("{}: Registered {} dangling duties {}", PlanBuilder.class.getSimpleName(),
 					missing.size(), ShardEntity.toStringIds(missing));
 		}
 		// clear it or nobody will
-		table.getNextStage().clearAllocatedMissing();
+		table.getBackstage().clearAllocatedMissing();
 	}
 
 	/*
 	 * check waiting duties never confirmed (for fallen shards as previous
 	 * target candidates)
 	 */
-	private List<ShardEntity> restorePendings(final Plan previous) {
+	private final List<ShardEntity> restorePendings(final Plan previous) {
 		List<ShardEntity> pendings = new ArrayList<>();
 		if (previous != null && !previous.getResult().isClosed()) {
 			/*
@@ -180,7 +204,7 @@ public class PlanBuilder {
 	}
 
 	/* by user deleted */
-	private void registerDeletions(final PartitionTable table, final Plan plan,
+	private final void registerDeletions(final PartitionTable table, final Plan plan,
 			final Set<ShardEntity> deletions) {
 
 		for (final ShardEntity deletion : deletions) {

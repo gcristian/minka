@@ -37,7 +37,6 @@ import com.google.common.util.concurrent.AtomicDouble;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.distributor.Distributor;
 import io.tilt.minka.core.leader.distributor.Plan;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
@@ -58,7 +57,7 @@ import jersey.repackaged.com.google.common.collect.Sets;
  * 
  * Contains the relations between {@linkplain Shard} and {@linkplain Duty}.
  * Continuously checked truth in {@linkplain Stage}.
- * Client CRUD requests and detected problems in {@linkplain NextStage}
+ * Client CRUD requests and detected problems in {@linkplain Backstage}
  * Built at leader promotion.
  * 
  * @author Cristian Gonzalez
@@ -71,7 +70,7 @@ public class PartitionTable {
 	/**
 	 * the result of a {@linkplain Distributor} phase run. 
 	 * state of continuously checked truth on duties attached to shards.
-	 * any modifications and problem detection goes to {@linkplain NextStage}
+	 * any modifications and problem detection goes to {@linkplain Backstage}
 	 */
 	public static class Stage {
 		
@@ -303,16 +302,16 @@ public class PartitionTable {
 	}
 	
 	/** 
-	 * temporal state of modifications willing to be added to the next stage 
+	 * temporal state of modifications willing to be added to the back stage 
 	 * including inconsistencies detected by the bookkeeper
 	 * */
-	public static class NextStage {
+	public static class Backstage {
 		private Set<ShardEntity> palletCrud;
 		private Set<ShardEntity> dutyCrud;
 		private Set<ShardEntity> dutyMissings;
 		private Set<ShardEntity> dutyDangling;
 		
-		public NextStage() {
+		public Backstage() {
 			this.palletCrud = new HashSet<>();
 			this.dutyCrud = new HashSet<>();
 			this.dutyMissings = new HashSet<>();
@@ -392,8 +391,8 @@ public class PartitionTable {
 	private ClusterHealth workingHealth;
 	private ClusterCapacity capacity;
 	private final Stage stage;
-	private final NextStage nextStage;
-	private NextStage previousNextStage;
+	private final Backstage backstage;
+	private Backstage previousNextStage;
 	private Plan currentPlan;
 	private SlidingSortedSet<Plan> history;
 	
@@ -429,7 +428,7 @@ public class PartitionTable {
 		this.workingHealth = ClusterHealth.STABLE;
 		this.capacity = ClusterCapacity.IDLE;
 		this.stage = new Stage();
-		this.nextStage = new NextStage();
+		this.backstage = new Backstage();
 		this.history = CollectionUtils.sliding(20);
 		this.leaderShardContainer = container;
 
@@ -453,8 +452,8 @@ public class PartitionTable {
 	}
 
 	
-	public NextStage getNextStage() {
-		return this.nextStage;
+	public Backstage getBackstage() {
+		return this.backstage;
 	}
 	
 	public Stage getStage() {
@@ -505,7 +504,7 @@ public class PartitionTable {
 		        .append("Shards: ")
 		        .append(getStage().shardsByID.size())
 		        .append(" Crud Duties: ")
-				.append(getNextStage().dutyCrud.size());
+				.append(getBackstage().dutyCrud.size());
 		//.append(" Change: ").append(change.getGroupedIssues().size());
 		return sb.toString();
 	}
@@ -514,7 +513,7 @@ public class PartitionTable {
 	/* add without considerations (they're staged but not distributed per se) */
 	public void addCrudPallet(final ShardEntity pallet) {
 		getStage().palletsById.put(pallet.getPallet().getId(), pallet);
-		getNextStage().palletCrud.add(pallet);
+		getBackstage().palletCrud.add(pallet);
 	}
 
 	public void logStatus() {
@@ -548,19 +547,19 @@ public class PartitionTable {
 				}
 			}
 		}
-		if (!this.getNextStage().dutyMissings.isEmpty()) {
-			logger.warn("{}: {} Missing duties: [ {}]", getClass().getSimpleName(), getNextStage().dutyMissings.size(),
-					this.getNextStage().dutyMissings.toString());
+		if (!this.getBackstage().dutyMissings.isEmpty()) {
+			logger.warn("{}: {} Missing duties: [ {}]", getClass().getSimpleName(), getBackstage().dutyMissings.size(),
+					this.getBackstage().dutyMissings.toString());
 		}
-		if (!this.getNextStage().dutyDangling.isEmpty()) {
-			logger.warn("{}: {} Dangling duties: [ {}]", getClass().getSimpleName(), getNextStage().dutyDangling.size(),
-					this.getNextStage().dutyDangling.toString());
+		if (!this.getBackstage().dutyDangling.isEmpty()) {
+			logger.warn("{}: {} Dangling duties: [ {}]", getClass().getSimpleName(), getBackstage().dutyDangling.size(),
+					this.getBackstage().dutyDangling.toString());
 		}
-		if (this.getNextStage().dutyCrud.isEmpty()) {
+		if (this.getBackstage().dutyCrud.isEmpty()) {
 			logger.info("{}: no CRUD duties", getClass().getSimpleName());
 		} else {
-			logger.info("{}: with {} CRUD duties: [ {}]", getClass().getSimpleName(), getNextStage().dutyCrud.size(),
-					buildLogForDuties(Lists.newArrayList(getNextStage().getDutiesCrud())));
+			logger.info("{}: with {} CRUD duties: [ {}]", getClass().getSimpleName(), getBackstage().dutyCrud.size(),
+					buildLogForDuties(Lists.newArrayList(getBackstage().getDutiesCrud())));
 		}
 		logger.info("{}: Health: {}", getClass().getSimpleName(), getWorkingHealth());
 	}

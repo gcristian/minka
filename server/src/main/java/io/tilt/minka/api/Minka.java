@@ -176,6 +176,37 @@ public class Minka<D extends Serializable, P extends Serializable> {
 					config.copy().setPoolName(Config.SchedulerConf.THREAD_NAME_WEBSERVER_KERNEL));
 		}
 		
+		/*
+		
+		org.glassfish.grizzly.http.server.servlet.WebappContext context = new WebappContext("WebappContext", JERSEY_SERVLET_CONTEXT_PATH);
+        
+        // Initialize and register Jersey Servlet
+        FilterRegistration registration = context.addFilter("ServletContainer", ServletContainer.class);
+        registration.setInitParameter(ServletContainer.RESOURCE_CONFIG_CLASS, 
+                ClassNamesResourceConfig.class.getName());
+        registration.setInitParameter(ClassNamesResourceConfig.PROPERTY_CLASSNAMES, IndexModel.class.getName());
+        registration.setInitParameter("com.sun.jersey.config.property.JSPTemplatesBasePath",
+                "/WEB-INF/jsp");
+        // configure Jersey to bypass non-Jersey requests (static resources and jsps)
+        registration.setInitParameter("com.sun.jersey.config.property.WebPageContentRegex",
+                "(/(image|js|css)/?.*)|(/.*\\.jsp)|(/WEB-INF/.*\\.jsp)|"
+                + "(/WEB-INF/.*\\.jspf)|(/.*\\.html)|(/favicon\\.ico)|"
+                + "(/robots\\.txt)");
+        
+        registration.addMappingForUrlPatterns(EnumSet.allOf(DispatcherType.class), "/*");
+
+        // Initialize and register JSP Servlet        
+        ServletRegistration jspRegistration = context.addServlet(
+                "JSPContainer", JspServlet.class.getName());
+        jspRegistration.addMapping("/*");
+        
+        // Set classpath for Jasper compiler based on the current classpath
+        context.setAttribute(JSP_CLASSPATH_ATTRIBUTE,
+                System.getProperty("java.class.path"));
+        
+        context.deploy(httpServer);
+*/
+		
         // TODO disable ssl etc
 		tenants.get(tenant.getConfig().getBootstrap().getServiceName()).setWebServer(webServer);
 		try {
@@ -207,6 +238,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 		config.getResolvedShardId().setWebhostPort(webhostport);
 		config.getBootstrap().setWebServerHostPort(webhostport);
 		logger.info("{}: Web host:port = {}", webhostport);
+		builder.path(config.getBootstrap().getWebServerContextPath());
 		return builder.build();
 	}
     

@@ -62,6 +62,9 @@ class Transfer {
                     plan.getId());
             plan.ship(source, entity);
         }
+        
+        // TODO this's not longer neccesary: previously there was not a LogList object  
+        
         final ShardEntity assign = ShardEntity.Builder.builderFrom(entity).build();
         assign.getLog().addEvent(EntityEvent.ATTACH, 
                 EntityState.PREPARED,

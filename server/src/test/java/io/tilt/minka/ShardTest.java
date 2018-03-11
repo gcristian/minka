@@ -19,6 +19,7 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
+import io.tilt.minka.core.leader.distributor.Balancer.Location;
 import io.tilt.minka.domain.TCPShardIdentifier;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.CapacityComparer;
@@ -30,15 +31,15 @@ public class ShardTest {
 
 	@Test
 	public void test_shard_comparers() throws Exception {
-		final Set<Shard> capacityOrder = new TreeSet<>(new CapacityComparer(p));
-		final Set<Shard> dateOrder = new TreeSet<>(new Shard.DateComparer());
+		final Set<Location> capacityOrder = new TreeSet<>(new CapacityComparer(p));
+		final Set<Location> dateOrder = new TreeSet<>(new Shard.DateComparer());
 		for (int i = 0; i < new Random().nextInt(100); i++) {
-			capacityOrder.add(buildShard(p, new Random().nextDouble()));
+			capacityOrder.add(new Location(buildShard(p, new Random().nextDouble())));
 		}
-		 Iterator<Shard> it = capacityOrder.iterator();
+		 Iterator<Location> it = capacityOrder.iterator();
 		double lastcap = 0;
 		while (it.hasNext()) {
-			Shard next = it.next();
+			Location next = it.next();
 			final double thiscap = next.getCapacities().get(p).getTotal();
 			Assert.assertTrue("capacity comparer returned a different relation", thiscap > lastcap);
 			lastcap = thiscap;
@@ -47,12 +48,12 @@ public class ShardTest {
 		Assert.assertTrue("no shard built", lastcap > 0);
 		
 		it = dateOrder.iterator();
-		Shard last = null;
+		Location last = null;
 		while (it.hasNext()) {
-			Shard next = it.next();
+			Location next = it.next();
 			if (last!=null) {
 				Assert.assertTrue("date comparer returned a different order", 
-						next.getFirstTimeSeen().getMillis() > last.getFirstTimeSeen().getMillis());
+						next.getCreation().getMillis() > last.getCreation().getMillis());
 			}
 			last = next;
 		}

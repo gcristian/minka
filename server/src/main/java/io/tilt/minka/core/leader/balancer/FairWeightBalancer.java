@@ -26,15 +26,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Migrator;
-import io.tilt.minka.core.leader.distributor.Plan;
-import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.CapacityComparer;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
-import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.EntityState;
 
 /**
  * Type balanced.
@@ -107,47 +104,43 @@ public class FairWeightBalancer implements Balancer {
 	 */
 	public void balance(
 			final Pallet<?> pallet,
-			final Set<ShardEntity> stageDuties, 
-			final Map<Shard, Set<ShardEntity>> stageDistro,
-			final Set<ShardEntity> creations,
-			final Set<ShardEntity> deletions,
+			final Set<Duty<?>> stageDuties, 
+			final Map<Location, Set<Duty<?>>> stageDistro,
+			final Set<Duty<?>> creations,
+			final Set<Duty<?>> deletions,
 			final Migrator migrator) {
 
 		final Metadata meta = (Metadata)pallet.getMetadata();
 		// order new ones and current ones in order to get a fair distro 
-		final Set<ShardEntity> duties = new TreeSet<>(meta.getPresort().getComparator());
+		final Set<Duty<?>> duties = new TreeSet<>(meta.getPresort().getComparator());
 		duties.addAll(creations);
-		duties.addAll(duties);
+		duties.addAll(stageDuties);
 		duties.removeAll(deletions); // delete those marked for deletion
 		if (meta.getDispersion()==Dispersion.EVEN) {
-			final Set<Bascule<Shard, ShardEntity>> bascules = buildBascules(pallet, stageDistro.keySet(), duties);
+			final Set<Bascule<Location, Duty<?>>> bascules = buildBascules(pallet, stageDistro.keySet(), duties);
 			if (bascules.isEmpty()) {
-			    //for (final Iterator<ShardEntity> itDuties = duties.iterator(); itDuties.hasNext(); 
-			    //        itDuties.next().getLog().getLast().addState(EntityState.STUCK));
+			    for (final Iterator<Duty<?>> itDuties = duties.iterator(); itDuties.hasNext(); 
+		            migrator.stuck(itDuties.next(), null));
 				return;
 			}
-    		final Iterator<Bascule<Shard, ShardEntity>> itBascs = bascules.iterator();
-    		final Iterator<ShardEntity> itDuties = duties.iterator();
-    		ShardEntity duty = null;
+    		final Iterator<Bascule<Location, Duty<?>>> itBascs = bascules.iterator();
+    		final Iterator<Duty<?>> itDuties = duties.iterator();
+    		Duty<?> duty = null;
     		boolean lifted = true;
     		while (itBascs.hasNext()) {
-    			final Bascule<Shard, ShardEntity> bascule = itBascs.next();
+    			final Bascule<Location, Duty<?>> bascule = itBascs.next();
     			while (itDuties.hasNext()) {
     				if (lifted) {
     					duty = itDuties.next();
     				}
-    				lifted = bascule.testAndLift(duty, duty.getDuty().getWeight());
+    				lifted = bascule.testAndLift(duty, duty.getWeight());
     				final boolean saveLooseRemainders = lifted && !itBascs.hasNext() && itDuties.hasNext();
                     if (saveLooseRemainders) {
     					// without overwhelming we can irrespect the fair-weight-even desire
     					// adding those left aside by division remainders calc
     					while (itDuties.hasNext()) {
-    						if (!bascule.tryLift(duty = itDuties.next(), duty.getDuty().getWeight())) {
-    						    duty.getLog().addEvent(
-    						    		duty.getLastEvent(), 
-    						    		EntityState.STUCK, 
-    						    		bascule.getOwner().getShardID(), 
-    						    		Plan.PLAN_WITHOUT);
+    						if (!bascule.tryLift(duty = itDuties.next(), duty.getWeight())) {
+    						    migrator.stuck(duty, bascule.getOwner().getId());
     						}
     					}
     				}
@@ -160,10 +153,9 @@ public class FairWeightBalancer implements Balancer {
     		}
     		if (itDuties.hasNext()) {
     			logger.error("{}: Insufficient cluster capacity for Pallet: {}, remaining duties without distribution {}", 
-    				getClass().getSimpleName(), pallet, duty.toBrief());
+    				getClass().getSimpleName(), pallet, duty.getId());
     			while (itDuties.hasNext()) {
-    				ShardEntity ne = itDuties.next();
-    			    ne.getLog().addEvent(ne.getLastEvent(), EntityState.STUCK, null, -1);    			
+    				migrator.stuck(itDuties.next(), null);
 			    }
     		}
 		} else {
@@ -171,23 +163,23 @@ public class FairWeightBalancer implements Balancer {
 		}
 	}
 
-	private final Set<Bascule<Shard, ShardEntity>> buildBascules(
+	private final Set<Bascule<Location, Duty<?>>> buildBascules(
 	        final Pallet<?> pallet, 
-	        final Set<Shard> onlineShards, 
-	        final Set<ShardEntity> duties) {
+	        final Set<Location> onlineShards, 
+	        final Set<Duty<?>> duties) {
 	    
-		final Bascule<Shard, ShardEntity> whole = new Bascule<>();
-		duties.forEach(d->whole.lift(d.getDuty().getWeight()));
-		final Set<Bascule<Shard, ShardEntity>> bascules = new LinkedHashSet<>();
-		final Set<Shard> sorted = new TreeSet<>(new CapacityComparer(pallet));
+		final Bascule<Location, Duty<?>> whole = new Bascule<>();
+		duties.forEach(d->whole.lift(d.getWeight()));
+		final Set<Bascule<Location, Duty<?>>> bascules = new LinkedHashSet<>();
+		final Set<Location> sorted = new TreeSet<>(new CapacityComparer(pallet));
 		sorted.addAll(onlineShards);
-		for (final Shard shard: sorted) {
+		for (final Location shard: sorted) {
 			final Capacity cap = shard.getCapacities().get(pallet);
 			if (cap!=null) {
 				bascules.add(new Bascule<>(shard, cap.getTotal()));
 			}
 		}
-		double clusterCap = bascules.isEmpty() ? 0 :Bascule.<Shard, ShardEntity>getMaxRealCapacity(bascules);
+		double clusterCap = bascules.isEmpty() ? 0 :Bascule.<Location, Duty<?>>getMaxRealCapacity(bascules);
 		if (clusterCap <=0) {
 			logger.error("{}: No available or reported capacity for Pallet: {}", getClass().getSimpleName(), pallet);
 		} else {
@@ -195,7 +187,7 @@ public class FairWeightBalancer implements Balancer {
 				logger.error("{}: Pallet: {} with Inssuficient/Almost cluster capacity (max: {}, required load: {})", 
 					getClass().getSimpleName(), pallet, clusterCap, whole.totalLift());
 			}
-			for (final Bascule<Shard, ShardEntity> b: bascules) {
+			for (final Bascule<Location, Duty<?>> b: bascules) {
 				final double fair = Math.min(whole.totalLift() * (b.getMaxRealCapacity() / clusterCap), b.getMaxRealCapacity());
 				logger.info("{}: Shard: {} Fair load: {}, capacity: {} (c.c. {}, d.w. {})", getClass().getSimpleName(), 
 						b.getOwner(), fair, b.getMaxRealCapacity(), clusterCap, whole.totalLift());

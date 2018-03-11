@@ -22,6 +22,7 @@ import io.tilt.minka.domain.ShardEntity;
 import java.util.Map;
 import java.util.Set;
 
+import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Migrator;
@@ -77,10 +78,10 @@ public class CoalesceBalancer implements Balancer {
 	@Override
 	public void balance(
 			final Pallet<?> pallet,
-			final Set<ShardEntity> stageDuties, 
-			final Map<Shard, Set<ShardEntity>> stageDistro,
-			final Set<ShardEntity> creations,
-			final Set<ShardEntity> deletions,
+			final Set<Duty<?>> stageDuties, 
+			final Map<Location, Set<Duty<?>>> stageDistro,
+			final Set<Duty<?>> creations,
+			final Set<Duty<?>> deletions,
 			final Migrator migrator) {
 
 	}

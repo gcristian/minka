@@ -33,27 +33,27 @@ import io.tilt.minka.domain.EntityState;
  * A migration strategy in the override style which replaces a shard's content with given duties.
  * it computes to a delta change considering currently already assigned duties on the target shard.
  */
-class Override {
+public class Override {
     
 	private final Pallet<?> pallet;
 	private final Shard shard;
 	private final Set<ShardEntity> entities;
 	private final double remainingCap;
 	
-	protected Override(final Pallet<?> pallet, Shard shard, final Set<ShardEntity> entities, final double remainingCap) {
+	Override(final Pallet<?> pallet, Shard shard, final Set<ShardEntity> entities, final double remainingCap) {
 		super();
 		this.pallet = pallet;
 		this.shard = shard;
 		this.entities = entities;
 		this.remainingCap = remainingCap;;
 	}
-	public Shard getShard() {
+	Shard getShard() {
 		return this.shard;
 	}
-	public Set<ShardEntity> getEntities() {
+	Set<ShardEntity> getEntities() {
 		return this.entities;
 	}
-	public double getRemainingCap() {
+	double getRemainingCap() {
 		return this.remainingCap;
 	}
 
