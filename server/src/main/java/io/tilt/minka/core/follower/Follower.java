@@ -58,12 +58,8 @@ public class Follower extends ServiceImpl {
 	private final Scheduler scheduler;
 	private final Heartpump heartpump;
 	private final HeartbeatFactory heartbeatFactory;
+	private final Agent follow;
 
-	private final Agent clearancer;
-	private final Agent cardiologyst;
-	private final Agent pump;
-
-	private boolean firstClearanceGot;
 
 	public Follower(
 			final Config config, 
@@ -83,28 +79,14 @@ public class Follower extends ServiceImpl {
 		this.creation = new DateTime(DateTimeZone.UTC);
 		this.scheduler = scheduler;
 
-		this.clearancer = scheduler.getAgentFactory()
-				.create(Action.FOLLOWER_POLICIES_CLEARANCE, 
-						PriorityLock.HIGH_ISOLATED, 
-						Frequency.PERIODIC,
-						() -> certifyClearance())
-				.delayed(config.getFollower().getClearanceCheckStartDelayMs())
-				.every(config.getFollower().getClearanceCheckDelayMs())
-				.build();
-
-		this.cardiologyst = scheduler.getAgentFactory()
-				.create(Action.STUCK_POLICY, 
+		this.follow = scheduler.getAgentFactory()
+				.create(Action.HEARTBEAT_REPORT, 
 						PriorityLock.MEDIUM_BLOCKING, 
 						Frequency.PERIODIC,
-						() -> checkHeartattackPolicy())
-				.delayed(config.getFollower().getHeartattackCheckStartDelayMs())
-				.every(config.getFollower().getHeartattackCheckDelayMs())
+						() -> follow())
+				.delayed(config.getFollower().getHeartbeatStartDelayMs())
+				.every(config.getFollower().getHeartbeatDelayMs())
 				.build();
-
-		this.pump = scheduler.getAgentFactory()
-				.create(Action.HEARTBEAT_REPORT, PriorityLock.MEDIUM_BLOCKING, Frequency.PERIODIC,
-						() -> heartpump.emit(heartbeatFactory.create()))
-				.delayed(config.getFollower().getHeartbeatStartDelayMs()).every(config.getFollower().getHeartbeatDelayMs()).build();
 	}
 
 	@Override
@@ -113,10 +95,9 @@ public class Follower extends ServiceImpl {
 		this.heartpump.init();
 		this.leaderConsumer.init();
 		alive = true;
-		turnOnPolicies();
 		// after partition manager initialized: set emergency shutdown
 		eventBroker.setBrokerShutdownCallback(() -> stop());
-		scheduler.schedule(pump);
+		scheduler.schedule(follow);
 	}
 
 	@Override
@@ -128,9 +109,8 @@ public class Follower extends ServiceImpl {
 			bye.setStateChange(ShardState.QUITTED);
 			heartpump.emit(bye);
 			logger.info("{}: ({}) Stopping timer", getClass().getSimpleName(), config.getLoggingShardId());
-			scheduler.stop(pump);
+			scheduler.stop(follow);
 			alive = false;
-			turnOffPolicies();
 			this.heartpump.stop();
 			this.leaderConsumer.stop();
 		} else {
@@ -138,53 +118,64 @@ public class Follower extends ServiceImpl {
 					config.getLoggingShardId());
 		}
 	}
+	
+	private boolean firstBeat = true;
+	
+	private void follow() {
+		boolean valid = checkClearanceOrFall();		
+		boolean healthy = valid && checkBeatsOrFall(); // avoid release twice
+		if (valid && (healthy || firstBeat)) {
+			heartpump.emit(heartbeatFactory.create());
+		}
+		firstBeat = false;
+	}
 
-	private void certifyClearance() {
+	/** @return whether or not the clearance is valid */
+	private boolean checkClearanceOrFall() {
 		boolean lost = false;
 		final Clearance clear = leaderConsumer.getLastClearance();
 		long delta = 0;
-		int maxAbsence = config.getFollower().getClearanceMaxAbsenceMs();
+		//int maxAbsence = config.getFollower().getClearanceMaxAbsenceMs();
+		final long hbdelay = config.getFollower().getHeartbeatDelayMs();
+		final int maxAbsenceMs = (int)hbdelay * config.getProctor().getMaxAbsentHeartbeatsBeforeShardGone();
+		final int minToJoinMs = (int)hbdelay * config.getProctor().getMaxShardJoiningStateMs();
+		
+		final DateTime now = new DateTime(DateTimeZone.UTC);
+		// it's OK if there's no clearance because just entering.. 
 		if (clear != null) {
-			firstClearanceGot = true;
-			final DateTime now = new DateTime(DateTimeZone.UTC);
+			
 			final DateTime lastClearanceDate = clear.getCreation();
-			lost = lastClearanceDate.plusMillis(maxAbsence).isBefore(now);
+			lost = lastClearanceDate.plusMillis(maxAbsenceMs).isBefore(now);
 			delta = now.getMillis() - lastClearanceDate.getMillis();
-		}
-		if (firstClearanceGot) {
 			if (lost) {
 				logger.error("{}: ({}) Executing Clearance policy, last: {} too old (Max: {}, Past: {} msecs)",
 						getClass().getSimpleName(), config.getLoggingShardId(),
-						clear != null ? clear.getCreation() : "null", maxAbsence, delta);
+						clear != null ? clear.getCreation() : "null", maxAbsenceMs, delta);
 				leaderConsumer.getPartitionManager().releaseAllOnPolicies();
 			} else {
 				logger.debug("{}: ({}) Clearence certified #{} from Leader: {}", getClass().getSimpleName(),
 						config.getLoggingShardId(), clear.getSequenceId(), clear.getLeaderShardId());
 			}
+		} else {
+			// double to minimize blessing latency
+			//lost = creation.plusMillis(minToJoinMs * 2).isBefore(now);
 		}
+		return !lost;
 	}
 
-	public void turnOnPolicies() {
-		logger.info("{}: ({}) Scheduling constant policies", getClass().getSimpleName(), config.getLoggingShardId());
-		scheduler.schedule(clearancer);
-		scheduler.schedule(cardiologyst);
-	}
-
-	public void turnOffPolicies() {
-		scheduler.stop(cardiologyst);
-		scheduler.stop(clearancer);
-	}
-
-	private void checkHeartattackPolicy() {
+	/** @return whether or not the pump's last beat is within a healthy time window */
+	private boolean checkBeatsOrFall() {
 		if (heartpump.getLastBeat() == null) {
-			return;
+			return false;
 		} else {
 			final DateTime expiracy = heartpump.getLastBeat().plus(config.getFollower().getMaxHeartbeatAbsenceForReleaseMs());
-			if (expiracy.isBefore(new DateTime(DateTimeZone.UTC)) && true) {
+			if (expiracy.isBefore(new DateTime(DateTimeZone.UTC))) {
 				logger.warn("{}: ({}) Executing Heartattack policy (last HB: {}): releasing delegate's held duties",
 						getClass().getSimpleName(), config.getLoggingShardId(), expiracy);
 				leaderConsumer.getPartitionManager().releaseAllOnPolicies();
+				return false;
 			}
+			return true;
 		}
 	}
 
