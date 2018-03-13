@@ -22,7 +22,7 @@ import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
- * Pretty obvious mission 
+ * Upon leader's reception of instructions: execute them
  * 
  * @author Cristian Gonzalez
  * @since Nov 17, 2015

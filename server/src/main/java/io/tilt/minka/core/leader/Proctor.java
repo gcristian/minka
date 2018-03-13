@@ -21,6 +21,7 @@ import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.STABLE;
 import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.UNSTABLE;
 import static io.tilt.minka.utils.LogUtils.HEALTH_DOWN;
 import static io.tilt.minka.utils.LogUtils.HEALTH_UP;
+import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -85,21 +86,31 @@ public class Proctor extends ServiceImpl {
 	 * Partition Table
 	 */
 
-	public Proctor(final Config config, final PartitionTable partitionTable, final Bookkeeper bookkeeper, 
-			final EventBroker eventBroker, final Scheduler scheduler, final NetworkShardIdentifier shardId, 
+	public Proctor(
+			final Config config, 
+			final PartitionTable partitionTable, 
+			final Bookkeeper bookkeeper, 
+			final EventBroker eventBroker, 
+			final Scheduler scheduler, 
+			final NetworkShardIdentifier shardId, 
 			final LeaderShardContainer leaderShardContainer) {
 
-		this.config = config;
-		this.partitionTable = partitionTable;
-		this.bokkeeper = bookkeeper;
-		this.eventBroker = eventBroker;
-		this.scheduler = scheduler;
-		this.shardId = shardId;
-		this.leaderShardContainer = leaderShardContainer;
+		this.config = requireNonNull(config);
+		this.partitionTable = requireNonNull(partitionTable);
+		this.bokkeeper = requireNonNull(bookkeeper);
+		this.eventBroker = requireNonNull(eventBroker);
+		this.scheduler = requireNonNull(scheduler);
+		this.shardId = requireNonNull(shardId);
+		this.leaderShardContainer = requireNonNull(leaderShardContainer);
 
 		this.analyzer = scheduler.getAgentFactory()
-				.create(Action.PROCTOR, PriorityLock.MEDIUM_BLOCKING, Frequency.PERIODIC, () -> analyzeShards())
-				.delayed(config.getProctor().getStartDelayMs()).every(config.getProctor().getDelayMs()).build();
+				.create(Action.PROCTOR, 
+						PriorityLock.MEDIUM_BLOCKING, 
+						Frequency.PERIODIC, 
+						() -> analyzeShards())
+				.delayed(config.getProctor().getStartDelayMs())
+				.every(config.getProctor().getDelayMs())
+				.build();
 	}
 
 	@Override
@@ -182,7 +193,7 @@ public class Proctor extends ServiceImpl {
 		}
 	}
 
-	private ShardState evaluateStateThruHeartbeats(Shard shard) {
+	private ShardState evaluateStateThruHeartbeats(final Shard shard) {
 		final long now = System.currentTimeMillis();
 		final long normalDelay = config.getFollower().getHeartbeatDelayMs();
 		final long configuredLapse = config.getProctor().getHeartbeatLapseSec() * 1000;
@@ -252,7 +263,7 @@ public class Proctor extends ServiceImpl {
 		return newState;
 	}
 
-	private boolean checkHealth(long now, long normalDelay, List<Heartbeat> onTime) {
+	private boolean checkHealth(final long now, final long normalDelay, final List<Heartbeat> onTime) {
 		SummaryStatistics stat = new SummaryStatistics();
 		// there's some hope
 		long lastCreation = onTime.get(0).getCreation().getMillis();

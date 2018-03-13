@@ -16,6 +16,8 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,24 +73,22 @@ public class Migrator {
 	
 	protected Migrator(final PartitionTable table, final Pallet<?> pallet, final Set<ShardEntity> duties) {
 		super();
-		Validate.notNull(pallet);
-		Validate.notNull(table);
-		this.table = table;
-		this.pallet = pallet;
+		this.table = requireNonNull(table);
+		this.pallet = requireNonNull(pallet);
 		this.sourceRefs = new HashMap<>();
 		duties.forEach(d-> sourceRefs.put(d.getDuty(), d));
 	}
 
 	/* specifically transfer from a Source to a Target */
 	public final void transfer(final Location target, final Duty<?> duty) {
-		Validate.notNull(target);
-		Validate.notNull(duty);
+		requireNonNull(target);
+		requireNonNull(duty);
 		transfer_(null, target, duty);
 	}
 	public final void transfer(final Location source, final Location target, final Duty<?> duty) {
-		Validate.notNull(source);
-		Validate.notNull(target);
-		Validate.notNull(duty);
+		requireNonNull(source);
+		requireNonNull(target);
+		requireNonNull(duty);
 		transfer_(source, target, duty);
 	}
 	private final void transfer_(final Location source, final Location target, final Duty<?> duty) throws BalancingException {
@@ -111,6 +110,7 @@ public class Migrator {
 	
 	/** leave a reason for distribution exclusion */
 	public final void stuck(final Duty<?> duty, final ShardIdentifier shard) {
+		requireNonNull(duty);
 	    final ShardEntity e = sourceRefs.get(duty);
         e.getLog().addEvent(
                 e.getLastEvent(), 
@@ -121,8 +121,8 @@ public class Migrator {
 	
 	/* explicitly override a shard's content, client must look after consistency ! */
 	public final void override(final Location shard, final Set<Duty<?>> clusterx) {
-		Validate.notNull(shard);
-		Validate.notNull(clusterx);
+		requireNonNull(shard);
+		requireNonNull(clusterx);
 		if (this.overrides == null) {
 			this.overrides = new ArrayList<>();
 		}

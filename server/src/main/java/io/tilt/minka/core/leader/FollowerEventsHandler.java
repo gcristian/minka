@@ -16,6 +16,8 @@
  */
 package io.tilt.minka.core.leader;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -54,15 +56,20 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 	private final NetworkShardIdentifier shardId;
 
 
-	public FollowerEventsHandler(final Config config, final PartitionTable partitionTable, final BiConsumer<Heartbeat, Shard> hbConsumer,
-			final EventBroker eventBroker, final Scheduler scheduler, final NetworkShardIdentifier shardId) {
+	public FollowerEventsHandler(
+			final Config config, 
+			final PartitionTable partitionTable, 
+			final BiConsumer<Heartbeat, Shard> hbConsumer,
+			final EventBroker eventBroker, 
+			final Scheduler scheduler, 
+			final NetworkShardIdentifier shardId) {
 
-		this.config = config;
-		this.partitionTable = partitionTable;
-		this.hbConsumer = hbConsumer;
-		this.eventBroker = eventBroker;
-		this.scheduler = scheduler;
-		this.shardId = shardId;
+		this.config = requireNonNull(config);
+		this.partitionTable = requireNonNull(partitionTable);
+		this.hbConsumer = requireNonNull(hbConsumer);
+		this.eventBroker = requireNonNull(eventBroker);
+		this.scheduler = requireNonNull(scheduler);
+		this.shardId = requireNonNull(shardId);
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -94,7 +101,8 @@ public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heart
 		}
 
 		scheduler.run(scheduler.getFactory().build(
-		        Scheduler.Action.PARTITION_TABLE_UPDATE, PriorityLock.MEDIUM_BLOCKING, () -> {
+				Scheduler.Action.PARTITION_TABLE_UPDATE, 
+		        PriorityLock.MEDIUM_BLOCKING, () -> {
 					// when a shutdownlock acquired then keep receving HB to evaluate all Slaves are down!
 					Shard shard = partitionTable.getStage().getShard(hb.getShardId());
 					if (shard == null) {

@@ -16,6 +16,8 @@
  */
 package io.tilt.minka.core.task;
 
+import static java.util.Objects.requireNonNull;
+
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,34 +67,43 @@ public class Bootstrap extends ServiceImpl {
 
 	private final Agent bootLeadershipCandidate;
 	private final Agent readyAwareBooting;
-	//private final Journal journal;
 
 	/* starts a new shard */
-	public Bootstrap(final Config config, final ConfigValidator validator, final SpectatorSupplier spectatorSupplier,
-			final boolean autoStart, final Leader leader, final Follower follower,
-			final DependencyPlaceholder dependencyPlaceholder, final Scheduler scheduler,
-			final LeaderShardContainer leaderShardContainer, final ShardIdentifier shardId, final EventBroker eventBroker) {
+	public Bootstrap(
+			final Config config, 
+			final ConfigValidator validator, 
+			final SpectatorSupplier spectatorSupplier,
+			final boolean autoStart, 
+			final Leader leader, 
+			final Follower follower,
+			final DependencyPlaceholder dependencyPlaceholder, 
+			final Scheduler scheduler,
+			final LeaderShardContainer leaderShardContainer, 
+			final ShardIdentifier shardId, 
+			final EventBroker eventBroker) {
 
 		Validate.notNull(config, "a unique service name is required (within the ZK ensemble)");
 		this.config = config;
-		this.validator = validator;
-		this.leader = leader;
-		this.follower = follower;
-		this.dependencyPlaceholder = dependencyPlaceholder;
-		this.scheduler = scheduler;
-		this.spectatorSupplier = spectatorSupplier;
+		this.validator = requireNonNull(validator);
+		this.spectatorSupplier = requireNonNull(spectatorSupplier);
+		this.leader = requireNonNull(leader);
+		this.follower = requireNonNull(follower);
+		this.dependencyPlaceholder = requireNonNull(dependencyPlaceholder);
+		this.scheduler = requireNonNull(scheduler);
+		this.leaderShardContainer = requireNonNull(leaderShardContainer);
+		this.shardId = requireNonNull(shardId);
+		this.eventBroker = requireNonNull(eventBroker);
+
 		this.repostulationCounter = 0;
-		this.leaderShardContainer = leaderShardContainer;
-		this.shardId = shardId;
-		this.eventBroker = eventBroker;
-		
+
 		this.bootLeadershipCandidate = scheduler
 				.getAgentFactory().create(
 						Action.BOOTSTRAP_LEADERSHIP_CANDIDATURE, 
 						PriorityLock.HIGH_ISOLATED,
 						Frequency.ONCE_DELAYED, 
 						() -> bootLeadershipCandidate())
-				.delayed(REPUBLISH_LEADER_CANDIDATE_AFTER_LOST_MS).build();
+				.delayed(REPUBLISH_LEADER_CANDIDATE_AFTER_LOST_MS)
+				.build();
 
 		this.readyAwareBooting = scheduler
 				.getAgentFactory().create(
@@ -100,7 +111,8 @@ public class Bootstrap extends ServiceImpl {
 						PriorityLock.HIGH_ISOLATED,
 						Frequency.ONCE_DELAYED, 
 						() -> readyAwareBooting())
-				.delayed(config.getBootstrap().getReadynessRetryDelayMs()).build();
+				.delayed(config.getBootstrap().getReadynessRetryDelayMs())
+				.build();
 
 		if (autoStart) {
 			start();

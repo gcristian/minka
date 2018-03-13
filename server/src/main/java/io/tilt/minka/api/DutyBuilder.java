@@ -101,13 +101,13 @@ public class DutyBuilder<T extends Serializable> {
 			weight = 1;
 		}
 		if (payload == null) {
-			return new Chore(id, id, weight, palletId, synthetic, lazy, idempotent);								
+			return new Task(id, id, weight, palletId, synthetic, lazy, idempotent);								
 		} else {
-			return new Chore<>(payload, id, weight, palletId, synthetic, lazy, idempotent);
+			return new Task<>(payload, id, weight, palletId, synthetic, lazy, idempotent);
 		}
 	}
 		
-	public static class Chore<T extends Serializable> implements Duty<T>, EntityPayload {
+	public static class Task<T extends Serializable> implements Duty<T>, EntityPayload {
 
 		private static final long serialVersionUID = 4976043821619752116L;
 
@@ -123,8 +123,14 @@ public class DutyBuilder<T extends Serializable> {
 		private final boolean idempotent;
 
 		@SuppressWarnings("unchecked")
-		protected Chore(final T payload, final String id, final double load,
-				final String palletId, final boolean synthetic, final boolean lazy, final boolean idempotent) {
+		protected Task(
+				final T payload, 
+				final String id, 
+				final double load,
+				final String palletId, 
+				final boolean synthetic, 
+				final boolean lazy, 
+				final boolean idempotent) {
 			this.id = id;
 			this.palletId = palletId;
 			this.load = load;

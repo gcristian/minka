@@ -302,7 +302,7 @@ public class PartitionTable {
 	}
 	
 	/** 
-	 * temporal state of modifications willing to be added to the back stage 
+	 * temporal state of modifications willing to be added to the stage 
 	 * including inconsistencies detected by the bookkeeper
 	 * */
 	public static class Backstage {

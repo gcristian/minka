@@ -37,7 +37,7 @@ import com.google.common.collect.Lists;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.DutyBuilder.Chore;
+import io.tilt.minka.api.DutyBuilder.Task;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.broker.EventBroker;
@@ -69,7 +69,7 @@ import io.tilt.minka.utils.LogUtils;
  * @author Cristian Gonzalez
  * @since Nov 17, 2015
  */
-class Distributor extends ServiceImpl {
+public class Distributor extends ServiceImpl {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -216,14 +216,13 @@ class Distributor extends ServiceImpl {
 	private Plan buildPlan(final Plan previous) {
 		final Plan plan = planner.build(partitionTable, previous);
 		partitionTable.getBackstage().cleanAllocatedDanglings();
-		if (!plan.areShippingsEmpty()) {
+		if (null!=plan) {
 			partitionTable.addPlan(plan);
 			this.partitionTable.setWorkingHealth(ClusterHealth.UNSTABLE);
 			plan.prepare();
 			logger.info("{}: Balancer generated issues on Plan: {}", getName(), plan.getId());
 			return plan;
 		} else {
-			plan.discard();
 			this.partitionTable.setWorkingHealth(ClusterHealth.STABLE);
 			logger.info("{}: Distribution in Balance ", getName(), LogUtils.BALANCED_CHAR);
 			return null;
@@ -296,7 +295,7 @@ class Distributor extends ServiceImpl {
 				return false;
 			} else {
 				try {
-					duties.forEach(d -> Chore.validateBuiltParams(d));
+					duties.forEach(d -> Task.validateBuiltParams(d));
 				} catch (Exception e) {
 					logger.error("{}: Distribution suspended - Duty Built construction problem: ", getName(), e);
 					return false;

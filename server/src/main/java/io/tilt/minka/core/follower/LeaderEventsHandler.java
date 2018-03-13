@@ -57,27 +57,33 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
+	private final Config config;
 	private final DependencyPlaceholder dependencyPlaceholder;
-	private final PartitionManager partitionManager;
 	private final ShardedPartition partition;
+	private final PartitionManager partitionManager;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
-	private final Config config;
-	private Clearance lastClearance;
 	private final LeaderShardContainer leaderContainer;
-
-	public LeaderEventsHandler(final Config config, final DependencyPlaceholder dependencyPlaceholder,
-			final ShardedPartition partition, final PartitionManager partitionManager, final EventBroker eventBroker,
-			final Scheduler scheduler, final LeaderShardContainer leaderContainer) {
+	
+	private Clearance lastClearance;
+	
+	public LeaderEventsHandler(
+			final Config config, 
+			final DependencyPlaceholder dependencyPlaceholder,
+			final ShardedPartition partition, 
+			final PartitionManager partitionManager, 
+			final EventBroker eventBroker,
+			final Scheduler scheduler, 
+			final LeaderShardContainer leaderContainer) {
 
 		super();
+		this.config = config;
+		this.dependencyPlaceholder = dependencyPlaceholder;
 		this.partition = partition;
 		this.partitionManager = partitionManager;
 		this.eventBroker = eventBroker;
 		this.scheduler = scheduler;
-		this.config = config;
 		this.leaderContainer = leaderContainer;
-		this.dependencyPlaceholder = dependencyPlaceholder;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -94,14 +100,6 @@ public class LeaderEventsHandler extends ServiceImpl implements Service, Consume
 				Clearance.class, 
 				ArrayList.class, 
 				DomainInfo.class);
-		
-		/*eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()),
-				Clearance.class, this, sinceNow);
-		eventBroker.subscribeEvents(
-				eventBroker.buildToTarget(config, Channel.INSTRUCTIONS_TO_FOLLOWER, partition.getId()), ArrayList.class,
-				this, sinceNow);
-				*/
-
 	}
 
 	public Clearance getLastClearance() {

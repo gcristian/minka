@@ -17,6 +17,8 @@
 package io.tilt.minka.core.follower.impl;
 
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -61,12 +63,14 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	private long lastIncludedDutiesTimestamp;
 	private long includeDutiesFrequency = 10 * 1000l;
 	
-	public HeartbeatFactoryImpl(final Config config, final DependencyPlaceholder holder, 
+	public HeartbeatFactoryImpl(
+			final Config config, 
+			final DependencyPlaceholder holder, 
 			final ShardedPartition partition) {
 		super();
-		this.config = config;
-		this.dependencyPlaceholder = holder;
-		this.partition = partition;
+		this.config = requireNonNull(config);
+		this.dependencyPlaceholder = requireNonNull(holder);
+		this.partition = requireNonNull(partition);
 		this.sequence = new AtomicLong();
 	}
 
@@ -118,12 +122,13 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 				} else {
 					// consider only the last action logged to this shard
 					final Log found = shardedDuty.getLog().find(partition.getId()); 
-					// TODO avoid expired tracks thru a best-guessed calculation of inactivity
-					// or filter tracks thru planId grabing it thru DomainInfo facility
-					if (found.getLastState()!=EntityState.CONFIRMED) {
+					final EntityState stamp = EntityState.CONFIRMED;
+					if (found.getLastState()!=stamp) {
+						log.info("{}: ({}) Changing {} to {} duty: {}", getClass().getSimpleName(), partition.getId(),
+								found.getLastState(), stamp, duty.getId());
 						shardedDuty.getLog().addEvent(
 								found.getEvent(), 
-								EntityState.CONFIRMED, 
+								stamp,
 								partition.getId(), 
 								found.getPlanId());
 						includeDuties = true;
@@ -132,7 +137,6 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			} else {
 				includeDuties = true;
 				shardedDuty = ShardEntity.Builder.builder(duty).build();
-				// shardedDuty.registerEvent(PartitionEvent.ASSIGN, State.DANGLING);
 				shardedDuty.getLog().addEvent(EntityEvent.ATTACH, 
 				        EntityState.DANGLING, 
 				        this.partition.getId(), 

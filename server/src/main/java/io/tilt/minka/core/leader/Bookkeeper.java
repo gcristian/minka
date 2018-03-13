@@ -78,7 +78,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		}
 			
 		if (partitionTable.getCurrentPlan() == null || partitionTable.getCurrentPlan().getResult().isClosed()) {
-			logDanglings(beat, sourceShard);
+			noticeDanglings(beat, sourceShard);
 		} else {
 			analyzeReportedDuties(sourceShard, beat.getReportedCapturedDuties());
 		}
@@ -88,7 +88,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-    private void logDanglings(final Heartbeat beat, final Shard sourceShard) {
+    private void noticeDanglings(final Heartbeat beat, final Shard sourceShard) {
         // believe only when online: to avoid Dirty efects after follower's hangs/stucks
         // so it clears itself before trusting their HBs
         for (final ShardEntity duty : beat.getReportedCapturedDuties()) {
@@ -395,7 +395,8 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 						if (pallet!=null) {
 							partitionTable.getBackstage().addCrudDuty(
 									ShardEntity.Builder.builder(entity.getEntity())
-										.withRelatedEntity(pallet).build());
+										.withRelatedEntity(pallet)
+										.build());
 						} else {
 							logger.error("{}: Skipping Crud Event {}: Pallet ID :{} set not found or yet created", getClass().getSimpleName(),
 									event, entity, entity.getDuty().getPalletId());

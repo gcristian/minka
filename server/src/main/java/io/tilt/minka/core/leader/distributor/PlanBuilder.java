@@ -58,6 +58,7 @@ class PlanBuilder {
 		this.config = config;
 	}
 
+	/** @return a plan if there're changes to apply or NULL if not */
 	final Plan build(final PartitionTable table, final Plan previousChange) {
 		final Plan plan = new Plan(
 				config.getDistributor().getPlanExpirationSec(), 
@@ -103,7 +104,12 @@ class PlanBuilder {
 				logger.error("Unexpected", e);
 			}
 		}
-		return plan;
+		if (changes) {
+			return plan;
+		} else {
+			plan.discard();
+			return null;
+		}
 	}
 
 	private final Migrator balance(
@@ -227,7 +233,7 @@ class PlanBuilder {
 			return;
 		}
 		
-		logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "Arranging Pallet: %s for %s", pallet.toBrief(), balancer.getClass().getSimpleName()));
+		logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "Building Pallet: %s for %s", pallet.toBrief(), balancer.getClass().getSimpleName()));
 		final StringBuilder sb = new StringBuilder();
 		double clusterCapacity = 0;
 		for (final Shard node: onlineShards) {

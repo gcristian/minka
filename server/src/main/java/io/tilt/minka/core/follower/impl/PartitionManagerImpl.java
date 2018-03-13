@@ -54,8 +54,11 @@ public class PartitionManagerImpl implements PartitionManager {
 
 	private DomainInfo domain;
 	
-	public PartitionManagerImpl(final DependencyPlaceholder dependencyPlaceholder, final ShardedPartition partition, 
-			final Scheduler scheduler, final LeaderShardContainer leaderShardContainer, 
+	public PartitionManagerImpl(
+			final DependencyPlaceholder dependencyPlaceholder, 
+			final ShardedPartition partition, 
+			final Scheduler scheduler, 
+			final LeaderShardContainer leaderShardContainer, 
 			final HeartbeatFactory heartbeatFactory) {
 		
 		super();
@@ -63,7 +66,9 @@ public class PartitionManagerImpl implements PartitionManager {
 		this.partition = partition;
 		this.scheduler = scheduler;
 		this.heartbeatFactory = heartbeatFactory;
-		this.releaser = scheduler.getFactory().build(Action.INSTRUCT_DELEGATE, PriorityLock.MEDIUM_BLOCKING,
+		this.releaser = scheduler.getFactory().build(
+				Action.INSTRUCT_DELEGATE, 
+				PriorityLock.MEDIUM_BLOCKING,
 				() -> releaseAll());
 	}
 
@@ -115,7 +120,6 @@ public class PartitionManagerImpl implements PartitionManager {
 				} else {
 					logger.error("{}: ({}) Unable to UPDATE a never taken Duty !: {}", getClass().getSimpleName(),
 							partition.getId(), entity.toBrief());
-					// TODO todo mal reportar que no se puede tomar xq alguien la tiene q onda ???
 				}
 			} else if (entity.getType()==ShardEntity.Type.PALLET) {
 				if (entity.getUserPayload() == null) {
@@ -159,10 +163,6 @@ public class PartitionManagerImpl implements PartitionManager {
 			logger.error("{}: ({}) Exception: {}", getClass().getSimpleName(),
 					partition.getId(), e);
 		}
-		/*
-		 * scheduler.release(IdentifiedAction.build(RESERVE_DUTY,
-		 * duty.getDuty().getId()));
-		 */
 		return null;
 	}
 

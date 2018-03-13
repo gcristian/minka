@@ -123,7 +123,10 @@ public interface EventBroker extends Service {
 	}
 
 	@SuppressWarnings("unchecked")
-	void subscribeEvents(BrokerChannel channel, final Consumer<Serializable> driver, long sinceNowLapse, 
+	void subscribeEvents(
+			BrokerChannel channel, 
+			final Consumer<Serializable> driver, 
+			long sinceNowLapse, 
 			Class<? extends Serializable>...classes);
 
 }

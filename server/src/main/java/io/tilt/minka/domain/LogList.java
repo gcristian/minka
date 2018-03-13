@@ -143,10 +143,12 @@ public class LogList implements Serializable {
 	private Log find_(final long planid, final String shardid, final EntityEvent...events) {
 		requireNonNull(shardid);
 		Log ret = null;
+		boolean onePlanFound = false;
 		for (final Iterator<Log> it = logs.descendingIterator(); it.hasNext();) {
             final Log log = it.next();
             if ((planid == 0 || log.getPlanId() == planid) 
             		&& log.getTargetId().equals(shardid)) {
+            	onePlanFound = true;
             	if (events==null) {
             		return log;
             	} else {

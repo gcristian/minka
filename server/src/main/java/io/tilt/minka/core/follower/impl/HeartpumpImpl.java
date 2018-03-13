@@ -42,7 +42,10 @@ public class HeartpumpImpl extends ServiceImpl implements Heartpump {
 
 	private DateTime lastHeartbeatTimestamp;
 
-	public HeartpumpImpl(final Config config, final EventBroker eventBroker, final ShardedPartition partition,
+	public HeartpumpImpl(
+			final Config config, 
+			final EventBroker eventBroker, 
+			final ShardedPartition partition,
 			final LeaderShardContainer leaderShardContainer) {
 
 		super();
@@ -69,14 +72,13 @@ public class HeartpumpImpl extends ServiceImpl implements Heartpump {
 			 * thisHb.equalsInContent(lastHeartbeat)) { hbTraveling =
 			 * Heartbeat.copy(thisHb); hbTraveling.cleanDuties(); } */
 
-			if (!eventBroker.postEvent(eventBroker.buildToTarget(config, Channel.HEARTBEATS,
+			if (eventBroker.postEvent(eventBroker.buildToTarget(config, Channel.HEARTBEATS,
 					leaderShardContainer.getLeaderShardId()), arg)) {
+				this.lastHeartbeatTimestamp = new DateTime(DateTimeZone.UTC);
+			} else {
 				logger.error("{}: ({}) Broker did not sent Heartbeat !", getClass().getSimpleName(),
 						config.getLoggingShardId());
 			}
-
-			this.lastHeartbeatTimestamp = new DateTime(DateTimeZone.UTC);
-
 		} catch (Exception e) {
 			logger.error("{}: ({}) Broker with exception", getClass().getSimpleName(), config.getLoggingShardId(), e);
 		}

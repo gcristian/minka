@@ -176,15 +176,11 @@
     
     <!-- simplemente bootstrapea los servicios -->
     <bean id="leader" class="io.tilt.minka.core.leader.Leader">
-        <constructor-arg ref="config" />        
-        <constructor-arg>
-            <list>
-                <ref bean="proctor"/>
-                <ref bean="distributor"/>
-                <ref bean="followerEventsHandler"/>                
-                <ref bean="clientEventsHandler"/>
-            </list>
-        </constructor-arg>        
+        <constructor-arg ref="config" />
+        <constructor-arg ref="proctor" />
+        <constructor-arg ref="distributor" />
+        <constructor-arg ref="followerEventsHandler" />
+        <constructor-arg ref="clientEventsHandler" />        
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderShardContainer" />

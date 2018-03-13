@@ -16,7 +16,6 @@
  */
 package io.tilt.minka.core.leader;
 
-import java.util.List;
 
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
@@ -24,11 +23,11 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
+import io.tilt.minka.core.leader.distributor.Distributor;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
-import io.tilt.minka.core.task.Service;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 
@@ -44,20 +43,35 @@ public class Leader extends ServiceImpl {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	/* maintenance */
+	private final Config config;
+	private final Proctor proctor;
+	private final Distributor distributor;
+	private final FollowerEventsHandler followerEventsHandler;
+	private final ClientEventsHandler clientEventsHandler;
 	private final Scheduler scheduler;
 	private final NetworkShardIdentifier shardId;
-	private final List<Service> services;
-	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
+
 	private boolean served;
 
-	public Leader(Config config, List<Service> services, Scheduler scheduler, NetworkShardIdentifier shardId,
-			LeaderShardContainer leaderShardContainer, EventBroker eventBroker) {
+
+	public Leader(
+			final Config config, 
+			final Proctor proctor,
+			final Distributor distributor,
+			final FollowerEventsHandler followerEventsHandler,
+			final ClientEventsHandler clientEventsHandler,
+			final Scheduler scheduler, 
+			final NetworkShardIdentifier shardId,
+			final LeaderShardContainer leaderShardContainer, 
+			final EventBroker eventBroker) {
 
 		super();
 		this.config = config;
-		this.services = services;
+		this.proctor = proctor;
+		this.distributor = distributor;
+		this.followerEventsHandler = followerEventsHandler;
+		this.clientEventsHandler = clientEventsHandler;
 		this.scheduler = scheduler;
 		this.shardId = shardId;
 		this.leaderShardContainer = leaderShardContainer;
@@ -79,7 +93,10 @@ public class Leader extends ServiceImpl {
 					leaderShardContainer.setNewLeader(shardId);
 					logger.info("{}: {} msec since load till leader election", getClass().getSimpleName(),
 							(DateTime.now().getMillis() - config.loadTime.getMillis()));
-					services.forEach(s -> s.init());
+					proctor.init();
+					distributor.init();
+					followerEventsHandler.init();
+					clientEventsHandler.init();
 				} catch (Exception e) {
 					logger.error("Unexpected error when starting service. Cannot procede", e);
 				}
@@ -99,7 +116,10 @@ public class Leader extends ServiceImpl {
 	@Override
 	public void stop() {
 		logger.info("{}: Stopping ({})", getClass().getSimpleName(), !served ? "never served" : "paid my duty");
-		services.forEach(s -> s.destroy());
+		proctor.destroy();
+		distributor.destroy();
+		followerEventsHandler.destroy();
+		clientEventsHandler.destroy();
 	}
 
 }
