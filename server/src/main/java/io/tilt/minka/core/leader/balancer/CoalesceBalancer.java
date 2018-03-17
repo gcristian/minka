@@ -78,10 +78,8 @@ public class CoalesceBalancer implements Balancer {
 	@Override
 	public void balance(
 			final Pallet<?> pallet,
-			final Set<Duty<?>> stageDuties, 
-			final Map<Location, Set<Duty<?>>> stageDistro,
-			final Set<Duty<?>> creations,
-			final Set<Duty<?>> deletions,
+			final Map<ShardRef, Set<Duty<?>>> stage,
+			final Map<EntityEvent, Set<Duty<?>>> backstage,
 			final Migrator migrator) {
 
 	}

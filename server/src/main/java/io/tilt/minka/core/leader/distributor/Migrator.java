@@ -46,14 +46,14 @@ import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.EntityState;
 
 /** 
- * Media for {@linkplain Balancer} to request transfers and overrides on the {@linkplain Plan}
- * while ignoring its internals and relying on this for coherence and consistency 
- * It helps to balancer extensibility.
+ * Utiliy for {@linkplain Balancer} to request {@linkplain Transfer} and {@linkplain Override}
+ * of {@linkplain Duty}'s and {@linkplain Pallet}s over {@linkplain Shard}s, 
+ * so it can later write a {@linkplain Plan}. 
+ * Leveraging the balancer of the distribution process, consistency, validation.
  * 
- * everything ends up in a: plan.ship(...)
- *
- * Is a rule that if the balancers have a stable behaviour: this class will keep the 
- * plan unchanged at  execute(), unless there's a CRUD operation from client.
+ * A new plan will not be shipped when balancers do repeatable distributions and there're no 
+ * CRUD ops from client, keeping the {@linkplain Stage} stable and unchanged, 
+ * as overrides and transfer only compute deltas according already distributed  
  * 
  * @author Cristian Gonzalez
  * @since Oct 29, 2016
@@ -80,20 +80,20 @@ public class Migrator {
 	}
 
 	/* specifically transfer from a Source to a Target */
-	public final void transfer(final Location target, final Duty<?> duty) {
+	public final void transfer(final ShardRef target, final Duty<?> duty) {
 		requireNonNull(target);
 		requireNonNull(duty);
 		transfer_(null, target, duty);
 	}
-	public final void transfer(final Location source, final Location target, final Duty<?> duty) {
+	public final void transfer(final ShardRef source, final ShardRef target, final Duty<?> duty) {
 		requireNonNull(source);
 		requireNonNull(target);
 		requireNonNull(duty);
 		transfer_(source, target, duty);
 	}
-	private final void transfer_(final Location source, final Location target, final Duty<?> duty) throws BalancingException {
+	private final void transfer_(final ShardRef source, final ShardRef target, final Duty<?> duty) throws BalancingException {
 		if (this.transfers == null ) {
-			this.transfers = new ArrayList<>();
+			this.transfers = new LinkedList<>();
 		}
 		final Shard source_ = deref(source);
 		final Shard target_ = deref(target);
@@ -120,11 +120,11 @@ public class Migrator {
 	}
 	
 	/* explicitly override a shard's content, client must look after consistency ! */
-	public final void override(final Location shard, final Set<Duty<?>> clusterx) {
+	public final void override(final ShardRef shard, final Set<Duty<?>> clusterx) {
 		requireNonNull(shard);
 		requireNonNull(clusterx);
 		if (this.overrides == null) {
-			this.overrides = new ArrayList<>();
+			this.overrides = new LinkedList<>();
 		}
 		final Set<ShardEntity> cluster = reref(clusterx);
 		cluster.forEach(d->checkDuplicate(d));
@@ -142,7 +142,7 @@ public class Migrator {
         return reids;
 	}
 	
-	private Shard deref(final Location location) {
+	private Shard deref(final ShardRef location) {
 		for (Shard s: table.getStage().getShards()) {
 			if (s.getShardID().equals(location.getId())) {
 				return s;
@@ -230,7 +230,7 @@ public class Migrator {
 		return overrides==null && transfers==null;
 	}
 	
-	/** effectively write overrided and transfered operations to roadmap object 
+	/** effectively write overrided and transfered operations to plan 
 	 * @return if the execution effectively generated any changes */ 
 	final boolean write(final Plan plan) {
 		boolean anyChange = false;
@@ -242,12 +242,12 @@ public class Migrator {
 		if (overrides!=null) {
 			checkExclusions(); // balancers using transfers only make delta changes, without reassigning
 			for (final Override ov: overrides) {			
-				anyChange|=ov.compute(plan, table);
+				anyChange|=ov.apply(plan, table);
 			}
 		}
 		if (transfers!=null) {
 			for (Transfer tr: transfers) {
-				anyChange|=tr.compute(plan, table);
+				anyChange|=tr.apply(plan, table);
 			}
 		}
 		return anyChange;

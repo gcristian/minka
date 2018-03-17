@@ -16,14 +16,14 @@
 #	COALESCE	shard agglutination of duties of the same pallet
 #	SHUFFLE_ONCE	shuffling assignation of duties
 #              NAME    SIZE     WEIGHT   BALANCER
-duties.pallets.Finwe = 3:		5		:FAIR_WEIGHT; 
+duties.pallets.Finwe = 4:		2		:FAIR_WEIGHT; 
 
 =============================================
 
 # the different weighing capacities each node will report for each pallet
 # (each sampler will lookup in this dataset it's truth table to report to the leader
 #                 SHARD  NAME   CAPACITY NAME  CAPACITY NAME   CAPACITY
-shards.capacities.9000 = Finwe:	150;	  
-shards.capacities.9001 = Finwe: 100;	  
-shards.capacities.9002 = Finwe: 250;	  
-shards.capacities.9003 = Finwe: 50;	 
+shards.capacities.9000 = Finwe:	10;	  
+shards.capacities.9001 = Finwe: 10;	  
+shards.capacities.9002 = Finwe: 10;	  
+shards.capacities.9003 = Finwe: 10;	 

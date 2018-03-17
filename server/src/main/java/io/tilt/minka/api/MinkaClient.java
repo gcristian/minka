@@ -65,9 +65,14 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	private final LeaderShardContainer leaderShardContainer;
 	private final PartitionTable table;
 
-	protected MinkaClient(final Config config, final Leader leader, final EventBroker eventBroker,
-			final ClientEventsHandler mediator, final ShardIdentifier shardId, 
-			final ZookeeperLeaderShardContainer leaderShardContainer, final PartitionTable table) {
+	protected MinkaClient(
+			final Config config, 
+			final Leader leader, 
+			final EventBroker eventBroker,
+			final ClientEventsHandler mediator, 
+			final ShardIdentifier shardId, 
+			final ZookeeperLeaderShardContainer leaderShardContainer, 
+			final PartitionTable table) {
 		this.config = config;
 		this.leader = leader;
 		this.eventBroker = eventBroker;

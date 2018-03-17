@@ -16,10 +16,8 @@
 package io.tilt.minka.core.leader.distributor;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,8 +28,9 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.core.leader.distributor.Balancer.Location;
+import io.tilt.minka.core.leader.distributor.Balancer.ShardRef;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;

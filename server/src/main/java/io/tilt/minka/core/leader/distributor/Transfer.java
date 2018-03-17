@@ -48,7 +48,7 @@ class Transfer {
 	}
 
     /* dettach in prev. source, attach to next target */
-    boolean compute(final Plan plan, final PartitionTable table) {
+    boolean apply(final Plan plan, final PartitionTable table) {
         final ShardEntity entity = getEntity();
         final Shard location = table.getStage().getDutyLocation(entity);
         if (location!=null && location.equals(target)) {

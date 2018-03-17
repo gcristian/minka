@@ -156,18 +156,13 @@ public class Follower extends ServiceImpl {
 				logger.debug("{}: ({}) Clearence certified #{} from Leader: {}", getClass().getSimpleName(),
 						config.getLoggingShardId(), clear.getSequenceId(), clear.getLeaderShardId());
 			}
-		} else {
-			// double to minimize blessing latency
-			//lost = creation.plusMillis(minToJoinMs * 2).isBefore(now);
 		}
 		return !lost;
 	}
 
 	/** @return whether or not the pump's last beat is within a healthy time window */
 	private boolean checkBeatsOrFall() {
-		if (heartpump.getLastBeat() == null) {
-			return false;
-		} else {
+		if (heartpump.getLastBeat() != null) {
 			final DateTime expiracy = heartpump.getLastBeat().plus(config.getFollower().getMaxHeartbeatAbsenceForReleaseMs());
 			if (expiracy.isBefore(new DateTime(DateTimeZone.UTC))) {
 				logger.warn("{}: ({}) Executing Heartattack policy (last HB: {}): releasing delegate's held duties",
@@ -175,8 +170,8 @@ public class Follower extends ServiceImpl {
 				leaderConsumer.getPartitionManager().releaseAllOnPolicies();
 				return false;
 			}
-			return true;
 		}
+		return true;
 	}
 
 	@Override

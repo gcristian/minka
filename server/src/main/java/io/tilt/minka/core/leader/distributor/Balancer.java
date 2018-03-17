@@ -31,7 +31,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.balancer.CoalesceBalancer;
 import io.tilt.minka.core.leader.balancer.EvenSizeBalancer;
 import io.tilt.minka.core.leader.balancer.EvenWeightBalancer;
@@ -39,16 +38,14 @@ import io.tilt.minka.core.leader.balancer.FairWeightBalancer;
 import io.tilt.minka.core.leader.balancer.SpillOverBalancer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 
 /**
- * Analyze the current {@linkplain PartitionTable} and if neccesary modify the {@linkplain Plan}
- * through the {@linkplain Migrator} facility, which registers {@linkplain ShardEntity} 
- * with a {@linkplain EntityEvent} and a {@linkplain EntityState}.
- * Representing migrations of duties, deletions, creations, dangling, etc.
+ * Analyze the current distribution of {@linkplain Duty}'s and propose changes.
+ * Changes are made thru {@linkplain Migrator}, they're optional but must be consistent.
+ * Identical i.e. repeatable changes wont produce a new {@linkplain Plan} 
  *
  * @author Cristian Gonzalez
  * @since Jan 6, 2016
@@ -99,8 +96,7 @@ public interface Balancer {
 			return this.shard.toString();
 		}
 	}
-	
-	
+		
 	/** so clients can add new balancers */
 	public static class Directory {
 		private final static Map<Class<? extends Balancer>, Balancer> directory = new HashMap<>();

@@ -57,7 +57,7 @@ public class Override {
 		return this.remainingCap;
 	}
 
-    boolean compute(final Plan plan, final PartitionTable table) {
+    boolean apply(final Plan plan, final PartitionTable table) {
         boolean anyChange = false;
         final Set<ShardEntity> current = table.getStage().getDutiesByShard(pallet, getShard());
         if (Migrator.log.isDebugEnabled()) {
@@ -87,7 +87,7 @@ public class Override {
                     .collect(Collectors.toList());
                 
         if (!detaching.isEmpty()) {
-            StringBuilder logg = new StringBuilder(detaching.size() * 16);
+            final StringBuilder logg = new StringBuilder(detaching.size() * 16);
             for (ShardEntity detach : detaching) {
                 detach.getLog().addEvent(EntityEvent.DETACH, 
                         EntityState.PREPARED, 
