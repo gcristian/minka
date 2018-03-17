@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +31,8 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Migrator;
+import io.tilt.minka.core.leader.distributor.Balancer.ShardRef;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.utils.CollectionUtils;
 
 /**
@@ -78,32 +81,35 @@ public class EvenSizeBalancer implements Balancer {
 	 */
 	public void balance(
 			final Pallet<?> pallet,
-			final Set<Duty<?>> stageDuties, 
-			final Map<Location, Set<Duty<?>>> stageDistro,
-			final Set<Duty<?>> creations,
-			final Set<Duty<?>> deletions,
+			final Map<ShardRef, Set<Duty<?>>> stage,
+			final Map<EntityEvent, Set<Duty<?>>> backstage,
 			final Migrator migrator) {
 		// get a fair distribution
-		final int recount = stageDuties.size();
-		final double sum = recount + creations.size() - deletions.size(); // dangling.size() +
-		final int shardsSize = stageDistro.keySet().size();
+		
+		final Set<Duty<?>> deletions = backstage.get(EntityEvent.REMOVE);
+		final Set<Duty<?>> creations = backstage.get(EntityEvent.CREATE);
+		final AtomicInteger recount = new AtomicInteger();
+		stage.values().forEach(v->recount.addAndGet(v.size()));
+		final double sum = recount.get() + creations.size() - deletions.size(); // dangling.size() +
+		final int shardsSize = stage.keySet().size();
 		final int evenSize = (int) Math.ceil(sum / (double) shardsSize);
 
 		logger.info("{}: Even distribution for {} Shards: #{}  duties, for Creations: {}, Deletions: {}, Accounted: {} ",
-				getClass().getSimpleName(), shardsSize, evenSize, creations.size(), deletions.size(), recount);
+				getClass().getSimpleName(), shardsSize, evenSize, creations.size(), 
+				deletions.size(), recount);
 
 		// split shards into receptors and emisors while calculating new fair distribution 
-		final Set<Location> receptors = new HashSet<>();
-		final Set<Location> emisors = new HashSet<>();
+		final Set<ShardRef> receptors = new HashSet<>();
+		final Set<ShardRef> emisors = new HashSet<>();
 		//deletions.addAll(dangling);]
-		final Map<Location, Integer> deltas = checkDeltas(pallet, stageDuties, stageDistro, evenSize, receptors, emisors, deletions);
+		final Map<ShardRef, Integer> deltas = checkDeltas(pallet, stage, evenSize, receptors, emisors, deletions);
 		if (deltas.isEmpty()) {
 			logger.info("{}: Evenly distributed already (no sharding deltas out of threshold)", getClass().getSimpleName());
 		} else if (!receptors.isEmpty()) {
 			// 2nd step: assign migrations and creations in serie
-			final CollectionUtils.CircularCollection<Location> receptiveCircle = CollectionUtils.circular(receptors);
-			for (final Location emisor : emisors) {
-				final Set<Duty<?>> duties = stageDistro.get(emisor);
+			final CollectionUtils.CircularCollection<ShardRef> receptiveCircle = CollectionUtils.circular(receptors);
+			for (final ShardRef emisor : emisors) {
+				final Set<Duty<?>> duties = stage.get(emisor);
 				int i = 0;
 				final Iterator<Duty<?>> it = duties.iterator();
 				while (it.hasNext() && i++ < Math.abs(deltas.get(emisor))) {
@@ -120,19 +126,18 @@ public class EvenSizeBalancer implements Balancer {
 	}
 
 	/* evaluate which shards must emit or receive duties by deltas */
-	private Map<Location, Integer> checkDeltas(
+	private Map<ShardRef, Integer> checkDeltas(
 			final Pallet<?> pallet,
-			final Set<Duty<?>> stageDuties, 
-			final Map<Location, Set<Duty<?>>> stageDistro,
+			final Map<ShardRef, Set<Duty<?>>> stage,
 			final int evenSize, 
-			final Set<Location> receptors, 
-			final Set<Location> emisors, 
+			final Set<ShardRef> receptors, 
+			final Set<ShardRef> emisors, 
 			final Set<Duty<?>> deletions) {
 
-		final Map<Location, Integer> deltas = new HashMap<>();
+		final Map<ShardRef, Integer> deltas = new HashMap<>();
 		final int maxDelta = ((Metadata)pallet.getMetadata()).getMaxDutiesDeltaBetweenShards();
-		for (final Location shard : stageDistro.keySet()) {
-			final Set<Duty<?>> shardedDuties = stageDistro.get(shard);
+		for (final ShardRef shard : stage.keySet()) {
+			final Set<Duty<?>> shardedDuties = stage.get(shard);
 			// check if this shard contains the deleting duties 
 			int sizeToRemove = (int) shardedDuties.stream().filter(i -> deletions.contains(i)).count();
 			final int assignedDuties = shardedDuties.size() - sizeToRemove;

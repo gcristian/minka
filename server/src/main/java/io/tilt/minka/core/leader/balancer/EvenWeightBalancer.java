@@ -39,6 +39,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Migrator;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 
 /**
@@ -82,21 +83,19 @@ public class EvenWeightBalancer implements Balancer {
 	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public final void balance(
-            final Pallet<?> pallet,
-            final Set<Duty<?>> stageDuties, 
-            final Map<Location, Set<Duty<?>>> stageDistro,
-            final Set<Duty<?>> creations,
-            final Set<Duty<?>> deletions,
+			final Pallet<?> pallet,
+			final Map<ShardRef, Set<Duty<?>>> stage,
+			final Map<EntityEvent, Set<Duty<?>>> backstage,
             final Migrator migrator) {
 		// order new ones and current ones in order to get a fair distro 
 		final Comparator comparator = ((Metadata)pallet.getMetadata()).getPresort().getComparator();
 		final Set<Duty<?>> duties = new TreeSet<>(comparator);
-		duties.addAll(creations); // newcomers have ++priority than table
-		duties.addAll(stageDuties);
-		duties.removeAll(deletions); // delete those marked for deletion
+		duties.addAll(backstage.get(EntityEvent.CREATE)); // newcomers have ++priority than table
+		stage.values().forEach(duties::addAll);		
+		duties.removeAll(backstage.get(EntityEvent.REMOVE)); // delete those marked for deletion
 		final List<Duty<?>> dutiesSorted = new ArrayList<>(duties);
 		logger.debug("{}: Before Balance: {} ({})", getClass().getSimpleName(), toDutyStringIds(dutiesSorted));
-		final List<Location> availShards = stageDistro.keySet().stream().filter(s->s.getCapacities()
+		final List<ShardRef> availShards = stage.keySet().stream().filter(s->s.getCapacities()
 				.get(pallet)!=null).collect(Collectors.toList());
 		if (availShards.isEmpty()) {
 			logger.error("{}: Still no shard reported capacity for pallet: {}!", getClass().getSimpleName(), pallet);
@@ -108,11 +107,11 @@ public class EvenWeightBalancer implements Balancer {
 			return;
 		}
 		final Iterator<List<Duty<?>>> itCluster = clusters.iterator();
-		final Iterator<Location> itShards = availShards.iterator();
+		final Iterator<ShardRef> itShards = availShards.iterator();
 		while(itCluster.hasNext()) {
-			final Location loc = itShards.next();
+			final ShardRef loc = itShards.next();
 			final List<Duty<?>> selection = itCluster.next();
-			final Bascule<Location, Duty<?>> bascule = new Bascule(loc, loc.getCapacities().get(pallet).getTotal());
+			final Bascule<ShardRef, Duty<?>> bascule = new Bascule(loc, loc.getCapacities().get(pallet).getTotal());
 			selection.forEach(d->bascule.tryLift(d, d.getWeight()));
 			migrator.override(bascule.getOwner(), bascule.getCargo());
 			if (!bascule.getDiscarded().isEmpty()) {
@@ -125,7 +124,7 @@ public class EvenWeightBalancer implements Balancer {
 
 
 	private List<List<Duty<?>>> formClusters(
-			final List<Location> availableShards, 
+			final List<ShardRef> availableShards, 
 			final Set<Duty<?>> duties,
 			final List<Duty<?>> dutiesSorted) {
 

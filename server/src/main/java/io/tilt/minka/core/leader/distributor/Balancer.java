@@ -71,15 +71,14 @@ public interface Balancer {
 	 */
 	void balance(
 			final Pallet<?> pallet,
-			final Set<Duty<?>> stageDuties, 
-			final Map<Location, Set<Duty<?>>> stageDistro,
-			final Set<Duty<?>> creations,
-			final Set<Duty<?>> deletions,
+			final Map<ShardRef, Set<Duty<?>>> stage,
+			final Map<EntityEvent, Set<Duty<?>>> backstage,
 			final Migrator migrator);
 	
-	public static class Location {
+	/** safety read-only repr. of a shard for balancers to use */
+	public static class ShardRef {
 		private final Shard shard;
-		public Location(final Shard shard) {
+		public ShardRef(final Shard shard) {
 			this.shard = shard;
 		}
 		public Map<Pallet<?>, Capacity> getCapacities() {

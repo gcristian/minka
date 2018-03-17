@@ -16,8 +16,7 @@
  */
 package io.tilt.minka.core.leader.balancer;
 
-import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.EntityEvent;
 
 import java.util.Map;
 import java.util.Set;

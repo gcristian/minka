@@ -83,24 +83,19 @@ class PlanBuilder {
 		
 		final Set<ShardEntity> ents = new HashSet<>(table.getStage().getDutiesAttached());
 		ents.addAll(dutyCreations);
-		final PalletCollector collector = new PalletCollector(ents, table.getStage().getPallets());
-		final Iterator<Set<ShardEntity>> itPallet = collector.getPalletsIterator();
 		boolean changes = false;
-		while (itPallet.hasNext()) {
-			try {
-				final Iterator<ShardEntity> itDuties = itPallet.next().iterator();
-				final ShardEntity pallet = collector.getPallet(itDuties.next().getDuty().getPalletId());
-				final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getPallet().getMetadata().getBalancer());
-				logStatus(table, onlineShards, dutyCreations, dutyDeletions, collector, pallet, balancer);
-				if (balancer!=null) {
-					final Migrator migra = balance(table, pallet, balancer, dutyCreations, dutyDeletions);
-					changes |=migra.write(plan);
-				} else {
-					logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(), 
-						pallet.getPallet().getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
-				}
-			} catch (Exception e) {
-				logger.error("Unexpected", e);
+		final Map<String, List<ShardEntity>> scheme = ents.stream()
+				.collect(Collectors.groupingBy(e -> e.getDuty().getPalletId()));
+		for (final Map.Entry<String, List<ShardEntity>> entry : scheme.entrySet()) {
+			final Pallet<?> pallet = table.getStage().getPalletById(entry.getKey()).getPallet();
+			final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
+			logStatus(table, onlineShards, dutyCreations, dutyDeletions, entry.getValue(), pallet, balancer);
+			if (balancer != null) {
+				final Migrator migra = balance(table, pallet, balancer, dutyCreations, dutyDeletions);
+				changes |= migra.write(plan);
+			} else {
+				logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(),
+						pallet.getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
 			}
 		}
 		if (changes) {
@@ -112,42 +107,37 @@ class PlanBuilder {
 	}
 
 	private final Migrator balance(
-			final PartitionTable table,
-			final ShardEntity pallet,
+			final PartitionTable table, 
+			final Pallet<?> pallet, 
 			final Balancer balancer,
-			final Set<ShardEntity> dutyCreations,
+			final Set<ShardEntity> dutyCreations, 
 			final Set<ShardEntity> dutyDeletions) {
-		
-			final Set<ShardEntity> removes = dutyDeletions.stream()
-			        .filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId()))
-			        .collect(Collectors.toSet());
-			final Set<ShardEntity> adds = dutyCreations.stream()
-			        .filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId()))
-			        .collect(Collectors.toSet());
-			
-			final Set<ShardEntity> sourceRefs = new HashSet<>(removes.size() + adds.size());
-			
-			final Map<Location, Set<Duty<?>>> entitiesByShard = new HashMap<>();
-			for (Shard shard: table.getStage().getShardsByState(ShardState.ONLINE)) {
-				final Set<ShardEntity> located = table.getStage().getDutiesByShard(pallet.getPallet(), shard);
-		        entitiesByShard.put(new Location(shard), refs(located));
-		        sourceRefs.addAll(located);
+
+		final Set<ShardEntity> removes = dutyDeletions.stream()
+				.filter(d -> d.getDuty().getPalletId().equals(pallet.getId()))
+				.collect(Collectors.toSet());
+		final Set<ShardEntity> adds = dutyCreations.stream()
+				.filter(d -> d.getDuty().getPalletId().equals(pallet.getId()))
+				.collect(Collectors.toSet());
+
+		final Set<ShardEntity> sourceRefs = new HashSet<>(removes.size() + adds.size());
+		final Map<ShardRef, Set<Duty<?>>> distro = new HashMap<>();
+		for (Shard shard : table.getStage().getShards()) {
+			if (shard.getState() == ShardState.ONLINE) {
+				final Set<ShardEntity> located = table.getStage().getDutiesByShard(pallet, shard);
+				distro.put(new ShardRef(shard), refs(located));
+				sourceRefs.addAll(located);
 			}
-			final Set<Duty<?>> entities = new HashSet<>();
-			entitiesByShard.values().forEach(set->entities.addAll(set));
-		    
-		    sourceRefs.addAll(removes);
-		    sourceRefs.addAll(adds);
-		    final Migrator migrator = new Migrator(table, pallet.getPallet(), sourceRefs);
-		    
-			balancer.balance(
-					pallet.getPallet(),
-					Collections.unmodifiableSet(entities), 
-					entitiesByShard, 
-					Collections.unmodifiableSet(refs(adds)), 
-					Collections.unmodifiableSet(refs(removes)), 
-					migrator);
-			return migrator;
+		}
+
+		sourceRefs.addAll(removes);
+		sourceRefs.addAll(adds);
+		final Migrator migrator = new Migrator(table, pallet, sourceRefs);
+		final Map<EntityEvent, Set<Duty<?>>> backstage = new HashMap<>();
+		backstage.put(EntityEvent.CREATE, refs(adds));
+		backstage.put(EntityEvent.REMOVE, refs(removes));
+		balancer.balance(pallet, distro, backstage, migrator);
+		return migrator;
 	}
 
 	private final Set<Duty<?>> refs(final Set<ShardEntity> entities) {
@@ -224,19 +214,24 @@ class PlanBuilder {
 		}
 	}
 
-	private void logStatus(final PartitionTable table, final List<Shard> onlineShards,
-			final Set<ShardEntity> dutyCreations, final Set<ShardEntity> dutyDeletions,
-			final PalletCollector allCollector, final ShardEntity pallet, final Balancer balancer) {
+	private void logStatus(
+	        final PartitionTable table, 
+	        final List<Shard> onlineShards,
+			final Set<ShardEntity> dutyCreations, 
+			final Set<ShardEntity> dutyDeletions,
+			final List<ShardEntity> duties,
+			final Pallet<?> pallet, 
+			final Balancer balancer) {
 		
 		if (!logger.isInfoEnabled()) {
 			return;
 		}
 		
-		logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "Building Pallet: %s for %s", pallet.toBrief(), balancer.getClass().getSimpleName()));
+		logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "Building Pallet: %s for %s", pallet.getId(), balancer.getClass().getSimpleName()));
 		final StringBuilder sb = new StringBuilder();
 		double clusterCapacity = 0;
 		for (final Shard node: onlineShards) {
-			final Capacity cap = node.getCapacities().get(pallet.getPallet());
+			final Capacity cap = node.getCapacities().get(pallet);
 			final double currTotal = cap == null ? 0 :  cap.getTotal();
 			sb.append(node.toString()).append(": ").append(currTotal).append(", ");
 			clusterCapacity += currTotal;
@@ -244,14 +239,14 @@ class PlanBuilder {
 		logger.info("{}: Cluster capacity: {}, Shard Capacities { {} }", getClass().getSimpleName(), clusterCapacity, sb.toString());
 		logger.info("{}: counting #{};+{};-{} duties: {}", getClass().getSimpleName(),
 			new PartitionTable.Stage.StageExtractor(table.getStage())
-				.getAccountConfirmed(pallet.getPallet()), 
+				.getAccountConfirmed(pallet), 
 			dutyCreations.stream()
-				.filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId()))
+				.filter(d->d.getDuty().getPalletId().equals(pallet.getId()))
 				.count(),
 			dutyDeletions.stream()
-				.filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId()))
+				.filter(d->d.getDuty().getPalletId().equals(pallet.getId()))
 				.count(),
-			ShardEntity.toStringIds(allCollector.getDuties(pallet)));
+			ShardEntity.toStringIds(duties));
 	}
 	
 }
