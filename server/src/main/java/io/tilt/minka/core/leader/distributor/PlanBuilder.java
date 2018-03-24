@@ -122,7 +122,7 @@ class PlanBuilder {
 				.collect(Collectors.toSet());
 
 		final Set<ShardEntity> sourceRefs = new HashSet<>(removes.size() + adds.size());
-		final Map<ShardRef, Set<Duty<?>>> distro = new HashMap<>();
+		final Map<ShardRef, Set<Duty<?>>> distro = new TreeMap<>();
 		for (Shard shard : table.getStage().getShards()) {
 			if (shard.getState() == ShardState.ONLINE) {
 				final Set<ShardEntity> located = table.getStage().getDutiesByShard(pallet, shard);

@@ -173,6 +173,9 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		private static final long serialVersionUID = -2098725005810996576L;
 		@Override
 		public int compare(final ShardRef s, final ShardRef s2) {
+			return compareByCreation(s, s2);
+		}
+		static int compareByCreation(final ShardRef s, final ShardRef s2) {
 			return s.getCreation().compareTo(s2.getCreation());
 		}
 	}
@@ -259,6 +262,11 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	         */
 	        LOST;
 	    }
+	}
+
+	@Override
+	public int compareTo(final Shard arg0) {
+		return arg0.compare(this, arg0);
 	}
 
 }

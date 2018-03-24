@@ -76,7 +76,7 @@ public interface Balancer {
 			final Migrator migrator);
 	
 	/** safety read-only repr. of a shard for balancers to use */
-	public static class ShardRef {
+	public static class ShardRef implements Comparator<ShardRef>, Comparable<ShardRef> {
 		private final Shard shard;
 		public ShardRef(final Shard shard) {
 			this.shard = shard;
@@ -93,6 +93,31 @@ public interface Balancer {
 		@java.lang.Override
 		public String toString() {
 			return this.shard.toString();
+		}
+		private Shard getShard() {
+			return shard;
+		}
+		@java.lang.Override
+		public int compare(final ShardRef o1, final ShardRef o2) {
+			return shard.compare(o1.getShard(), o2.shard);
+		}
+		@java.lang.Override
+		public int compareTo(final ShardRef o) {
+			return shard.compareTo(o.getShard());
+		}
+		@java.lang.Override
+		public int hashCode() {
+			return shard.hashCode();
+		}
+		@java.lang.Override
+		public boolean equals(Object obj) {
+			if (obj==null || !(obj instanceof ShardRef)) {
+				return false;
+			} else if (obj==this) {
+				return true;
+			} else {
+				return shard.equals(((ShardRef)obj).getShard());
+			}
 		}
 	}
 		
