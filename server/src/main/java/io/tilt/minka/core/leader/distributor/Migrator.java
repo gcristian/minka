@@ -241,9 +241,10 @@ public class Migrator {
 		log.info("{}: Evaluating changes: {} transfers / {} overrides", getClass().getSimpleName(), 
 				transfers!=null ? transfers.size() : 0, overrides!=null ? overrides.size() : 0);
 		if (overrides!=null) {
-			checkExclusions(); // balancers using transfers only make delta changes, without reassigning
-			for (final Override ov: overrides) {			
-				anyChange|=ov.apply(plan, table);
+			if (!anyExclusions()) {
+			    for (final Override ov: overrides) {			
+    				anyChange|=ov.apply(plan, table);
+    			}
 			}
 		}
 		if (transfers!=null) {
@@ -256,6 +257,31 @@ public class Migrator {
 		return anyChange;
 	}
 
+	private boolean anyExclusions() {
+	    boolean ret = false;
+		for (final ShardEntity duty: table.getBackstage().getDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED)) {
+			if (duty.getDuty().getPalletId().equals(pallet.getId()) && 
+			        !inTransfers(duty) && 
+					!inOverrides(duty) && 
+					unfairlyIgnored(duty)) {
+				ret = true;
+				log.error("bad exclusion: duty: {} was just marked for creation, it must be balanced !", duty.toBrief());
+			}
+		}
+		final Set<ShardEntity> deletions = table.getBackstage().getDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED);
+		for (final ShardEntity curr: table.getStage().getDutiesAttached()) {
+			if (curr.getDuty().getPalletId().equals(pallet.getId()) && 
+			        !deletions.contains(curr) && 
+					!inTransfers(curr) && 
+					!inOverrides(curr) && 
+					unfairlyIgnored(curr)) {
+				ret = true;
+				log.warn("bad exclusion: duty: " + curr.toBrief() + " is in ptable and was excluded from balancing !");
+			}
+		}
+		return ret;
+	}
+	
 	private boolean unfairlyIgnored(ShardEntity duty) {
 		if (isWeightedPallet()) {
 			if (overrides!=null) {
@@ -274,26 +300,6 @@ public class Migrator {
 			}
 		}
 		return true;
-	}
-	private void checkExclusions() {
-		for (final ShardEntity duty: table.getBackstage().getDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED)) {
-			if (duty.getDuty().getPalletId().equals(pallet.getId()) && 
-			        !inTransfers(duty) && 
-					!inOverrides(duty) && 
-					unfairlyIgnored(duty)) {
-				log.warn("bad exclusion: duty: {} was just marked for creation, it must be balanced !", duty.toBrief());
-			}
-		}
-		final Set<ShardEntity> deletions = table.getBackstage().getDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED);
-		for (final ShardEntity curr: table.getStage().getDutiesAttached()) {
-			if (curr.getDuty().getPalletId().equals(pallet.getId()) && 
-			        !deletions.contains(curr) && 
-					!inTransfers(curr) && 
-					!inOverrides(curr) && 
-					unfairlyIgnored(curr)) {
-				log.warn("bad exclusion: duty: " + curr.toBrief() + " is in ptable and was excluded from balancing !");
-			}
-		}
 	}
 
 	private boolean inTransfers(final ShardEntity duty) {
