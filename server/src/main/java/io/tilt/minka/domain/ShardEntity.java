@@ -32,6 +32,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.DutyBuilder;
 import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.EntityPayload;
 import io.tilt.minka.api.Pallet;
@@ -51,7 +52,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	@JsonIgnore
 	private final Entity<?> from;
 	private final Type type;
-	private LogList log;
+	private LogList journal;
 	private EntityPayload userPayload;
 	private ShardEntity relatedEntity;
 	
@@ -63,8 +64,8 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	private ShardEntity(final Entity<?> entity, Type type) {
 		this.from = entity;
 		this.type = type;
-		this.log = new LogList();
-		this.log.addEvent(EntityEvent.CREATE, EntityState.PREPARED, null, Plan.PLAN_WITHOUT);
+		this.journal = new LogList();
+		this.journal.addEvent(EntityEvent.CREATE, EntityState.PREPARED, null, Plan.PLAN_WITHOUT);
 	}
 	
 	public static class Builder {
@@ -99,7 +100,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		public ShardEntity build() {
 			if (from!=null) {
 				final ShardEntity t = new ShardEntity(from.getEntity(), from.getType());
-				t.setEventTrack(from.getLog());
+				t.setJournal(from.getLog());
 				if (userPayload==null) {
 					t.setUserPayload(from.getUserPayload());
 				}
@@ -264,11 +265,11 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	
 	public LogList getLog() {
-        return this.log;
+        return this.journal;
     }
 		
-	private void setEventTrack(final LogList track) {
-	    this.log = track;
+	private void setJournal(final LogList track) {
+	    this.journal = track;
 	}
 	
 	public int hashCode() {

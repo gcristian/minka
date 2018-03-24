@@ -68,7 +68,7 @@ import io.tilt.minka.utils.LogUtils;
 @JsonPropertyOrder({"id", "created", "started", "elapsed", "ended", "deliveries", "pending"})
 public class Plan implements Comparable<Plan> {
 
-	static final Logger logger = LoggerFactory.getLogger(Plan.class);
+	protected static final Logger logger = LoggerFactory.getLogger(Plan.class);
 	
 	public static final int PLAN_UNKNOWN = -1;
 	public static final int PLAN_WITHOUT = 0;
@@ -77,6 +77,8 @@ public class Plan implements Comparable<Plan> {
 	
 	private final long id;
 	private final Date created;
+    private final int maxSeconds;
+    private final int maxRetries;
 
 	private final Map<EntityEvent, Map<Shard, List<ShardEntity>>> shippings;
 	
@@ -88,8 +90,6 @@ public class Plan implements Comparable<Plan> {
 	private Date ended;
 	private Result result = Result.RUNNING;
 	private int retryCounter;
-    private final int maxSeconds;
-    private final int maxRetries;
     
     protected Plan(final long id, final int maxSeconds, final int maxRetries) {
         this.id = id;

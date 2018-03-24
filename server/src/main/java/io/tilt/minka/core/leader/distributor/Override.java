@@ -40,7 +40,7 @@ public class Override {
 	private final Set<ShardEntity> entities;
 	private final double remainingCap;
 	
-	Override(final Pallet<?> pallet, Shard shard, final Set<ShardEntity> entities, final double remainingCap) {
+	Override(final Pallet<?> pallet, final Shard shard, final Set<ShardEntity> entities, final double remainingCap) {
 		super();
 		this.pallet = pallet;
 		this.shard = shard;
@@ -132,4 +132,40 @@ public class Override {
         }
         return false;
     }
+    
+	public int hashCode() {
+		final int prime = 31;
+		int res = 1;
+		for (final Object o: new Object[] {shard, entities}) {
+			res *= prime + ((o == null ) ? 0 : o.hashCode());
+		}
+		return res;
+	}
+
+    @java.lang.Override
+    public boolean equals(final Object obj) {
+    	if (obj==null || !(obj instanceof Override)) {
+    		return false;
+    	} else if (obj == this) {
+    		return true;
+    	} else {
+    		final Override o = (Override)obj;
+    		return o.getShard().equals(shard)
+    				&& o.getEntities().equals(entities);
+    		
+    	}
+    }
+    
+    @java.lang.Override
+    public String toString() {
+    	final StringBuilder sb = new StringBuilder("override shard:");
+    	sb.append(shard).append(", entities:");
+    	for (ShardEntity se: entities) {
+    		sb.append(se.toBrief()).append(',');
+    	}
+    	return sb.toString();
+    }
+    
+    
+    
 }

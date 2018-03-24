@@ -48,6 +48,8 @@ public class AdminEndpoint {
 
 	@Autowired
 	private  PartitionTable table;
+	@Autowired
+	private  StateViews views;
 
 	@Autowired
 	private  Config config;
@@ -78,34 +80,34 @@ public class AdminEndpoint {
 	@Path("/distro")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response status() throws JsonProcessingException {
-		return Response.accepted(StateViews.distributionToJson(table)).build();
+		return Response.accepted(views.distributionToJson(table)).build();
 	}
 
 	@GET
 	@Path("/pallets")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response pallets() throws JsonProcessingException {
-		return Response.accepted(StateViews.palletsToJson(table)).build();
+		return Response.accepted(views.palletsToJson(table)).build();
 	}
 	                    
 	@GET
 	@Path("/shards")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response shards() throws JsonProcessingException {
-		return Response.accepted(StateViews.shardsToJson(table)).build();
+		return Response.accepted(views.shardsToJson(table)).build();
 	}
 
 	@GET
 	@Path("/duties")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response duties() throws JsonProcessingException {
-		return Response.accepted(StateViews.dutiesToJson(table)).build();
+		return Response.accepted(views.dutiesToJson(table)).build();
 	}
     @GET
     @Path("/entities")
     @Produces(MediaType.APPLICATION_JSON)
     public Response entities() throws JsonProcessingException {
-        return Response.accepted(StateViews.entitiesToJson(table)).build();
+        return Response.accepted(views.entitiesToJson(table)).build();
     }
 
 	@GET
@@ -116,7 +118,7 @@ public class AdminEndpoint {
 		final Map<String, Object> map = new HashMap<>(2);
 		map.put("plans", history.size());
 		map.put("history", history);
-        return Response.accepted(StateViews.elementToJson(map)).build();
+        return Response.accepted(views.elementToJson(map)).build();
 	}
 
 

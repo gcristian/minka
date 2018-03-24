@@ -64,6 +64,7 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
 	private final PartitionTable table;
+	private final StateViews views;
 
 	protected MinkaClient(
 			final Config config, 
@@ -72,7 +73,8 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 			final ClientEventsHandler mediator, 
 			final ShardIdentifier shardId, 
 			final ZookeeperLeaderShardContainer leaderShardContainer, 
-			final PartitionTable table) {
+			final PartitionTable table,
+			final StateViews views) {
 		this.config = config;
 		this.leader = leader;
 		this.eventBroker = eventBroker;
@@ -80,6 +82,7 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 		this.shardId = shardId;
 		this.leaderShardContainer = leaderShardContainer;
 		this.table = table;
+		this.views = views;
 	}
 
 	/**
@@ -87,7 +90,7 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	 * @return a nonempty Status only when the curent shard is the Leader 
 	 */
 	public Map<String, Object> getStatus() {
-		return StateViews.buildDistribution(table);
+		return views.buildDistribution(table);
 	}
 	/**
 	* Remove duties already running/distributed by Minka

@@ -43,10 +43,14 @@ class Transfer {
 		return this.entity;
 	}
 	
-	public String toString() {
-		return entity.toBrief() + source.toString() + " ==> " + target.toString(); 
+	Shard getSource() {
+		return source;
 	}
-
+	
+	Shard getTarget() {
+		return target;
+	}
+	
     /* dettach in prev. source, attach to next target */
     boolean apply(final Plan plan, final PartitionTable table) {
         final ShardEntity entity = getEntity();
@@ -76,5 +80,41 @@ class Transfer {
                 source!=null ? source.getShardID() : "[new]", target.getShardID(), assign.toString());
         return true;
     }
+    
+
+	public int hashCode() {
+		final int prime = 31;
+		int res = 1;
+		for (final Object o: new Object[] {source, target, entity}) {
+			res *= prime + ((o == null ) ? 0 : o.hashCode());
+		}
+		return res;
+	}
+
+    @java.lang.Override
+    public boolean equals(final Object obj) {
+    	if (obj==null || !(obj instanceof Transfer)) {
+    		return false;
+    	} else if (obj == this) {
+    		return true;
+    	} else {
+    		final Transfer o = (Transfer)obj;
+    		return o.getEntity().equals(entity)
+    				&& o.getSource().equals(source)
+    				&& o.getTarget().equals(target);
+    		
+    	}
+    }
+    
+    @java.lang.Override
+    public String toString() {
+    	final StringBuilder sb = new StringBuilder("");
+    	sb.append("transfer from:").append(source);
+    	sb.append(", to:").append(target);
+    	sb.append(", entity:").append(entity);
+    	return sb.toString();
+    }
+
+    
 
 }

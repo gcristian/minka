@@ -117,9 +117,7 @@
       
     ===============================================================================================-->
     
-    <bean id="partitionTable" class="io.tilt.minka.core.leader.PartitionTable">
-    	<constructor-arg ref="leaderShardContainer"/>
-    </bean>
+    <bean id="partitionTable" class="io.tilt.minka.core.leader.PartitionTable"/>
         
     <bean id="entityDao" class="io.tilt.minka.core.leader.EntityDao.FakeDao"/>
     
@@ -187,7 +185,9 @@
         <constructor-arg ref="eventBroker" />
     </bean>
     
- 
+    <bean id="stateViews" class="io.tilt.minka.core.leader.StateViews">
+        <constructor-arg ref="leaderShardContainer"/>
+    </bean>
     <!-- ============================================================================================
     
     ENSAMBLE
@@ -203,6 +203,7 @@
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderShardContainer" />
         <constructor-arg ref="partitionTable" />
+        <constructor-arg ref="stateViews" />
     </bean>
     
     <bean id="configValidator" class="io.tilt.minka.api.ConfigValidator"/>

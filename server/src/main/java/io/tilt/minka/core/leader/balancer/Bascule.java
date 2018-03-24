@@ -137,4 +137,14 @@ public class Bascule<O, C> {
 		}
 		return total;
 	}
+	
+	@Override
+	public String toString() {
+		return new StringBuilder()
+				.append("owner:").append(this.owner)
+				.append(" maxRealCap:").append(maxRealCapacity)
+				.append(" maxTestWeight:").append(maxTestWeight)
+				.append(" liftedWeight:").append(this.liftedWeight)
+				.toString();
+	}
 }

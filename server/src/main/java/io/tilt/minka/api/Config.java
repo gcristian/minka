@@ -86,10 +86,10 @@ public class Config {
 			this.maxConcurrency = maxConcurrency;
 		}
 		public static String PNAME = "MK"; // + serviceName;
-		public static String THREAD_NAME_SCHEDULER = PNAME + "S";
-		public static String THREAD_NAME_BROKER_SERVER_GROUP = PNAME + "BG";
-		public static String THREAD_NAME_BROKER_SERVER_WORKER = PNAME + "BW";
-		public static String THREAD_NANE_TCP_BROKER_CLIENT = PNAME + "BC";
+		public static String THREAD_NAME_SCHEDULER = PNAME + "Scheduler";
+		public static String THREAD_NAME_BROKER_SERVER_GROUP = PNAME + "BrokerServerGroup";
+		public static String THREAD_NAME_BROKER_SERVER_WORKER = PNAME + "BrokerServerWorker";
+		public static String THREAD_NANE_TCP_BROKER_CLIENT = PNAME + "BrokerClient";
 		
 		public static String THREAD_NAME_WEBSERVER_WORKER = PNAME + "-grizzly-webserver-workers";
 		public static String THREAD_NAME_WEBSERVER_KERNEL = PNAME + "-grizzly-webserver-kernel";
@@ -196,9 +196,9 @@ public class Config {
 		// and broker's messages range 8-30k bytes: which means a fast netty channel switch and no starvation   
 		protected final static int CONNECTION_HANDLER_THREADS = 1;
 		private int connectionHandlerThreads;
-		protected final static int MAX_RETRIES = 300;
+		protected final static int MAX_RETRIES = 3;
 		private int maxRetries;
-		protected final static int RETRY_DELAY_MS = 3000;
+		protected final static int RETRY_DELAY_MS = 300;
 		private int retryDelayMs;
 		/** True: try number-consecutive open ports if specified is busy, False: break bootup */
 		protected static final boolean ENABLE_PORT_FALLBACK = true;

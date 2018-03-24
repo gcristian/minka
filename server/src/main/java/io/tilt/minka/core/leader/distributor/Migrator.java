@@ -54,7 +54,7 @@ import io.tilt.minka.domain.EntityState;
  * 
  * A new plan will not be shipped when balancers do repeatable distributions and there're no 
  * CRUD ops from client, keeping the {@linkplain Stage} stable and unchanged, 
- * as overrides and transfer only compute deltas according already distributed  
+ * as overrides and transfer only compute deltas according already distributed duties.
  * 
  * @author Cristian Gonzalez
  * @since Oct 29, 2016
@@ -238,7 +238,7 @@ public class Migrator {
 		if (isEmpty()) {
 			return false;
 		}
-		log.info("{}: Evaluating {} transfers and {} overrides", getClass().getSimpleName(), 
+		log.info("{}: Evaluating changes: {} transfers / {} overrides", getClass().getSimpleName(), 
 				transfers!=null ? transfers.size() : 0, overrides!=null ? overrides.size() : 0);
 		if (overrides!=null) {
 			checkExclusions(); // balancers using transfers only make delta changes, without reassigning
@@ -247,6 +247,8 @@ public class Migrator {
 			}
 		}
 		if (transfers!=null) {
+			// by now transfers dont use weights and capacities but SpillOver which is almost deprecated
+			// balancers using transfers only make delta changes, without reassigning
 			for (Transfer tr: transfers) {
 				anyChange|=tr.apply(plan, table);
 			}
@@ -306,6 +308,14 @@ public class Migrator {
 		        overrides.stream()
 		            .filter(o->o.getEntities().contains(duty))
 		            .count()>0;
+	}
+
+	List<Override> getOverrides() {
+		return overrides;
+	}
+	
+	List<Transfer> getTransfers() {
+		return transfers;
 	}
 
 }

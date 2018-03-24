@@ -16,6 +16,8 @@
  */
 package io.tilt.minka.core.leader;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.lang.Validate;
 import org.joda.time.DateTime;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
@@ -38,6 +41,7 @@ import com.google.common.util.concurrent.AtomicDouble;
 
 import io.tilt.minka.core.leader.PartitionTable.Stage.StageExtractor;
 import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
+import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
@@ -52,7 +56,9 @@ import io.tilt.minka.domain.EntityState;
 @SuppressWarnings("unused")
 @JsonPropertyOrder({"global", "shards", "pallets", "roadmaps"})
 public class StateViews {
-	
+
+	private final LeaderShardContainer leaderShardContainer; 
+		
 	protected static final ObjectMapper mapper; 
 	static {
 		mapper = new ObjectMapper();
@@ -65,30 +71,34 @@ public class StateViews {
 		mapper.configure(Feature.WRITE_NUMBERS_AS_STRINGS, true);
 	}
 
-	public static String elementToJson(final Object o) throws JsonProcessingException {
+	public StateViews(final LeaderShardContainer leaderShardContainer) {
+		this.leaderShardContainer = requireNonNull(leaderShardContainer);
+	}
+
+	public String elementToJson(final Object o) throws JsonProcessingException {
 		Validate.notNull(o);
 		return mapper.writeValueAsString(o);
 	}
 
-    public static String shardsToJson(final PartitionTable table) throws JsonProcessingException {
+    public String shardsToJson(final PartitionTable table) throws JsonProcessingException {
         Validate.notNull(table);
         return mapper.writeValueAsString(buildShards(table));
     }
 
-    public static Map<String, Object> buildShards(final PartitionTable table) {
+    public Map<String, Object> buildShards(final PartitionTable table) {
         Validate.notNull(table);
         final Map<String, Object> map = new LinkedHashMap<>();
-        map.put("leaderShardId", table.getLeaderShardContainer().getLeaderShardId());
+        map.put("leaderShardId", leaderShardContainer.getLeaderShardId());
         map.put("shards", table.getStage().getShards());
         return map;
     }
 
-	public static String distributionToJson(final PartitionTable table) throws JsonProcessingException {
+	public String distributionToJson(final PartitionTable table) throws JsonProcessingException {
 		Validate.notNull(table);
 		return mapper.writeValueAsString(buildDistribution(table));
 	}
 	
-	public static Map<String, Object> buildDistribution(final PartitionTable table) {
+	public Map<String, Object> buildDistribution(final PartitionTable table) {
 		Validate.notNull(table);
 		final Map<String, Object> map = new LinkedHashMap<>();
 		map.put("global", buildGlobal(table));
@@ -96,20 +106,20 @@ public class StateViews {
 		return map;
 	}
 
-	public static String dutiesToJson(final PartitionTable table) throws JsonProcessingException {
+	public String dutiesToJson(final PartitionTable table) throws JsonProcessingException {
 		return elementToJson(buildDuties(table, false));
 	}
-	public static String entitiesToJson(final PartitionTable table) throws JsonProcessingException {
+	public String entitiesToJson(final PartitionTable table) throws JsonProcessingException {
         return elementToJson(buildDuties(table, true));
     }
-	private static List<Object> buildDuties(final PartitionTable table, boolean entities) {
+	private List<Object> buildDuties(final PartitionTable table, boolean entities) {
 		Validate.notNull(table);
 		final List<Object> ret = new ArrayList<>();
 		table.getStage().getDuties().forEach(e->ret.add(entities ? e: e.getDuty()));
 		return ret;
 	}
 
-	public static String palletsToJson(PartitionTable table) throws JsonProcessingException {
+	public String palletsToJson(PartitionTable table) throws JsonProcessingException {
 		Validate.notNull(table);
 		return elementToJson(buildPallets(table));
 	}

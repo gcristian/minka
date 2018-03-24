@@ -45,7 +45,7 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
  * @since Nov 5, 2015
  */
 @JsonAutoDetect
-public class Shard implements Comparator<Shard> {
+public class Shard implements Comparator<Shard>, Comparable<Shard> {
 
 	private static final int MAX_HEARBEATS_TO_EVALUATE = 50;
 	private static final int MAX_HEARBEATS_CHANGES_TO_KEEP = 10;
@@ -195,7 +195,7 @@ public class Shard implements Comparator<Shard> {
 				return 1;
 			} else {
 				int ret = Double.compare(cap1.getTotal(), cap2.getTotal());
-				return ret == 0 ? -1 : ret;
+				return ret != 0 ? ret : DateComparer.compareByCreation(s, s2);
 			}
 		}
 	}

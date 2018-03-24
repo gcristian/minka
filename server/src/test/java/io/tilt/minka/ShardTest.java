@@ -4,6 +4,9 @@
 
 package io.tilt.minka;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -11,6 +14,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.joda.time.DateTime;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -58,9 +62,22 @@ public class ShardTest {
 			last = next;
 		}
 	}
-
-	private Shard buildShard(final Pallet<String> p, final double cap) throws Exception {
-		final Shard s1 = new Shard(Mockito.mock(BrokerChannel.class), new TCPShardIdentifier(new Config()));
+	
+	
+	public static Shard buildShard(final Pallet<String> p, final double cap) throws Exception {
+		return buildShard(p, cap, null);
+	}
+	
+	public static final Random rnd = new Random();
+	
+	public static Shard buildShard(final Pallet<String> p, final double cap, final Integer id) throws Exception {
+		final TCPShardIdentifier mockedShardID = mock(TCPShardIdentifier.class);
+		final String idi = String.valueOf(id==null ? rnd.nextInt(5000): id);
+		when(mockedShardID.getStringIdentity()).thenReturn(idi);
+		when(mockedShardID.getSynthetizedID()).thenReturn(idi);
+		when(mockedShardID.getCreation()).thenReturn(new DateTime());
+		when(mockedShardID.toString()).thenReturn(idi);
+		final Shard s1 = new Shard(Mockito.mock(BrokerChannel.class), mockedShardID);
 		final Map<Pallet<?>, Capacity> c = new HashMap<>();
 		c.put(p, new Capacity(p, cap));
 		s1.setCapacities(c);

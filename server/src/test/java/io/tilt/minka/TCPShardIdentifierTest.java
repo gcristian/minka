@@ -16,7 +16,7 @@ import org.junit.Test;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.domain.TCPShardIdentifier;
 
-public class NetworkShardIDTest {
+public class TCPShardIdentifierTest {
 
 	@Test
 	public void test_grab_passed_port() throws Exception {

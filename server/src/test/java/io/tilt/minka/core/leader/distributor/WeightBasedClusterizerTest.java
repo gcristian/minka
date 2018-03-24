@@ -1,4 +1,4 @@
-package io.tilt.minka;
+package io.tilt.minka.core.leader.distributor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,31 +19,34 @@ import io.tilt.minka.domain.ShardEntity;
  * @author Cristian Gonzalez
  * @since Dec 29, 2015
  */
-public class FairWorkloadBalancerTest {
+public class WeightBasedClusterizerTest {
 
 	public static Duty<String> buildDutyWithWeight(long weight, String idi) {
-		return DutyBuilder.<String>builder(idi,  "1").with(weight).build();
+		return DutyBuilder.<String>
+			builder(idi,  "1")
+				.with(weight)
+				.build();
 	}
 
 	@Test
 	public void testBalance() {
 
 		final int shards = 4;
-		final List<Duty<?>> weightedDuties = new ArrayList<>();
-		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(10l, "1")).build().getDuty());
-		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(100l, "2")).build().getDuty());
-		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(200l, "3")).build().getDuty());
-		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(500l, "4")).build().getDuty());
-		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(1000l, "5")).build().getDuty());
-		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(1500l, "6")).build().getDuty());
-		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(1500l, "7")).build().getDuty());
+		final List<Duty<?>> list = new ArrayList<>();
+		list.add(ShardEntity.Builder.builder(buildDutyWithWeight(10l, "1")).build().getDuty());
+		list.add(ShardEntity.Builder.builder(buildDutyWithWeight(100l, "2")).build().getDuty());
+		list.add(ShardEntity.Builder.builder(buildDutyWithWeight(200l, "3")).build().getDuty());
+		list.add(ShardEntity.Builder.builder(buildDutyWithWeight(500l, "4")).build().getDuty());
+		list.add(ShardEntity.Builder.builder(buildDutyWithWeight(1000l, "5")).build().getDuty());
+		list.add(ShardEntity.Builder.builder(buildDutyWithWeight(1500l, "6")).build().getDuty());
+		list.add(ShardEntity.Builder.builder(buildDutyWithWeight(1500l, "7")).build().getDuty());
 
 		final EvenWeightBalancer.WeightBasedClusterizer p = new EvenWeightBalancer.WeightBasedClusterizer();
-		List<List<Duty<?>>> distro = p.split(shards, weightedDuties);
+		List<List<Duty<?>>> distro = p.split(shards, list);
 		Assert.isTrue(distro.size() == 4);
 		assertDistribution(distro);
 
-		List<List<Duty<?>>> distro2 = p.split(shards, weightedDuties);
+		List<List<Duty<?>>> distro2 = p.split(shards, list);
 		Assert.isTrue(distro2.size() == 4);
 		assertDistribution(distro2);
 
