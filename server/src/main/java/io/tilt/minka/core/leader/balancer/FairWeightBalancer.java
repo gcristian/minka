@@ -126,30 +126,35 @@ public class FairWeightBalancer implements Balancer {
     		final Iterator<Duty<?>> itDuties = duties.iterator();
     		Duty<?> duty = null;
     		boolean lifted = true;
-    		while (itBascs.hasNext()) {
-    			final Bascule<ShardRef, Duty<?>> bascule = itBascs.next();
-    			while (itDuties.hasNext()) {
-    				if (lifted) {
-    					duty = itDuties.next();
-    				}
-    				lifted = bascule.testAndLift(duty, duty.getWeight());
-    				final boolean saveLooseRemainders = lifted && !itBascs.hasNext() && itDuties.hasNext();
-                    if (saveLooseRemainders) {
-    					// without overwhelming we can irrespect the fair-weight-even desire
-    					// adding those left aside by division remainders calc
-    					while (itDuties.hasNext()) {
-    						if (!bascule.tryLift(duty = itDuties.next(), duty.getWeight())) {
-    						    migrator.stuck(duty, bascule.getOwner().getId());
-    						}
-    					}
-    				}
-    				// si esta bascula no la levanto y no queda otra y no hay mas duties
-    				if (!lifted || !itBascs.hasNext() || !itDuties.hasNext()) {
-    					migrator.override(bascule.getOwner(), bascule.getCargo());
-    					break;
-    				}
-    			}
-    		}
+			while (itBascs.hasNext()) {
+				final Bascule<ShardRef, Duty<?>> bascule = itBascs.next();
+				while (itDuties.hasNext() || !lifted) {
+					if (lifted) {
+						duty = itDuties.next();
+					}
+					lifted = bascule.testAndLift(duty, duty.getWeight());
+					// save loose remainders
+					if (lifted && !itBascs.hasNext() && itDuties.hasNext()) {
+						// without overwhelming we can irrespect the fair-weight-even desire
+						// adding those left aside by division remainders calc
+						while (itDuties.hasNext()) {
+							if (!bascule.tryLift(duty = itDuties.next(), duty.getWeight())) {
+								migrator.stuck(duty, bascule.getOwner().getId());
+							}
+						}
+					}
+					// si esta bascula no la levanto y no queda otra y no hay mas duties
+					if (!lifted || !itBascs.hasNext() || !itDuties.hasNext()) {
+						while (!itBascs.hasNext() && itDuties.hasNext()) {
+							if (!bascule.tryLift(duty = itDuties.next(), duty.getWeight())) {
+								migrator.stuck(duty, bascule.getOwner().getId());
+							}
+						}
+						migrator.override(bascule.getOwner(), bascule.getCargo());
+						break;
+					}
+				}
+			}
     		if (itDuties.hasNext()) {
     			logger.error("{}: Insufficient cluster capacity for Pallet: {}, remaining duties without distribution {}", 
     				getClass().getSimpleName(), pallet, duty.getId());
