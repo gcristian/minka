@@ -32,7 +32,6 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.DutyBuilder;
 import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.EntityPayload;
 import io.tilt.minka.api.Pallet;

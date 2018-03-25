@@ -31,7 +31,6 @@ import com.google.common.collect.Lists;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.PartitionTable;
 
 /**
  * An effectively assigned, running and continuously confirmed 

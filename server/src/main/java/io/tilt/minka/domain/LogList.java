@@ -49,8 +49,12 @@ import io.tilt.minka.domain.LogList.Log.TimeState;
 public class LogList implements Serializable {
 	
 	protected static final long serialVersionUID = 1L;
-
+	private static int MAX_JOURNAL_SIZE = 50;
+	
 	final static SimpleDateFormat sdf = new SimpleDateFormat("yyMMdd:hhmmss.SSS");
+
+	private boolean sliding;
+	
 
 	@JsonIgnore
 	private final LinkedList<Log> logs = new LinkedList<>();
@@ -82,10 +86,14 @@ public class LogList implements Serializable {
         // look up the right log 
 		Log log = (planid > 0) ? find_(planid, shid, event) : null;
 		if (log==null) {
-            this.logs.add(log = new Log(new Date(), event, shid, planid));
+            logs.add(log = new Log(new Date(), event, shid, planid));
+            if (sliding || (sliding= logs.size()== MAX_JOURNAL_SIZE)) {
+            	logs.removeFirst();
+            }
         }
         log.addState(state);
     }
+	
 	
 	@JsonProperty("log-size")
 	public int eventSize() {

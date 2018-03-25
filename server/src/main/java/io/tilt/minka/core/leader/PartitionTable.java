@@ -391,7 +391,6 @@ public class PartitionTable {
 	private ClusterCapacity capacity;
 	private final Stage stage;
 	private final Backstage backstage;
-	private Backstage previousNextStage;
 	private Plan currentPlan;
 	private SlidingSortedSet<Plan> history;
 	

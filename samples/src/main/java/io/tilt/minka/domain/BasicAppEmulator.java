@@ -105,11 +105,13 @@ public class BasicAppEmulator {
 				lastSize = runningDuties.size();
 				logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "running"));
 				if (logger.isDebugEnabled()) {
-					logger.debug("{} {{}} # {} ({})", shardId, client != null ? client.isCurrentLeader() ? 
-							"leader" : "follower" : "?", this.runningDuties.size(), toStringGroupByPallet(runningDuties));
+					logger.debug("{}: {} {{}} # {} ({})", getClass().getSimpleName(), shardId, 
+							client != null ? client.isCurrentLeader() ?  "leader" : "follower" : "?", 
+							this.runningDuties.size(), toStringGroupByPallet(runningDuties));
 				} else {
-					logger.info("{} {{}} # {} ", shardId, client != null ? client.isCurrentLeader() ? 
-							"leader" : "follower" : "?", this.runningDuties.size());
+					logger.info("{}: {} {{}} # {} ", getClass().getSimpleName(), shardId, 
+							client != null ? client.isCurrentLeader() ? "leader" : "follower" : "?", 
+							this.runningDuties.size());
 				}
 			}
 			return this.runningDuties;
@@ -121,8 +123,8 @@ public class BasicAppEmulator {
 		
 		server.onDutyUpdate(d->{});
 		server.onActivation(()-> {
-			logger.info("activating");
 			this.shardId = server.getClient().getShardIdentity();
+			logger.info("{}: Activating", this.shardId);
 		});
 		server.onDeactivation(()->logger.info("de-activating"));
 		server.onDutyUpdate(d->logger.info("receiving update: {}", d));
