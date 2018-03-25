@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,6 +65,9 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		this.scheduler = java.util.Objects.requireNonNull(scheduler);
 	}
 
+	/**
+	 * this's raw from Broker's message reception
+	 */
 	@Override
 	public void accept(final Heartbeat beat, final Shard sourceShard) {
 		if (beat.getStateChange() == ShardState.QUITTED) {
@@ -76,14 +78,19 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		if (beat.getCapacities()!=null) {
 			sourceShard.setCapacities(beat.getCapacities());
 		}
-			
-		if (partitionTable.getCurrentPlan() == null || partitionTable.getCurrentPlan().getResult().isClosed()) {
-			noticeDanglings(beat, sourceShard);
+		final boolean planHapenning = partitionTable.getCurrentPlan() != null 
+				&& !partitionTable.getCurrentPlan().getResult().isClosed();
+		
+		if (!planHapenning) {
+			if (beat.hasWarning() || beat.hasDifferences()) {
+				noticeDanglings(beat, sourceShard);
+			}
 		} else {
-			analyzeReportedDuties(sourceShard, beat.getReportedCapturedDuties());
+			analyzeHeartbeat(beat, sourceShard);
 		}
+
 		// TODO perhaps in presence of Reallocation not ?
-		if (sourceShard.getState().isAlive()) {
+		if (beat.reportsDuties() && sourceShard.getState().isAlive()) {
 			declareHeartbeatAbsencesAsMissing(sourceShard, beat.getReportedCapturedDuties());
 		}
 	}
@@ -100,25 +107,40 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
         }
     }
 
-	private void analyzeReportedDuties(final Shard source, final List<ShardEntity> heartbeatDuties) {
+	private void analyzeHeartbeat(final Heartbeat beat, final Shard source) {
 		final Plan plan = partitionTable.getCurrentPlan();
 		final Delivery delivery = plan.getDelivery(source);
-		if (delivery!=null && delivery.getPlanId()==plan.getId()) {
-		    boolean changed = false;
-    		changed|=searchReallocations(source, heartbeatDuties, delivery);
-    		changed|=searchAbsences(source, heartbeatDuties, delivery);
+		if (delivery!=null) {
+			long lattestPlanId = 0;
+			boolean changed = false;
+			if (beat.reportsDuties()) {
+				for (ShardEntity e: beat.getReportedCapturedDuties()) {
+					final long pid = e.getLog().getLast().getPlanId();
+					if (pid > lattestPlanId) {
+						lattestPlanId = pid;
+					}
+				}
+				if (lattestPlanId==plan.getId()) {
+					changed|=searchReallocations(source, beat.getReportedCapturedDuties(), delivery);
+				}
+			}
+    		changed|=searchAbsences(source, beat.getReportedCapturedDuties(), delivery);
     		if (changed) {
     		    delivery.checkState();
+    		} else if (lattestPlanId==plan.getId()) {
+    			// delivery found, no change but expected ? 
+    			logger.warn("{}: Ignoring shard's ({}) heartbeats with a previous Journal: {} (current: {})", 
+    		            getClass().getSimpleName(), source.getShardID().toString(), lattestPlanId, plan.getId());			
     		}
     		if (!plan.getResult().isClosed() && plan.hasUnlatched()) {
     		    logger.info("{}: Plan unlatched, fwd >> distributor agent ", getClass().getSimpleName());
     		    scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
     		}
 		} else {
-			logger.warn("{}: no pending Delivery for heartbeat's shard: {} - current/delivery plan id: {}/{}", 
-	            getClass().getSimpleName(), source.getShardID().toString(), plan!=null ? plan.getId() : "unk", 
-	            		delivery!=null ? delivery.getPlanId() : "unk");
-		}
+			logger.warn("{}: no pending Delivery for heartbeat's shard: {}", 
+	            getClass().getSimpleName(), source.getShardID().toString());
+		}			
+		
 		if (plan.getResult().isClosed()) {
 		    logger.info("{}: Plan finished ! (all changes in stage)", getClass().getSimpleName());
 		}

@@ -86,7 +86,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		issues |= addIfAbsents(reportedDuties, entities);
 		final boolean exclusionExpired = lastIncludedDutiesTimestamp == 0 
 				|| now - lastIncludedDutiesTimestamp > includeDutiesFrequency;
-		if (true || issues || exclusionExpired || partition.wasRecentlyUpdated()) {			
+		if (issues || exclusionExpired || partition.wasRecentlyUpdated()) {			
 			entities.forEach(d->builder.addReportedCapturedDuty(d));
 			lastIncludedDutiesTimestamp = now;
 		}
@@ -185,17 +185,10 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		// add non-reported: as dangling
 		for (final ShardEntity existing : partition.getDuties()) {
 			if (ret = !reportedDuties.contains(existing.getEntity())) {
-				if (existing.getDuty().isLazyFinalized()) { 
-					existing.getLog().addEvent(EntityEvent.REMOVE, 
-					        EntityState.FINALIZED, 
-					        this.partition.getId(), 
-					        Plan.PLAN_UNKNOWN);
-				} else {
-					existing.getLog().addEvent(EntityEvent.REMOVE, 
-					        EntityState.DANGLING, 
-					        this.partition.getId(), 
-					        Plan.PLAN_UNKNOWN);
-				}
+				existing.getLog().addEvent(EntityEvent.REMOVE, 
+					existing.getDuty().isLazyFinalized() ? EntityState.FINALIZED : EntityState.DANGLING, 
+			        this.partition.getId(), 
+			        Plan.PLAN_UNKNOWN);
 				log.error("{}: ({}) Reporting a Dangling Duty (by Erasure): {}", getClass().getSimpleName(),
 						partition.getId(), existing);
 				duties.add(existing);
