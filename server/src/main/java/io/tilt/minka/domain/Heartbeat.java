@@ -67,15 +67,8 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		Validate.notNull(shardId);
 		return new Builder(sequenceId, shardId);
 	}
-	
-	public static Builder builderFrom(final Heartbeat hb) {
-		Validate.notNull(hb);
-		final Builder b = new Builder(hb.sequenceId, hb.shardId);
-		b.from = hb;
-		return b;
-	}
+
 	public static class Builder {
-		private Heartbeat from;
 		private List<ShardEntity> entities;
 		private boolean warning;
 		private List<DutyDiff> differences;
@@ -91,25 +84,25 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 			this.sequenceId = sequenceId;
 			this.creation = new DateTime(DateTimeZone.UTC);
 		}
-		public Builder addDifference(final DutyDiff dutyDifference) {
-			Validate.notNull(dutyDifference);
+		public Builder addDifference(final DutyDiff duty) {
+			Validate.notNull(duty);
 			if (this.differences==null) {
 				this.differences = new ArrayList<>();
 			}
-			this.differences.add(dutyDifference);
+			this.differences.add(duty);
 			this.reportsCapturedDuties = true;
 			return this;
 		}
-		public Builder addReportedCapturedDuty(final ShardEntity reportedCapturedDuty) {
-			Validate.notNull(reportedCapturedDuty);
+		public Builder addReportedCapturedDuty(final ShardEntity duty) {
+			Validate.notNull(duty);
 			if (this.entities ==null) {
 				this.entities = new ArrayList<>();
 			}
-			this.entities.add(reportedCapturedDuty);
+			this.entities.add(duty);
 			this.reportsCapturedDuties = true;
 			return this;
 		}
-		public Builder addCapacity(final Pallet<?> pallet, Capacity capacity) {
+		public Builder addCapacity(final Pallet<?> pallet, final Capacity capacity) {
 			Validate.notNull(pallet);
 			Validate.notNull(capacity);
 			this.capacities.put(pallet, capacity); 
@@ -120,17 +113,8 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 			return this;
 		}
 		public Heartbeat build() {
-			if (from == null) {
-				return new Heartbeat(entities, warning, shardId, sequenceId, capacities, 
-						reportsCapturedDuties, this.creation, differences);
-			} else {
-				final List<ShardEntity> cloned = new ArrayList<>();
-				for (ShardEntity d : from.getReportedCapturedDuties()) {
-					cloned.add(ShardEntity.Builder.builderFrom(d).build());
-				}
-				return new Heartbeat(cloned, warning, shardId, sequenceId, capacities, 
-						reportsCapturedDuties, this.creation, differences);
-			}
+			return new Heartbeat(entities, warning, shardId, sequenceId, capacities, 
+					reportsCapturedDuties, this.creation, differences);
 		}
 	}
 

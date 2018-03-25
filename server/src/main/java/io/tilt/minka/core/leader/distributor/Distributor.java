@@ -22,7 +22,6 @@ import static io.tilt.minka.core.leader.distributor.Plan.Result.RETRYING;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -31,8 +30,6 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.Lists;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.DependencyPlaceholder;
@@ -303,10 +300,8 @@ public class Distributor extends ServiceImpl {
 				logger.info("{}: {} reported {} entities for sharding...", getName(),
 					config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster",
 					duties.size());
-				final List<Pallet<?>> copyP = Lists.newArrayList(pallets);
-				bookkeeper.enterPalletsFromSource(copyP);
-				final List<Duty<?>> copy = Lists.newArrayList(duties);
-				bookkeeper.enterDutiesFromSource(copy);
+				bookkeeper.enterPalletsFromSource(new ArrayList<>(pallets));
+				bookkeeper.enterDutiesFromSource(new ArrayList<>(duties));
 				initialAdding = false;
 			}
 			if (partitionTable.getBackstage().getDutiesCrud().isEmpty()) {

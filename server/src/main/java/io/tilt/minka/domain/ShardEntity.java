@@ -285,6 +285,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		} else {
 			final ShardEntity o = (ShardEntity) obj;
 			return getEntity()!=null
+					&& getType()==o.getType()
 					&& getEntity().getId().equals(o.getEntity().getId());
 		}
 	}
