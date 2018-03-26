@@ -73,6 +73,7 @@
         <constructor-arg ref="config" />
         <constructor-arg ref="clientHolder" />
         <constructor-arg ref="partition" />
+        <constructor-arg ref="leaderShardContainer" />
     </bean>
     <!-- Emite heartbeats para el Lider -->
     <bean id="heartpump" class="io.tilt.minka.core.follower.impl.HeartpumpImpl">

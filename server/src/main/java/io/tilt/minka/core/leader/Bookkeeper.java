@@ -34,7 +34,6 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Delivery;
 import io.tilt.minka.core.leader.distributor.Plan;
 import io.tilt.minka.core.task.Scheduler;
-import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.LogList.Log;
 import io.tilt.minka.domain.Heartbeat;
@@ -78,10 +77,18 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		if (beat.getCapacities()!=null) {
 			sourceShard.setCapacities(beat.getCapacities());
 		}
-		final boolean planHapenning = partitionTable.getCurrentPlan() != null 
+		final boolean hasBeenAPlan = partitionTable.getCurrentPlan() != null;
+		final boolean planHapenning = hasBeenAPlan 
 				&& !partitionTable.getCurrentPlan().getResult().isClosed();
 		
 		if (!planHapenning) {
+			if (!hasBeenAPlan && beat.reportsDuties()) {
+				// there's been a change of leader: i'm initiating with older followers 
+				for (ShardEntity e: beat.getReportedCapturedDuties()) {
+					//partitionTable.getStage().getDuties().
+					partitionTable.getStage().writeDuty(e, sourceShard, EntityEvent.ATTACH);
+				}
+			}
 			if (beat.hasWarning() || beat.hasDifferences()) {
 				noticeDanglings(beat, sourceShard);
 			}
@@ -114,12 +121,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 			long lattestPlanId = 0;
 			boolean changed = false;
 			if (beat.reportsDuties()) {
-				for (ShardEntity e: beat.getReportedCapturedDuties()) {
-					final long pid = e.getLog().getLast().getPlanId();
-					if (pid > lattestPlanId) {
-						lattestPlanId = pid;
-					}
-				}
+				lattestPlanId = latestPlan(beat);
 				if (lattestPlanId==plan.getId()) {
 					changed|=searchReallocations(source, beat.getReportedCapturedDuties(), delivery);
 				}
@@ -144,6 +146,18 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		if (plan.getResult().isClosed()) {
 		    logger.info("{}: Plan finished ! (all changes in stage)", getClass().getSimpleName());
 		}
+	}
+
+	/* latest entity's journal plan ID among the beat */
+	private long latestPlan(final Heartbeat beat) {
+		long lattestPlanId = 0;
+		for (ShardEntity e: beat.getReportedCapturedDuties()) {
+			final long pid = e.getLog().getLast().getPlanId();
+			if (pid > lattestPlanId) {
+				lattestPlanId = pid;
+			}
+		}
+		return lattestPlanId;
 	}
 	
 	 /*this checks partition table looking for missing duties (not declared dangling, that's diff) */
@@ -380,7 +394,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		final Iterator<Pallet<?>> it = palletsFromSource.iterator();
 		while (it.hasNext()) {
 			final ShardEntity she = ShardEntity.Builder.builder(it.next()).build();
-			if (palletsFromSource.contains(she)) {
+			if (partitionTable.getStage().getPallets().contains(she)) {
 				sortedLog.add(she);
 				it.remove();
 			} else {

@@ -167,8 +167,10 @@ public class LogList implements Serializable {
 	            	}
             	}
             	break;
-            } else if (log.getPlanId() < planid) {
+            } else if (planid > log.getPlanId()) {
             	// avoid phantom events
+            	break;
+            } else if (planid ==0 && onePlanFound) {
             	break;
             }
 		}
