@@ -33,13 +33,16 @@ import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.follower.HeartbeatFactory;
 import io.tilt.minka.core.leader.distributor.Plan;
+import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.DutyDiff;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.LogList.Log;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.utils.LogUtils;
@@ -58,20 +61,24 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	private final ShardedPartition partition;
 	private final AtomicLong sequence;
 	private final Config config;
+	private final LeaderShardContainer leaderShardContainer;
 	
 	private DomainInfo domain; 
 	private long lastIncludedDutiesTimestamp;
 	private long includeDutiesFrequency = 10 * 1000l;
+	private ShardIdentifier lastLeader;
 	
 	public HeartbeatFactoryImpl(
 			final Config config, 
 			final DependencyPlaceholder holder, 
-			final ShardedPartition partition) {
+			final ShardedPartition partition, 
+			final LeaderShardContainer leaderShardContainer) {
 		super();
 		this.config = requireNonNull(config);
 		this.dependencyPlaceholder = requireNonNull(holder);
 		this.partition = requireNonNull(partition);
 		this.sequence = new AtomicLong();
+		this.leaderShardContainer = leaderShardContainer;
 	}
 
 	@Override
@@ -84,9 +91,18 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		final List<ShardEntity> entities = new ArrayList<>(reportedDuties.size() + partition.getDuties().size()); 
 		boolean issues = analyzeDifferenceAndReportCapture(builder, reportedDuties, entities);
 		issues |= addIfAbsents(reportedDuties, entities);
+		
 		final boolean exclusionExpired = lastIncludedDutiesTimestamp == 0 
 				|| now - lastIncludedDutiesTimestamp > includeDutiesFrequency;
-		if (issues || exclusionExpired || partition.wasRecentlyUpdated()) {			
+				
+		boolean newLeader = false; 
+		final NetworkShardIdentifier leader = leaderShardContainer.getLeaderShardId();
+		if (leader!=null && !leader.equals(lastLeader)) {
+			this.lastLeader = leader;
+			newLeader = true;
+		}
+		
+		if (issues || exclusionExpired || partition.wasRecentlyUpdated() || newLeader) {	
 			entities.forEach(d->builder.addReportedCapturedDuty(d));
 			lastIncludedDutiesTimestamp = now;
 		}
