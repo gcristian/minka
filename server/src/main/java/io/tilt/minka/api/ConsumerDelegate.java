@@ -1,18 +1,18 @@
 package io.tilt.minka.api;
 
-import static io.tilt.minka.api.ConsumerDelegate.Event.activation;
-import static io.tilt.minka.api.ConsumerDelegate.Event.capture;
-import static io.tilt.minka.api.ConsumerDelegate.Event.capturePallet;
-import static io.tilt.minka.api.ConsumerDelegate.Event.deactivation;
-import static io.tilt.minka.api.ConsumerDelegate.Event.loadduties;
-import static io.tilt.minka.api.ConsumerDelegate.Event.loadpallets;
-import static io.tilt.minka.api.ConsumerDelegate.Event.release;
-import static io.tilt.minka.api.ConsumerDelegate.Event.releasePallet;
-import static io.tilt.minka.api.ConsumerDelegate.Event.report;
-import static io.tilt.minka.api.ConsumerDelegate.Event.transfer;
-import static io.tilt.minka.api.ConsumerDelegate.Event.transferPallet;
-import static io.tilt.minka.api.ConsumerDelegate.Event.update;
-import static io.tilt.minka.api.ConsumerDelegate.Event.updatePallet;
+import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.activation;
+import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.capture;
+import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.capturePallet;
+import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.deactivation;
+import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.loadduties;
+import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.loadpallets;
+import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.release;
+import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.releasePallet;
+import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.report;
+import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.transfer;
+import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.transferPallet;
+import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.update;
+import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.updatePallet;
 
 import java.io.Serializable;
 import java.util.Collections;
@@ -37,7 +37,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 	private static final String UNMAPPED_EVENT = "{}: Unmapped event: {}";
 	private static final Logger log = LoggerFactory.getLogger(MinkaClient.class);
 
-	public enum Event {
+	public enum MappingEvent {
 		// consumers
 		capture(true, "taking responsibilities on duties: start"), 
 		release(true, "releasing responsibilities on duties: stop"), 
@@ -58,7 +58,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		;
 		private final String title;
 		private final boolean mandatory;
-		Event(final boolean mandatory, final String title) {
+		MappingEvent(final boolean mandatory, final String title) {
 			this.title = title;
 			this.mandatory = mandatory;
 		}
@@ -78,11 +78,11 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 	private Consumer<Pallet<P>> consumerPalletUpdate;
 	private BiConsumer<Duty<D>, Serializable> biconsumerTransfer;
 	private BiConsumer<Pallet<P>, Serializable> biconsumerPalletTransfer;
-	private final Map<Event, Consumer<Set<Pallet<P>>>> consumersPallets;
-	private final Map<Event, Consumer<Set<Duty<D>>>> consumers;
-	private final Map<Event, Supplier<Set<Duty<D>>>> suppliers;
+	private final Map<MappingEvent, Consumer<Set<Pallet<P>>>> consumersPallets;
+	private final Map<MappingEvent, Consumer<Set<Duty<D>>>> consumers;
+	private final Map<MappingEvent, Supplier<Set<Duty<D>>>> suppliers;
 	private Supplier<Set<Pallet<P>>> palletSupplier;
-	private final Map<Event, Runnable> runnables;
+	private final Map<MappingEvent, Runnable> runnables;
 	private final Map<Pallet<P>, Double> capacities;
 	
 	protected ConsumerDelegate() {
@@ -94,15 +94,15 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		this.capacities = new HashMap<>();
 	}
 	
-	protected void addConsumer(final Consumer<Set<Duty<D>>> consumer, Event event) {
+	protected void addConsumer(final Consumer<Set<Duty<D>>> consumer, final MappingEvent event) {
 		Validate.notNull(consumer);
 		this.consumers.put(event, consumer);
 	}
-	protected void addConsumerPallet(final Consumer<Set<Pallet<P>>> consumer, Event event) {
+	protected void addConsumerPallet(final Consumer<Set<Pallet<P>>> consumer, final MappingEvent event) {
 		Validate.notNull(consumer);
 		this.consumersPallets.put(event, consumer);
 	}
-	protected void addRunnable(final Event event, Runnable runnable) {
+	protected void addRunnable(final MappingEvent event, final Runnable runnable) {
 		Validate.notNull(runnable);
 		this.runnables.put(event, runnable);
 	}
@@ -110,7 +110,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		Validate.notNull(supplier);
 		this.palletSupplier = supplier;
 	}
-	protected void addSupplier(final Event event, Supplier<Set<Duty<D>>> supplier) {
+	protected void addSupplier(final MappingEvent event, final Supplier<Set<Duty<D>>> supplier) {
 		Validate.notNull(supplier);
 		this.suppliers.put(event, supplier);
 	}
@@ -125,16 +125,16 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 	protected void addBiConsumerTransferPallet(final BiConsumer<Pallet<P>, Serializable> biconsumerTransferPallet) {
 		this.biconsumerPalletTransfer = biconsumerTransferPallet;
 	}
-	protected void addConsumerUpdate(Consumer<Duty<D>> consumerUpdate) {
+	protected void addConsumerUpdate(final Consumer<Duty<D>> consumerUpdate) {
 		this.consumerUpdate = consumerUpdate;
 	}	
-	protected void addConsumerUpdatePallet(Consumer<Pallet<P>> consumerUpdate) {
+	protected void addConsumerUpdatePallet(final Consumer<Pallet<P>> consumerUpdate) {
 		this.consumerPalletUpdate = consumerUpdate;
 	}	
 
 	// -------- interfase bridge
 	
-	private boolean readyIf(final Object o, Event ev) {
+	private boolean readyIf(final Object o, final MappingEvent ev) {
 		if (o instanceof Map && ((Map<?, ?>)o).containsKey(ev)) {
 			return true;
 		} else {
@@ -247,7 +247,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		}
 	}
 	@Override
-	public void release(Set<Duty<D>> duties) {
+	public void release(final Set<Duty<D>> duties) {
 		final Consumer<Set<Duty<D>>> c = this.consumers.get(release);
 		if (c!=null) {
 			c.accept(duties);

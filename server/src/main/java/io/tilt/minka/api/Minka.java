@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import io.tilt.minka.api.Config.BootstrapConf;
-import io.tilt.minka.api.ConsumerDelegate.Event;
+import io.tilt.minka.api.ConsumerDelegate.MappingEvent;
 import io.tilt.minka.core.leader.distributor.Balancer;
 
 /**
@@ -327,7 +327,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 */
 	public Minka<D, P> onDutyLoad(final Supplier<Set<Duty<D>>> supplier) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getMaster()).addSupplier(Event.loadduties, supplier);
+		((ConsumerDelegate<D, P>)getDepPlaceholder().getMaster()).addSupplier(MappingEvent.loadduties, supplier);
 		return this;
 	}
 	/**
@@ -349,7 +349,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 */
 	public Minka<D, P> onDutyCapture(final Consumer<Set<Duty<D>>> consumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumer(consumer, Event.capture);
+		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumer(consumer, MappingEvent.capture);
 		return this;
 	}
 	/**
@@ -360,7 +360,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 */
 	public Minka<D, P> onPalletCapture(final Consumer<Set<Pallet<P>>> consumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerPallet(consumer, Event.capture);
+		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerPallet(consumer, MappingEvent.capture);
 		return this;
 	}	
 	/**
@@ -371,7 +371,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 */
 	public Minka<D, P> onDutyRelease(final Consumer<Set<Duty<D>>> consumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumer(consumer, Event.release);
+		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumer(consumer, MappingEvent.release);
 		return this;
 	}
 	/**
@@ -382,7 +382,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 */
 	public Minka<D, P> onPalletRelease(final Consumer<Set<Pallet<P>>> consumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerPallet(consumer, Event.releasePallet);
+		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerPallet(consumer, MappingEvent.releasePallet);
 		return this;
 	}
 	/**
@@ -393,7 +393,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 */
 	public Minka<D, P> onDutyReport(final Supplier<Set<Duty<D>>> supplier) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addSupplier(Event.report, supplier);
+		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addSupplier(MappingEvent.report, supplier);
 		return this;
 	}
 	/**
@@ -449,7 +449,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 */
 	public Minka<D, P> onActivation(final Runnable runnable) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addRunnable(Event.activation, runnable);
+		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addRunnable(MappingEvent.activation, runnable);
 		return this;
 	}
 	/**
@@ -459,7 +459,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 */
 	public Minka<D, P> onDeactivation(final Runnable runnable) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addRunnable(Event.deactivation, runnable);
+		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addRunnable(MappingEvent.deactivation, runnable);
 		return this;
 	}
 	/**
