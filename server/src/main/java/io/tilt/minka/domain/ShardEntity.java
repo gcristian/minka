@@ -323,6 +323,23 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 			return i;
 		}
 	}
+	
+	public static class DateComparer implements Comparator<Duty<?>>, Serializable {
+		private static final long serialVersionUID = 3709876521530551544L;
+		@Override
+		public int compare(final Duty<?> o1, final Duty<?> o2) {
+			int i = 0;
+			//if (o1 instanceof DutyBuilder.Task && o2 instanceof DutyBuilder.Task) {
+				//((DutyBuilder.Task)o1).getCreation();
+				i = o1.getId().compareTo(o2.getId());
+				if (i == 0) {
+					i = altCompare(o1, o2);
+				}
+				return i;
+			//}
+		}
+	}
+
 	protected static int altCompare(final Duty<?> o1, final Duty<?> o2) {
 		int i = o1.getPalletId().compareTo(o2.getPalletId());
 		if (i == 0) {

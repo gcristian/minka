@@ -99,26 +99,15 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	@Override
 	public void forward(Agent agent) {
 		logger.info("{}: ({}) Forwarding task's execution ", getName(), logName, agent);
-		 stop(agent);        
-		 schedule(getAgentFactory()
-			 .create(
-				 agent.getAction(), 
-				 agent.getPriority(), 
-				 Frequency.ONCE,
-		         agent.getTask())
-			 .build());
-		 schedule(agent); // go back to old
-         if (stop(agent, false)) {
-                schedule(getAgentFactory()
-            		.create(
-                        agent.getAction(), 
-                        agent.getPriority(), 
-                        Frequency.ONCE,
-                        agent.getTask())
-                    .build());
-                schedule(agent); // re-schedule previus agent
+        if (stop(agent, false)) {
+        	schedule(getAgentFactory()
+    			.create(
+					agent.getAction(), 
+					agent.getPriority(), 
+					Frequency.ONCE,
+					agent.getTask())
+				.build());
         }
-		 
 	}
 	
 	@Override

@@ -110,6 +110,7 @@
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="heartbeatFactory" />
+        <constructor-arg ref="partition" />
     </bean>
         
     <!-- ============================================================================================

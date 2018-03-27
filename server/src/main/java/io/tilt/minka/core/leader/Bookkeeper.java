@@ -136,7 +136,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
     		}
     		if (!plan.getResult().isClosed() && plan.hasUnlatched()) {
     		    logger.info("{}: Plan unlatched, fwd >> distributor agent ", getClass().getSimpleName());
-    		    scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
+    		    //scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
     		}
 		} else {
 			logger.warn("{}: no pending Delivery for heartbeat's shard: {}", 

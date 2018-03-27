@@ -269,15 +269,15 @@ public class Config {
 		/* 10 seconds enough to start check and release duties if no HB in x time */
 		protected static final long HEARTATTACK_CHECK_START_DELAY_MS = 10000;
 		private long heartattackCheckStartDelayMs;
-		protected static final long HEARTATTACK_CHECK_DELAY_MS = 10000;
+		protected static final long HEARTATTACK_CHECK_DELAY_MS = 3000;
 		private long heartattackCheckDelayMs;
 		/* 20 seconds to let the leader be elected */
-		protected static final long CLEARANCE_CHECK_START_DELAY_MS = 20000;
+		protected static final long CLEARANCE_CHECK_START_DELAY_MS = 10000;
 		private long clearanceCheckStartDelayMs;
 		protected static final long CLEARANCE_CHECK_DELAY_MS = 10000;
 		private long clearanceCheckDelayMs;
-		/* 30 seconds old max for clearance before releasing duties */
-		protected static final int CLEARANCE_MAX_ABSENCE_MS = 30000;
+		/* 10 seconds old max for clearance before releasing duties */
+		protected static final int CLEARANCE_MAX_ABSENCE_MS = 10000;
 		private int clearanceMaxAbsenceMs;
 		protected static final long MAX_HEARTBEAT_ABSENCE_FOR_RELEASE_MS = 10000;
 		private long maxHeartbeatAbsenceForReleaseMs;

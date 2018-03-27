@@ -31,6 +31,7 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.Heartbeat;
+import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.domain.Shard.ShardState;
 
 /**
@@ -59,7 +60,7 @@ public class Follower extends ServiceImpl {
 	private final Heartpump heartpump;
 	private final HeartbeatFactory heartbeatFactory;
 	private final Agent follow;
-
+	private final ShardedPartition partition;
 
 	public Follower(
 			final Config config, 
@@ -67,7 +68,8 @@ public class Follower extends ServiceImpl {
 			final LeaderEventsHandler leaderConsumer,
 			final EventBroker eventBroker, 
 			final Scheduler scheduler, 
-			final HeartbeatFactory heartbeatFactory) {
+			final HeartbeatFactory heartbeatFactory,
+			final ShardedPartition partition) {
 		super();
 
 		this.alive = true;
@@ -78,7 +80,8 @@ public class Follower extends ServiceImpl {
 		this.eventBroker = eventBroker;
 		this.creation = new DateTime(DateTimeZone.UTC);
 		this.scheduler = scheduler;
-
+		this.partition = partition;
+		
 		this.follow = scheduler.getAgentFactory()
 				.create(Action.HEARTBEAT_REPORT, 
 						PriorityLock.MEDIUM_BLOCKING, 
@@ -119,19 +122,14 @@ public class Follower extends ServiceImpl {
 		}
 	}
 	
-	private boolean firstBeat = true;
-	
 	private void follow() {
-		boolean valid = checkClearanceOrFall();		
-		boolean healthy = valid && checkBeatsOrFall(); // avoid release twice
-		if (valid && (healthy || firstBeat)) {
-			heartpump.emit(heartbeatFactory.create());
-		}
-		firstBeat = false;
+		checkClearanceOrDrop();		
+		checkBeatsOrDrop(); // avoid release twice
+		heartpump.emit(heartbeatFactory.create());		
 	}
 
 	/** @return whether or not the clearance is valid */
-	private boolean checkClearanceOrFall() {
+	private boolean checkClearanceOrDrop() {
 		boolean lost = false;
 		final Clearance clear = leaderConsumer.getLastClearance();
 		long delta = 0;
@@ -143,16 +141,15 @@ public class Follower extends ServiceImpl {
 		final DateTime now = new DateTime(DateTimeZone.UTC);
 		// it's OK if there's no clearance because just entering.. 
 		if (clear != null) {
-			
 			final DateTime lastClearanceDate = clear.getCreation();
 			lost = lastClearanceDate.plusMillis(maxAbsenceMs).isBefore(now);
 			delta = now.getMillis() - lastClearanceDate.getMillis();
-			if (lost) {
+			if (lost && !partition.getDuties().isEmpty()) {
 				logger.error("{}: ({}) Executing Clearance policy, last: {} too old (Max: {}, Past: {} msecs)",
-						getClass().getSimpleName(), config.getLoggingShardId(),
-						clear != null ? clear.getCreation() : "null", maxAbsenceMs, delta);
+					getClass().getSimpleName(), config.getLoggingShardId(),
+					clear != null ? clear.getCreation() : "null", maxAbsenceMs, delta);
 				leaderConsumer.getPartitionManager().releaseAllOnPolicies();
-			} else {
+			} else if (!lost) {
 				logger.debug("{}: ({}) Clearence certified #{} from Leader: {}", getClass().getSimpleName(),
 						config.getLoggingShardId(), clear.getSequenceId(), clear.getLeaderShardId());
 			}
@@ -161,13 +158,15 @@ public class Follower extends ServiceImpl {
 	}
 
 	/** @return whether or not the pump's last beat is within a healthy time window */
-	private boolean checkBeatsOrFall() {
+	private boolean checkBeatsOrDrop() {
 		if (heartpump.getLastBeat() != null) {
 			final DateTime expiracy = heartpump.getLastBeat().plus(config.getFollower().getMaxHeartbeatAbsenceForReleaseMs());
 			if (expiracy.isBefore(new DateTime(DateTimeZone.UTC))) {
-				logger.warn("{}: ({}) Executing Heartattack policy (last HB: {}): releasing delegate's held duties",
-						getClass().getSimpleName(), config.getLoggingShardId(), expiracy);
-				leaderConsumer.getPartitionManager().releaseAllOnPolicies();
+				if (!partition.getDuties().isEmpty()) {
+					logger.warn("{}: ({}) Executing Heartattack policy (last HB: {}): releasing delegate's held duties",
+							getClass().getSimpleName(), config.getLoggingShardId(), expiracy);
+					leaderConsumer.getPartitionManager().releaseAllOnPolicies();
+				}
 				return false;
 			}
 		}

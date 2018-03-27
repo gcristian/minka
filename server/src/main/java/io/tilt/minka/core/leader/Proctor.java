@@ -127,7 +127,7 @@ public class Proctor extends ServiceImpl {
 
 	private void blessShards() {
 		try {
-			final List<Shard> shards = partitionTable.getStage().getShardsByState(ShardState.ONLINE);
+			final List<Shard> shards = partitionTable.getStage().getShardsByState(null);
 			logger.info("{}: Blessing {} shards {}", getName(), shards.size(), shards);
 			shards.forEach(i -> eventBroker.postEvent(i.getBrokerChannel(), EVENT_SET, Clearance.create(shardId)));
 		} catch (Exception e) {
@@ -182,10 +182,10 @@ public class Proctor extends ServiceImpl {
 						config.getProctor().getClusterHealthStabilityDelayPeriods());
 			}
 			sendDomainInfo();
-			if (blessCounter++ > 2) {
+			//if (blessCounter++ > 1) {
 				blessCounter = 0;
 				blessShards();
-			}
+			//}
 		} catch (Exception e) {
 			logger.error("{}: Unexpected while shepherdizing", getName(), e);
 		} finally {

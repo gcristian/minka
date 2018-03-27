@@ -139,7 +139,7 @@ public class FairWeightBalancer implements Balancer {
 						// adding those left aside by division remainders calc
 						while (itDuties.hasNext()) {
 							if (!bascule.tryLift(duty = itDuties.next(), duty.getWeight())) {
-								migrator.stuck(duty, bascule.getOwner().getId());
+								//migrator.stuck(duty, bascule.getOwner().getId());
 							}
 						}
 					}
@@ -147,7 +147,7 @@ public class FairWeightBalancer implements Balancer {
 					if (!lifted || !itBascs.hasNext() || !itDuties.hasNext()) {
 						while (!itBascs.hasNext() && itDuties.hasNext()) {
 							if (!bascule.tryLift(duty = itDuties.next(), duty.getWeight())) {
-								migrator.stuck(duty, bascule.getOwner().getId());
+								//migrator.stuck(duty, bascule.getOwner().getId());
 							}
 						}
 						migrator.override(bascule.getOwner(), bascule.getCargo());
