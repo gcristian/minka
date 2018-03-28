@@ -99,7 +99,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 					getShardId().getInetAddress().getHostAddress(),
 					config.getBroker().getNetworkInterfase(), 
 					scheduler, 
-					config.getBroker().getRetryDelayMs(),
+					(int)config.beatToMs(config.getBroker().getRetryDelayMiliBeats()/1000),
 					config.getBroker().getMaxRetries(), 
 					getShardId().toString());
 		}
@@ -164,7 +164,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 					channel.getAddress());
 			client = new SocketClient(channel,
 					scheduler,
-					config.getBroker().getRetryDelayMs(), 
+					(int)config.beatToMs(config.getBroker().getRetryDelayMiliBeats())/1000, 
 					config.getBroker().getMaxRetries(), 
 					getShardId().toString(), 
 					config);

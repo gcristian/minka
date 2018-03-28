@@ -111,7 +111,7 @@ public class Bootstrap extends ServiceImpl {
 						PriorityLock.HIGH_ISOLATED,
 						Frequency.ONCE_DELAYED, 
 						() -> readyAwareBooting())
-				.delayed(config.getBootstrap().getReadynessRetryDelayMs())
+				.delayed(config.beatToMs(config.getBootstrap().getReadynessRetryDelayBeats()))
 				.build();
 
 		if (autoStart) {

@@ -107,8 +107,8 @@ public class SocketClient {
 		scheduler.schedule(connector);
 		this.creation = System.currentTimeMillis();
 		this.clientExpiration = Math.max(
-				requireNonNull(config).getProctor().getDelayMs(), 
-				config.getFollower().getClearanceMaxAbsenceMs());
+				requireNonNull(config).beatToMs(config.getProctor().getDelayBeats()), 
+				config.beatToMs(config.getFollower().getClearanceMaxAbsenceBeats()));
 		this.maxQueueThreshold = config.getBroker().getConnectionHandlerThreads();
 	}
 

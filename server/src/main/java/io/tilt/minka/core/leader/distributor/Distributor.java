@@ -123,8 +123,8 @@ public class Distributor extends ServiceImpl {
 						PriorityLock.MEDIUM_BLOCKING, 
 						Frequency.PERIODIC, 
 						() -> distribute())
-				.delayed(config.getDistributor().getStartDelayMs())
-				.every(config.getDistributor().getDelayMs())
+				.delayed(config.beatToMs(config.getDistributor().getStartDelayBeats()))
+				.every(config.beatToMs(config.getDistributor().getDelayBeats()))
 				.build();
 
 		this.planner = new PlanBuilder(config);

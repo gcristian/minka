@@ -17,6 +17,7 @@
 package io.tilt.minka.core.leader;
 
 import java.io.Serializable;
+import java.util.Date;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 

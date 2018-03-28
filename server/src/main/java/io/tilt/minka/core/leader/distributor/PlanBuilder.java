@@ -61,7 +61,7 @@ class PlanBuilder {
 	/** @return a plan if there're changes to apply or NULL if not */
 	final Plan build(final PartitionTable table, final Plan previousChange) {
 		final Plan plan = new Plan(
-				config.getDistributor().getPlanExpirationSec(), 
+				config.beatToMs(config.getDistributor().getPlanExpirationBeats()), 
 				config.getDistributor().getPlanMaxRetries());
 		final List<Shard> onlineShards = table.getStage().getShardsByState(ShardState.ONLINE);
 		// recently fallen shards

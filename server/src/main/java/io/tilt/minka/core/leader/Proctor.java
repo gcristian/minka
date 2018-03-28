@@ -108,8 +108,8 @@ public class Proctor extends ServiceImpl {
 						PriorityLock.MEDIUM_BLOCKING, 
 						Frequency.PERIODIC, 
 						() -> analyzeShards())
-				.delayed(config.getProctor().getStartDelayMs())
-				.every(config.getProctor().getDelayMs())
+				.delayed(config.beatToMs(config.getProctor().getStartDelayBeats()))
+				.every(config.beatToMs(config.getProctor().getDelayBeats()))
 				.build();
 	}
 
@@ -192,18 +192,42 @@ public class Proctor extends ServiceImpl {
 			logger.info(LogUtils.END_LINE);
 		}
 	}
+	
+	private ShardState evaluateStateThruHeartbeats2(final Shard shard) {
+		ShardState ret = null;
+		
+		final List<Heartbeat> allbeats = shard.getHeartbeats();
+		
+		if (shard.getState()==null) {
+			ret = ShardState.JOINING;
+		} else {
+			switch (shard.getState()) {
+				case JOINING:
+					// -> to any state
+					break;
+				case ONLINE:
+					// -> to: quitted, quarantine, gone, 
+					break;
+				case QUARANTINE:
+					// -> to: online, quitted
+					break;
+			}
+		}
+		
+		return ret;
+	}
 
 	private ShardState evaluateStateThruHeartbeats(final Shard shard) {
 		final long now = System.currentTimeMillis();
-		final long normalDelay = config.getFollower().getHeartbeatDelayMs();
-		final long configuredLapse = config.getProctor().getHeartbeatLapseSec() * 1000;
+		final long normalDelay = config.beatToMs(config.getFollower().getHeartbeatDelayBeats());
+		final long configuredLapse = config.beatToMs(config.getProctor().getHeartbeatLapseBeats());
 		final long lapseStart = now - configuredLapse;
 		//long minMandatoryHBs = configuredLapse / normalDelay;
 
 		final ShardState currentState = shard.getState();
 		ShardState newState = currentState;
 		final List<Heartbeat> all = shard.getHeartbeats();
-		List<Heartbeat> pastLapse = null;
+		LinkedList<Heartbeat> pastLapse = null;
 		String msg = "";
 
 		final int minHealthlyToGoOnline = config.getProctor().getMinHealthlyHeartbeatsForShardOnline();
@@ -211,7 +235,8 @@ public class Proctor extends ServiceImpl {
 		final int maxSickToGoQuarantine = config.getProctor().getMaxSickHeartbeatsBeforeShardQuarantine();
 
 		if (all.size() < minToBeGone) {
-			if (shard.getLastStatusChange().plus(config.getProctor().getMaxShardJoiningStateMs()).isBeforeNow()) {
+			final long max = config.beatToMs(config.getProctor().getMaxShardJoiningStateBeats());
+			if (shard.getLastStatusChange().plus(max).isBeforeNow()) {
 				msg = "try joining expired";
 				newState = ShardState.GONE;
 			} else {
@@ -220,7 +245,7 @@ public class Proctor extends ServiceImpl {
 			}
 		} else {
 			pastLapse = all.stream().filter(i -> i.getCreation().isAfter(lapseStart))
-					.collect(Collectors.toCollection(ArrayList::new));
+					.collect(Collectors.toCollection(LinkedList::new));
 			int pastLapseSize = pastLapse.size();
 			if (pastLapseSize > 0 && checkHealth(now, normalDelay, pastLapse)) {
 				if (pastLapseSize >= minHealthlyToGoOnline) {
@@ -250,15 +275,20 @@ public class Proctor extends ServiceImpl {
 					msg = "sick lapse = 0 ";
 					newState = ShardState.GONE;
 				} else {
-					msg = "lapse is wtf=" + pastLapseSize;
+					msg = "past lapse is " + pastLapseSize;
 				}
 			}
 		}
 
 		logger.info("{}: {} {} {}, {}, ({}/{}), Seq [{}..{}] {}", getName(), shard,
-				newState == currentState ? "stays in" : "changing to", newState, msg, all.size(),
-				pastLapse != null ? pastLapse.size() : 0, all.get(all.size() - 1).getSequenceId(),
-				all.get(0).getSequenceId(), shardId.equals(shard.getShardID()) ? LogUtils.SPECIAL : "");
+				newState == currentState ? "stays in" : "changing to", 
+				newState, 
+				msg, 
+				all.size(),
+				pastLapse != null ? pastLapse.size() : 0, 
+				all.get(all.size() - 1).getSequenceId(),
+				all.get(0).getSequenceId(), 
+				shardId.equals(shard.getShardID()) ? LogUtils.SPECIAL : "");
 
 		return newState;
 	}

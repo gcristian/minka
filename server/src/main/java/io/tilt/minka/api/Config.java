@@ -21,8 +21,11 @@ import java.util.Properties;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -44,6 +47,8 @@ import io.tilt.minka.utils.Defaulter;
  * @since Nov 19, 2016
  */
 public class Config {
+	
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
 	protected static final ObjectMapper objectMapper = new ObjectMapper();
     static {
@@ -119,8 +124,15 @@ public class Config {
 	public static class BootstrapConf {
 		protected static final String SERVICE_NAME = ("default-name");
 		private static String serviceName;
-		protected static final long READYNESS_RETRY_DELAY_MS = 5000l;
-		private long readynessRetryDelayMs;
+		
+		// this sets the pace of all time-synchronized processes
+		protected static final long BEAT_UNIT_MS = 500;
+		private long beatUnitMs;		
+		protected static final long READYNESS_RETRY_DELAY_BEATS = 5;
+		private long readynessRetryDelayBeats;
+		
+		//protected static final long READYNESS_RETRY_DELAY_MS = 5000l;
+		//private long readynessRetryDelayMs;
 		protected final static boolean PUBLISH_LEADER_CANDIDATURE = true;
 		private boolean publishLeaderCandidature;
 		protected static final boolean LEADER_SHARD_ALSO_FOLLOWS = true;
@@ -143,12 +155,27 @@ public class Config {
 		public void setServiceName(String serviceName) {
 			BootstrapConf.serviceName = serviceName;
 		}
+		/*
 		public long getReadynessRetryDelayMs() {
 			return this.readynessRetryDelayMs;
 		}
 		public void setReadynessRetryDelayMs(long readynessRetryDelayMs) {
 			this.readynessRetryDelayMs = readynessRetryDelayMs;
 		}
+		*/
+		public long getBeatUnitMs() {
+			return beatUnitMs;
+		}
+		public long getReadynessRetryDelayBeats() {
+			return readynessRetryDelayBeats;
+		}
+		public void setBeatUnitMs(long beatUnitMs) {
+			this.beatUnitMs = beatUnitMs;
+		}
+		public void setReadynessRetryDelayBeats(long readynessRetryDelayBeats) {
+			this.readynessRetryDelayBeats = readynessRetryDelayBeats;
+		}
+		
 		public boolean isPublishLeaderCandidature() {
 			return this.publishLeaderCandidature;
 		}
@@ -198,8 +225,10 @@ public class Config {
 		private int connectionHandlerThreads;
 		protected final static int MAX_RETRIES = 3;
 		private int maxRetries;
-		protected final static int RETRY_DELAY_MS = 300;
-		private int retryDelayMs;
+		protected final static int RETRY_DELAY_MILI_BEATS = 300;
+		private long retryDelayMiliBeats;
+		//protected final static int RETRY_DELAY_MS = 300;
+		//private int retryDelayMs;
 		/** True: try number-consecutive open ports if specified is busy, False: break bootup */
 		protected static final boolean ENABLE_PORT_FALLBACK = true;
 		public boolean enablePortFallback;
@@ -228,12 +257,21 @@ public class Config {
 		public void setMaxRetries(int maxRetries) {
 			this.maxRetries = maxRetries;
 		}
+		/*
 		public int getRetryDelayMs() {
 			return this.retryDelayMs;
 		}
 		public void setRetryDelayMs(int retryDelayMs) {
 			this.retryDelayMs = retryDelayMs;
 		}
+		*/
+		public long  getRetryDelayMiliBeats() {
+			return retryDelayMiliBeats;
+		}
+		public void setRetryDelayMiliBeats(int retryDelayMiliBeats) {
+			this.retryDelayMiliBeats = retryDelayMiliBeats;
+		}
+		
 		public boolean isEnablePortFallback() {
 			return this.enablePortFallback;
 		}
@@ -262,32 +300,61 @@ public class Config {
 
 	public static class FollowerConf {
 		/* each half second */
+		/*
 		protected static final long HEARTBEAT_START_DELAY_MS = 1000;
 		private long heartbeatDelayMs;
+		*/
+		protected static final long HEARTBEAT_START_DELAY_BEATS = 1;
+		private long heartbeatDelayBeats;
+		/*
 		protected static final long HEARTBEAT_DELAY_MS = 2000;
 		private long heartbeatStartDelayMs;
+		*/
+		protected static final long HEARTBEAT_DELAY_BEATS = 2;
+		private long heartbeatStartDelayBeats;
 		/* 10 seconds enough to start check and release duties if no HB in x time */
+		/*
 		protected static final long HEARTATTACK_CHECK_START_DELAY_MS = 10000;
 		private long heartattackCheckStartDelayMs;
 		protected static final long HEARTATTACK_CHECK_DELAY_MS = 3000;
 		private long heartattackCheckDelayMs;
-		/* 20 seconds to let the leader be elected */
+		*/
+		
+		protected static final long HEARTATTACK_CHECK_START_DELAY_BEATS = 10;
+		private long heartattackCheckStartDelayBeats;
+		protected static final long HEARTATTACK_CHECK_DELAY_BEATS = 3;
+		private long heartattackCheckDelayBeats;
+		
+		// 20 seconds to let the leader be elected 
+		/*
 		protected static final long CLEARANCE_CHECK_START_DELAY_MS = 10000;
 		private long clearanceCheckStartDelayMs;
 		protected static final long CLEARANCE_CHECK_DELAY_MS = 10000;
 		private long clearanceCheckDelayMs;
-		/* 10 seconds old max for clearance before releasing duties */
+		// 10 seconds old max for clearance before releasing duties 
 		protected static final int CLEARANCE_MAX_ABSENCE_MS = 10000;
 		private int clearanceMaxAbsenceMs;
 		protected static final long MAX_HEARTBEAT_ABSENCE_FOR_RELEASE_MS = 10000;
-		private long maxHeartbeatAbsenceForReleaseMs;
+		private long maxHeartbeatAbsenceForReleaseMs;		
+		*/
+		
+		protected static final long CLEARANCE_CHECK_START_DELAY_BEATS = 10;
+		private long clearanceCheckStartDelayBeats;
+		protected static final long CLEARANCE_CHECK_DELAY_BEATS = 10;
+		private long clearanceCheckDelayBeats;
+		/* 10 seconds old max for clearance before releasing duties */
+		protected static final int CLEARANCE_MAX_ABSENCE_BEATS = 10;
+		private int clearanceMaxAbsenceBeats;
+		protected static final long MAX_HEARTBEAT_ABSENCE_FOR_RELEASE_BEATS = 10;
+		private long maxHeartbeatAbsenceForReleaseBeats;
+		
 		/* 10 errors tolerant for building HBs from followers */
 		protected static final int MAX_HEARTBEAT_BUILD_FAILS_BEFORE_RELEASING = 1;
 		private int maxHeartbeatBuildFailsBeforeReleasing;
-		
+		/*
 		public long getHeartbeatDelayMs() {
 			return this.heartbeatDelayMs;
-		}
+		}		
 		public void setHeartbeatDelayMs(long heartbeatDelayMs) {
 			this.heartbeatDelayMs = heartbeatDelayMs;
 		}
@@ -297,6 +364,7 @@ public class Config {
 		public void setHeartbeatStartDelayMs(long heartbeatStartDelayMs) {
 			this.heartbeatStartDelayMs = heartbeatStartDelayMs;
 		}
+		
 		public long getHeartattackCheckStartDelayMs() {
 			return this.heartattackCheckStartDelayMs;
 		}
@@ -333,8 +401,58 @@ public class Config {
 		public void setMaxHeartbeatAbsenceForReleaseMs(long maxHeartbeatAbsenceForReleaseMs) {
 			this.maxHeartbeatAbsenceForReleaseMs = maxHeartbeatAbsenceForReleaseMs;
 		}
+		*/
+		
 		public int getMaxHeartbeatBuildFailsBeforeReleasing() {
 			return this.maxHeartbeatBuildFailsBeforeReleasing;
+		}
+		public long getHeartbeatDelayBeats() {
+			return heartbeatDelayBeats;
+		}
+		public void setHeartbeatDelayBeats(long heartbeatDelayBeats) {
+			this.heartbeatDelayBeats = heartbeatDelayBeats;
+		}
+		public long getHeartbeatStartDelayBeats() {
+			return heartbeatStartDelayBeats;
+		}
+		public void setHeartbeatStartDelayBeats(long heartbeatStartDelayBeats) {
+			this.heartbeatStartDelayBeats = heartbeatStartDelayBeats;
+		}
+		public long getHeartattackCheckStartDelayBeats() {
+			return heartattackCheckStartDelayBeats;
+		}
+		public void setHeartattackCheckStartDelayBeats(long heartattackCheckStartDelayBeats) {
+			this.heartattackCheckStartDelayBeats = heartattackCheckStartDelayBeats;
+		}
+		public long getHeartattackCheckDelayBeats() {
+			return heartattackCheckDelayBeats;
+		}
+		public void setHeartattackCheckDelayBeats(long heartattackCheckDelayBeats) {
+			this.heartattackCheckDelayBeats = heartattackCheckDelayBeats;
+		}
+		public long getClearanceCheckStartDelayBeats() {
+			return clearanceCheckStartDelayBeats;
+		}
+		public void setClearanceCheckStartDelayBeats(long clearanceCheckStartDelayBeats) {
+			this.clearanceCheckStartDelayBeats = clearanceCheckStartDelayBeats;
+		}
+		public long getClearanceCheckDelayBeats() {
+			return clearanceCheckDelayBeats;
+		}
+		public void setClearanceCheckDelayBeats(long clearanceCheckDelayBeats) {
+			this.clearanceCheckDelayBeats = clearanceCheckDelayBeats;
+		}
+		public int getClearanceMaxAbsenceBeats() {
+			return clearanceMaxAbsenceBeats;
+		}
+		public void setClearanceMaxAbsenceBeats(int clearanceMaxAbsenceBeats) {
+			this.clearanceMaxAbsenceBeats = clearanceMaxAbsenceBeats;
+		}
+		public long getMaxHeartbeatAbsenceForReleaseBeats() {
+			return maxHeartbeatAbsenceForReleaseBeats;
+		}
+		public void setMaxHeartbeatAbsenceForReleaseBeats(long maxHeartbeatAbsenceForReleaseBeats) {
+			this.maxHeartbeatAbsenceForReleaseBeats = maxHeartbeatAbsenceForReleaseBeats;
 		}
 		public void setMaxHeartbeatBuildFailsBeforeReleasing(int maxHeartbeatBuildFailsBeforeReleasing) {
 			this.maxHeartbeatBuildFailsBeforeReleasing = maxHeartbeatBuildFailsBeforeReleasing;
@@ -350,12 +468,22 @@ public class Config {
 		protected static final int RELOAD_DUTIES_FROM_STORAGE_EACH_PERIODS = 10;
 		private int reloadDutiesFromStorageEachPeriods;
 		/* 10 seconds to let the Proctor discover all Followers before distributing */
+		/*
 		protected final static long START_DELAY_MS = 10000;
 		private long startDelayMs;
 		protected final static long DELAY_MS = 3000;		
 		private long delayMs;
 		protected static final int PLAN_EXPIRATION_SEC = 10;
 		private int planExpirationSec;
+		*/
+		
+		protected final static long START_DELAY_BEATS = 10;
+		private long startDelayBeats;
+		protected final static long DELAY_BEATS = 3;		
+		private long delayBeats;
+		protected static final int PLAN_EXPIRATION_BEATS = 10;
+		private int planExpirationBeats;
+		
 		protected static final int PLAN_MAX_RETRIES = 3;
 		private int planMaxRetries;
 		
@@ -377,6 +505,7 @@ public class Config {
 		public void setReloadDutiesFromStorageEachPeriods(int reloadDutiesFromStorageEachPeriods) {
 			this.reloadDutiesFromStorageEachPeriods = reloadDutiesFromStorageEachPeriods;
 		}
+		/*
 		public long getStartDelayMs() {
 			return this.startDelayMs;
 		}
@@ -395,8 +524,28 @@ public class Config {
 		public void setPlanExpirationSec(int planExpirationSec) {
 			this.planExpirationSec = planExpirationSec;
 		}
+		*/
+		
 		public int getPlanMaxRetries() {
 			return this.planMaxRetries;
+		}
+		public long getStartDelayBeats() {
+			return startDelayBeats;
+		}
+		public void setStartDelayBeats(long startDelayBeats) {
+			this.startDelayBeats = startDelayBeats;
+		}
+		public long getDelayBeats() {
+			return delayBeats;
+		}
+		public void setDelayBeats(long delayBeats) {
+			this.delayBeats = delayBeats;
+		}
+		public int getPlanExpirationBeats() {
+			return planExpirationBeats;
+		}
+		public void setPlanExpirationBeats(int planExpirationBeats) {
+			this.planExpirationBeats = planExpirationBeats;
 		}
 		public void setPlanMaxRetries(int planMaxRetries) {
 			this.planMaxRetries = planMaxRetries;
@@ -458,31 +607,45 @@ public class Config {
 
 	public static class ProctorConf {
 		/* each 3 seconds */
+		/*
 		protected final static long START_DELAY_MS = 500;
 		private long startDelayMs;
 		protected final static long DELAY_MS = 1000; // i jhad it on 2000
 		private long delayMs;
 		protected static final int MAX_SHARD_JOINING_STATE_MS = 15000;
 		private int maxShardJoiningStateMs;
+		*/
+		protected final static long START_DELAY_BEATS = 1;
+		private long startDelayBeats;
+		protected final static long DELAY_BEATS = 1; // i jhad it on 2000
+		private long delayBeats;
+		protected static final int MAX_SHARD_JOINING_STATE_BEATS = 15;
+		private int maxShardJoiningStateBeats;
+		
 		protected static final int MIN_HEALTHLY_HEARTBEATS_FOR_SHARD_ONLINE = 2;
 		private int minHealthlyHeartbeatsForShardOnline;
 		protected static final int MAX_ABSENT_HEARTBEATS_BEFORE_SHARD_GONE =5;
 		private int maxAbsentHeartbeatsBeforeShardGone;
 		protected static final double MAX_HEARTBEAT_RECEPTION_DELAY_FACTOR_FOR_SICK = 3d;
 		private double maxHeartbeatReceptionDelayFactorForSick;
-		protected static final int MAX_SICK_HEARTBEATS_BEFORE_SHARD_QUARANTINE = 15;
+		protected static final int MAX_SICK_HEARTBEATS_BEFORE_SHARD_QUARANTINE = 5;
 		private int maxSickHeartbeatsBeforeShardQuarantine;
 		protected static final int MIN_SHARDS_ONLINE_BEFORE_SHARDING = 1;
 		private int minShardsOnlineBeforeSharding;
 		protected static final double HEARTBEAT_MAX_BIGGEST_DISTANCE_FACTOR = 2.5d;
 		private double heartbeatMaxBiggestDistanceFactor;
+		/*
 		protected static final int HEARTBEAT_LAPSE_SEC = 20;
 		private int heartbeatLapseSec;
+		*/
+		protected static final int HEARTBEAT_LAPSE_BEATS = 15;
+		private int heartbeatLapseBeats;
 		protected static final double HEARTBEAT_MAX_DISTANCE_STANDARD_DEVIATION = 4;
 		private double heartbeatMaxDistanceStandardDeviation;
-		protected static final int CLUSTER_HEALTH_STABILITY_DELAY_PERIODS = 1; // i had it on 3
+		protected static final int CLUSTER_HEALTH_STABILITY_DELAY_PERIODS = 1;
 		private int clusterHealthStabilityDelayPeriods;
 
+		/*
 		public long getStartDelayMs() {
 			return this.startDelayMs;
 		}
@@ -501,8 +664,35 @@ public class Config {
 		public void setMaxShardJoiningStateMs(int maxShardJoiningStateMs) {
 			this.maxShardJoiningStateMs = maxShardJoiningStateMs;
 		}
+		*/
+		
+		
 		public int getMinHealthlyHeartbeatsForShardOnline() {
 			return this.minHealthlyHeartbeatsForShardOnline;
+		}
+		public long getStartDelayBeats() {
+			return startDelayBeats;
+		}
+		public void setStartDelayBeats(long startDelayBeats) {
+			this.startDelayBeats = startDelayBeats;
+		}
+		public long getDelayBeats() {
+			return delayBeats;
+		}
+		public void setDelayBeats(long delayBeats) {
+			this.delayBeats = delayBeats;
+		}
+		public int getMaxShardJoiningStateBeats() {
+			return maxShardJoiningStateBeats;
+		}
+		public void setMaxShardJoiningStateBeats(int maxShardJoiningStateBeats) {
+			this.maxShardJoiningStateBeats = maxShardJoiningStateBeats;
+		}
+		public int getHeartbeatLapseBeats() {
+			return heartbeatLapseBeats;
+		}
+		public void setHeartbeatLapseBeats(int heartbeatLapseBeats) {
+			this.heartbeatLapseBeats = heartbeatLapseBeats;
 		}
 		public void setMinHealthlyHeartbeatsForShardOnline(int minHealthlyHeartbeatsForShardOnline) {
 			this.minHealthlyHeartbeatsForShardOnline = minHealthlyHeartbeatsForShardOnline;
@@ -537,12 +727,14 @@ public class Config {
 		public void setHeartbeatMaxBiggestDistanceFactor(double heartbeatMaxBiggestDistanceFactor) {
 			this.heartbeatMaxBiggestDistanceFactor = heartbeatMaxBiggestDistanceFactor;
 		}
+		/*
 		public int getHeartbeatLapseSec() {
 			return this.heartbeatLapseSec;
 		}
 		public void setHeartbeatLapseSec(int heartbeatLapseSec) {
 			this.heartbeatLapseSec = heartbeatLapseSec;
 		}
+		*/
 		public double getHeartbeatMaxDistanceStandardDeviation() {
 			return this.heartbeatMaxDistanceStandardDeviation;
 		}
@@ -611,11 +803,15 @@ public class Config {
 		Defaulter.apply(prop, "follower.", this.getFollower());
 		Defaulter.apply(prop, "scheduler.", this.getScheduler());
 		Defaulter.apply(prop, "proctor.", this.getProctor());
-		//logger.info("{}: Configuration: {} ", getClass().getSimpleName(), toJson());
+		logger.info("{}: Configuration: {} ", getClass().getSimpleName(), toJson());
 	}
 
-	public String toJson() throws Exception {
-		return objectMapper.writeValueAsString(this);
+	public String toJson() {
+		try {
+			return objectMapper.writeValueAsString(this);
+		} catch (JsonProcessingException e) {
+			return "{\"error\":\"true\"}";
+		}
 	}
 	public void toJsonFile(final String filepath) throws Exception {
 		objectMapper.writeValue(new File(filepath), this);
@@ -648,6 +844,10 @@ public class Config {
 		} catch (Exception e) {
 			return "Config[unseralizable:" + e.getMessage() +"]";
 		}
+	}
+	
+	public long beatToMs(final long beats) {
+		return bootstrap.getBeatUnitMs() * beats;
 	}
 
 	public BootstrapConf getBootstrap() {
