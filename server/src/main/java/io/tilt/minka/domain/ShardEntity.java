@@ -51,7 +51,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	@JsonIgnore
 	private final Entity<?> from;
 	private final Type type;
-	private LogList journal;
+	private EntityJournal journal;
 	private EntityPayload userPayload;
 	private ShardEntity relatedEntity;
 	
@@ -63,7 +63,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	private ShardEntity(final Entity<?> entity, Type type) {
 		this.from = entity;
 		this.type = type;
-		this.journal = new LogList();
+		this.journal = new EntityJournal();
 		this.journal.addEvent(EntityEvent.CREATE, EntityState.PREPARED, null, Plan.PLAN_WITHOUT);
 	}
 	
@@ -99,7 +99,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		public ShardEntity build() {
 			if (from!=null) {
 				final ShardEntity t = new ShardEntity(from.getEntity(), from.getType());
-				t.setJournal(from.getLog());
+				t.setJournal(from.getJournal());
 				if (userPayload==null) {
 					t.setUserPayload(from.getUserPayload());
 				}
@@ -166,12 +166,12 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	}
 
 	public boolean is(EntityEvent e) {
-		return getLog().getLast().getEvent() == e;
+		return getJournal().getLast().getEvent() == e;
 	}
 
 	@JsonProperty("event")
 	public EntityEvent getLastEvent() {
-		return getLog().getLast().getEvent();
+		return getJournal().getLast().getEvent();
 	}
 	
 	private void setUserPayload(final EntityPayload userPayload) {
@@ -259,15 +259,15 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	@JsonProperty("state")
 	public EntityState getLastState() {
-		return getLog().getLast().getLastState();
+		return getJournal().getLast().getLastState();
 	}
 
 	
-	public LogList getLog() {
+	public EntityJournal getJournal() {
         return this.journal;
     }
 		
-	private void setJournal(final LogList track) {
+	private void setJournal(final EntityJournal track) {
 	    this.journal = track;
 	}
 	

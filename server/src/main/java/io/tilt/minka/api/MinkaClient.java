@@ -158,7 +158,7 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 			builder.withPayload(userPayload);
 		}
 		final ShardEntity entity = builder.build();
-		entity.getLog().addEvent(event, EntityState.PREPARED, 
+		entity.getJournal().addEvent(event, EntityState.PREPARED, 
 				this.shardId,
                 Plan.PLAN_WITHOUT);
 		if (leader.inService()) {

@@ -37,7 +37,7 @@ import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.DutyDiff;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.LogList.Log;
+import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
@@ -137,12 +137,12 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 					includeDuties = true;
 				} else {
 					// consider only the last action logged to this shard
-					final Log found = shardedDuty.getLog().find(partition.getId()); 
+					final Log found = shardedDuty.getJournal().find(partition.getId()); 
 					final EntityState stamp = EntityState.CONFIRMED;
 					if (found.getLastState()!=stamp) {
 						log.info("{}: ({}) Changing {} to {} duty: {}", getClass().getSimpleName(), partition.getId(),
 								found.getLastState(), stamp, duty.getId());
-						shardedDuty.getLog().addEvent(
+						shardedDuty.getJournal().addEvent(
 								found.getEvent(), 
 								stamp,
 								partition.getId(), 
@@ -153,7 +153,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			} else {
 				includeDuties = true;
 				shardedDuty = ShardEntity.Builder.builder(duty).build();
-				shardedDuty.getLog().addEvent(EntityEvent.ATTACH, 
+				shardedDuty.getJournal().addEvent(EntityEvent.ATTACH, 
 				        EntityState.DANGLING, 
 				        this.partition.getId(), 
                         Plan.PLAN_UNKNOWN);
@@ -201,7 +201,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		// add non-reported: as dangling
 		for (final ShardEntity existing : partition.getDuties()) {
 			if (ret = !reportedDuties.contains(existing.getEntity())) {
-				existing.getLog().addEvent(EntityEvent.REMOVE, 
+				existing.getJournal().addEvent(EntityEvent.REMOVE, 
 					existing.getDuty().isLazyFinalized() ? EntityState.FINALIZED : EntityState.DANGLING, 
 			        this.partition.getId(), 
 			        Plan.PLAN_UNKNOWN);

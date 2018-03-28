@@ -27,7 +27,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.LogList.Log;
+import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.EntityState;
@@ -104,7 +104,7 @@ public class Delivery {
 	private Map<ShardEntity, Log> getByState_(final EntityState state) {
 		final Map<ShardEntity, Log> ret = new HashMap<>(duties.size());
 	    for (ShardEntity duty: duties) {
-	    	for (Log log: duty.getLog().getLogs()) {
+	    	for (Log log: duty.getJournal().getLogs()) {
 	    		if (log.matches(getEvent(), shard.getShardID().getStringIdentity(), getPlanId())
 	    				&& (state == null || log.getLastState()==state)) {
 	    			ret.put(duty, log);
@@ -131,7 +131,7 @@ public class Delivery {
             int pending = duties.size();
     		for (final ShardEntity duty : duties) {
     			// look up confirmation for the specific logged event matching this delivery
-    			final Log found = duty.getLog().find(getPlanId(), shard.getShardID(), getEvent());
+    			final Log found = duty.getJournal().find(getPlanId(), shard.getShardID(), getEvent());
     			if (found!=null) {
     				if (found.getLastState()==EntityState.CONFIRMED) {
 					    pending--;

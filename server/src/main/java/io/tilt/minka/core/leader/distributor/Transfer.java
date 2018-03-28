@@ -60,7 +60,7 @@ class Transfer {
             return false;
         }
         if (source!=null) {
-            getEntity().getLog().addEvent(EntityEvent.DETACH, 
+            getEntity().getJournal().addEvent(EntityEvent.DETACH, 
                     EntityState.PREPARED, 
                     location.getShardID(), 
                     plan.getId());
@@ -70,7 +70,7 @@ class Transfer {
         // TODO this's not longer neccesary: previously there was not a LogList object  
         
         final ShardEntity assign = ShardEntity.Builder.builderFrom(entity).build();
-        assign.getLog().addEvent(EntityEvent.ATTACH, 
+        assign.getJournal().addEvent(EntityEvent.ATTACH, 
                 EntityState.PREPARED,
                 target.getShardID(), 
                 plan.getId());

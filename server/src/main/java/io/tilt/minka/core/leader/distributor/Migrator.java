@@ -113,7 +113,7 @@ public class Migrator {
 	public final void stuck(final Duty<?> duty, final ShardIdentifier shard) {
 		requireNonNull(duty);
 	    final ShardEntity e = sourceRefs.get(duty);
-        e.getLog().addEvent(
+        e.getJournal().addEvent(
                 e.getLastEvent(), 
                 EntityState.STUCK, 
                 shard, 

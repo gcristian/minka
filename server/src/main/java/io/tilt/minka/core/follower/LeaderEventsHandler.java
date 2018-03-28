@@ -170,7 +170,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 	private void handleDuty(final ShardEntity... duties) {
 		try {
 			for (ShardEntity duty: duties) {
-				final Log log = duty.getLog().find(partition.getId());
+				final Log log = duty.getJournal().find(partition.getId());
 					switch (log.getEvent()) {
 					case ATTACH:
 						partitionManager.attach(Lists.newArrayList(duty));

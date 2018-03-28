@@ -77,8 +77,8 @@ public class Plan implements Comparable<Plan> {
 	
 	private final long id;
 	private final Date created;
-    private final int maxSeconds;
-    private final int maxRetries;
+    private final long maxSeconds;
+    private final long maxRetries;
 
 	private final Map<EntityEvent, Map<Shard, List<ShardEntity>>> shippings;
 	
@@ -91,7 +91,7 @@ public class Plan implements Comparable<Plan> {
 	private Result result = Result.RUNNING;
 	private int retryCounter;
     
-    protected Plan(final long id, final int maxSeconds, final int maxRetries) {
+    protected Plan(final long id, final long maxSeconds, final int maxRetries) {
         this.id = id;
         this.created = new Date();
         this.shippings = new HashMap<>();
@@ -100,7 +100,7 @@ public class Plan implements Comparable<Plan> {
         this.maxRetries = maxRetries;
     }
 
-    public Plan(final int maxSeconds, final int maxRetries) {
+    public Plan(final long maxSeconds, final int maxRetries) {
         this(sequence.incrementAndGet(), maxSeconds, maxRetries);
     }
     
@@ -237,7 +237,7 @@ public class Plan implements Comparable<Plan> {
             }
             for (final ShardEntity entity : del.getDuties()) {
                 if (!paired.contains(entity) 
-                		&& entity.getLog().hasEverBeenDistributed() 
+                		&& entity.getJournal().hasEverBeenDistributed() 
                 		&& entity.getLastEvent()!=EntityEvent.REMOVE) {
                     boolean pair = false;
                     for (Delivery tmp : deliveries) {

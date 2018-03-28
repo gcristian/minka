@@ -89,7 +89,7 @@ public class Override {
         if (!detaching.isEmpty()) {
             final StringBuilder logg = new StringBuilder(detaching.size() * 16);
             for (ShardEntity detach : detaching) {
-                detach.getLog().addEvent(EntityEvent.DETACH, 
+                detach.getJournal().addEvent(EntityEvent.DETACH, 
                         EntityState.PREPARED, 
                         shard.getShardID(), 
                         plan.getId());
@@ -118,7 +118,7 @@ public class Override {
             if (!attaching.isEmpty()) {
                 logg = new StringBuilder(attaching.size() * 16);
                 for (ShardEntity attach : attaching) {
-                    attach.getLog().addEvent(EntityEvent.ATTACH, 
+                    attach.getJournal().addEvent(EntityEvent.ATTACH, 
                             EntityState.PREPARED,
                             shard.getShardID(), 
                             plan.getId());

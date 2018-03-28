@@ -156,13 +156,13 @@ class PlanBuilder {
 			if (lazy != null) {
 				// missing duties are a confirmation per-se from the very shards,
 				// so the ptable gets fixed right away without a realloc.
-				missed.getLog().addEvent(EntityEvent.REMOVE, 
+				missed.getJournal().addEvent(EntityEvent.REMOVE, 
 						EntityState.CONFIRMED, 
 				        lazy.getShardID(), 
 				        plan.getId());
 				table.getStage().writeDuty(missed, lazy, EntityEvent.REMOVE);
 			}
-			missed.getLog().addEvent(EntityEvent.CREATE, 
+			missed.getJournal().addEvent(EntityEvent.CREATE, 
 					EntityState.PREPARED,
 			        null, 
                     plan.getId());
@@ -205,7 +205,7 @@ class PlanBuilder {
 
 		for (final ShardEntity deletion : deletions) {
 			final Shard shard = table.getStage().getDutyLocation(deletion);
-			deletion.getLog().addEvent(EntityEvent.DETACH, 
+			deletion.getJournal().addEvent(EntityEvent.DETACH, 
 					EntityState.PREPARED,
 			        shard.getShardID(), 
                     plan.getId());

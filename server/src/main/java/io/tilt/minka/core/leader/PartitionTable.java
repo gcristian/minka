@@ -374,8 +374,8 @@ public class PartitionTable {
 			return (type == ShardEntity.Type.DUTY ? 
 			        getDutiesCrud() : 
 		            palletCrud).stream()
-    					.filter(e -> (event == null || e.getLog().getLast().getEvent() == event) && 
-    					        (state == null || e.getLog().getLast().getLastState() == state))
+    					.filter(e -> (event == null || e.getJournal().getLast().getEvent() == event) && 
+    					        (state == null || e.getJournal().getLast().getLastState() == state))
     					.collect(Collectors.toCollection(HashSet::new));
 		}
 		public Set<ShardEntity> getDutiesCrud(final EntityEvent event, final EntityState state) {

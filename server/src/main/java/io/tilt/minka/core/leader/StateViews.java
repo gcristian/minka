@@ -153,7 +153,7 @@ public class StateViews {
 						pallet.getPallet().getMetadata().getBalancer().getName(), 
 						crud.size(), 
 						dettachedWeight.get(), 
-						new DateTime(pallet.getLog().getFirst().getHead()),
+						new DateTime(pallet.getJournal().getFirst().getHead()),
 						pallet.getPallet().getMetadata(),
 						dutyRepList
 					));

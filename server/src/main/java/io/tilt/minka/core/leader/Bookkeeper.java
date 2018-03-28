@@ -35,7 +35,7 @@ import io.tilt.minka.core.leader.distributor.Delivery;
 import io.tilt.minka.core.leader.distributor.Plan;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.LogList.Log;
+import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
@@ -152,7 +152,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 	private long latestPlan(final Heartbeat beat) {
 		long lattestPlanId = 0;
 		for (ShardEntity e: beat.getReportedCapturedDuties()) {
-			final long pid = e.getLog().getLast().getPlanId();
+			final long pid = e.getJournal().getLast().getPlanId();
 			if (pid > lattestPlanId) {
 				lattestPlanId = pid;
 			}
@@ -203,7 +203,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 			    		}
 		                sortedLogConfirmed.add(beated);
 		                // remove the one holding older State
-                        prescripted.getLog().addEvent(expected.getEvent(), 
+                        prescripted.getJournal().addEvent(expected.getEvent(), 
                                 EntityState.CONFIRMED, 
                                 shard.getShardID(), 	                                
                                 delivery.getPlanId());
@@ -213,7 +213,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
                 			partitionTable.getBackstage().removeCrud(prescripted);
             			}
 				    } else {
-						final Date fact = prescripted.getLog().getLast().getHead();
+						final Date fact = prescripted.getJournal().getLast().getHead();
 						final long now = System.currentTimeMillis();
 						if (now - fact.getTime() > MAX_EVENT_DATE_FOR_DIRTY) {
 						    if (sortedLogDirty==null) {
@@ -245,11 +245,11 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 
         // beated duty must belong to current non-expired plan
         final long pid = partitionTable.getCurrentPlan().getId();
-        final Log b = beated.getLog().find(pid, shardid, EntityEvent.ATTACH);
+        final Log b = beated.getJournal().find(pid, shardid, EntityEvent.ATTACH);
         if (b!=null) {
         	final EntityState es = b.getLastState();
         	if (es==EntityState.CONFIRMED || es == EntityState.RECEIVED) {
-        		final Log d = delivered.getLog().find(pid, shardid, EntityEvent.ATTACH);
+        		final Log d = delivered.getJournal().find(pid, shardid, EntityEvent.ATTACH);
         		if (d!=null && d.getLastState()!=EntityState.CONFIRMED) {
         			return d;	
         		}
@@ -262,20 +262,20 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 	
 	/** treat un-coming as detaches
 	/** @return whether or not there was an absence confirmed */
-	private boolean searchAbsences(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
+	private boolean findDettachments(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
 	    boolean ret = false;
 		Set<ShardEntity> sortedLog = null;
         final long pid = partitionTable.getCurrentPlan().getId();
         
 		for (ShardEntity prescripted : delivery.getDuties()) {
 			if (!beatedDuties.contains(prescripted)) {
-				final Log found = prescripted.getLog().find(pid, shard.getShardID(), EntityEvent.DETACH, EntityEvent.REMOVE);
+				final Log found = prescripted.getJournal().find(pid, shard.getShardID(), EntityEvent.DETACH, EntityEvent.REMOVE);
 				if (found!=null && (found.getLastState()==EntityState.PENDING || found.getLastState()==EntityState.MISSING)) {
 					if (sortedLog==null) {
                         sortedLog = new TreeSet<>();
                     }
                     sortedLog.add(prescripted);
-                    prescripted.getLog().addEvent(found.getEvent(), 
+                    prescripted.getJournal().addEvent(found.getEvent(), 
                             EntityState.CONFIRMED,
                             shard.getShardID(),
                             pid);
@@ -298,7 +298,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
     private void kickFromNextStage(final ShardEntity prescripted, final Log log) {
         for (ShardEntity duty: partitionTable.getBackstage().getDutiesCrud()) {
         	if (duty.equals(prescripted)) {
-        		final Instant lastEventOnCrud = duty.getLog().getLast().getHead().toInstant();
+        		final Instant lastEventOnCrud = duty.getJournal().getLast().getHead().toInstant();
         		if (log.getHead().toInstant().isAfter(lastEventOnCrud)) {
         			partitionTable.getBackstage().removeCrud(prescripted);
         			break;

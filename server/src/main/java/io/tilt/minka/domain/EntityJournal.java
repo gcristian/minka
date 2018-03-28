@@ -46,7 +46,7 @@ import io.tilt.minka.domain.EntityJournal.Log.TimeState;
  *  @author Cristian Gonzalez
  *  @since  Oct 15, 2018
 */
-public class LogList implements Serializable {
+public class EntityJournal implements Serializable {
 	
 	protected static final long serialVersionUID = 1L;
 	private static int MAX_JOURNAL_SIZE = 50;
