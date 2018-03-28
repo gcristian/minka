@@ -28,7 +28,7 @@ public class BootstrapTest {
 				;
 		}
 		System.out.println("--------------- god bye -----------------");
-		bootstrap.destroy();
+		bootstrap.stop();
 		Thread.sleep(10 * 1000l);
 
 	}

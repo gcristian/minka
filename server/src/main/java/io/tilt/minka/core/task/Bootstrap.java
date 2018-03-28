@@ -18,6 +18,10 @@ package io.tilt.minka.core.task;
 
 import static java.util.Objects.requireNonNull;
 
+import java.util.Date;
+
+import javax.swing.text.DefaultEditorKit.InsertBreakAction;
+
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +36,6 @@ import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
-import io.tilt.minka.core.task.impl.ServiceImpl;
 import io.tilt.minka.core.task.impl.SpectatorSupplier;
 import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.spectator.Locks;
@@ -45,7 +48,7 @@ import io.tilt.minka.utils.LogUtils;
  * @author Cristian Gonzalez
  * @since Nov 5, 2015
  */
-public class Bootstrap extends ServiceImpl {
+public class Bootstrap implements Service {
 
 	private static final long REPUBLISH_LEADER_CANDIDATE_AFTER_LOST_MS = 1000l;
 
@@ -60,13 +63,13 @@ public class Bootstrap extends ServiceImpl {
 	private final LeaderShardContainer leaderShardContainer;
 	private final ShardIdentifier shardId;
 	private final EventBroker eventBroker;
-
 	private final SpectatorSupplier spectatorSupplier;
-	private Locks locks;
-	private int repostulationCounter;
-
 	private final Agent bootLeadershipCandidate;
 	private final Agent readyAwareBooting;
+	
+	private Date start;
+	private Locks locks;
+	private int repostulationCounter;
 
 	/* starts a new shard */
 	public Bootstrap(
@@ -118,9 +121,11 @@ public class Bootstrap extends ServiceImpl {
 			start();
 		}
 	}
-
+	
+	
 	@Override
 	public void start() {
+	    this.start = new Date();
 		//journal.commit(compose(this.getClass(), Fact.bootstrapper_start).with(Case.ISSUED).build());
 		logger.info(LogUtils.getGreetings(leader.getShardId(), config.getBootstrap().getServiceName(), 
 				config.getBootstrap().getWebServerHostPort()));
@@ -142,19 +147,20 @@ public class Bootstrap extends ServiceImpl {
 	/* this's the system shutdown */
 	public void stop() {
 		if (inService()) {
+		    this.start=null;
 			//journal.commit(compose(this.getClass(), Fact.bootstrapper_stop).with(Case.ISSUED).build());
 			logger.info("{}: ({}) Destroying context..", getName(), shardId);
 			if (config.getBootstrap().isLeaderShardAlsoFollows()) {
-				follower.destroy();
+				follower.stop();
 			}
 			if (config.getBootstrap().isPublishLeaderCandidature() && leader.inService()) {
-				leader.destroy();
+				leader.stop();
 			}
-			leaderShardContainer.destroy();
-			eventBroker.destroy();
+			leaderShardContainer.stop();
+			eventBroker.stop();
 
 			// close the task controller at last
-			scheduler.destroy();
+			scheduler.stop();
 			locks.close();
 			//journal.commit(compose(this.getClass(), Fact.bootstrapper_stop).with(Case.SOLVED).build());
 		} else {
@@ -178,13 +184,13 @@ public class Bootstrap extends ServiceImpl {
 
 		// stop current leader if on service and start the highlander booting all over again
 		if (config.getBootstrap().isPublishLeaderCandidature() && leader.inService()) {
-			leader.destroy();
+			leader.stop();
 		}
 		// ignore container's current held refs. and start it over
-		leaderShardContainer.destroy();
+		leaderShardContainer.stop();
 		// TODO me voy a esforzar no deberia necesitar reiniciar el follower ! 
 		spectatorSupplier.renew();
-		leaderShardContainer.init();
+		leaderShardContainer.start();
 		bootLeadershipCandidate();
 	}
 
@@ -193,7 +199,7 @@ public class Bootstrap extends ServiceImpl {
 		if (dependencyPlaceholder.getDelegate().isReady()) {
 			logger.info("{}: ({}) Starting...", getName(), shardId);
 			if (config.getBootstrap().isLeaderShardAlsoFollows()) {
-				follower.init();
+				follower.start();
 			}
 			bootLeadershipCandidate();
 		} else {
@@ -215,7 +221,7 @@ public class Bootstrap extends ServiceImpl {
 				@Override
 				public void start() {
 					Bootstrap.logger.info("Bootstrap: {} Elected as Leader", leader.getShardId());
-					leader.init();
+					leader.start();
 					// let's getting hoppin
 					/*
 					 * scheduler.run(SynchronizedAgentFactory.build(Action.
@@ -229,7 +235,7 @@ public class Bootstrap extends ServiceImpl {
 
 				@Override
 				public void stop() {
-					leader.destroy();
+					leader.stop();
 					if (inService()) {
 						Bootstrap.logger.info("Bootstrap: {} Stopping Leader: now Candidate", leader.getShardId());
 						scheduler.schedule(bootLeadershipCandidate);
@@ -253,5 +259,10 @@ public class Bootstrap extends ServiceImpl {
 		final String electionName = "minka/" + config.getBootstrap().getServiceName() + "/leader-latch";
 		return electionName;
 	}
+
+    @Override
+    public boolean inService() {
+        return this.start!=null;
+    }
 
 }

@@ -31,7 +31,7 @@ import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
-import io.tilt.minka.core.task.impl.ServiceImpl;
+import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
@@ -44,7 +44,7 @@ import io.tilt.minka.domain.Shard.ShardState;
  * @author Cristian Gonzalez
  * @since Dec 2, 2015
  */
-public class FollowerEventsHandler extends ServiceImpl implements Consumer<Heartbeat> {
+public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 

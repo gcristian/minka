@@ -36,7 +36,7 @@ import io.tilt.minka.utils.CollectionUtils;
  * @since Feb 2, 2016
  *
  */
-public class TransportlessLeaderShardContainer extends ServiceImpl implements LeaderShardContainer {
+public class TransportlessLeaderShardContainer implements LeaderShardContainer {
 
 		private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -115,5 +115,15 @@ public class TransportlessLeaderShardContainer extends ServiceImpl implements Le
 		public boolean imLeader() {
 			return this.myShardId.equals(leaderShardId);
 		}
+
+        @Override
+        public void start() {
+            // TODO Auto-generated method stub
+        }
+
+        @Override
+        public void stop() {
+            // TODO Auto-generated method stub     
+        }
 
 }

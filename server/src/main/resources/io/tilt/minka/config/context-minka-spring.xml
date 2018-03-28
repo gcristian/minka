@@ -211,7 +211,7 @@
     <bean id="configValidator" class="io.tilt.minka.api.ConfigValidator"/>
     
     <!-- inicia los servicios -->
-    <bean id="bootstrap" class="io.tilt.minka.core.task.Bootstrap" destroy-method="close">
+    <bean id="bootstrap" class="io.tilt.minka.core.task.Bootstrap" destroy-method="stop">
         <constructor-arg ref="config" />
         <constructor-arg ref="configValidator" />
         <constructor-arg ref="spectatorSupplier" />

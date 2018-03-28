@@ -23,7 +23,7 @@ import static io.tilt.minka.utils.LogUtils.HEALTH_DOWN;
 import static io.tilt.minka.utils.LogUtils.HEALTH_UP;
 import static java.util.Objects.requireNonNull;
 
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -41,7 +41,7 @@ import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
-import io.tilt.minka.core.task.impl.ServiceImpl;
+import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.Heartbeat;
@@ -61,7 +61,7 @@ import io.tilt.minka.utils.LogUtils;
  * @author Cristian Gonzalez
  * @since Dec 2, 2015
  */
-public class Proctor extends ServiceImpl {
+public class Proctor implements Service {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 

@@ -40,13 +40,14 @@ import com.google.common.util.concurrent.CycleDetectingLockFactory.Policies;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.task.Semaphore;
+import io.tilt.minka.core.task.Service;
 import io.tilt.minka.spectator.Locks;
 
 /**
  * @author Cristian Gonzalez
  * @since Dec 28, 2015
  */
-public class SemaphoreImpl extends ServiceImpl implements Semaphore {
+public class SemaphoreImpl implements Service, Semaphore {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 

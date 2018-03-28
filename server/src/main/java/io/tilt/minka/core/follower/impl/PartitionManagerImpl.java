@@ -79,8 +79,7 @@ public class PartitionManagerImpl implements PartitionManager {
 	}
 
 	public Void releaseAll() {
-		logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE ALL", getClass().getSimpleName(),
-				partition.getId());
+		logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE ALL", getClass().getSimpleName(), partition.getId());
 		dettach(partition.getDuties());
 		partition.clean();
 		return null;

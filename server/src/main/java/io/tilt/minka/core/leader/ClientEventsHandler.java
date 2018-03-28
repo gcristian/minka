@@ -30,7 +30,7 @@ import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
-import io.tilt.minka.core.task.impl.ServiceImpl;
+import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
@@ -46,7 +46,7 @@ import io.tilt.minka.domain.ShardEntity;
  * @since Dec 2, 2015
  *
  */
-public class ClientEventsHandler extends ServiceImpl implements Consumer<Serializable> {
+public class ClientEventsHandler implements Service, Consumer<Serializable> {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -56,6 +56,8 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 	private final Bookkeeper bookkeeper;
 	private final EventBroker eventBroker;
 	private final NetworkShardIdentifier shardId;
+
+	private Date start;
 
 	public ClientEventsHandler(
 			final Config config, 
@@ -111,6 +113,7 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 
 	@Override
 	public void start() {
+		this.start = new Date();
 		logger.info("{}: Starting", getClass().getSimpleName());
 		listenUserEvents();
 	}
@@ -121,6 +124,11 @@ public class ClientEventsHandler extends ServiceImpl implements Consumer<Seriali
 		eventBroker.unsubscribe(eventBroker.build(config, Channel.FROM_CLIENT), ShardEntity.class, this);
 	}
 
+	@Override
+	public boolean inService() {
+	    return this.start!=null;
+	}
+	
 	@Override
 	public void accept(Serializable event) {
 		if (inService()) {

@@ -27,7 +27,7 @@ import io.tilt.minka.domain.Heartbeat;
  * @author Cristian Gonzalez
  * @since Nov 17, 2015
  */
-public interface Heartpump extends Service {
+public interface Heartpump {
 
 	DateTime getLastBeat();
 

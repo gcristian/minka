@@ -28,7 +28,7 @@ import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
-import io.tilt.minka.core.task.impl.ServiceImpl;
+import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardedPartition;
@@ -44,7 +44,7 @@ import io.tilt.minka.domain.Shard.ShardState;
  * @since Nov 7, 2015
  *
  */
-public class Follower extends ServiceImpl {
+public class Follower implements Service {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -95,8 +95,7 @@ public class Follower extends ServiceImpl {
 	@Override
 	public void start() {
 		logger.info("{}: ({}) Starting services", getClass().getSimpleName(), config.getLoggingShardId());
-		this.heartpump.init();
-		this.leaderConsumer.init();
+		this.leaderConsumer.start();
 		alive = true;
 		// after partition manager initialized: set emergency shutdown
 		eventBroker.setBrokerShutdownCallback(() -> stop());
@@ -114,7 +113,6 @@ public class Follower extends ServiceImpl {
 			logger.info("{}: ({}) Stopping timer", getClass().getSimpleName(), config.getLoggingShardId());
 			scheduler.stop(follow);
 			alive = false;
-			this.heartpump.stop();
 			this.leaderConsumer.stop();
 		} else {
 			logger.info("{}: ({}) Follower was not longer in service", getClass().getSimpleName(),

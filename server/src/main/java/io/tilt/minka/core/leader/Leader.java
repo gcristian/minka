@@ -17,6 +17,8 @@
 package io.tilt.minka.core.leader;
 
 
+import java.util.Date;
+
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +30,7 @@ import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
-import io.tilt.minka.core.task.impl.ServiceImpl;
+import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 
 /**
@@ -39,7 +41,7 @@ import io.tilt.minka.domain.NetworkShardIdentifier;
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
  */
-public class Leader extends ServiceImpl {
+public class Leader implements Service {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -53,7 +55,7 @@ public class Leader extends ServiceImpl {
 	private final LeaderShardContainer leaderShardContainer;
 
 	private boolean served;
-
+	private Date start;
 
 	public Leader(
 			final Config config, 
@@ -80,23 +82,29 @@ public class Leader extends ServiceImpl {
 	public NetworkShardIdentifier getShardId() {
 		return this.shardId;
 	}
-
+	
+	@Override
+	public boolean inService() {
+		return start!=null;
+	}
+	
 	@Override
 	public void start() {
 		try {
+		    this.start = new Date();
 			//if (!locks.runOnLockRace(Names.getLeaderLockName(config.getServiceName()), ()-> {
 			scheduler.run(scheduler.getFactory().build(Action.LEADERSHIP, PriorityLock.LOW_ON_PERMISSION, () -> {
 				try {
 					served = true;
 					logger.info("{}: Registering as Leader at well after waiting {} msecs", getClass().getSimpleName(),
-							super.getMillisSinceCreation());
+							System.currentTimeMillis() - start.getTime());
 					leaderShardContainer.setNewLeader(shardId);
 					logger.info("{}: {} msec since load till leader election", getClass().getSimpleName(),
 							(DateTime.now().getMillis() - config.loadTime.getMillis()));
-					proctor.init();
-					distributor.init();
-					followerEventsHandler.init();
-					clientEventsHandler.init();
+					proctor.start();
+					distributor.start();
+					followerEventsHandler.start();
+					clientEventsHandler.start();
 				} catch (Exception e) {
 					logger.error("Unexpected error when starting service. Cannot procede", e);
 				}
@@ -115,11 +123,12 @@ public class Leader extends ServiceImpl {
 
 	@Override
 	public void stop() {
+	    this.start = null;
 		logger.info("{}: Stopping ({})", getClass().getSimpleName(), !served ? "never served" : "paid my duty");
-		proctor.destroy();
-		distributor.destroy();
-		followerEventsHandler.destroy();
-		clientEventsHandler.destroy();
+		proctor.stop();
+		distributor.stop();
+		followerEventsHandler.stop();
+		clientEventsHandler.stop();
 	}
 
 }

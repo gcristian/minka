@@ -30,7 +30,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.task.impl.ServiceImpl;
+import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.spectator.MessageMetadata;
 
@@ -40,7 +40,7 @@ import io.tilt.minka.spectator.MessageMetadata;
  * @author Cristian Gonzalez
  * @since Nov 25, 2015
  */
-public abstract class AbstractBroker extends ServiceImpl implements EventBroker, Consumer<MessageMetadata> {
+public abstract class AbstractBroker implements Service, EventBroker, Consumer<MessageMetadata> {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	/* save (channel-eventType) -> (many consumers) */

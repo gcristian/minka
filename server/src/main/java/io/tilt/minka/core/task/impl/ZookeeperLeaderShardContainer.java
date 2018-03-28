@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.spectator.MessageMetadata;
@@ -36,7 +37,7 @@ import io.tilt.minka.spectator.Wells;
  * @since Feb 2, 2016
  *
  */
-public class ZookeeperLeaderShardContainer extends TransportlessLeaderShardContainer {
+public class ZookeeperLeaderShardContainer extends TransportlessLeaderShardContainer implements Service {
 
 		private final ZookeeperLeaderShardContainer instance;
 		

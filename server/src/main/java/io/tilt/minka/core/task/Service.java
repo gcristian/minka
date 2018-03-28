@@ -16,48 +16,25 @@
  */
 package io.tilt.minka.core.task;
 
-import java.io.Closeable;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Facility to avoid concurrency on services
- * 
- * @author Cristian Gonzalez
- * @since Dec 3, 2015
- *
- */
-public interface Service extends Closeable {
+public interface Service {
 
 	final Logger logger = LoggerFactory.getLogger(Service.class);
 
-	default void init() {
-		logger.warn("{}: Default init without control !", getClass().getSimpleName());
-		start();
+	void start();
+
+	void stop();
+
+
+	default boolean inService() {
+	    throw new IllegalAccessError("not implemented");
 	}
 
-	default void destroy() {
-		logger.warn("{}: Default destroy without control !", getClass().getSimpleName());
-		stop();
+	
+	default String getName() {
+	    return getClass().getSimpleName();
 	}
-
-	/* callable from here only */
-	abstract void start();
-
-	/* callable from here only */
-	abstract void stop();
-
-	default void close() {
-		stop();
-	}
-
-	boolean inService();
-
-	State getState();
-
-	enum State {
-		INITIALIZING, INIT_ERROR, STARTING, STARTED, STOPPING, STOPPED, DESTROYED, DESTROY_ERROR
-	}
-
+	
 }
