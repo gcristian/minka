@@ -122,7 +122,8 @@ public class ShardedPartition {
 		return new ImmutableSet.Builder().addAll(pallets).build();
 	}
 	public Set<ShardEntity> getDuties(final Pallet<?> pallet) {
-		return this.duties.stream().filter(d->d.getDuty().getPalletId().equals(pallet.getId()))
+		return this.duties.stream()
+				.filter(d->d.getDuty().getPalletId().equals(pallet.getId()))
 				.collect(Collectors.toSet());
 	}
 	public void addAllPallets(final Collection<ShardEntity> all) {		

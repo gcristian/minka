@@ -104,6 +104,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		
 		if (issues || exclusionExpired || partition.wasRecentlyUpdated() || newLeader) {	
 			entities.forEach(d->builder.addReportedCapturedDuty(d));
+			builder.reportsDuties();
 			lastIncludedDutiesTimestamp = now;
 		}
 		addReportedCapacities(builder);

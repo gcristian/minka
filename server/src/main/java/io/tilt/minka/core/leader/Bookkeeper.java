@@ -97,7 +97,8 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		}
 
 		// TODO perhaps in presence of Reallocation not ?
-		if (beat.reportsDuties() && sourceShard.getState().isAlive()) {
+		if ((beat.reportsDuties() || beat.hasDifferences() || beat.hasWarning()) 
+				&& sourceShard.getState().isAlive()) {
 			declareHeartbeatAbsencesAsMissing(sourceShard, beat.getReportedCapturedDuties());
 		}
 	}
@@ -123,10 +124,10 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 			if (beat.reportsDuties()) {
 				lattestPlanId = latestPlan(beat);
 				if (lattestPlanId==plan.getId()) {
-					changed|=searchReallocations(source, beat.getReportedCapturedDuties(), delivery);
+					changed|=findAttachments(source, beat.getReportedCapturedDuties(), delivery);
 				}
 			}
-    		changed|=searchAbsences(source, beat.getReportedCapturedDuties(), delivery);
+    		changed|=findDettachments(source, beat.getReportedCapturedDuties(), delivery);
     		if (changed) {
     		    delivery.checkState();
     		} else if (lattestPlanId==plan.getId()) {
@@ -189,7 +190,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 	 * find the up-coming
 	 * @return if there were changes 
 	 */
-	private boolean searchReallocations(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
+	private boolean findAttachments(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
 		Set<ShardEntity> sortedLogConfirmed = null;
 		Set<ShardEntity> sortedLogDirty = null;
 		boolean ret = false;

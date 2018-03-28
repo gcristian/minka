@@ -98,7 +98,10 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 			if (this.entities ==null) {
 				this.entities = new ArrayList<>();
 			}
-			this.entities.add(duty);
+			this.entities.add(duty);			
+			return this;
+		}
+		public Builder reportsDuties() {
 			this.reportsCapturedDuties = true;
 			return this;
 		}
