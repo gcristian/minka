@@ -145,7 +145,7 @@ public abstract class AbstractBrokerTester {
 		msgAtDestiny.set(0);
 
 		Assert.assertTrue(sourceBroker
-				.postEvent(sourceBroker.buildToTarget(config, INSTRUCTIONS, targetShard), msgAtOrigin));
+				.send(sourceBroker.buildToTarget(config, INSTRUCTIONS, targetShard), msgAtOrigin));
 		latch.await(5, TimeUnit.SECONDS); // wait for message to bounce loopback
 		Assert.assertEquals(msgAtOrigin.intValue(), msgAtDestiny.get());
 	}

@@ -85,15 +85,13 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 						op.getOperation().getAction(), 
 						PriorityLock.LOW_ON_PERMISSION, 
 						lambda));
-		//throw new IllegalStateException("Cannot perform cluster operation because scheduler disallowed so");
-		//}
 		return done;
 	}
 
 	private void cleanShutdown(final ShardCommand op) {
 		//Locks.stopCandidate(Names.getLeaderName(config.getServiceName()), false);		
 		for (Shard slave : partitionTable.getStage().getShardsByState(ShardState.ONLINE)) {
-			eventBroker.postEvent(slave.getBrokerChannel(), op);
+			eventBroker.send(slave.getBrokerChannel(), op);
 		}
 		boolean offline = false;
 		while (!offline && !Thread.interrupted()) {
@@ -158,7 +156,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 					logger.error("{}: Cannot route event to Duty:{} as Shard:{} is no longer functional",
 							getClass().getSimpleName(), entity.toBrief(), location);
 				}
-				eventBroker.postEvent(location.getBrokerChannel(), entity);
+				eventBroker.send(location.getBrokerChannel(), entity);
 			} else if (entity.getType()==ShardEntity.Type.PALLET) {
 				for (Shard location: partitionTable.getStage().getPalletLocations(entity)) {
 					if (location.getState().isAlive()) {
@@ -166,7 +164,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 								? entity.getUserPayload().getClass().getSimpleName() : "[empty]";
 						logger.info("{}: Routing event with Payload: {} on {} to Shard: {}", getClass().getSimpleName(),
 								payloadType, entity, location);
-						eventBroker.postEvent(location.getBrokerChannel(), entity);
+						eventBroker.send(location.getBrokerChannel(), entity);
 					}
 				}
 			}

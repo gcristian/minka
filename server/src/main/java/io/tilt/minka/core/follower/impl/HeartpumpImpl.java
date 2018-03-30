@@ -71,8 +71,12 @@ public class HeartpumpImpl implements Heartpump {
 			 * thisHb.equalsInContent(lastHeartbeat)) { hbTraveling =
 			 * Heartbeat.copy(thisHb); hbTraveling.cleanDuties(); } */
 
-			if (eventBroker.postEvent(eventBroker.buildToTarget(config, Channel.HEARTBEATS,
-					leaderShardContainer.getLeaderShardId()), arg)) {
+			if (eventBroker.send(
+					eventBroker.buildToTarget(
+							config, 
+							Channel.HEARTBEATS,
+							leaderShardContainer.getLeaderShardId()), 
+					arg)) {
 				this.lastHeartbeatTimestamp = new DateTime(DateTimeZone.UTC);
 			} else {
 				logger.error("{}: ({}) Broker did not sent Heartbeat !", getClass().getSimpleName(),

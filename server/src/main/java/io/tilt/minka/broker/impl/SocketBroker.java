@@ -156,8 +156,25 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 		}
 	}
 
-	private synchronized boolean post(final BrokerChannel channel, final ChannelHint type, final Object event) {
+	@Override
+	public boolean send(final BrokerChannel channel, final Serializable event) {
+		return post(channel, channel.getChannel().getType(), event);
+	}
 
+	@Override
+	public boolean sendList(final BrokerChannel channel, final List<Serializable> event) {
+		return post(channel, channel.getChannel().getType(), event);
+	}
+
+	@Override
+	public boolean send(
+			final BrokerChannel channel, 
+			final ChannelHint type, 
+			final Serializable event) {
+		return post(channel, type, event);
+	}
+
+	private synchronized boolean post(final BrokerChannel channel, final ChannelHint type, final Object event) {
 		SocketClient client = this.clients.get(channel);
 		if (client == null) {
 			logger.info("{}: ({}) CREATING SocketClient for Shard: {}", getClass().getSimpleName(), getShardId(),
@@ -179,23 +196,10 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	}
 
 	@Override
-	public boolean postEvent(final BrokerChannel channel, final Serializable event) {
-		return post(channel, channel.getChannel().getType(), event);
-	}
-
-	@Override
-	public boolean postEvents(final BrokerChannel channel, final List<Serializable> event) {
-		return post(channel, channel.getChannel().getType(), event);
-	}
-
-	@Override
-	public boolean postEvent(final BrokerChannel channel, final ChannelHint type, final Serializable event) {
-		return post(channel, type, event);
-	}
-
-	@Override
-	public boolean unsubscribe(BrokerChannel brokerChannel, Class<? extends Serializable> eventType,
-			Consumer<Serializable> driver) {
+	public boolean unsubscribe(
+			final BrokerChannel brokerChannel, 
+			final Class<? extends Serializable> eventType,
+			final Consumer<Serializable> driver) {
 		return true;
 	}
 
@@ -210,7 +214,10 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 		@JsonIgnore
 		private DateTime creation;
 
-		public DirectChannel(final String serviceNanme, final NetworkShardIdentifier target, final Channel channel) {
+		public DirectChannel(
+				final String serviceNanme, 
+				final NetworkShardIdentifier target, 
+				final Channel channel) {
 			this.target = target;
 			this.channel = channel;
 			// this way my channels are unique using shard's creation date 
@@ -261,29 +268,30 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	}
 
 	@Override
-	protected boolean onSubscription(BrokerChannel channel, Class<? extends Serializable> eventType,
-			Consumer<Serializable> driver, long sinceTimestamp) {
+	protected boolean onSubscription(
+			final BrokerChannel channel, 
+			final Class<? extends Serializable> eventType,
+			final Consumer<Serializable> driver, 
+			final long sinceTimestamp) {
 		return true;
 	}
 
 	@Override
-	public BrokerChannel build(Config config, Channel channel) {
+	public BrokerChannel build(final Config config, final Channel channel) {
 		return build(config.getBootstrap().getServiceName(), channel);
 	}
 
 	@Override
-	public BrokerChannel build(String service, Channel channel) {
+	public BrokerChannel build(final String service, final Channel channel) {
 		return new DirectChannel(service, null, channel);
 	}
 
 	@Override
-	public BrokerChannel buildToTarget(Config config, Channel channel, NetworkShardIdentifier shardId) {
+	public BrokerChannel buildToTarget(
+			final Config config, 
+			final Channel channel, 
+			final NetworkShardIdentifier shardId) {
 		return new DirectChannel(config.getBootstrap().getServiceName(), shardId, channel);
-	}
-
-	@Override
-	public BrokerChannel buildToTarget(String service, Channel channel, NetworkShardIdentifier shardId) {
-		return new DirectChannel(service, shardId, channel);
 	}
 
 }

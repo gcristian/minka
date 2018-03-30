@@ -54,10 +54,10 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	private static final Logger logger = LoggerFactory.getLogger(Minka.class);
 
 	/* to enable many minka shards on the same JVM */
-	private static final Map<String, MinkaTenant> tenants = new ConcurrentHashMap<>();
+	private static final Map<String, Tenant> tenants = new ConcurrentHashMap<>();
 	
 	/* current holder's tenant, and one for each instance held by applications */
-	private MinkaTenant tenant;
+	private Tenant tenant;
 	
 	/** 
 	 * Create a Minka server. All mandatory events must be mapped to consumers/suppliers.
@@ -110,25 +110,15 @@ public class Minka<D extends Serializable, P extends Serializable> {
 		init(new Config());
 	}
 
-	public ClassPathXmlApplicationContext getContext() {
-		return tenant.getContext();
-	}
 	public Config getConfig() {
 		return tenant.getConfig();
-	}
-	public HttpServer getWebServer() {
-		if (getConfig().getBootstrap().isEnableWebserver()) {
-			return tenant.getWebServer();
-		} else {
-			throw new IllegalAccessError("Config has the web server disabled");
-		}
 	}
 	
 	private void init(final Config config) {
 		// TODO fix im ignoring config arg.
 		final String serviceName = config.getBootstrap().getServiceName();
 		logger.info("{}: Initializing context for service: {}", getClass().getSimpleName(), serviceName);
-		tenants.put(config.getBootstrap().getServiceName(), tenant = new MinkaTenant());
+		tenants.put(config.getBootstrap().getServiceName(), tenant = new Tenant());
 		tenant.setConfig(config);
 		final String configPath = "classpath:io/tilt/minka/config/context-minka-spring.xml";
 		final ClassPathXmlApplicationContext ctx = new ClassPathXmlApplicationContext(new String[] { configPath }, false);
@@ -487,7 +477,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 		return this;
 	}
 
-	private static class MinkaTenant {
+	private static class Tenant {
 		private HttpServer webServer;
 		private ClassPathXmlApplicationContext context;
 		private Config config;

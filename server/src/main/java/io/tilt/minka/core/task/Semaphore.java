@@ -25,7 +25,6 @@ import static io.tilt.minka.core.task.Semaphore.Action.LEADERSHIP;
 import static io.tilt.minka.core.task.Semaphore.Action.PARTITION_TABLE_UPDATE;
 import static io.tilt.minka.core.task.Semaphore.Action.PROCTOR;
 import static io.tilt.minka.core.task.Semaphore.Action.SHUTDOWN;
-import static io.tilt.minka.core.task.Semaphore.Action.STUCK_POLICY;
 import static io.tilt.minka.core.task.Semaphore.Hierarchy.CHILD;
 import static io.tilt.minka.core.task.Semaphore.Hierarchy.PARENT;
 import static io.tilt.minka.core.task.Semaphore.Hierarchy.SIBLING;
@@ -139,8 +138,6 @@ public interface Semaphore extends Service {
 		HEARTBEAT_REPORT(Scope.LOCAL),
 		/* this event occurs as HBs come by without scheduling */
 		PARTITION_TABLE_UPDATE(Scope.LOCAL),
-		/* to avoid heartpump send HBs with unchecked Partition status */
-		STUCK_POLICY(Scope.LOCAL),
 
 		CLUSTER_COMPLETE_SHUTDOWN(Scope.GLOBAL), CLUSTER_COMPLETE_REBALANCE(Scope.GLOBAL),
 
@@ -220,20 +217,27 @@ public interface Semaphore extends Service {
 		final List<Rule> rules = Lists.newArrayList();
 
 		/* these two are mutually excluded of running simultaneously */
-		rules.add(builder(BOOTSTRAP).add(PARENT, asList(ANY)));
-		rules.add(builder(SHUTDOWN).add(PARENT, asList(ANY)));
+		rules.add(builder(BOOTSTRAP)
+				.add(PARENT, asList(ANY)));
+		rules.add(builder(SHUTDOWN)
+				.add(PARENT, asList(ANY)));
 
 		// At Leader's
-		rules.add(builder(LEADERSHIP).add(CHILD, asList(Action.BOOTSTRAP)));
-		rules.add(builder(PROCTOR).add(SIBLING, asList(DISTRIBUTOR, PARTITION_TABLE_UPDATE)));
-		rules.add(builder(DISTRIBUTOR).add(SIBLING, asList(PROCTOR, PARTITION_TABLE_UPDATE)));
-		rules.add(builder(PARTITION_TABLE_UPDATE).add(SIBLING, asList(PROCTOR, DISTRIBUTOR)));
+		rules.add(builder(LEADERSHIP)
+				.add(CHILD, asList(Action.BOOTSTRAP)));
+		rules.add(builder(PROCTOR)
+				.add(SIBLING, asList(DISTRIBUTOR, PARTITION_TABLE_UPDATE)));
+		rules.add(builder(DISTRIBUTOR)
+				.add(SIBLING, asList(PROCTOR, PARTITION_TABLE_UPDATE)));
+		rules.add(builder(PARTITION_TABLE_UPDATE)
+				.add(SIBLING, asList(PROCTOR, DISTRIBUTOR)));
 
 		// At Follower's
-		rules.add(builder(INSTRUCT_DELEGATE).add(SIBLING, asList(HEARTBEAT_REPORT)));
-		rules.add(builder(HEARTBEAT_REPORT).add(SIBLING, asList(STUCK_POLICY, INSTRUCT_DELEGATE)));
-		rules.add(builder(STUCK_POLICY).add(SIBLING, asList(HEARTBEAT_REPORT)));
-		//rules.put(RESERVE_DUTY, new Rule());
+		rules.add(builder(INSTRUCT_DELEGATE)
+				.add(SIBLING, asList(HEARTBEAT_REPORT)));
+		rules.add(builder(HEARTBEAT_REPORT)
+				.add(SIBLING, asList(INSTRUCT_DELEGATE)));
+		
 
 		return rules;
 	}

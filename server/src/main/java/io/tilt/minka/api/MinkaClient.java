@@ -167,8 +167,12 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 		} else {
 			logger.info("{}: Sending {}: {} with Event: {} to leader in service", getClass().getSimpleName(), 
 					entity.getType(), raw, event);
-			sent = eventBroker.postEvent(eventBroker.buildToTarget(config.getBootstrap().getServiceName(), Channel.FROM_CLIENT,
-					leaderShardContainer.getLeaderShardId()), entity);
+			sent = eventBroker.send(
+			        eventBroker.buildToTarget(
+			                config, 
+			                Channel.FROM_CLIENT,
+			                leaderShardContainer.getLeaderShardId()), 
+			        entity);
 		}
 		return sent;
 	}

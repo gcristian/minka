@@ -60,7 +60,7 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 	}
 
 	@Override
-	public void accept(MessageMetadata meta) {
+	public void accept(final MessageMetadata meta) {
 		logger.info("{}: ({}) Receiving {}", getClass().getSimpleName(), shardId, meta.getPayloadType());
 		String key = meta.getInbox() + meta.getPayloadType().getSimpleName();
 		logger.debug("{}: ({}) Looking subscribed consumer to Key: {}", getClass().getSimpleName(), shardId, key);
@@ -74,20 +74,29 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 		}
 	}
 
-	protected abstract boolean onSubscription(BrokerChannel channel, Class<? extends Serializable> eventType,
-			Consumer<Serializable> consumer, long sinceTimestamp);
+	protected abstract boolean onSubscription(
+			final BrokerChannel channel, 
+			final Class<? extends Serializable> eventType,
+			final Consumer<Serializable> consumer, 
+			final long sinceTimestamp);
 
 	@Override
-	public void subscribeEvents(BrokerChannel buildToTarget, Consumer<Serializable> driver, long sinceNow, 
-			@SuppressWarnings("unchecked") Class<? extends Serializable>...classes) {
+	public void subscribeEvents(
+			final BrokerChannel buildToTarget, 
+			final Consumer<Serializable> driver, 
+			final long sinceNow, 
+			final @SuppressWarnings("unchecked") Class<? extends Serializable>...classes) {
 		for (int i=0;i<classes.length;i++) {
 			subscribe(buildToTarget, classes[i], driver, sinceNow);
 		}
 	}
 
 	@Override
-	public final boolean subscribe(BrokerChannel channel, Class<? extends Serializable> eventType,
-			Consumer<Serializable> consumer, long sinceTimestamp) {
+	public final boolean subscribe(
+			final BrokerChannel channel, 
+			final Class<? extends Serializable> eventType,
+			final Consumer<Serializable> consumer, 
+			final long sinceTimestamp) {
 
 		try {
 			// TODO para Pathable usar getFullName...

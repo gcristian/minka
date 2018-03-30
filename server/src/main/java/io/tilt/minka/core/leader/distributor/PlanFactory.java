@@ -48,22 +48,23 @@ import io.tilt.minka.utils.LogUtils;
  * @author Cristian Gonzalez
  * @since Ene 4, 2015
  */
-class PlanBuilder {
+class PlanFactory {
 
-	private static final Logger logger = LoggerFactory.getLogger(PlanBuilder.class);
+	private static final Logger logger = LoggerFactory.getLogger(PlanFactory.class);
 
 	private final Config config;
 
-	PlanBuilder(final Config config) {
+	PlanFactory(final Config config) {
 		this.config = config;
 	}
 
 	/** @return a plan if there're changes to apply or NULL if not */
-	final Plan build(final PartitionTable table, final Plan previousChange) {
+	final Plan create(final PartitionTable table, final Plan previousChange) {
 		final Plan plan = new Plan(
 				config.beatToMs(config.getDistributor().getPlanExpirationBeats()), 
 				config.getDistributor().getPlanMaxRetries());
 		final List<Shard> onlineShards = table.getStage().getShardsByState(ShardState.ONLINE);
+		
 		// recently fallen shards
 		final Set<ShardEntity> dangling = new HashSet<>(table.getBackstage().getDutiesDangling());
 		addMissingAsCrud(table, plan);
@@ -151,7 +152,7 @@ class PlanBuilder {
 	    final Set<ShardEntity> missing = table.getBackstage().getDutiesMissing();
 		for (final ShardEntity missed : missing) {
 			final Shard lazy = table.getStage().getDutyLocation(missed);
-			logger.info("{}: Registering {}, dangling Duty: {}", PlanBuilder.class.getSimpleName(),
+			logger.info("{}: Registering {}, dangling Duty: {}", PlanFactory.class.getSimpleName(),
 					lazy == null ? "unattached" : "from falling Shard: " + lazy, missed);
 			if (lazy != null) {
 				// missing duties are a confirmation per-se from the very shards,
@@ -169,7 +170,7 @@ class PlanBuilder {
 			table.getBackstage().addCrudDuty(missed);
 		}
 		if (!missing.isEmpty()) {
-			logger.info("{}: Registered {} dangling duties {}", PlanBuilder.class.getSimpleName(),
+			logger.info("{}: Registered {} dangling duties {}", PlanFactory.class.getSimpleName(),
 					missing.size(), ShardEntity.toStringIds(missing));
 		}
 		// clear it or nobody will

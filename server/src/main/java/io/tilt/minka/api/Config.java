@@ -155,14 +155,6 @@ public class Config {
 		public void setServiceName(String serviceName) {
 			BootstrapConf.serviceName = serviceName;
 		}
-		/*
-		public long getReadynessRetryDelayMs() {
-			return this.readynessRetryDelayMs;
-		}
-		public void setReadynessRetryDelayMs(long readynessRetryDelayMs) {
-			this.readynessRetryDelayMs = readynessRetryDelayMs;
-		}
-		*/
 		public long getBeatUnitMs() {
 			return beatUnitMs;
 		}
@@ -257,14 +249,6 @@ public class Config {
 		public void setMaxRetries(int maxRetries) {
 			this.maxRetries = maxRetries;
 		}
-		/*
-		public int getRetryDelayMs() {
-			return this.retryDelayMs;
-		}
-		public void setRetryDelayMs(int retryDelayMs) {
-			this.retryDelayMs = retryDelayMs;
-		}
-		*/
 		public long  getRetryDelayMiliBeats() {
 			return retryDelayMiliBeats;
 		}
@@ -338,10 +322,6 @@ public class Config {
 		private long maxHeartbeatAbsenceForReleaseMs;		
 		*/
 		
-		protected static final long CLEARANCE_CHECK_START_DELAY_BEATS = 10;
-		private long clearanceCheckStartDelayBeats;
-		protected static final long CLEARANCE_CHECK_DELAY_BEATS = 10;
-		private long clearanceCheckDelayBeats;
 		/* 10 seconds old max for clearance before releasing duties */
 		protected static final int CLEARANCE_MAX_ABSENCE_BEATS = 10;
 		private int clearanceMaxAbsenceBeats;
@@ -351,58 +331,7 @@ public class Config {
 		/* 10 errors tolerant for building HBs from followers */
 		protected static final int MAX_HEARTBEAT_BUILD_FAILS_BEFORE_RELEASING = 1;
 		private int maxHeartbeatBuildFailsBeforeReleasing;
-		/*
-		public long getHeartbeatDelayMs() {
-			return this.heartbeatDelayMs;
-		}		
-		public void setHeartbeatDelayMs(long heartbeatDelayMs) {
-			this.heartbeatDelayMs = heartbeatDelayMs;
-		}
-		public long getHeartbeatStartDelayMs() {
-			return this.heartbeatStartDelayMs;
-		}
-		public void setHeartbeatStartDelayMs(long heartbeatStartDelayMs) {
-			this.heartbeatStartDelayMs = heartbeatStartDelayMs;
-		}
-		
-		public long getHeartattackCheckStartDelayMs() {
-			return this.heartattackCheckStartDelayMs;
-		}
-		public void setHeartattackCheckStartDelayMs(long heartattackCheckStartDelayMs) {
-			this.heartattackCheckStartDelayMs = heartattackCheckStartDelayMs;
-		}
-		public long getHeartattackCheckDelayMs() {
-			return this.heartattackCheckDelayMs;
-		}
-		public void setHeartattackCheckDelayMs(long heartattackCheckDelayMs) {
-			this.heartattackCheckDelayMs = heartattackCheckDelayMs;
-		}
-		public long getClearanceCheckStartDelayMs() {
-			return this.clearanceCheckStartDelayMs;
-		}
-		public void setClearanceCheckStartDelayMs(long clearanceCheckStartDelayMs) {
-			this.clearanceCheckStartDelayMs = clearanceCheckStartDelayMs;
-		}
-		public long getClearanceCheckDelayMs() {
-			return this.clearanceCheckDelayMs;
-		}
-		public void setClearanceCheckDelayMs(long clearanceCheckDelayMs) {
-			this.clearanceCheckDelayMs = clearanceCheckDelayMs;
-		}
-		public int getClearanceMaxAbsenceMs() {
-			return this.clearanceMaxAbsenceMs;
-		}
-		public void setClearanceMaxAbsenceMs(int clearanceMaxAbsenceMs) {
-			this.clearanceMaxAbsenceMs = clearanceMaxAbsenceMs;
-		}
-		public long getMaxHeartbeatAbsenceForReleaseMs() {
-			return this.maxHeartbeatAbsenceForReleaseMs;
-		}
-		public void setMaxHeartbeatAbsenceForReleaseMs(long maxHeartbeatAbsenceForReleaseMs) {
-			this.maxHeartbeatAbsenceForReleaseMs = maxHeartbeatAbsenceForReleaseMs;
-		}
-		*/
-		
+	
 		public int getMaxHeartbeatBuildFailsBeforeReleasing() {
 			return this.maxHeartbeatBuildFailsBeforeReleasing;
 		}
@@ -429,18 +358,6 @@ public class Config {
 		}
 		public void setHeartattackCheckDelayBeats(long heartattackCheckDelayBeats) {
 			this.heartattackCheckDelayBeats = heartattackCheckDelayBeats;
-		}
-		public long getClearanceCheckStartDelayBeats() {
-			return clearanceCheckStartDelayBeats;
-		}
-		public void setClearanceCheckStartDelayBeats(long clearanceCheckStartDelayBeats) {
-			this.clearanceCheckStartDelayBeats = clearanceCheckStartDelayBeats;
-		}
-		public long getClearanceCheckDelayBeats() {
-			return clearanceCheckDelayBeats;
-		}
-		public void setClearanceCheckDelayBeats(long clearanceCheckDelayBeats) {
-			this.clearanceCheckDelayBeats = clearanceCheckDelayBeats;
 		}
 		public int getClearanceMaxAbsenceBeats() {
 			return clearanceMaxAbsenceBeats;
@@ -504,28 +421,7 @@ public class Config {
 		}
 		public void setReloadDutiesFromStorageEachPeriods(int reloadDutiesFromStorageEachPeriods) {
 			this.reloadDutiesFromStorageEachPeriods = reloadDutiesFromStorageEachPeriods;
-		}
-		/*
-		public long getStartDelayMs() {
-			return this.startDelayMs;
-		}
-		public void setStartDelayMs(long startDelayMs) {
-			this.startDelayMs = startDelayMs;
-		}
-		public long getDelayMs() {
-			return this.delayMs;
-		}
-		public void setDelayMs(long delayMs) {
-			this.delayMs = delayMs;
-		}
-		public int getPlanExpirationSec() {
-			return this.planExpirationSec;
-		}
-		public void setPlanExpirationSec(int planExpirationSec) {
-			this.planExpirationSec = planExpirationSec;
-		}
-		*/
-		
+		}	
 		public int getPlanMaxRetries() {
 			return this.planMaxRetries;
 		}
@@ -644,28 +540,6 @@ public class Config {
 		private double heartbeatMaxDistanceStandardDeviation;
 		protected static final int CLUSTER_HEALTH_STABILITY_DELAY_PERIODS = 1;
 		private int clusterHealthStabilityDelayPeriods;
-
-		/*
-		public long getStartDelayMs() {
-			return this.startDelayMs;
-		}
-		public void setStartDelayMs(long startDelayMs) {
-			this.startDelayMs = startDelayMs;
-		}
-		public long getDelayMs() {
-			return this.delayMs;
-		}
-		public void setDelayMs(long proctordDelayMs) {
-			this.delayMs = proctordDelayMs;
-		}
-		public int getMaxShardJoiningStateMs() {
-			return this.maxShardJoiningStateMs;
-		}
-		public void setMaxShardJoiningStateMs(int maxShardJoiningStateMs) {
-			this.maxShardJoiningStateMs = maxShardJoiningStateMs;
-		}
-		*/
-		
 		
 		public int getMinHealthlyHeartbeatsForShardOnline() {
 			return this.minHealthlyHeartbeatsForShardOnline;
@@ -727,14 +601,6 @@ public class Config {
 		public void setHeartbeatMaxBiggestDistanceFactor(double heartbeatMaxBiggestDistanceFactor) {
 			this.heartbeatMaxBiggestDistanceFactor = heartbeatMaxBiggestDistanceFactor;
 		}
-		/*
-		public int getHeartbeatLapseSec() {
-			return this.heartbeatLapseSec;
-		}
-		public void setHeartbeatLapseSec(int heartbeatLapseSec) {
-			this.heartbeatLapseSec = heartbeatLapseSec;
-		}
-		*/
 		public double getHeartbeatMaxDistanceStandardDeviation() {
 			return this.heartbeatMaxDistanceStandardDeviation;
 		}

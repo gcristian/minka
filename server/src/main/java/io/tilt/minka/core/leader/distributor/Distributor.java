@@ -83,7 +83,7 @@ public class Distributor implements Service {
 	private int distributionCounter;
 	private boolean initialAdding;
 	private int counter;
-	private PlanBuilder planner;
+	private PlanFactory planner;
 
 
 	private final Agent distributor;
@@ -127,7 +127,7 @@ public class Distributor implements Service {
 				.every(config.beatToMs(config.getDistributor().getDelayBeats()))
 				.build();
 
-		this.planner = new PlanBuilder(config);
+		this.planner = new PlanFactory(config);
 	}
 
 	@java.lang.Override
@@ -211,7 +211,7 @@ public class Distributor implements Service {
 
 	/** @return a plan to drive built at balancer's request */
 	private Plan buildPlan(final Plan previous) {
-		final Plan plan = planner.build(partitionTable, previous);
+		final Plan plan = planner.create(partitionTable, previous);
 		partitionTable.getBackstage().cleanAllocatedDanglings();
 		if (null!=plan) {
 			partitionTable.addPlan(plan);
@@ -265,7 +265,7 @@ public class Distributor implements Service {
         			ShardEntity.toStringIds(new TreeSet<>(trackByDuty.keySet())));
         	
         	delivery.checkState();
-        	if (eventBroker.postEvents(delivery.getShard().getBrokerChannel(), new ArrayList<>(trackByDuty.keySet()))) {
+        	if (eventBroker.sendList(delivery.getShard().getBrokerChannel(), new ArrayList<>(trackByDuty.keySet()))) {
         		// dont mark to wait for those already confirmed (from fallen shards)
                 for (ShardEntity duty: trackByDuty.keySet()) {
                 	// PEND only that track of current delivery
@@ -376,7 +376,7 @@ public class Distributor implements Service {
 				Shard location = partitionTable.getStage().getDutyLocation(updatedDuty);
 				logger.info("{}: Transporting (update) Duty: {} to Shard: {}", getName(), updatedDuty.toString(), 
 						location.getShardID());
-				if (eventBroker.postEvent(location.getBrokerChannel(), updatedDuty)) {
+				if (eventBroker.send(location.getBrokerChannel(), updatedDuty)) {
 					// not aware how we'll handle these 
 					//updatedDuty.addState(EventTrack.State.PENDING);
 				}

@@ -39,19 +39,8 @@ import io.tilt.minka.domain.ShardEntity;
  */
 public interface PartitionDelegate<D extends Serializable, P extends Serializable> {
 
+	public static final String METHOD_NOT_IMPLEMENTED = "{}: this PartitionDelegate has not implemented event: {}";
 	Logger logger = LoggerFactory.getLogger(PartitionDelegate.class);
-
-	/**
-	 * Is the service ready for sharding ?
-	 * Sometimes a Shard serer needs of external or non propietary events to start collaborating
-	 * 
-	 * @return  Leader and Follower will not command until this returns true
-	 */
-	default boolean isReady() {
-		logger.info("{}: this PartitionDelegate has not implemented the readyness question (default: true)",
-				getClass().getSimpleName());
-		return true;
-	}
 
 	/*
 	* Instruct the Follower shard to take management responsibilities on these duties
@@ -71,19 +60,19 @@ public interface PartitionDelegate<D extends Serializable, P extends Serializabl
 	 * Instruct the Follower shard to acknowledge an update ocurred on a duty's payload
 	 */
 	default void update(Duty<D> duties) {
-		logger.error("{}: this PartitionDelegate has not implemented the duty update event",getClass().getSimpleName());
+		logger.error(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "update");
 	}
 	default void update(Pallet<P> pallets) {
-		logger.error("{}: this PartitionDelegate has not implemented the duty update event",getClass().getSimpleName());
+		logger.error(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "update");
 	}
 	/*
 	 * Instruct te Follower shard to get a client payload event for a particular duty 
 	 */
 	default void transfer(Duty<D> duty, Serializable clientPayload) {
-		logger.error("{}: this PartitionDelegate has not implemented the payload reception event",getClass().getSimpleName());
+		logger.error(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "transfer");
 	}
 	default void transfer(Pallet<P> duty, Serializable clientPayload) {
-		logger.error("{}: this PartitionDelegate has not implemented the payload reception event",getClass().getSimpleName());
+		logger.error(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "transfer");
 	}
 
 	/*
@@ -115,7 +104,7 @@ public interface PartitionDelegate<D extends Serializable, P extends Serializabl
 	* Prepare for taking duties
 	*/
 	default void activate() {
-		logger.error("{}: this PartitionDelegate has not implemented the activation call", getClass().getSimpleName());
+		logger.warn(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "activation");
 	}
 
 	/**
@@ -131,8 +120,19 @@ public interface PartitionDelegate<D extends Serializable, P extends Serializabl
 	* Release any taken resources
 	*/
 	default void deactivate() {
-		logger.error("{}: this PartitionDelegate has not implemented the de-activation call",
-				getClass().getSimpleName());
+		logger.warn(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "deactivation");
 	}
+
+	/**
+	 * Is the service ready for sharding ?
+	 * Sometimes a Shard serer needs of external or non propietary events to start collaborating
+	 * 
+	 * @return  Leader and Follower will not command until this returns true
+	 */
+	default boolean isReady() {
+		logger.warn(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "readyness");
+		return true;
+	}
+
 
 }

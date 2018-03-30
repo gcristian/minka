@@ -36,18 +36,6 @@ import io.tilt.minka.domain.NetworkShardIdentifier;
  */
 public interface EventBroker extends Service {
 
-	BrokerChannel build(Config config, Channel channel);
-
-	default BrokerChannel build(String service, Channel channel) {
-		throw new RuntimeException("Unmandatory build was required");
-	}
-
-	BrokerChannel buildToTarget(Config config, Channel channel, NetworkShardIdentifier shardId);
-
-	default BrokerChannel buildToTarget(String service, Channel channel, NetworkShardIdentifier shardId) {
-		throw new RuntimeException("Unmandatory build was required");
-	}
-
 	/**
 	 * A shard-targeted channel 
 	 */
@@ -93,40 +81,53 @@ public interface EventBroker extends Service {
 			return this.type;
 		}
 	}
+	
+	BrokerChannel build(Config config, Channel channel);
+
+	default BrokerChannel build(String service, Channel channel) {
+		throw new RuntimeException("Unmandatory build was required");
+	}
+
+	BrokerChannel buildToTarget(
+			Config config, 
+			Channel channel, 
+			NetworkShardIdentifier shardId);
+
 
 	/* send an event object to an inbox name */
-	boolean postEvent(BrokerChannel channel, Serializable event);
+	boolean send(BrokerChannel channel, Serializable event);
 
 	/* send an event object list to an inbox name */
-	boolean postEvents(BrokerChannel channel, List<Serializable> event);
+	boolean sendList(BrokerChannel channel, List<Serializable> event);
 
 	/* idem overriding channel type */
-	boolean postEvent(BrokerChannel channel, ChannelHint hint, Serializable event);
+	boolean send(
+	        BrokerChannel channel, 
+	        ChannelHint hint, 
+	        Serializable event);
 
 	/* use a driver to handle events of a certain type */
-	boolean subscribe(BrokerChannel channel, Class<? extends Serializable> type, Consumer<Serializable> driver,
+	boolean subscribe(
+	        BrokerChannel channel, 
+	        Class<? extends Serializable> type, 
+	        Consumer<Serializable> driver,
 			long sinceTimestamp);
 
+	   @SuppressWarnings("unchecked")
+    void subscribeEvents(
+    		BrokerChannel channel, 
+    		Consumer<Serializable> driver, 
+    		long sinceNowLapse, 
+    		Class<? extends Serializable>...classes);
+
 	/* unregister the driver handling events of a certain type */
-	boolean unsubscribe(BrokerChannel channel, Class<? extends Serializable> eventType,
-			final Consumer<Serializable> driver);
+	boolean unsubscribe(
+			BrokerChannel channel, 
+			Class<? extends Serializable> eventType,
+			Consumer<Serializable> driver);
 
 	/* emergency callback to know when the communication has been broken */
 	void setBrokerShutdownCallback(final Runnable callback);
 
-	default List<Consumer<?>> getRegisteredDrivers() {
-		throw new UnsupportedOperationException();
-	}
-
-	default List<Class<?>> getRegisteredEvents() {
-		throw new UnsupportedOperationException();
-	}
-
-	@SuppressWarnings("unchecked")
-	void subscribeEvents(
-			BrokerChannel channel, 
-			final Consumer<Serializable> driver, 
-			long sinceNowLapse, 
-			Class<? extends Serializable>...classes);
 
 }

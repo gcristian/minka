@@ -129,7 +129,7 @@ public class Proctor implements Service {
 		try {
 			final List<Shard> shards = partitionTable.getStage().getShardsByState(null);
 			logger.info("{}: Blessing {} shards {}", getName(), shards.size(), shards);
-			shards.forEach(i -> eventBroker.postEvent(i.getBrokerChannel(), EVENT_SET, Clearance.create(shardId)));
+			shards.forEach(i -> eventBroker.send(i.getBrokerChannel(), EVENT_SET, Clearance.create(shardId)));
 		} catch (Exception e) {
 			logger.error("{}: Unexpected while blessing", getName(), e);
 		} finally {
@@ -142,7 +142,7 @@ public class Proctor implements Service {
 			if (!shard.getState().equals(ShardState.GONE)) {
 				final DomainInfo dom = new DomainInfo();
 				dom.setDomainPallets(partitionTable.getStage().getPallets());
-				eventBroker.postEvent(shard.getBrokerChannel(), EVENT_SET, dom);
+				eventBroker.send(shard.getBrokerChannel(), EVENT_SET, dom);
 			}
 		}
 	}

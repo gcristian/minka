@@ -64,7 +64,7 @@ public interface Balancer {
 	 * 
 	 * @param stage			map repr. the partition table's duties assigned to shards
 	 * 						all shards included, with or without attached duties.
-	 * @param backstage   	map repr. set of new duties that must be distibuted and doesnt exist in table object
+	 * @param backstage   	map repr. set of CRUD duties that must be distibuted and doesnt exist in table object
 	 * 						including also recycled duties like danglings and missings which are not new
 	 * 						and a set of deletions that will cease to exist in the table (already marked)
 	 * @param migrator		a facility to request modifications for duty assignation for the next distribution		

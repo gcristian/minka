@@ -64,8 +64,8 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	private final LeaderShardContainer leaderShardContainer;
 	
 	private DomainInfo domain; 
-	private long lastIncludedDutiesTimestamp;
-	private long includeDutiesFrequency = 10 * 1000l;
+	private long includeTimestamp;
+	private long includeFrequency = 10 * 1000l;
 	private ShardIdentifier lastLeader;
 	
 	public HeartbeatFactoryImpl(
@@ -88,12 +88,11 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		final Heartbeat.Builder builder = Heartbeat.builder(sequence.getAndIncrement(), partition.getId());
 		final Set<Duty<?>> reportedDuties = askCurrentCapture();
 		// add reported: as confirmed if previously assigned, dangling otherwise.
-		final List<ShardEntity> entities = new ArrayList<>(reportedDuties.size() + partition.getDuties().size()); 
-		boolean issues = analyzeDifferenceAndReportCapture(builder, reportedDuties, entities);
-		issues |= addIfAbsents(reportedDuties, entities);
+		final List<ShardEntity> tmp = new ArrayList<>(reportedDuties.size() + partition.getDuties().size()); 
+		boolean issues = analyzeAndDetect(builder, reportedDuties, tmp);
+		issues |= detectAbsents(reportedDuties, tmp);
 		
-		final boolean exclusionExpired = lastIncludedDutiesTimestamp == 0 
-				|| now - lastIncludedDutiesTimestamp > includeDutiesFrequency;
+		final boolean exclusionExpired = includeTimestamp == 0 || (now - includeTimestamp) > includeFrequency;
 				
 		boolean newLeader = false; 
 		final NetworkShardIdentifier leader = leaderShardContainer.getLeaderShardId();
@@ -103,24 +102,26 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		}
 		
 		if (issues || exclusionExpired || partition.wasRecentlyUpdated() || newLeader) {	
-			entities.forEach(d->builder.addReportedCapturedDuty(d));
+			tmp.forEach(d->builder.addReportedCapturedDuty(d));
 			builder.reportsDuties();
-			lastIncludedDutiesTimestamp = now;
+			includeTimestamp = now;
 		}
 		addReportedCapacities(builder);
 		final Heartbeat hb = builder.build();
 		if (log.isDebugEnabled()) {
 			logDebugNicely(hb);
 		} else {
-			log.debug("{}: ({}) {} SeqID: {}, Duties: {}", getClass().getSimpleName(), hb.getShardId(),
-					LogUtils.HB_CHAR, hb.getSequenceId(), hb.reportsDuties() ? 
-							hb.getReportedCapturedDuties().size() : "single");
+			log.info("{}: ({}) {} SeqID: {}, Duties: ({})", 
+				getClass().getSimpleName(), hb.getShardId(),LogUtils.HB_CHAR, hb.getSequenceId(), 
+				hb.reportsDuties() ? new StringBuilder("Duties: (")
+					.append(ShardEntity.toStringIds(hb.getReportedCapturedDuties()))
+					.append(")").toString() : "");
 		}
 		return hb;
 	}
-
+	
 	/* analyze reported duties and return if there're issues */
-	private boolean analyzeDifferenceAndReportCapture(
+	private boolean analyzeAndDetect(
 	        final Heartbeat.Builder builder,
 			final Set<Duty<?>> reportedDuties, 
 			final List<ShardEntity> temp) {
@@ -137,19 +138,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 					builder.withWarning();
 					includeDuties = true;
 				} else {
-					// consider only the last action logged to this shard
-					final Log found = shardedDuty.getJournal().find(partition.getId()); 
-					final EntityState stamp = EntityState.CONFIRMED;
-					if (found.getLastState()!=stamp) {
-						log.info("{}: ({}) Changing {} to {} duty: {}", getClass().getSimpleName(), partition.getId(),
-								found.getLastState(), stamp, duty.getId());
-						shardedDuty.getJournal().addEvent(
-								found.getEvent(), 
-								stamp,
-								partition.getId(), 
-								found.getPlanId());
-						includeDuties = true;
-					}
+					includeDuties |= detectReception(duty, shardedDuty);
 				}
 			} else {
 				includeDuties = true;
@@ -165,6 +154,30 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			temp.add(shardedDuty);
 		}
 		return includeDuties;
+	}
+	
+	private boolean detectReception(final Duty<?> duty, final ShardEntity shardedDuty) {
+		// consider only the last action logged to this shard
+		final Log found = shardedDuty.getJournal().find(partition.getId()); 
+		final EntityState stamp = EntityState.CONFIRMED;
+		if (found.getLastState()!=stamp) {
+			log.info("{}: ({}) Changing {} to {} duty: {}", getClass().getSimpleName(), partition.getId(),
+					found.getLastState(), stamp, duty.getId());
+			shardedDuty.getJournal().addEvent(
+					found.getEvent(), 
+					stamp,
+					partition.getId(), 
+					found.getPlanId());
+			return true;
+		}
+		return false;
+	}
+	
+	public enum Issue {
+		DIFFERENCES,
+		DANGLING,
+		CLEARANCE_EXPIRED,
+		REBEL_SHARD,
 	}
 
 	@SuppressWarnings("unchecked")
@@ -197,7 +210,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	}
 
 	/* if there were absent o not */
-	private boolean addIfAbsents(final Set<Duty<?>> reportedDuties, final List<ShardEntity> duties) {
+	private boolean detectAbsents(final Set<Duty<?>> reportedDuties, final List<ShardEntity> tmp) {
 		boolean ret = false;
 		// add non-reported: as dangling
 		for (final ShardEntity existing : partition.getDuties()) {
@@ -208,7 +221,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			        Plan.PLAN_UNKNOWN);
 				log.error("{}: ({}) Reporting a Dangling Duty (by Erasure): {}", getClass().getSimpleName(),
 						partition.getId(), existing);
-				duties.add(existing);
+				tmp.add(existing);
 			}
 		}
 		return ret;
@@ -232,8 +245,14 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		}
 
 		log.debug("{}: ({}) {} SeqID: {}, Duties: {}, Weight: {} = [ {}] {}", getClass().getSimpleName(),
-				hb.getShardId(), LogUtils.HB_CHAR, hb.getSequenceId(), hb.getReportedCapturedDuties().size(), totalWeight,
-				sb.toString(), hb.getReportedCapturedDuties().isEmpty() ? "" : "WITH CHANGE");
+				hb.getShardId(), 
+				LogUtils.HB_CHAR, 
+				hb.getSequenceId(), 
+				hb.getReportedCapturedDuties().size(), 
+				totalWeight,
+				sb.toString(), 
+				hb.getReportedCapturedDuties().isEmpty() ? "" : "reportDuties"
+				);
 	}
 
 	@Override
