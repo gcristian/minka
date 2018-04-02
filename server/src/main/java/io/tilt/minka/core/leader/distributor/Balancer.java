@@ -235,7 +235,7 @@ public interface Balancer {
 		 * Useful when the master list of duties has lot of changes in time, and low migration is required.
 		 * Use this in case your Duties represent Tasks of a short lifecycle.
 		 */
-		DATE(new ShardEntity.HashComparer()),
+		DATE(new ShardEntity.DateComparer()),
 		/**
 		 * Use Workload order.
 		 * Use this to maximize the clustering algorithm's effectiveness.

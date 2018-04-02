@@ -122,6 +122,7 @@ public class DutyBuilder<T extends Serializable> {
 		private final boolean synthetic;
 		private final boolean lazy;
 		private final boolean idempotent;
+		private final Instant timestamp;
 
 		@SuppressWarnings("unchecked")
 		protected Task(
@@ -140,6 +141,7 @@ public class DutyBuilder<T extends Serializable> {
 			this.synthetic = synthetic;
 			this.lazy = lazy;
 			this.idempotent = idempotent;
+			this.timestamp = Instant.now();
 			validateBuiltParams(this);
 		}
 
@@ -188,6 +190,10 @@ public class DutyBuilder<T extends Serializable> {
 			return payload;
 		}
 
+		public Instant getTimestamp() {
+			return timestamp;
+		}
+		
 		@Override
 		public double getWeight() {
 			return load;
