@@ -206,7 +206,7 @@ public class Proctor implements Service {
 		String msg = "";
 
 		final int minHealthlyToGoOnline = config.getProctor().getMinHealthlyHeartbeatsForShardOnline();
-		final int minToBeGone = config.getProctor().getMaxAbsentHeartbeatsBeforeShardGone();
+		final int minToBeGone = config.getProctor().getMinAbsentHeartbeatsBeforeShardGone();
 		final int maxSickToGoQuarantine = config.getProctor().getMaxSickHeartbeatsBeforeShardQuarantine();
 
 		if (shard.getHeartbeats().size() < minToBeGone) {
@@ -246,8 +246,9 @@ public class Proctor implements Service {
 				} else if (pastLapseSize > 0 && currentState == ShardState.ONLINE) {
 					msg = "sick lapse > 0 (" + pastLapseSize + ")";
 					newState = ShardState.QUARANTINE;
-				} else if (pastLapseSize == 0 && currentState == ShardState.QUARANTINE) {
-					msg = "sick lapse = 0 ";
+				} else if (pastLapseSize == 0 
+						&& (currentState == ShardState.QUARANTINE || currentState == ShardState.ONLINE)) {
+					msg = "sick lapse (0) became ancient";
 					newState = ShardState.GONE;
 				} else {
 					msg = "past lapse is " + pastLapseSize;

@@ -133,7 +133,7 @@ public class Follower implements Service {
 		long delta = 0;
 		//int maxAbsence = config.getFollower().getClearanceMaxAbsenceMs();
 		final long hbdelay = config.beatToMs(config.getFollower().getHeartbeatDelayBeats());
-		final int maxAbsenceMs = (int)hbdelay * config.getProctor().getMaxAbsentHeartbeatsBeforeShardGone();
+		final int maxAbsenceMs = (int)hbdelay * config.getProctor().getMinAbsentHeartbeatsBeforeShardGone();
 		final int minToJoinMs = (int)hbdelay * (int)config.beatToMs(config.getProctor().getMaxShardJoiningStateBeats());
 		
 		final DateTime now = new DateTime(DateTimeZone.UTC);

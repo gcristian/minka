@@ -528,15 +528,15 @@ public class Config {
 		*/
 		protected final static long START_DELAY_BEATS = 1;
 		private long startDelayBeats;
-		protected final static long DELAY_BEATS = 1; // i jhad it on 2000
+		protected final static long DELAY_BEATS = 3; // i jhad it on 2000
 		private long delayBeats;
 		protected static final int MAX_SHARD_JOINING_STATE_BEATS = 15;
 		private int maxShardJoiningStateBeats;
 		
 		protected static final int MIN_HEALTHLY_HEARTBEATS_FOR_SHARD_ONLINE = 2;
 		private int minHealthlyHeartbeatsForShardOnline;
-		protected static final int MAX_ABSENT_HEARTBEATS_BEFORE_SHARD_GONE =5;
-		private int maxAbsentHeartbeatsBeforeShardGone;
+		protected static final int MIN_ABSENT_HEARTBEATS_BEFORE_SHARD_GONE = 2;
+		private int minAbsentHeartbeatsBeforeShardGone;
 		protected static final double MAX_HEARTBEAT_RECEPTION_DELAY_FACTOR_FOR_SICK = 3d;
 		private double maxHeartbeatReceptionDelayFactorForSick;
 		protected static final int MAX_SICK_HEARTBEATS_BEFORE_SHARD_QUARANTINE = 5;
@@ -586,11 +586,11 @@ public class Config {
 		public void setMinHealthlyHeartbeatsForShardOnline(int minHealthlyHeartbeatsForShardOnline) {
 			this.minHealthlyHeartbeatsForShardOnline = minHealthlyHeartbeatsForShardOnline;
 		}
-		public int getMaxAbsentHeartbeatsBeforeShardGone() {
-			return this.maxAbsentHeartbeatsBeforeShardGone;
+		public int getMinAbsentHeartbeatsBeforeShardGone() {
+			return this.minAbsentHeartbeatsBeforeShardGone;
 		}
-		public void setMaxAbsentHeartbeatsBeforeShardGone(int maxAbsentHeartbeatsBeforeShardGone) {
-			this.maxAbsentHeartbeatsBeforeShardGone = maxAbsentHeartbeatsBeforeShardGone;
+		public void setMinAbsentHeartbeatsBeforeShardGone(int minAbsentHeartbeatsBeforeShardGone) {
+			this.minAbsentHeartbeatsBeforeShardGone = minAbsentHeartbeatsBeforeShardGone;
 		}
 		public double getMaxHeartbeatReceptionDelayFactorForSick() {
 			return this.maxHeartbeatReceptionDelayFactorForSick;

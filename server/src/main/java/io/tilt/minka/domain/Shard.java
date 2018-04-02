@@ -47,8 +47,7 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 @JsonAutoDetect
 public class Shard implements Comparator<Shard>, Comparable<Shard> {
 
-	private static final int MAX_HEARBEATS_TO_EVALUATE = 50;
-	private static final int MAX_HEARBEATS_CHANGES_TO_KEEP = 10;
+	private static final int MAX_HEARBEATS_TO_EVALUATE = 20;
 
 	private final BrokerChannel brokerChannel;
 	private final NetworkShardIdentifier shardId;
