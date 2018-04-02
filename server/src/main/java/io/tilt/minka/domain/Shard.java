@@ -57,7 +57,6 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	
 	private DateTime lastStatusChange;
 	private final SlidingSortedSet<Heartbeat> cardiacLapse;
-	private final SlidingSortedSet<Heartbeat> changesToKeep;
 	private ShardState serviceState;
 	private Map<Pallet<?>, Capacity> capacities;
 	
@@ -69,7 +68,6 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		this.shardId = memberId;
 		this.serviceState = ShardState.JOINING;
 		this.cardiacLapse = CollectionUtils.sliding(MAX_HEARBEATS_TO_EVALUATE);
-		this.changesToKeep = CollectionUtils.sliding(MAX_HEARBEATS_CHANGES_TO_KEEP);
 		this.firstTimeSeen = new DateTime(DateTimeZone.UTC);
 		this.lastStatusChange = new DateTime(DateTimeZone.UTC);
 		this.capacities = new HashMap<>();
@@ -115,25 +113,17 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 			this.serviceState = hb.getStateChange();
 		}
 		this.cardiacLapse.add(hb);
-		if (hb.hasDifferences() || hb.hasWarning()) {
-		    this.changesToKeep.add(hb);
-		}
 	}
-
+	
 	@JsonIgnore
-	public List<Heartbeat> getHeartbeats() {
-		return this.cardiacLapse.values();
+	public SlidingSortedSet<Heartbeat> getHeartbeats() {
+		return this.cardiacLapse;
 	}
 	
 	@JsonProperty(index=3, value="heartbeat-last")
 	private Heartbeat getLast() {
 	    return this.cardiacLapse.first();
 	}
-	
-	@JsonProperty(index=4, value="heartbeat-changes")
-	private SlidingSortedSet<Heartbeat> getChangesToKeep() {
-        return this.changesToKeep;
-    }
 
 	public ShardState getState() {
 		return this.serviceState;

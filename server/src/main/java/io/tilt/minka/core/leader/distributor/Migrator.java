@@ -76,7 +76,7 @@ public class Migrator {
 		super();
 		this.table = requireNonNull(table);
 		this.pallet = requireNonNull(pallet);
-		this.sourceRefs = new HashMap<>();
+		this.sourceRefs = new HashMap<>(duties.size());
 		duties.forEach(d-> sourceRefs.put(d.getDuty(), d));
 	}
 
@@ -287,9 +287,12 @@ public class Migrator {
 			if (overrides!=null) {
 				for (Override ov: overrides) {
 					if (ov.getRemainingCap()>=duty.getDuty().getWeight()) {
-						log.warn("{}: Override on: {} has a remaining cap: {} (out of :{}), enough to lodge "
-								+ "duty: {}", getClass().getSimpleName(), ov.getShard(), ov.getRemainingCap(), 
-								ov.getShard().getCapacities().get(pallet).getTotal(), duty.toBrief());
+						log.warn("{}: Override on: {} has a remaining cap: {} (out of :{}), enough to lodge duty: {}", 
+								getClass().getSimpleName(), 
+								ov.getShard(), 
+								ov.getRemainingCap(), 
+								ov.getShard().getCapacities().get(pallet).getTotal(), 
+								duty.toBrief());
 						return true;
 					}
 				}

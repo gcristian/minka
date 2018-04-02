@@ -29,6 +29,7 @@ import java.util.function.BiConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.api.ConsistencyException;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Delivery;
@@ -45,7 +46,6 @@ import io.tilt.minka.domain.EntityState;
 /**
  * Maintainer and only writer of {@linkplain PartitionTable} 
  * Accounts coming heartbeats, detects anomalies
- * Only write-access to 
  * 
  * @author Cristian Gonzalez
  * @since Jan 4, 2016
@@ -103,7 +103,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-    private void noticeDanglings(final Heartbeat beat, final Shard sourceShard) {
+	private void noticeDanglings(final Heartbeat beat, final Shard sourceShard) {
         // believe only when online: to avoid Dirty efects after follower's hangs/stucks
         // so it clears itself before trusting their HBs
         for (final ShardEntity duty : beat.getReportedCapturedDuties()) {
@@ -124,10 +124,10 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 			if (beat.reportsDuties()) {
 				lattestPlanId = latestPlan(beat);
 				if (lattestPlanId==plan.getId()) {
-					changed|=findAttachments(source, beat.getReportedCapturedDuties(), delivery);
+					changed|=detectAttachments(source, beat.getReportedCapturedDuties(), delivery);
 				}
 			}
-    		changed|=findDettachments(source, beat.getReportedCapturedDuties(), delivery);
+    		changed|=detectDettachments(source, beat.getReportedCapturedDuties(), delivery);
     		if (changed) {
     		    delivery.checkState();
     		} else if (lattestPlanId==plan.getId()) {
@@ -162,7 +162,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 	}
 	
 	 /*this checks partition table looking for missing duties (not declared dangling, that's diff) */
-	private void declareHeartbeatAbsencesAsMissing(final Shard shard, final List<ShardEntity> hbDuties) {
+	private void detectMissings(final Shard shard, final List<ShardEntity> hbDuties) {
 		Set<ShardEntity> sortedLog = null;
 		for (final ShardEntity duty : partitionTable.getStage().getDutiesByShard(shard)) {
 			boolean found = false;
@@ -190,7 +190,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 	 * find the up-coming
 	 * @return if there were changes 
 	 */
-	private boolean findAttachments(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
+	private boolean detectAttachments(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
 		Set<ShardEntity> sortedLogConfirmed = null;
 		Set<ShardEntity> sortedLogDirty = null;
 		boolean ret = false;
@@ -263,7 +263,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 	
 	/** treat un-coming as detaches
 	/** @return whether or not there was an absence confirmed */
-	private boolean findDettachments(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
+	private boolean detectDettachments(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
 	    boolean ret = false;
 		Set<ShardEntity> sortedLog = null;
         final long pid = partitionTable.getCurrentPlan().getId();
@@ -341,7 +341,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		final Set<ShardEntity> fallenDuties = partitionTable.getStage().getDutiesByShard(shard);
 		dangling.addAll(fallenDuties);
 
-		logger.info("{}: Saved from fallen Shard: {}, {} Duties: {}", getClass().getSimpleName(), shard,
+		logger.info("{}: Saved from fallen Shard: {}, #{} duties: {}", getClass().getSimpleName(), shard,
 				dangling.size(), ShardEntity.toStringIds(dangling));
 
 		logger.info("{}: Removing Shard: {} from partition table", getClass().getSimpleName(), shard);
@@ -425,7 +425,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 				throw new RuntimeException("Bad call");
 			}
 			if ((!found && event == CREATE) || (found && event == EntityEvent.REMOVE)) {
-				logger.info("{}: Registering Crud {}: {}", getClass().getSimpleName(), typeDuty ? "Duty": "Pallet", entity);
+				logger.info("{}: Registering Crud {}: {}", getClass().getSimpleName(), entity.getType(), entity);
 				if (typeDuty) {
 					if (event == CREATE) {
 						final ShardEntity pallet = partitionTable.getStage().getPalletById(entity.getDuty().getPalletId());

@@ -80,7 +80,7 @@ public class EntityJournal implements Serializable {
         if (shardid==null) {
         	shid = NOT_APPLIABLE;
         } else { 
-        	shid = shardid.getStringIdentity();
+        	shid = shardid.getId();
         }
         
         // look up the right log 
@@ -137,7 +137,7 @@ public class EntityJournal implements Serializable {
 	 * plan version, target shard and specific events, or any if null
 	 **/
 	public Log find(final long planid, final ShardIdentifier shardid, final EntityEvent...events) {
-		return find_(planid, shardid.getStringIdentity(), events);
+		return find_(planid, shardid.getId(), events);
 	}
 	
 	/** 
@@ -145,7 +145,7 @@ public class EntityJournal implements Serializable {
 	 * a Log that matches a target shard 
 	 **/
 	public Log find(final ShardIdentifier shardid) {
-		return find_(0, shardid.getStringIdentity(), null);
+		return find_(0, shardid.getId(), null);
 	}
 	
 	private Log find_(final long planid, final String shardid, final EntityEvent...events) {

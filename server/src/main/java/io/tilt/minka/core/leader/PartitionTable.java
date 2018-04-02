@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AtomicDouble;
 
+import io.tilt.minka.api.ConsistencyException;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Plan;
@@ -186,14 +187,14 @@ public class PartitionTable {
 				if (getPartition(where).add(duty)) {
 					logger.info("{}: Written {} with: {} on shard {}", getClass().getSimpleName(), event, duty, where);
 				} else {
-					throw new IllegalStateException("Attach failure. Confirmed attach/creation already exists");
+					throw new ConsistencyException("Attach failure. Confirmed attach/creation already exists");
 				}
 				return true;
 			} else if (event.is(EntityEvent.DETACH) || event.is(EntityEvent.REMOVE)) {
 				if (getPartition(where).remove(duty)) {
 					logger.info("{}: Written {} with: {} on shard {}", getClass().getSimpleName(), event.toVerb(), duty, where);
 				} else {
-					throw new IllegalStateException("Absence failure. Confirmed deletion actually doesnt exist or it " + 
+					throw new ConsistencyException("Absence failure. Confirmed deletion actually doesnt exist or it " + 
 							"was already confirmed");
 				}
 				return true;
@@ -320,8 +321,8 @@ public class PartitionTable {
 		public Set<ShardEntity> getDutiesDangling() {
 	        return Collections.unmodifiableSet(this.dutyDangling);
 		}
-		public void addDangling(final Set<ShardEntity> dangling) {
-		    this.dutyDangling.addAll(dangling);
+		public boolean addDangling(final Set<ShardEntity> dangling) {
+		    return this.dutyDangling.addAll(dangling);
 		}
 		public void cleanAllocatedDanglings() {
 	        dutyDangling.removeAll(
@@ -335,9 +336,9 @@ public class PartitionTable {
 		}
 
 		/* add it for the next Distribution cycle consideration */
-		public void addCrudDuty(final ShardEntity duty) {
+		public boolean addCrudDuty(final ShardEntity duty) {
 			dutyCrud.remove(duty);
-			dutyCrud.add(duty);
+			return dutyCrud.add(duty);
 		}
 		public Set<ShardEntity> getDutiesCrud() {
 			return Collections.unmodifiableSet(this.dutyCrud);
@@ -453,7 +454,8 @@ public class PartitionTable {
 	}
 
 	public ClusterHealth getHealth() {
-		return this.workingHealth == visibilityHealth && workingHealth == STABLE ? STABLE : UNSTABLE;
+		return this.workingHealth == visibilityHealth 
+				&& workingHealth == STABLE ? STABLE : UNSTABLE;
 	}
 
 	public ClusterHealth getWorkingHealth() {

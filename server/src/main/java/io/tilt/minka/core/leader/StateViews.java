@@ -184,7 +184,7 @@ public class StateViews {
 				
 			}
 			ret.add(shardView(
-			        shard.getShardID().getStringIdentity(), 
+			        shard.getShardID().getId(), 
 			        shard.getFirstTimeSeen(), 
 					palletsAtShard, 
 					shard.getState().toString()));

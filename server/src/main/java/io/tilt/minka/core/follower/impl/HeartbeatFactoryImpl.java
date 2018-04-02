@@ -111,7 +111,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		if (log.isDebugEnabled()) {
 			logDebugNicely(hb);
 		} else {
-			log.info("{}: ({}) {} SeqID: {}, Duties: ({})", 
+			log.info("{}: ({}) {} SeqID: {}, {}", 
 				getClass().getSimpleName(), hb.getShardId(),LogUtils.HB_CHAR, hb.getSequenceId(), 
 				hb.reportsDuties() ? new StringBuilder("Duties: (")
 					.append(ShardEntity.toStringIds(hb.getReportedCapturedDuties()))

@@ -20,13 +20,19 @@ import org.junit.Test;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
+import io.tilt.minka.broker.EventBroker.Channel;
+import io.tilt.minka.broker.impl.SocketBroker;
 import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.impl.SchedulerImpl;
+import io.tilt.minka.core.task.impl.SpectatorSupplier;
+import io.tilt.minka.core.task.impl.SynchronizedAgentFactoryImpl;
+import io.tilt.minka.core.task.impl.SynchronizedFactoryImpl;
 import io.tilt.minka.core.task.impl.TransportlessLeaderShardContainer;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.TCPShardIdentifier;
 import junit.framework.Assert;
 
-public abstract class AbstractBrokerTester {
+public class BrokerTester {
 
 	private static final int MIN_BROKERS = 50;
 	private static final int MIN_PORT_VALUE = 8000;
@@ -137,7 +143,10 @@ public abstract class AbstractBrokerTester {
 		}
 	}
 
-	private void test(final EventBroker sourceBroker, final NetworkShardIdentifier targetShard, final Config config,
+	private void test(
+			final EventBroker sourceBroker, 
+			final NetworkShardIdentifier targetShard, 
+			final Config config,
 			final int integer) throws InterruptedException {
 
 		latch = new CountDownLatch(1);
@@ -150,8 +159,29 @@ public abstract class AbstractBrokerTester {
 		Assert.assertEquals(msgAtOrigin.intValue(), msgAtDestiny.get());
 	}
 
-	protected abstract EventBroker buildBroker(final Consumer<Serializable> driver,
-			final LeaderShardContainer container, final Config config, final NetworkShardIdentifier shard);
+	protected EventBroker buildBroker(
+			final Consumer<Serializable> driver,
+			final LeaderShardContainer container, 
+			final Config config, 
+			final NetworkShardIdentifier shard) {
+
+		final EventBroker broker = new SocketBroker(
+				config, 
+				shard, 
+				container,
+				new SchedulerImpl(
+						config, 
+						new SpectatorSupplier(config), 
+						shard, 
+						new SynchronizedAgentFactoryImpl(),
+						new SynchronizedFactoryImpl()));
+		broker.subscribe(
+				broker.buildToTarget(config, Channel.INSTRUCTIONS, shard), 
+				AtomicInteger.class,
+				driver, 
+				System.currentTimeMillis());
+		return broker;
+	}
 
 	protected Consumer<Serializable> buildConsumer(final AtomicInteger msgAtDestiny) {
 
@@ -159,7 +189,7 @@ public abstract class AbstractBrokerTester {
 			@Override
 			public void accept(Serializable t) {
 				msgAtDestiny.addAndGet(((AtomicInteger) t).get());
-				AbstractBrokerTester.this.latch.countDown();
+				BrokerTester.this.latch.countDown();
 			}
 		};
 	}

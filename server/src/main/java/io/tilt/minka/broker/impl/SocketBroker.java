@@ -240,7 +240,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 
 		@Override
 		public String getFullName() {
-			return this.target.getStringIdentity();
+			return this.target.getId();
 		}
 
 		@Override

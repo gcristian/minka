@@ -76,7 +76,7 @@ public class TransportlessLeaderShardContainer implements LeaderShardContainer {
 				boolean firstLeader = lastLeaderShardId == null;
 				if (!firstLeader && lastLeaderShardId.equals(newLeader)) {
 						logger.info("{}: ({}) same Leader {} reelected, skipping observer notification",
-								getClass().getSimpleName(), myShardId, this.leaderShardId.getStringIdentity());
+								getClass().getSimpleName(), myShardId, this.leaderShardId.getId());
 						previousLeaders.add(leaderShardId);
 				} else {
 						logger.info("{}: ({}) Updating new Leader elected: {}", getClass().getSimpleName(), myShardId,

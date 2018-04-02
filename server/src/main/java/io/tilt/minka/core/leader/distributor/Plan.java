@@ -134,7 +134,7 @@ public class Plan implements Comparable<Plan> {
     public void obsolete() {
     	this.result = Result.CLOSED_OBSOLETE;
     	logger.warn("{}: Plan going {}", getClass().getSimpleName(), result);
-    	this.ended = new Date();
+    	this.ended = Instant.now();
     }
 
     public Result getResult() {
@@ -181,7 +181,7 @@ public class Plan implements Comparable<Plan> {
 	 * transforms shippings of transfers and overrides, into a consistent gradual change plan
 	 * @return whether or not there're deliveries to distribute. */
 	public boolean prepare() {
-		this.started= new Date();
+		this.started= Instant.now();
 		int order = 0;
 		for (final EntityEvent event: consistentEventsOrder) {
 			if (shippings.containsKey(event)) {
@@ -253,7 +253,7 @@ public class Plan implements Comparable<Plan> {
                     }
                     if (!pair) {
                     	this.result = Result.CLOSED_ERROR;
-                    	this.ended = new Date();
+                    	this.ended = Instant.now();
                         throw new IllegalStateException("Invalid Plan with an operation unpaired: " + entity.toBrief());
                     }
                 }
@@ -385,8 +385,8 @@ public class Plan implements Comparable<Plan> {
 		return shippings.isEmpty();
 	}
 		
-	public Date getStarted() {
-		return this.started;
+	public LocalDateTime getStarted() {
+		return LocalDateTime.ofInstant(started, ZoneId.systemDefault());
 	}
 
 	public long getId() {
@@ -402,8 +402,8 @@ public class Plan implements Comparable<Plan> {
 	
 	@JsonProperty("elapsed-ms")
 	private String getElapsed() {
-		return LogUtils.humanTimeDiff(started.getTime(), 
-				ended == null ? System.currentTimeMillis() : ended.getTime());
+		return LogUtils.humanTimeDiff(started.toEpochMilli(), 
+				ended == null ? System.currentTimeMillis() : ended.toEpochMilli());
 	}
 
 	@JsonProperty("deliveries")
@@ -431,7 +431,7 @@ public class Plan implements Comparable<Plan> {
 	}
 	
 	@JsonIgnore
-	public Date getCreation() {
+	public Instant getCreation() {
 		return this.created;
 	}
 

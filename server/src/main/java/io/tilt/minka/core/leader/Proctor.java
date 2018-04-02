@@ -193,30 +193,6 @@ public class Proctor implements Service {
 		}
 	}
 	
-	private ShardState evaluateStateThruHeartbeats2(final Shard shard) {
-		ShardState ret = null;
-		
-		final List<Heartbeat> allbeats = shard.getHeartbeats();
-		
-		if (shard.getState()==null) {
-			ret = ShardState.JOINING;
-		} else {
-			switch (shard.getState()) {
-				case JOINING:
-					// -> to any state
-					break;
-				case ONLINE:
-					// -> to: quitted, quarantine, gone, 
-					break;
-				case QUARANTINE:
-					// -> to: online, quitted
-					break;
-			}
-		}
-		
-		return ret;
-	}
-
 	private ShardState evaluateStateThruHeartbeats(final Shard shard) {
 		final long now = System.currentTimeMillis();
 		final long normalDelay = config.beatToMs(config.getFollower().getHeartbeatDelayBeats());
@@ -254,7 +230,7 @@ public class Proctor implements Service {
 				} else {
 					msg = "healthly lapse < min. healthly for online";
 					newState = ShardState.QUARANTINE;
-					// TODO cuantas veces soporto que flapee o que este Quarantine antes de matarlo x forro ?
+					// how many times should we support flapping before killing it
 				}
 			} else {
 				if (pastLapseSize > maxSickToGoQuarantine) {

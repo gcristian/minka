@@ -146,12 +146,14 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		this.differences = differences;
 	}
 
-	@JsonProperty(index=9, value="reports-duties")	
+	@JsonProperty(index=9, value="reports-duties")
+	/** @return if reported duties content is able to be analyzed */
 	public boolean reportsDuties(){
 		return this.reportsDuties;
 	}
 	
 	@JsonProperty(index=2, value="has-differences")
+	/** @return is there were differences of integrity between reported and earliest duty version */
 	public boolean hasDifferences() {
 		return this.differences!=null;
 	}
@@ -292,7 +294,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 
 	@Override
 	public String getId() {
-		return this.shardId.getStringIdentity();
+		return this.shardId.getId();
 	}
 	
 	@JsonIgnore

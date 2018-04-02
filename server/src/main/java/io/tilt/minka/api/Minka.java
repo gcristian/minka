@@ -218,7 +218,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 		if (webHostPortUntouched) {
 			int brokerPort = Integer.parseInt(brokerHostPort[1]);
 			webPort = brokerPort == Config.BrokerConf.PORT ? webPort: brokerPort + 100;
-			final String host = config.getResolvedShardId().getStringIdentity().split(":")[0];
+			final String host = config.getResolvedShardId().getId().split(":")[0];
 			builder.host(host).port(webPort);
 			webhostport = host + ":" + webPort;
 		} else {

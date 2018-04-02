@@ -105,7 +105,7 @@ public class Delivery {
 		final Map<ShardEntity, Log> ret = new HashMap<>(duties.size());
 	    for (ShardEntity duty: duties) {
 	    	for (Log log: duty.getJournal().getLogs()) {
-	    		if (log.matches(getEvent(), shard.getShardID().getStringIdentity(), getPlanId())
+	    		if (log.matches(getEvent(), shard.getShardID().getId(), getPlanId())
 	    				&& (state == null || log.getLastState()==state)) {
 	    			ret.put(duty, log);
 	    			break;
@@ -138,8 +138,9 @@ public class Delivery {
 					} else {
 					    // TODO get Partition TAble and check if Shard has long fell offline
 						if (found.getLastState()==EntityState.PENDING) {
-							Plan.logger.info("{}: waiting Shard: {} for at least Duty: {} for: {} still in: {}", 
-                                getClass().getSimpleName(), shard, duty, found.getEvent(), found.getLastState());
+							Plan.logger.info("{}: waiting Shard: {} for {} still in {}, at least Duty: {}", 
+                                getClass().getSimpleName(), shard, duty.getEntity().getId(), 
+                                found.getEvent(), found.getLastState());
 							return;
 						}
 					}

@@ -230,15 +230,14 @@ class PlanFactory {
 		}
 		
 		logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "Building Pallet: %s for %s", pallet.getId(), balancer.getClass().getSimpleName()));
-		final StringBuilder sb = new StringBuilder();
 		double clusterCapacity = 0;
 		for (final Shard node: onlineShards) {
 			final Capacity cap = node.getCapacities().get(pallet);
 			final double currTotal = cap == null ? 0 :  cap.getTotal();
-			sb.append(node.toString()).append(": ").append(currTotal).append(", ");
+			logger.info("{}: Capacity Shard {} : {}", getClass().getSimpleName(), node.toString(), currTotal);
 			clusterCapacity += currTotal;
 		}
-		logger.info("{}: Cluster capacity: {}, Shard Capacities { {} }", getClass().getSimpleName(), clusterCapacity, sb.toString());
+		logger.info("{}: Total cluster capacity: {}", getClass().getSimpleName(), clusterCapacity);
 		logger.info("{}: counting #{};+{};-{} duties: {}", getClass().getSimpleName(),
 			new PartitionTable.Stage.StageExtractor(table.getStage())
 				.getAccountConfirmed(pallet), 

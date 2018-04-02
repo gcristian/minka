@@ -50,8 +50,6 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	@JsonIgnore
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	private static final int MAX_SHARDID_NAME = 13;
-
 	private static final long serialVersionUID = 3233785408081305735L;
 	private static final Random random = new Random();
 
@@ -71,9 +69,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	@JsonProperty(index=4, value="web-host-port")
     private String webhostport;   
 
-	//	private Journal journal;
 
-	//public NetworkShardIDImpl(final Config config, final Journal journal) throws IOException {
 	public TCPShardIdentifier(final Config config) throws Exception {
 		final String hostStr = config.getBroker().getHostPort();
 		final String[] brokerStr = hostStr.split(":");
@@ -82,7 +78,6 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		this.configuredPort = Integer.parseInt(brokerStr[1]);
 		this.port = configuredPort;
 		this.sourceHost = findLANAddress(brokerStr[0], config.getBroker().getNetworkInterfase());
-		//this.journal = journal;
 		config.setResolvedShardId(this);
 		ensureOpenPort(config.getBroker().isEnablePortFallback());
 		buildId(config);
@@ -90,7 +85,6 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 
 	/*  with a best effort for helping multi-tenancy and noisy infra people */
 	private void ensureOpenPort(final boolean findAnyPort) throws Exception {
-		//journal.commit(StoryBuilder.compose(this.getClass(), Fact.shard_finding_address).with(Case.FINAL).build());
 		Exception cause = null;
 		for (int search = 0; search < (findAnyPort ? PORT_SEARCHES_MAX : 1); this.port++, search++) {
 			logger.info("{}: {} port {}:{} (search no.{}/{}) ", getClass().getSimpleName(),
@@ -108,8 +102,6 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 			}
 		}
 		this.port = configuredPort; // just going back
-		//journal.commit(StoryBuilder.compose(this.getClass(), Fact.shard_finding_address).with(Case.ISSUED)
-		//	.with("").build());
 		String fallbackFailed = "Fallbacks failed - try configuring a valid open port";
 		String configFailed = "To avoid boot-up failure enable configuration parameter: brokerServerPortFallback = true";
 		final Exception excp = new IllegalArgumentException(findAnyPort ? fallbackFailed : configFailed, cause);
@@ -140,16 +132,6 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		} catch (IOException e) {
 			throw new IllegalArgumentException("Testing port cannot be tested: ", e);
 		}
-	}
-
-	@Override
-	/* trims ID up to a max length without excluding port */
-	public String getSynthetizedID() {
-		final int pos = getStringIdentity().indexOf(':');
-		String idd = getStringIdentity().substring(1, pos - 1);
-		int len = idd.length();
-		return ".." + idd.substring(1, len > MAX_SHARDID_NAME ? len - MAX_SHARDID_NAME : len)
-				+ getStringIdentity().substring(pos);
 	}
 
 	private void buildId(final Config config) {
@@ -234,7 +216,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	}
 
 	public int hashCode() {
-		return new HashCodeBuilder().append(getStringIdentity()).toHashCode();
+		return new HashCodeBuilder().append(getId()).toHashCode();
 	}
 
 	@Override
@@ -244,7 +226,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		} else if (obj==this) {
 		    return true;
 		} else {
-			return ((TCPShardIdentifier) obj).getStringIdentity().equals(getStringIdentity());
+			return ((TCPShardIdentifier) obj).getId().equals(getId());
 		}
 	}
 
@@ -260,7 +242,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	}
 
 	@Override
-	public String getStringIdentity() {
+	public String getId() {
 		return this.id;
 	}
 

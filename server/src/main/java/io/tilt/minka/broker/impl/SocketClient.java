@@ -189,8 +189,8 @@ public class SocketClient {
 			final NetworkShardIdentifier addr = channel.getAddress();
 			final String address = addr.getInetAddress().getHostAddress();
 			final int port = addr.getInetPort();
-			logger.info("{}: ({}) Building client (retry:{}) for outbound messages to: {}", getClass().getSimpleName(),
-					loggingName, retry, addr);
+			logger.info("{}: ({}) Building client (retry:{}) for outbound messages to: {}", 
+					getClass().getSimpleName(), loggingName, retry, addr);
 			final Bootstrap bootstrap = new Bootstrap();
 			
 			bootstrap.group(clientGroup)
@@ -284,8 +284,8 @@ public class SocketClient {
 
 	public void close() {
 		if (clientGroup != null && !clientGroup.isShuttingDown()) {
-			logger.info("{}: ({}) Closing connection to server (total sent: {}, unsent msgs: {})", getClass().getSimpleName(), 
-					loggingName, count.get(), clientHandler.size());
+			logger.info("{}: ({}) Closing connection to server (total sent: {}, unsent msgs: {})", 
+					getClass().getSimpleName(), loggingName, count.get(), clientHandler.size());
 			this.alive.set(false);
 			clientGroup.shutdownGracefully();
 		} else {

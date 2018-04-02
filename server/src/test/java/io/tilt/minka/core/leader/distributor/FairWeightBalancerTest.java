@@ -139,21 +139,12 @@ public class FairWeightBalancerTest {
 		backstage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
 		// only empty shards at stage
-		final Shard sh1 = ShardTest.buildShard(p1, 5000d);
-		final Shard sh2 = ShardTest.buildShard(p1, 5000d);
-		final Shard sh3 = ShardTest.buildShard(p1, 5000d);
-		final Set<Shard> shards = new HashSet<>();
-		shards.add(sh1);
-		shards.add(sh2);
-		shards.add(sh3);
-		final Map<ShardRef, Set<Duty<?>>> stage = new HashMap<>();
-		stage.put(new ShardRef(sh1), Collections.emptySet());
-		stage.put(new ShardRef(sh2), Collections.emptySet());
-		stage.put(new ShardRef(sh3), Collections.emptySet());
-		
-		final Migrator migra1 = MigratorTest.migrator(shards, ents, p1);
-		new FairWeightBalancer().balance(p1, stage, backstage, migra1);		
-		assertTrue(migra1.getOverrides().size()==3);
+		final PartitionTable table = emptyTableWithShards(p1, 5000, 5000, 5000);
+		final Migrator migra1 = MigratorTest.migrator(new HashSet<>(table.getStage().getShards()), ents, p1);
+		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, migra1);		
+		if (migra1.getOverrides().size()!=3) {
+			int u = 0;
+		}
 		for (final Override o: migra1.getOverrides()) {
 			assertTrue("balancer didnt returned a fair amount of duties when all same weight", 
 					o.getEntities().size()==4);
@@ -196,17 +187,17 @@ public class FairWeightBalancerTest {
 		
 		
 		for (Override o: migra.getOverrides()) {
-			if (o.getShard().getShardID().getStringIdentity().equals("3")) {
+			if (o.getShard().getShardID().getId().equals("3")) {
 				assertTrue("right size of tiny duties didnt enter the smallest shard", 
 					o.getEntities().stream()
 						.filter(e->e.getDuty().getId().startsWith("tiny"))
 						.count()==3);
-			} else if (o.getShard().getShardID().getStringIdentity().equals("2")) {
+			} else if (o.getShard().getShardID().getId().equals("2")) {
 				assertTrue("middle shard capacity didnt got the remainder of tiny duties", 
 					o.getEntities().stream()
 						.filter(e->e.getDuty().getId().startsWith("tiny"))
 						.count()==1);
-			} else if (o.getShard().getShardID().getStringIdentity().equals("1")) {
+			} else if (o.getShard().getShardID().getId().equals("1")) {
 				assertTrue("biggest shard didnt got the right size of heavy and middle duties",
 					o.getEntities().stream()
 						.filter(e->e.getDuty().getId().startsWith("heavy") ||
@@ -247,17 +238,17 @@ public class FairWeightBalancerTest {
 		// instead of the smaller shards to reach limit early on than bigger ones.
 		
 		for (Override o: migra.getOverrides()) {
-			if (o.getShard().getShardID().getStringIdentity().equals("3")) {
+			if (o.getShard().getShardID().getId().equals("3")) {
 				assertTrue("smallest shard didt got all the tiny duties", 
 					o.getEntities().stream()
 						.filter(e->e.getDuty().getId().startsWith("tiny"))
 						.count()==4);
-			} else if (o.getShard().getShardID().getStringIdentity().equals("2")) {
+			} else if (o.getShard().getShardID().getId().equals("2")) {
 				assertTrue("middle shard didnt got the only one middle duty", 
 					o.getEntities().stream()
 						.filter(e->e.getDuty().getId().startsWith("middle"))
 						.count()==1);
-			} else if (o.getShard().getShardID().getStringIdentity().equals("1")) {
+			} else if (o.getShard().getShardID().getId().equals("1")) {
 				assertTrue("biggest shard didnt got the heaviest duties", 
 					o.getEntities().stream()
 						.filter(e->e.getDuty().getId().startsWith("heavy"))

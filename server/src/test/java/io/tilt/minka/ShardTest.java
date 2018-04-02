@@ -19,7 +19,6 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
 
-import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
@@ -73,8 +72,7 @@ public class ShardTest {
 	public static Shard buildShard(final Pallet<String> p, final double cap, final Integer id) throws Exception {
 		final TCPShardIdentifier mockedShardID = mock(TCPShardIdentifier.class);
 		final String idi = String.valueOf(id==null ? rnd.nextInt(5000): id);
-		when(mockedShardID.getStringIdentity()).thenReturn(idi);
-		when(mockedShardID.getSynthetizedID()).thenReturn(idi);
+		when(mockedShardID.getId()).thenReturn(idi);
 		when(mockedShardID.getCreation()).thenReturn(new DateTime());
 		when(mockedShardID.toString()).thenReturn(idi);
 		final Shard s1 = new Shard(Mockito.mock(BrokerChannel.class), mockedShardID);

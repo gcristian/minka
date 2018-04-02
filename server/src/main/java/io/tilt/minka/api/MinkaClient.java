@@ -178,7 +178,7 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	}
 
 	public String getShardIdentity() {
-		return this.shardId.getStringIdentity();
+		return this.shardId.getId();
 	}
 	
 

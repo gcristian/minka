@@ -1,6 +1,7 @@
 package io.tilt.minka.api;
 
 import java.io.Serializable;
+import java.time.Instant;
 
 import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;

@@ -86,9 +86,17 @@ public class CollectionUtils {
 		public E first() {
 		    return this.set.first();
 		}
-
-		public List<E> values() {
-			return new ArrayList<>(this.set);
+		
+		public E last() {
+		    return this.set.last();
+		}
+		
+		public int size() {
+			return this.set.size();
+		}
+		
+		public Set<E> values() {
+			return this.set;
 		}
 
 	}
