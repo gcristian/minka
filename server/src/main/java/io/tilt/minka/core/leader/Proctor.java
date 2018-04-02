@@ -202,7 +202,6 @@ public class Proctor implements Service {
 
 		final ShardState currentState = shard.getState();
 		ShardState newState = currentState;
-		final List<Heartbeat> all = shard.getHeartbeats();
 		LinkedList<Heartbeat> pastLapse = null;
 		String msg = "";
 
@@ -210,7 +209,7 @@ public class Proctor implements Service {
 		final int minToBeGone = config.getProctor().getMaxAbsentHeartbeatsBeforeShardGone();
 		final int maxSickToGoQuarantine = config.getProctor().getMaxSickHeartbeatsBeforeShardQuarantine();
 
-		if (all.size() < minToBeGone) {
+		if (shard.getHeartbeats().size() < minToBeGone) {
 			final long max = config.beatToMs(config.getProctor().getMaxShardJoiningStateBeats());
 			if (shard.getLastStatusChange().plus(max).isBeforeNow()) {
 				msg = "try joining expired";
@@ -220,7 +219,7 @@ public class Proctor implements Service {
 				newState = ShardState.JOINING;
 			}
 		} else {
-			pastLapse = all.stream().filter(i -> i.getCreation().isAfter(lapseStart))
+			pastLapse = shard.getHeartbeats().values().stream().filter(i -> i.getCreation().isAfter(lapseStart))
 					.collect(Collectors.toCollection(LinkedList::new));
 			int pastLapseSize = pastLapse.size();
 			if (pastLapseSize > 0 && checkHealth(now, normalDelay, pastLapse)) {
@@ -260,10 +259,10 @@ public class Proctor implements Service {
 				newState == currentState ? "stays in" : "changing to", 
 				newState, 
 				msg, 
-				all.size(),
+				shard.getHeartbeats().size(),
 				pastLapse != null ? pastLapse.size() : 0, 
-				all.get(all.size() - 1).getSequenceId(),
-				all.get(0).getSequenceId(), 
+				shard.getHeartbeats().last().getSequenceId(),
+				shard.getHeartbeats().first().getSequenceId(), 
 				shardId.equals(shard.getShardID()) ? LogUtils.SPECIAL : "");
 
 		return newState;

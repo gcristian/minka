@@ -219,6 +219,10 @@ public class Config {
 		private int maxRetries;
 		protected final static int RETRY_DELAY_MILI_BEATS = 300;
 		private long retryDelayMiliBeats;
+		protected final static int MAX_LAG_BEFORE_DISCARDING_CLIENT_QUEUE_BEATS = 10;
+		private long maxLagBeforeDiscardingClientQueueBeats;
+		protected final static int MAX_CLIENT_QUEUE_SIZE = 50;
+		private int maxClientQueueSize;
 		//protected final static int RETRY_DELAY_MS = 300;
 		//private int retryDelayMs;
 		/** True: try number-consecutive open ports if specified is busy, False: break bootup */
@@ -255,7 +259,12 @@ public class Config {
 		public void setRetryDelayMiliBeats(int retryDelayMiliBeats) {
 			this.retryDelayMiliBeats = retryDelayMiliBeats;
 		}
-		
+		public long getMaxLagBeforeDiscardingClientQueueBeats() {
+			return maxLagBeforeDiscardingClientQueueBeats;
+		}
+		public void setMaxLagBeforeDiscardingClientQueueBeats(long maxLagBeforeDiscardingClientQueueBeats) {
+			this.maxLagBeforeDiscardingClientQueueBeats = maxLagBeforeDiscardingClientQueueBeats;
+		}
 		public boolean isEnablePortFallback() {
 			return this.enablePortFallback;
 		}
@@ -279,6 +288,12 @@ public class Config {
 		}
 		public void setNetworkInterfase(String networkInterfase) {
 			this.networkInterfase = networkInterfase;
+		}
+		public int getMaxClientQueueSize() {
+			return maxClientQueueSize;
+		}
+		public void setMaxClientQueueSize(final int maxClientQueueSize) {
+			this.maxClientQueueSize = maxClientQueueSize;
 		}
 	}
 

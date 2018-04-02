@@ -87,7 +87,9 @@ public class SocketClient {
 			final Config config) {
 
 		this.loggingName = loggingName;
-		this.clientHandler = new SocketClientHandler();
+		this.clientHandler = new SocketClientHandler(
+				config.beatToMs(config.getBroker().getMaxLagBeforeDiscardingClientQueueBeats()), 
+				config.getBroker().getMaxClientQueueSize());
 		this.count = new AtomicLong();
 		this.antiflapper = new AtomicBoolean(true);
 		this.alive = new AtomicBoolean();
@@ -149,14 +151,14 @@ public class SocketClient {
 		logger.info("{}: ({}) Sending: {}", getClass().getSimpleName(), loggingName, msg.getPayloadType());
 		count.incrementAndGet();
 		if (queueSize>maxQueueThreshold) {
-			logger.warn("{}: ({}) LAG of {}, threshold {}, increase broker's connection handler threads (enqueuing: {})", getClass().getSimpleName(), loggingName, queueSize, 
+			logger.error("{}: ({}) LAG of {}, threshold {}, increase broker's connection handler threads (enqueuing: {})", getClass().getSimpleName(), loggingName, queueSize, 
 					maxQueueThreshold, msg);
 		}
 	}
 
 	/*
-	 * a client for a shard's broker to send any type of messages, whether be
-	 * follower or leader
+	 * a client for a shard's broker to send any type of messages, whether be follower or leader
+	 * retry MAX_TRIES in the same thread or RESCHEDULE IT
 	 */
 	private void keepConnecting(final BrokerChannel channel, final int maxRetries, final int retryDelay) {
 		clientGroup = new NioEventLoopGroup(1,
@@ -166,19 +168,25 @@ public class SocketClient {
 
 		boolean wronglyDisconnected = true;
 		while (retry.get() < maxRetries && wronglyDisconnected) {
-			if (retry.incrementAndGet() > 0) {
-				try {
-					logger.info("{}: ({}) Sleeping {} ms before next retry...", getClass().getSimpleName(), loggingName, retryDelay);
-					Thread.sleep(retryDelay);
-				} catch (InterruptedException e) {
-					logger.error("{}: ({}) Unexpected while waiting for next client connection retry",
-							getClass().getSimpleName(), loggingName, e);
-				}
-			}
+			sleepIfMust(retryDelay);
 			wronglyDisconnected = connect(channel);
 		}
 		if (wronglyDisconnected) {
+			// ok failed, leave the thread but re-schedule it
+			retry.set(0);
 			this.scheduler.schedule(connector);
+		}
+	}
+
+	private void sleepIfMust(final int retryDelay) {
+		if (retry.incrementAndGet() > 0) {
+			try {
+				logger.info("{}: ({}) Sleeping {} ms before next retry...", getClass().getSimpleName(), loggingName, retryDelay);
+				Thread.sleep(retryDelay);
+			} catch (InterruptedException e) {
+				logger.error("{}: ({}) Unexpected while waiting for next client connection retry",
+						getClass().getSimpleName(), loggingName, e);
+			}
 		}
 	}
 	
@@ -226,14 +234,33 @@ public class SocketClient {
 
 	@Sharable
 	protected class SocketClientHandler extends ChannelInboundHandlerAdapter {
-		private BlockingQueue<MessageMetadata> queue;
+		private final BlockingQueue<MessageMetadata> queue;
+		private final long maxLagBeforeDiscardingClientQueueBeats;
+		private final int maxClientQueueSize;
 
-		public SocketClientHandler() {
-			this.queue = new ArrayBlockingQueue<>(100, true);
+		public SocketClientHandler(
+				final long maxLagBeforeDiscardingClientQueueBeats,
+				final int maxClientQueueSize) {
+			this.queue = new ArrayBlockingQueue<>(maxClientQueueSize, true);
+			this.maxLagBeforeDiscardingClientQueueBeats = maxLagBeforeDiscardingClientQueueBeats;
+			this.maxClientQueueSize = maxClientQueueSize;
 		}
 
 		protected boolean send(final MessageMetadata msg) {
-			return queue.offer(msg);
+			boolean sent = queue.offer(msg);
+			if (!sent) {
+				// patch any LAG related problem
+				final MessageMetadata eldest = queue.peek();
+				if ((System.currentTimeMillis() - eldest.getCreatedAt()) 
+						> maxLagBeforeDiscardingClientQueueBeats
+						|| queue.size() == maxClientQueueSize) {
+					logger.error("{}: ({}) Clearing queue for LAG reached LIMIT - increment client connector threads size", 
+							getClass().getSimpleName(), loggingName);
+					queue.clear();
+					sent = queue.offer(msg);
+				}
+			}
+			return sent;
 		}
 		protected int size() {
 			return queue.size();

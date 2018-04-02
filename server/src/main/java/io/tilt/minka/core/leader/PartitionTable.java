@@ -431,7 +431,7 @@ public class PartitionTable {
 		this.history = CollectionUtils.sliding(20);
 	}
 		
-	public List<Plan> getHistory() {
+	public Set<Plan> getHistory() {
 		return this.history.values();
 	}
 

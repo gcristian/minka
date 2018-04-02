@@ -17,9 +17,10 @@
 package io.tilt.minka.core.leader.distributor;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -76,8 +77,8 @@ public class Plan implements Comparable<Plan> {
 	private static final AtomicLong sequence = new AtomicLong();
 	
 	private final long id;
-	private final Date created;
-    private final long maxSeconds;
+	private final Instant created;
+    private final long maxMillis;
     private final long maxRetries;
 
 	private final Map<EntityEvent, Map<Shard, List<ShardEntity>>> shippings;
@@ -86,22 +87,22 @@ public class Plan implements Comparable<Plan> {
 	private int deliveryIdx;
 	private Iterator<Delivery> iterator;
 	private List<Delivery> deliveries;
-	private Date started;
-	private Date ended;
+	private Instant started;
+	private Instant ended;
 	private Result result = Result.RUNNING;
 	private int retryCounter;
     
-    protected Plan(final long id, final long maxSeconds, final int maxRetries) {
+    protected Plan(final long id, final long maxMillis, final int maxRetries) {
         this.id = id;
-        this.created = new Date();
+        this.created = Instant.now();
         this.shippings = new HashMap<>();
         this.deliveries = new ArrayList<>();
-        this.maxSeconds = maxSeconds;
+        this.maxMillis = maxMillis;
         this.maxRetries = maxRetries;
     }
 
-    public Plan(final long maxSeconds, final int maxRetries) {
-        this(sequence.incrementAndGet(), maxSeconds, maxRetries);
+    public Plan(final long maxMillis, final int maxRetries) {
+        this(sequence.incrementAndGet(), maxMillis, maxRetries);
     }
     
     public void discard() {
@@ -329,19 +330,19 @@ public class Plan implements Comparable<Plan> {
         }
         if (allDone) {
             this.result = Result.CLOSED_APPLIED;
-            this.ended = new Date();
+            this.ended = Instant.now();
         } else {
-            final Instant expiration = started.toInstant().plusSeconds(maxSeconds);
+            final Instant expiration = started.plusMillis(maxMillis);
     		if (expiration.isBefore(Instant.now())) {
     			if (retryCounter == this.maxRetries) {
-    				logger.info("{}: Abandoning Plan expired ! (max secs:{}) ", getClass().getSimpleName(), maxSeconds);
+    				logger.info("{}: Abandoning Plan expired ! (max secs:{}) ", getClass().getSimpleName(), maxMillis);
     				this.result = Result.CLOSED_EXPIRED;
-    				this.ended = new Date();
+    				this.ended = Instant.now();
     			} else {
     				retryCounter++;
-    				this.started = new Date();
+    				this.started = Instant.now();
     				logger.info("{}: ReSending Plan expired: Retry {} (max secs:{}) ", getClass().getSimpleName(),
-    						retryCounter, maxSeconds);
+    						retryCounter, maxMillis);
     				this.result = Result.RETRYING;
     			}
     		} else {
