@@ -63,7 +63,7 @@ class PlanFactory {
 		final Plan plan = new Plan(
 				config.beatToMs(config.getDistributor().getPlanExpirationBeats()), 
 				config.getDistributor().getPlanMaxRetries());
-		final List<Shard> onlineShards = table.getStage().getShardsByState(ShardState.ONLINE);
+		final List<Shard> onlineShards = table.getScheme().getShardsByState(ShardState.ONLINE);
 		
 		// recently fallen shards
 		final Set<ShardEntity> dangling = new HashSet<>(table.getBackstage().getDutiesDangling());
@@ -124,9 +124,9 @@ class PlanFactory {
 
 		final Set<ShardEntity> sourceRefs = new HashSet<>(removes.size() + adds.size());
 		final Map<ShardRef, Set<Duty<?>>> distro = new TreeMap<>();
-		for (Shard shard : table.getStage().getShards()) {
+		for (Shard shard : table.getScheme().getShards()) {
 			if (shard.getState() == ShardState.ONLINE) {
-				final Set<ShardEntity> located = table.getStage().getDutiesByShard(pallet, shard);
+				final Set<ShardEntity> located = table.getScheme().getDutiesByShard(pallet, shard);
 				distro.put(new ShardRef(shard), refs(located));
 				sourceRefs.addAll(located);
 			}
@@ -151,8 +151,8 @@ class PlanFactory {
 	private static void addMissingAsCrud(final PartitionTable table, final Plan plan) {
 	    final Set<ShardEntity> missing = table.getBackstage().getDutiesMissing();
 		for (final ShardEntity missed : missing) {
-			final Shard lazy = table.getStage().getDutyLocation(missed);
-			logger.info("{}: Registering {}, dangling Duty: {}", PlanFactory.class.getSimpleName(),
+			final Shard lazy = table.getScheme().getDutyLocation(missed);
+			logger.info("{}: Registering {}, missing Duty: {}", PlanFactory.class.getSimpleName(),
 					lazy == null ? "unattached" : "from falling Shard: " + lazy, missed);
 			if (lazy != null) {
 				// missing duties are a confirmation per-se from the very shards,
@@ -161,7 +161,7 @@ class PlanFactory {
 						EntityState.CONFIRMED, 
 				        lazy.getShardID(), 
 				        plan.getId());
-				table.getStage().writeDuty(missed, lazy, EntityEvent.REMOVE);
+				table.getScheme().writeDuty(missed, lazy, EntityEvent.REMOVE);
 			}
 			missed.getJournal().addEvent(EntityEvent.CREATE, 
 					EntityState.PREPARED,
@@ -205,7 +205,7 @@ class PlanFactory {
 			final Set<ShardEntity> deletions) {
 
 		for (final ShardEntity deletion : deletions) {
-			final Shard shard = table.getStage().getDutyLocation(deletion);
+			final Shard shard = table.getScheme().getDutyLocation(deletion);
 			deletion.getJournal().addEvent(EntityEvent.DETACH, 
 					EntityState.PREPARED,
 			        shard.getShardID(), 
@@ -239,7 +239,7 @@ class PlanFactory {
 		}
 		logger.info("{}: Total cluster capacity: {}", getClass().getSimpleName(), clusterCapacity);
 		logger.info("{}: counting #{};+{};-{} duties: {}", getClass().getSimpleName(),
-			new PartitionTable.Stage.StageExtractor(table.getStage())
+			new PartitionTable.DataScheme.SchemeExtractor(table.getScheme())
 				.getAccountConfirmed(pallet), 
 			dutyCreations.stream()
 				.filter(d->d.getDuty().getPalletId().equals(pallet.getId()))

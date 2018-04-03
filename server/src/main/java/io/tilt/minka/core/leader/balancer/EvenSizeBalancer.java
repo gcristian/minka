@@ -81,7 +81,7 @@ public class EvenSizeBalancer implements Balancer {
 	 */
 	public void balance(
 			final Pallet<?> pallet,
-			final Map<ShardRef, Set<Duty<?>>> stage,
+			final Map<ShardRef, Set<Duty<?>>> scheme,
 			final Map<EntityEvent, Set<Duty<?>>> backstage,
 			final Migrator migrator) {
 		// get a fair distribution
@@ -89,9 +89,9 @@ public class EvenSizeBalancer implements Balancer {
 		final Set<Duty<?>> deletions = backstage.get(EntityEvent.REMOVE);
 		final Set<Duty<?>> creations = backstage.get(EntityEvent.CREATE);
 		final AtomicInteger recount = new AtomicInteger();
-		stage.values().forEach(v->recount.addAndGet(v.size()));
+		scheme.values().forEach(v->recount.addAndGet(v.size()));
 		final double sum = recount.get() + creations.size() - deletions.size(); // dangling.size() +
-		final int shardsSize = stage.keySet().size();
+		final int shardsSize = scheme.keySet().size();
 		final int evenSize = (int) Math.ceil(sum / (double) shardsSize);
 
 		logger.info("{}: Even distribution for {} Shards: #{}  duties, for Creations: {}, Deletions: {}, Accounted: {} ",
@@ -102,14 +102,14 @@ public class EvenSizeBalancer implements Balancer {
 		final Set<ShardRef> receptors = new HashSet<>();
 		final Set<ShardRef> emisors = new HashSet<>();
 		//deletions.addAll(dangling);]
-		final Map<ShardRef, Integer> deltas = checkDeltas(pallet, stage, evenSize, receptors, emisors, deletions);
+		final Map<ShardRef, Integer> deltas = checkDeltas(pallet, scheme, evenSize, receptors, emisors, deletions);
 		if (deltas.isEmpty()) {
 			logger.info("{}: Evenly distributed already (no sharding deltas out of threshold)", getClass().getSimpleName());
 		} else if (!receptors.isEmpty()) {
 			// 2nd step: assign migrations and creations in serie
 			final CollectionUtils.CircularCollection<ShardRef> receptiveCircle = CollectionUtils.circular(receptors);
 			for (final ShardRef emisor : emisors) {
-				final Set<Duty<?>> duties = stage.get(emisor);
+				final Set<Duty<?>> duties = scheme.get(emisor);
 				int i = 0;
 				final Iterator<Duty<?>> it = duties.iterator();
 				while (it.hasNext() && i++ < Math.abs(deltas.get(emisor))) {
@@ -128,7 +128,7 @@ public class EvenSizeBalancer implements Balancer {
 	/* evaluate which shards must emit or receive duties by deltas */
 	private Map<ShardRef, Integer> checkDeltas(
 			final Pallet<?> pallet,
-			final Map<ShardRef, Set<Duty<?>>> stage,
+			final Map<ShardRef, Set<Duty<?>>> scheme,
 			final int evenSize, 
 			final Set<ShardRef> receptors, 
 			final Set<ShardRef> emisors, 
@@ -136,8 +136,8 @@ public class EvenSizeBalancer implements Balancer {
 
 		final Map<ShardRef, Integer> deltas = new HashMap<>();
 		final int maxDelta = ((Metadata)pallet.getMetadata()).getMaxDutiesDeltaBetweenShards();
-		for (final ShardRef shard : stage.keySet()) {
-			final Set<Duty<?>> shardedDuties = stage.get(shard);
+		for (final ShardRef shard : scheme.keySet()) {
+			final Set<Duty<?>> shardedDuties = scheme.get(shard);
 			// check if this shard contains the deleting duties 
 			int sizeToRemove = (int) shardedDuties.stream().filter(i -> deletions.contains(i)).count();
 			final int assignedDuties = shardedDuties.size() - sizeToRemove;

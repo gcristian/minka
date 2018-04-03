@@ -84,18 +84,18 @@ public class EvenWeightBalancer implements Balancer {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public final void balance(
 			final Pallet<?> pallet,
-			final Map<ShardRef, Set<Duty<?>>> stage,
+			final Map<ShardRef, Set<Duty<?>>> scheme,
 			final Map<EntityEvent, Set<Duty<?>>> backstage,
             final Migrator migrator) {
 		// order new ones and current ones in order to get a fair distro 
 		final Comparator comparator = ((Metadata)pallet.getMetadata()).getPresort().getComparator();
 		final Set<Duty<?>> duties = new TreeSet<>(comparator);
 		duties.addAll(backstage.get(EntityEvent.CREATE)); // newcomers have ++priority than table
-		stage.values().forEach(duties::addAll);		
+		scheme.values().forEach(duties::addAll);		
 		duties.removeAll(backstage.get(EntityEvent.REMOVE)); // delete those marked for deletion
 		final List<Duty<?>> dutiesSorted = new ArrayList<>(duties);
 		logger.debug("{}: Before Balance: {} ({})", getClass().getSimpleName(), toDutyStringIds(dutiesSorted));
-		final List<ShardRef> availShards = stage.keySet().stream().filter(s->s.getCapacities()
+		final List<ShardRef> availShards = scheme.keySet().stream().filter(s->s.getCapacities()
 				.get(pallet)!=null).collect(Collectors.toList());
 		if (availShards.isEmpty()) {
 			logger.error("{}: Still no shard reported capacity for pallet: {}!", getClass().getSimpleName(), pallet);

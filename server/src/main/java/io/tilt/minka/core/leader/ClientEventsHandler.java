@@ -90,13 +90,13 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 
 	private void cleanShutdown(final ShardCommand op) {
 		//Locks.stopCandidate(Names.getLeaderName(config.getServiceName()), false);		
-		for (Shard slave : partitionTable.getStage().getShardsByState(ShardState.ONLINE)) {
+		for (Shard slave : partitionTable.getScheme().getShardsByState(ShardState.ONLINE)) {
 			eventBroker.send(slave.getBrokerChannel(), op);
 		}
 		boolean offline = false;
 		while (!offline && !Thread.interrupted()) {
 			LockSupport.parkUntil(5000l);
-			offline = partitionTable.getStage().getShardsByState(ShardState.ONLINE).size() == 0;
+			offline = partitionTable.getScheme().getShardsByState(ShardState.ONLINE).size() == 0;
 		}
 		// only then close subscriptions
 		stop();
@@ -146,7 +146,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 		if (entity.is(EntityEvent.UPDATE) || entity.is(EntityEvent.TRANSFER)) {
 			// TODO chekear las cuestiones de disponibilidad de esto
 			if (entity.getType()==ShardEntity.Type.DUTY) {
-				final Shard location = partitionTable.getStage().getDutyLocation(entity);
+				final Shard location = partitionTable.getScheme().getDutyLocation(entity);
 				if (location != null && location.getState().isAlive()) {
 					final Serializable payloadType = entity.getUserPayload() != null
 							? entity.getUserPayload().getClass().getSimpleName() : "[empty]";
@@ -158,7 +158,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 				}
 				eventBroker.send(location.getBrokerChannel(), entity);
 			} else if (entity.getType()==ShardEntity.Type.PALLET) {
-				for (Shard location: partitionTable.getStage().getPalletLocations(entity)) {
+				for (Shard location: partitionTable.getScheme().getPalletLocations(entity)) {
 					if (location.getState().isAlive()) {
 						final Serializable payloadType = entity.getUserPayload() != null
 								? entity.getUserPayload().getClass().getSimpleName() : "[empty]";

@@ -105,12 +105,12 @@ public class FairWeightBalancerTest {
 		
 		final PartitionTable table = emptyTableWithShards(p1, 5000, 5000);
 		
-		final Migrator migra1 = MigratorTest.migrator(new HashSet<>(table.getStage().getShards()), ents, p1);
+		final Migrator migra1 = MigratorTest.migrator(new HashSet<>(table.getScheme().getShards()), ents, p1);
 		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, migra1);		
 		final Override v1o1 = migra1.getOverrides().get(0);
 		final Override v1o2 = migra1.getOverrides().get(1);
 
-		final Migrator migra2 = MigratorTest.migrator(new HashSet<>(table.getStage().getShards()), ents, p1);
+		final Migrator migra2 = MigratorTest.migrator(new HashSet<>(table.getScheme().getShards()), ents, p1);
 		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, migra2);
 		final Override v2o1 = migra2.getOverrides().get(0);
 		final Override v2o2 = migra2.getOverrides().get(1);
@@ -138,9 +138,9 @@ public class FairWeightBalancerTest {
 		backstage.put(EntityEvent.CREATE, duties);
 		backstage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
-		// only empty shards at stage
+		// only empty shards at scheme
 		final PartitionTable table = emptyTableWithShards(p1, 5000, 5000, 5000);
-		final Migrator migra1 = MigratorTest.migrator(new HashSet<>(table.getStage().getShards()), ents, p1);
+		final Migrator migra1 = MigratorTest.migrator(new HashSet<>(table.getScheme().getShards()), ents, p1);
 		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, migra1);		
 		if (migra1.getOverrides().size()!=3) {
 			int u = 0;
@@ -173,7 +173,7 @@ public class FairWeightBalancerTest {
 		backstage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
 		final PartitionTable table = emptyTableWithShards(p1, 4000, 500, 10);
-		final Migrator migra = MigratorTest.migrator(new HashSet<>(table.getStage().getShards()), ents, p1);
+		final Migrator migra = MigratorTest.migrator(new HashSet<>(table.getScheme().getShards()), ents, p1);
 		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, migra);		
 		assertTrue(migra.getOverrides().size()==3);
 		
@@ -226,7 +226,7 @@ public class FairWeightBalancerTest {
 		
 		final PartitionTable table = emptyTableWithShards(p1, 2900, 500, 12);
 		
-		final Migrator migra = MigratorTest.migrator(new HashSet<>(table.getStage().getShards()), ents, p1);
+		final Migrator migra = MigratorTest.migrator(new HashSet<>(table.getScheme().getShards()), ents, p1);
 		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, migra);		
 		assertTrue(migra.getOverrides().size()==3);
 		
@@ -268,14 +268,14 @@ public class FairWeightBalancerTest {
 		int id = 1;
 		for (final double cap: shardCapacities) {
 			final Shard shard = ShardTest.buildShard(capacityPallet, cap, id++);
-			ret.getStage().addShard(shard);
+			ret.getScheme().addShard(shard);
 		}
 		return ret;
 	}
 	
 	public Map<ShardRef, Set<Duty<?>>> stageFromTable(final PartitionTable table) {
 		final Map<ShardRef, Set<Duty<?>>> ret = new HashMap<>();
-		for (final Shard shard: table.getStage().getShards()) {
+		for (final Shard shard: table.getScheme().getShards()) {
 			ret.put(new ShardRef(shard), Collections.emptySet());
 		}
 		return ret;
@@ -297,9 +297,9 @@ public class FairWeightBalancerTest {
 		backstage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
 		final PartitionTable table = emptyTableWithShards(p1, 10, 10, 10, 10);
-		System.out.println(new HashSet<>(table.getStage().getShards()));
+		System.out.println(new HashSet<>(table.getScheme().getShards()));
 
-		final Migrator migra = MigratorTest.migrator(new HashSet<>(table.getStage().getShards()), ents, p1);
+		final Migrator migra = MigratorTest.migrator(new HashSet<>(table.getScheme().getShards()), ents, p1);
 		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, migra);		
 		assertTrue(migra.getOverrides().size()==4);
 		

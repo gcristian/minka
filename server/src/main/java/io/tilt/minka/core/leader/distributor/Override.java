@@ -59,7 +59,7 @@ public class Override {
 
     boolean apply(final Plan plan, final PartitionTable table) {
         boolean anyChange = false;
-        final Set<ShardEntity> current = table.getStage().getDutiesByShard(pallet, getShard());
+        final Set<ShardEntity> current = table.getScheme().getDutiesByShard(pallet, getShard());
         if (Migrator.log.isDebugEnabled()) {
             Migrator.log.debug("{}: cluster built {}", getClass().getSimpleName(), getEntities());
             Migrator.log.debug("{}: currents at shard {} ", getClass().getSimpleName(), current);

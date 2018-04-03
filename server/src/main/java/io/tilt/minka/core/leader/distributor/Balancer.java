@@ -62,7 +62,7 @@ public interface Balancer {
 	 * Note deletions are included in duties but must be ignored and removed from balancing,
 	 * i.e. they must not be included in overrides and transfers.
 	 * 
-	 * @param stage			map repr. the partition table's duties assigned to shards
+	 * @param scheme			map repr. the partition table's duties assigned to shards
 	 * 						all shards included, with or without attached duties.
 	 * @param backstage   	map repr. set of CRUD duties that must be distibuted and doesnt exist in table object
 	 * 						including also recycled duties like danglings and missings which are not new
@@ -71,7 +71,7 @@ public interface Balancer {
 	 */
 	void balance(
 			final Pallet<?> pallet,
-			final Map<ShardRef, Set<Duty<?>>> stage,
+			final Map<ShardRef, Set<Duty<?>>> scheme,
 			final Map<EntityEvent, Set<Duty<?>>> backstage,
 			final Migrator migrator);
 	

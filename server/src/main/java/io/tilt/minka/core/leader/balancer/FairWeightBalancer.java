@@ -105,7 +105,7 @@ public class FairWeightBalancer implements Balancer {
 	 */
 	public void balance(
 	        final Pallet<?> pallet,
-	        final Map<ShardRef, Set<Duty<?>>> stage,
+	        final Map<ShardRef, Set<Duty<?>>> scheme,
 	        final Map<EntityEvent, Set<Duty<?>>> backstage,
 			final Migrator migrator) {
 
@@ -113,11 +113,13 @@ public class FairWeightBalancer implements Balancer {
 		// order new ones and current ones in order to get a fair distro 
 		final Set<Duty<?>> duties = new TreeSet<>(meta.getPresort().getComparator());
 		duties.addAll(backstage.get(EntityEvent.CREATE));
-		stage.values().forEach(duties::addAll);
+		scheme.values().forEach(duties::addAll);
 		duties.removeAll(backstage.get(EntityEvent.REMOVE)); // delete those marked for deletion
 		if (meta.getDispersion()==Dispersion.EVEN) {
-			final Set<Bascule<ShardRef, Duty<?>>> bascules = buildBascules(pallet, stage.keySet(), duties);
-			if (bascules.isEmpty()) {
+			final Set<Bascule<ShardRef, Duty<?>>> bascules = buildBascules(pallet, scheme.keySet(), duties);
+			if (bascules==null) {
+				return;
+			} else if (bascules.isEmpty()) {
 			    for (final Iterator<Duty<?>> itDuties = duties.iterator(); itDuties.hasNext(); 
 		            migrator.stuck(itDuties.next(), null));
 				return;

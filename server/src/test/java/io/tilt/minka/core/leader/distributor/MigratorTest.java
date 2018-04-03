@@ -15,7 +15,7 @@ public class MigratorTest {
 			final Set<ShardEntity> duties, 
 			final Pallet<?> p1) {
 		final PartitionTable pt = new PartitionTable();
-		shards.forEach(s->pt.getStage().addShard(s));
+		shards.forEach(s->pt.getScheme().addShard(s));
 		
 		return new Migrator(pt, p1, duties);
 	}

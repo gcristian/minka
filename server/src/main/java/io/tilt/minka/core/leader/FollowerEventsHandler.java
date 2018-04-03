@@ -75,7 +75,7 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public void start() {
-		logger.info("{}: Starting. Scheduling constant shepherding check", getClass().getSimpleName());
+		logger.info("{}: Starting. Scheduling constant shepherding check", getName());
 
 		final long readQueueSince = System.currentTimeMillis();
 
@@ -96,7 +96,7 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 	public void accept(final Heartbeat hb) {
 		hb.setReception(new DateTime(DateTimeZone.UTC));
 		if (logger.isDebugEnabled()) {
-			logger.debug("{}: Receiving Heartbeat: {} delayed {}ms", getClass().getSimpleName(), hb.toString(),
+			logger.debug("{}: Receiving Heartbeat: {} delayed {}ms", getName(), hb.toString(),
 					hb.getReceptionDelay());
 		}
 
@@ -104,17 +104,17 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 				Scheduler.Action.PARTITION_TABLE_UPDATE, 
 		        PriorityLock.MEDIUM_BLOCKING, () -> {
 					// when a shutdownlock acquired then keep receving HB to evaluate all Slaves are down!
-					Shard shard = partitionTable.getStage().getShard(hb.getShardId());
+					Shard shard = partitionTable.getScheme().getShard(hb.getShardId());
 					if (shard == null) {
 						// new member
-						partitionTable.getStage().addShard(shard = new Shard(
+						partitionTable.getScheme().addShard(shard = new Shard(
 								eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, hb.getShardId()),
 								hb.getShardId()));
 					}
 					if (hb.getStateChange() == ShardState.QUITTED) {
-						logger.info("{}: ShardID: {} went cleanly: {}", getClass().getSimpleName(), shard,
+						logger.info("{}: ShardID: {} went cleanly: {}", getName(), shard,
 								hb.getStateChange());
-						partitionTable.getStage().getShard(shard.getShardID()).setState(ShardState.QUITTED);
+						partitionTable.getScheme().getShard(shard.getShardID()).setState(ShardState.QUITTED);
 					}
 					hbConsumer.accept(hb, shard);
 				}));

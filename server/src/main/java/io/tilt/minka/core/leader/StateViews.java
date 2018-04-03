@@ -39,7 +39,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.common.util.concurrent.AtomicDouble;
 
-import io.tilt.minka.core.leader.PartitionTable.Stage.StageExtractor;
+import io.tilt.minka.core.leader.PartitionTable.DataScheme.SchemeExtractor;
 import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
@@ -89,7 +89,7 @@ public class StateViews {
         Validate.notNull(table);
         final Map<String, Object> map = new LinkedHashMap<>();
         map.put("leaderShardId", leaderShardContainer.getLeaderShardId());
-        map.put("shards", table.getStage().getShards());
+        map.put("shards", table.getScheme().getShards());
         return map;
     }
 
@@ -115,7 +115,7 @@ public class StateViews {
 	private List<Object> buildDuties(final PartitionTable table, boolean entities) {
 		Validate.notNull(table);
 		final List<Object> ret = new ArrayList<>();
-		table.getStage().getDuties().forEach(e->ret.add(entities ? e: e.getDuty()));
+		table.getScheme().getDuties().forEach(e->ret.add(entities ? e: e.getDuty()));
 		return ret;
 	}
 
@@ -127,7 +127,7 @@ public class StateViews {
 	private static List<Map<String, Object>> buildPallets(final PartitionTable table) {
 		final List<Map<String, Object>> ret = new ArrayList<>();
 		
-		StageExtractor extractor = new StageExtractor(table.getStage());
+		final SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
 		
 		for (final ShardEntity pallet: extractor.getPallets()) {
 			final Set<ShardEntity> crud = table.getBackstage()
@@ -139,7 +139,7 @@ public class StateViews {
 			crud.forEach(d->dettachedWeight.addAndGet(d.getDuty().getWeight()));
 
 			final List<DutyView> dutyRepList = new ArrayList<>();
-			table.getStage().getDutiesByPallet(pallet.getPallet())
+			table.getScheme().getDutiesByPallet(pallet.getPallet())
 			    .forEach(d->dutyRepList.add(
 			            new DutyView(
 			                    d.getDuty().getId(), 
@@ -163,12 +163,12 @@ public class StateViews {
 
 	private static List<Map<String, Object>> buildShardRep(final PartitionTable table) {	    
 	    final List<Map<String, Object>> ret = new LinkedList<>();
-	    final StageExtractor extractor = new StageExtractor(table.getStage());
+	    final SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
 	    for (final Shard shard: extractor.getShards()) {
 			final List<Map<String , Object>> palletsAtShard =new LinkedList<>();
 			
 			for (final ShardEntity pallet: extractor.getPallets()) {
-				final Set<ShardEntity> duties = table.getStage().getDutiesByShard(pallet.getPallet(), shard);
+				final Set<ShardEntity> duties = table.getScheme().getDutiesByShard(pallet.getPallet(), shard);
 				final List<DutyView> dutyRepList = new LinkedList<>();
 				duties.forEach(d->dutyRepList.add(
 				        new DutyView(
@@ -193,7 +193,7 @@ public class StateViews {
 	}
 
 	private static Map<String, Object> buildGlobal(final PartitionTable table) {
-	    StageExtractor extractor = new StageExtractor(table.getStage());
+	    SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
 		final int unstaged = table.getBackstage().getDutiesCrud(EntityEvent.CREATE, null).size();
 		final int staged = extractor.getSizeTotal();		
 		final Map<String, Object> map = new LinkedHashMap<>();

@@ -22,6 +22,7 @@ import static io.tilt.minka.core.leader.distributor.Plan.Result.RETRYING;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -150,13 +151,14 @@ public class Distributor implements Service {
 				return;
 			}
 			// skip if unstable unless a plan in progress or expirations will occurr and dismiss
-			if ((partitionTable.getCurrentPlan()==null) && // || currentPlan.isEmpty()) && 
+			final Plan currPlan = partitionTable.getCurrentPlan();
+			if ((currPlan==null || currPlan.getResult().isClosed()) && 
 			        partitionTable.getVisibilityHealth() == ClusterHealth.UNSTABLE) {
 				logger.warn("{}: ({}) Posponing distribution until reaching cluster stability (", getName(), shardId);
 				return;
 			}
 			logStatus();
-			final int online = partitionTable.getStage().getShardsByState(ShardState.ONLINE).size();
+			final int online = partitionTable.getScheme().getShardsByState(ShardState.ONLINE).size();
 			final int min = config.getProctor().getMinShardsOnlineBeforeSharding();
 			if (online < min) {
 			    logger.info("{}: balancing posponed: not enough online shards (min:{}, now:{})", getName(), min, online);
@@ -167,7 +169,7 @@ public class Distributor implements Service {
 		    }
 		    
 		    // distribution
-            drive(partitionTable.getCurrentPlan());
+            drive(currPlan);
 			communicateUpdates();
 		} catch (Exception e) {
 			logger.error("{}: Unexpected ", getName(), e);
@@ -245,11 +247,12 @@ public class Distributor implements Service {
 	}
 
 	/** @return if plan is still valid */
-    private void push(final Plan plan, final Delivery delivery, final boolean retrying) {
+    private boolean push(final Plan plan, final Delivery delivery, final boolean retrying) {
         // check it's still in ptable
-        if (!partitionTable.getStage().getShardsByState(ShardState.ONLINE).contains(delivery.getShard())) {
+        if (!partitionTable.getScheme().getShardsByState(ShardState.ONLINE).contains(delivery.getShard())) {
             logger.error("{}: PartitionTable lost transport's target shard: {}", getName(), delivery.getShard());
             plan.obsolete();
+            return false;
         } else {
         	final Map<ShardEntity, Log> trackByDuty = retrying ? 
         			delivery.getByState(EntityState.PENDING) :
@@ -274,6 +277,7 @@ public class Distributor implements Service {
         	} else {
         		logger.error("{}: Couldnt transport current issues !!!", getName());
         	}
+        	return true;
         }
     }
 
@@ -314,11 +318,11 @@ public class Distributor implements Service {
 		return true;
 	}
 
-	/** feed missing duties with storage/stage diff. */
+	/** feed missing duties with storage/scheme diff. */
 	private void checkUnexistingDutiesFromStorage() {
 		if (config.getDistributor().isRunConsistencyCheck() && partitionTable.getCurrentPlan().areShippingsEmpty()) {
 			// only warn in case there's no reallocation ahead
-			final Set<ShardEntity> currently = partitionTable.getStage().getDuties();
+			final Set<ShardEntity> currently = partitionTable.getScheme().getDuties();
 			final Set<ShardEntity> sorted = new TreeSet<>();
 			for (Duty<?> duty: reloadDutiesFromStorage()) {
 				final ShardEntity entity = ShardEntity.Builder.builder(duty).build();
@@ -373,7 +377,7 @@ public class Distributor implements Service {
 				.collect(Collectors.toCollection(HashSet::new));
 		if (!updates.isEmpty()) {
 			for (ShardEntity updatedDuty : updates) {
-				Shard location = partitionTable.getStage().getDutyLocation(updatedDuty);
+				Shard location = partitionTable.getScheme().getDutyLocation(updatedDuty);
 				logger.info("{}: Transporting (update) Duty: {} to Shard: {}", getName(), updatedDuty.toString(), 
 						location.getShardID());
 				if (eventBroker.send(location.getBrokerChannel(), updatedDuty)) {

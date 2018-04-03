@@ -53,7 +53,7 @@ import io.tilt.minka.domain.EntityState;
  * Leveraging the balancer of the distribution process, consistency, validation.
  * 
  * A new plan will not be shipped when balancers do repeatable distributions and there're no 
- * CRUD ops from client, keeping the {@linkplain Stage} stable and unchanged, 
+ * CRUD ops from client, keeping the {@linkplain Scheme} stable and unchanged, 
  * as overrides and transfer only compute deltas according already distributed duties.
  * 
  * @author Cristian Gonzalez
@@ -144,7 +144,7 @@ public class Migrator {
 	}
 	
 	private Shard deref(final ShardRef location) {
-		for (Shard s: table.getStage().getShards()) {
+		for (Shard s: table.getScheme().getShards()) {
 			if (s.getShardID().equals(location.getId())) {
 				return s;
 			}
@@ -196,11 +196,11 @@ public class Migrator {
 		if (!pallet.getId().equals(entity.getDuty().getPalletId())) {
 			throw new BalancingException("bad transfer: duty %s doesnt belong to pallet: %s", entity, pallet);
 		}
-		if (table.getStage().getDutiesByShard(target).contains(entity)) {
+		if (table.getScheme().getDutiesByShard(target).contains(entity)) {
 			throw new BalancingException("bad transfer: duty %s already exist in target shard: %s", entity, target);
 		}
 		if (source==null) {
-			final Shard location = table.getStage().getDutyLocation(entity);
+			final Shard location = table.getScheme().getDutyLocation(entity);
 			if (location !=null && !(location.getState()==ShardState.GONE || location.getState()==ShardState.QUITTED)) {
 				throw new BalancingException("bad transfer: duty %s has a source, must be transferred from "
 						+ "its current location: %s", entity, location);
@@ -269,7 +269,7 @@ public class Migrator {
 			}
 		}
 		final Set<ShardEntity> deletions = table.getBackstage().getDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED);
-		for (final ShardEntity curr: table.getStage().getDutiesAttached()) {
+		for (final ShardEntity curr: table.getScheme().getDutiesAttached()) {
 			if (curr.getDuty().getPalletId().equals(pallet.getId()) && 
 			        !deletions.contains(curr) && 
 					!inTransfers(curr) && 

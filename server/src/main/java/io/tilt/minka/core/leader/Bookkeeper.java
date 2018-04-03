@@ -85,12 +85,11 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 			if (!hasBeenAPlan && beat.reportsDuties()) {
 				// there's been a change of leader: i'm initiating with older followers 
 				for (ShardEntity e: beat.getReportedCapturedDuties()) {
-					//partitionTable.getStage().getDuties().
-					partitionTable.getStage().writeDuty(e, sourceShard, EntityEvent.ATTACH);
+					partitionTable.getScheme().writeDuty(e, sourceShard, EntityEvent.ATTACH);
 				}
 			}
 			if (beat.hasWarning() || beat.hasDifferences()) {
-				noticeDanglings(beat, sourceShard);
+				detectDanglings(beat, sourceShard);
 			}
 		} else {
 			analyzeHeartbeat(beat, sourceShard);
@@ -103,7 +102,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-	private void noticeDanglings(final Heartbeat beat, final Shard sourceShard) {
+	private void detectDanglings(final Heartbeat beat, final Shard sourceShard) {
         // believe only when online: to avoid Dirty efects after follower's hangs/stucks
         // so it clears itself before trusting their HBs
         for (final ShardEntity duty : beat.getReportedCapturedDuties()) {
@@ -145,7 +144,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		}			
 		
 		if (plan.getResult().isClosed()) {
-		    logger.info("{}: Plan finished ! (all changes in stage)", getClass().getSimpleName());
+		    logger.info("{}: Plan finished ! (all changes in scheme)", getClass().getSimpleName());
 		}
 	}
 
@@ -164,7 +163,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 	 /*this checks partition table looking for missing duties (not declared dangling, that's diff) */
 	private void detectMissings(final Shard shard, final List<ShardEntity> hbDuties) {
 		Set<ShardEntity> sortedLog = null;
-		for (final ShardEntity duty : partitionTable.getStage().getDutiesByShard(shard)) {
+		for (final ShardEntity duty : partitionTable.getScheme().getDutiesByShard(shard)) {
 			boolean found = false;
 			for (ShardEntity hbDuty : hbDuties) {
 				if (duty.equals(hbDuty)) {
@@ -173,15 +172,16 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 				}
 			}
 			if (!found) {
-			    if (sortedLog==null) {
-			        sortedLog = new TreeSet<>();
-			    }
-				sortedLog.add(duty);
-				partitionTable.getBackstage().addMissing(duty);
+				if (partitionTable.getBackstage().addMissing(duty)) {
+				    if (sortedLog==null) {
+				        sortedLog = new TreeSet<>();
+				    }
+					sortedLog.add(duty);
+				}
 			}
 		}
 		if (sortedLog!=null) {
-			logger.warn("{}: ShardID: {}, Missing Duties in heartbeat {}, Added to PartitionTable",
+			logger.warn("{}: ShardID: {}, Missing duties in Heartbeat: {}, (backing up to backstage)",
 					getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(sortedLog));
 		}
 	}
@@ -208,7 +208,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
                                 EntityState.CONFIRMED, 
                                 shard.getShardID(), 	                                
                                 delivery.getPlanId());
-                		if (partitionTable.getStage().writeDuty(prescripted, shard, expected.getEvent())) {
+                		if (partitionTable.getScheme().writeDuty(prescripted, shard, expected.getEvent())) {
                 		    ret = true;
                 			// TODO warn: if a remove comes from client while a running plan, we might be avoidint it 
                 			partitionTable.getBackstage().removeCrud(prescripted);
@@ -280,7 +280,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
                             EntityState.CONFIRMED,
                             shard.getShardID(),
                             pid);
-                    boolean written = partitionTable.getStage().writeDuty(prescripted, shard, found.getEvent());
+                    boolean written = partitionTable.getScheme().writeDuty(prescripted, shard, found.getEvent());
                     if (written && found.getEvent().isCrud()) {
                 		kickFromNextStage(prescripted, found);
                 		ret = true;
@@ -312,13 +312,8 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		switch (shard.getState()) {
 		case GONE:
 		case QUITTED:
-			//if (getCurrentReallocation().isEmpty()) {
 			recoverAndRetire(shard);
-			//} else {
-			// TODO esta situacion estaba contemplada pero aparecio un bug en 
-			// el manejo del transporte por el cambio de broker que permite
-			// resetear el realloc cuando se cayo un shard
-			//}
+			// distributor will decide plan obsolecy if it must
 			break;
 		case ONLINE:
 			// TODO get ready
@@ -337,25 +332,23 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 	 * to be confirmed
 	 */
 	private void recoverAndRetire(final Shard shard) {
-		final Set<ShardEntity> dangling = new TreeSet<>();
-		final Set<ShardEntity> fallenDuties = partitionTable.getStage().getDutiesByShard(shard);
-		dangling.addAll(fallenDuties);
+		final Set<ShardEntity> dangling = partitionTable.getScheme().getDutiesByShard(shard);
 
 		logger.info("{}: Saved from fallen Shard: {}, #{} duties: {}", getClass().getSimpleName(), shard,
 				dangling.size(), ShardEntity.toStringIds(dangling));
 
 		logger.info("{}: Removing Shard: {} from partition table", getClass().getSimpleName(), shard);
-		partitionTable.getStage().removeShard(shard);
+		partitionTable.getScheme().removeShard(shard);
 		partitionTable.getBackstage().addDangling(dangling);
 	}
 
 	private boolean presentInPartition(final ShardEntity duty) {
-		final Shard shardLocation = partitionTable.getStage().getDutyLocation(duty.getDuty());
+		final Shard shardLocation = partitionTable.getScheme().getDutyLocation(duty.getDuty());
 		return shardLocation != null && shardLocation.getState().isAlive();
 	}
 
     private boolean presentInPartition(final Duty<?> duty) {
-        final Shard shardLocation = partitionTable.getStage().getDutyLocation(duty);
+        final Shard shardLocation = partitionTable.getScheme().getDutyLocation(duty);
         return shardLocation != null && shardLocation.getState().isAlive();
     }
 
@@ -364,7 +357,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		final Iterator<Duty<?>> it = dutiesFromSource.iterator();
 		while (it.hasNext()) {
 			final Duty<?> duty = it.next();
-			final ShardEntity pallet = partitionTable.getStage().getPalletById(duty.getPalletId());
+			final ShardEntity pallet = partitionTable.getScheme().getPalletById(duty.getPalletId());
 			if (presentInPartition(duty)) {
 			    if (sortedLog==null) {
 			        sortedLog = new TreeSet<>();
@@ -377,8 +370,9 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 				            .builder(duty)
 				            .withRelatedEntity(pallet)
 				            .build();
-					logger.info("{}: Adding New Duty: {}", getClass().getSimpleName(), newone);
-					partitionTable.getBackstage().addCrudDuty(newone);
+					if (partitionTable.getBackstage().addCrudDuty(newone)) {
+						logger.info("{}: Adding New Duty: {}", getClass().getSimpleName(), newone);	
+					}
 				} else {
 					logger.error("{}: Skipping Duty CRUD {}: Pallet Not found (pallet id: {})", getClass().getSimpleName(),
 							duty, duty.getPalletId());
@@ -395,7 +389,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		final Iterator<Pallet<?>> it = palletsFromSource.iterator();
 		while (it.hasNext()) {
 			final ShardEntity she = ShardEntity.Builder.builder(it.next()).build();
-			if (partitionTable.getStage().getPallets().contains(she)) {
+			if (partitionTable.getScheme().getPallets().contains(she)) {
 				sortedLog.add(she);
 				it.remove();
 			} else {
@@ -419,7 +413,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		for (final ShardEntity entity : dutiesFromAction) {
 			final boolean typeDuty = entity.getType()==ShardEntity.Type.DUTY;
 			final boolean found = (typeDuty && presentInPartition(entity)) || 
-					(!typeDuty && partitionTable.getStage().getPallets().contains(entity));
+					(!typeDuty && partitionTable.getScheme().getPallets().contains(entity));
 			final EntityEvent event = entity.getLastEvent();
 			if (!event.isCrud()) {
 				throw new RuntimeException("Bad call");
@@ -428,7 +422,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 				logger.info("{}: Registering Crud {}: {}", getClass().getSimpleName(), entity.getType(), entity);
 				if (typeDuty) {
 					if (event == CREATE) {
-						final ShardEntity pallet = partitionTable.getStage().getPalletById(entity.getDuty().getPalletId());
+						final ShardEntity pallet = partitionTable.getScheme().getPalletById(entity.getDuty().getPalletId());
 						if (pallet!=null) {
 							partitionTable.getBackstage().addCrudDuty(
 									ShardEntity.Builder.builder(entity.getEntity())

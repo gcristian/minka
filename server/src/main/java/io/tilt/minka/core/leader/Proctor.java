@@ -127,7 +127,7 @@ public class Proctor implements Service {
 
 	private void blessShards() {
 		try {
-			final List<Shard> shards = partitionTable.getStage().getShardsByState(null);
+			final List<Shard> shards = partitionTable.getScheme().getShardsByState(null);
 			logger.info("{}: Blessing {} shards {}", getName(), shards.size(), shards);
 			shards.forEach(i -> eventBroker.send(i.getBrokerChannel(), EVENT_SET, Clearance.create(shardId)));
 		} catch (Exception e) {
@@ -138,10 +138,10 @@ public class Proctor implements Service {
 	}
 	
 	private void sendDomainInfo() {
-		for (final Shard shard: partitionTable.getStage().getShardsByState(null)) {
+		for (final Shard shard: partitionTable.getScheme().getShardsByState(null)) {
 			if (!shard.getState().equals(ShardState.GONE)) {
 				final DomainInfo dom = new DomainInfo();
-				dom.setDomainPallets(partitionTable.getStage().getPallets());
+				dom.setDomainPallets(partitionTable.getScheme().getPallets());
 				eventBroker.send(shard.getBrokerChannel(), EVENT_SET, dom);
 			}
 		}
@@ -154,7 +154,7 @@ public class Proctor implements Service {
 			}
 			logger.info(LogUtils
 					.titleLine("Analyzing Shards (i" + analysisCounter++ + ") by Leader: " + shardId.toString()));
-			final List<Shard> shards = partitionTable.getStage().getShards();
+			final List<Shard> shards = partitionTable.getScheme().getShards();
 			if (shards.isEmpty()) {
 				logger.warn("{}: Partition queue empty: no shards emiting heartbeats ?", getName());
 				return;
