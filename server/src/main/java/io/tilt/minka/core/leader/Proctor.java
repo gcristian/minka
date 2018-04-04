@@ -128,12 +128,16 @@ public class Proctor implements Service {
 	private void blessShards() {
 		try {
 			final List<Shard> shards = partitionTable.getScheme().getShardsByState(null);
-			logger.info("{}: Blessing {} shards {}", getName(), shards.size(), shards);
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Blessing {} shards {}", getName(), shards.size(), shards);
+			}
 			shards.forEach(i -> eventBroker.send(i.getBrokerChannel(), EVENT_SET, Clearance.create(shardId)));
 		} catch (Exception e) {
 			logger.error("{}: Unexpected while blessing", getName(), e);
 		} finally {
-			logger.info(LogUtils.END_LINE);
+			if (logger.isInfoEnabled()) {
+				logger.info(LogUtils.END_LINE);
+			}
 		}
 	}
 	
@@ -152,16 +156,24 @@ public class Proctor implements Service {
 			if (!leaderShardContainer.imLeader()) {
 				return;
 			}
-			logger.info(LogUtils
-					.titleLine("Analyzing Shards (i" + analysisCounter++ + ") by Leader: " + shardId.toString()));
+			if (logger.isInfoEnabled()) {
+				logger.info(LogUtils.titleLine(
+						new StringBuilder("Analyzing Shards (i")
+							.append(analysisCounter++)
+							.append(") by Leader: ")
+							.append(shardId.toString())
+							.toString()));
+			}
 			final List<Shard> shards = partitionTable.getScheme().getShards();
 			if (shards.isEmpty()) {
 				logger.warn("{}: Partition queue empty: no shards emiting heartbeats ?", getName());
 				return;
 			}
 			lastUnstableAnalysisId = analysisCounter == 1 ? 1 : lastUnstableAnalysisId;
-			logger.info("{}: Health: {}, {} shard(s) going to be analyzed: {}", getName(),
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Health: {}, {} shard(s) going to be analyzed: {}", getName(),
 					partitionTable.getVisibilityHealth(), shards.size(), shards);
+			}
 			int sizeOnline = 0;
 			for (Shard shard : shards) {
 				ShardState concludedState = evaluateStateThruHeartbeats(shard);
@@ -189,7 +201,9 @@ public class Proctor implements Service {
 		} catch (Exception e) {
 			logger.error("{}: Unexpected while shepherdizing", getName(), e);
 		} finally {
-			logger.info(LogUtils.END_LINE);
+			if (logger.isInfoEnabled()) {
+				logger.info(LogUtils.END_LINE);
+			}
 		}
 	}
 	
@@ -256,7 +270,8 @@ public class Proctor implements Service {
 			}
 		}
 
-		logger.info("{}: {} {} {}, {}, ({}/{}), Seq [{}..{}] {}", getName(), shard,
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: {} {} {}, {}, ({}/{}), Seq [{}..{}] {}", getName(), shard,
 				newState == currentState ? "stays in" : "changing to", 
 				newState, 
 				msg, 
@@ -265,6 +280,7 @@ public class Proctor implements Service {
 				shard.getHeartbeats().last().getSequenceId(),
 				shard.getHeartbeats().first().getSequenceId(), 
 				shardId.equals(shard.getShardID()) ? LogUtils.SPECIAL : "");
+		}
 
 		return newState;
 	}
@@ -297,7 +313,7 @@ public class Proctor implements Service {
 		 */
 		final NetworkShardIdentifier shardId = onTime.get(0).getShardId();
 		boolean healthly = stdDeviationDelay < permittedStdDeviationDistance;// && biggestDelay < permittedBiggestDelay;
-		if (logger.isInfoEnabled()) {
+		if (logger.isDebugEnabled()) {
 			logger.debug("{}: Shard: {}, {} Standard deviation distance: {}/{}", getName(), shardId,
 					healthly ? HEALTH_UP : HEALTH_DOWN, stdDeviationDelay, permittedStdDeviationDistance);
 		}

@@ -303,7 +303,9 @@ public class Plan implements Comparable<Plan> {
     			        for (int i = 0; i < deliveryIdx; i++) {
     			        	final Delivery d = deliveries.get(i);
     			            if (d.getStep() == Delivery.Step.PENDING) {
-    			                logger.info("{}: No more parallels: past deliveries yet pending", getClass().getSimpleName());
+    			            	if (logger.isInfoEnabled()) {
+    			            		logger.info("{}: No more parallels: past deliveries yet pending", getClass().getSimpleName());
+    			            	}
     			                return false;
     			            }
     			        }
@@ -335,19 +337,21 @@ public class Plan implements Comparable<Plan> {
             final Instant expiration = started.plusMillis(maxMillis);
     		if (expiration.isBefore(Instant.now())) {
     			if (retryCounter == this.maxRetries) {
-    				logger.info("{}: Abandoning Plan expired ! (max secs:{}) ", getClass().getSimpleName(), maxMillis);
+    				logger.warn("{}: Abandoning Plan expired ! (max secs:{}) ", getClass().getSimpleName(), maxMillis);
     				this.result = Result.CLOSED_EXPIRED;
     				this.ended = Instant.now();
     			} else {
     				retryCounter++;
     				this.started = Instant.now();
-    				logger.info("{}: ReSending Plan expired: Retry {} (max secs:{}) ", getClass().getSimpleName(),
+    				logger.warn("{}: ReSending Plan expired: Retry {} (max secs:{}) ", getClass().getSimpleName(),
     						retryCounter, maxMillis);
     				this.result = Result.RETRYING;
     			}
     		} else {
-    			logger.info("{}: Drive in progress waiting recent deliveries ({}'s to expire)", getClass().getSimpleName(),
+    			if (logger.isInfoEnabled()) {
+    				logger.info("{}: Drive in progress waiting recent deliveries ({}'s to expire)", getClass().getSimpleName(),
     					getId(), (expiration.toEpochMilli() - System.currentTimeMillis()) / 1000);
+    			}
     			this.result = Result.RUNNING;
     		}
     	}

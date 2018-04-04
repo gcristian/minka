@@ -135,7 +135,9 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
     		            getClass().getSimpleName(), source.getShardID().toString(), lattestPlanId, plan.getId());			
     		}
     		if (!plan.getResult().isClosed() && plan.hasUnlatched()) {
-    		    logger.info("{}: Plan unlatched, fwd >> distributor agent ", getClass().getSimpleName());
+    			if (logger.isInfoEnabled()) {
+    				logger.info("{}: Plan unlatched, fwd >> distributor agent ", getClass().getSimpleName());
+    			}
     		    //scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
     		}
 		} else {
@@ -143,8 +145,8 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 	            getClass().getSimpleName(), source.getShardID().toString());
 		}			
 		
-		if (plan.getResult().isClosed()) {
-		    logger.info("{}: Plan finished ! (all changes in scheme)", getClass().getSimpleName());
+		if (plan.getResult().isClosed() && logger.isInfoEnabled()) {
+			logger.info("{}: Plan finished ! (all changes in scheme)", getClass().getSimpleName());
 		}
 	}
 
@@ -227,7 +229,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 				}
 			}
 		}
-		if (sortedLogConfirmed!=null) {
+		if (sortedLogConfirmed!=null && logger.isInfoEnabled()) {
 			logger.info("{}: ShardID: {}, Confirming partition event for Duties: {}", getClass().getSimpleName(),
 					shard.getShardID(), ShardEntity.toStringIds(sortedLogConfirmed));
 		}
@@ -289,7 +291,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 			}
 		}
 		
-		if (sortedLog!=null) {
+		if (sortedLog!=null && logger.isInfoEnabled()) {
 			logger.info("{}: ShardID: {}, Confirming (by absence) partioning event for Duties: {}",
 					getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(sortedLog));
 		}
@@ -333,11 +335,11 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 	 */
 	private void recoverAndRetire(final Shard shard) {
 		final Set<ShardEntity> dangling = partitionTable.getScheme().getDutiesByShard(shard);
-
-		logger.info("{}: Saved from fallen Shard: {}, #{} duties: {}", getClass().getSimpleName(), shard,
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: Saved from fallen Shard: {}, #{} duties: {}", getClass().getSimpleName(), shard,
 				dangling.size(), ShardEntity.toStringIds(dangling));
-
-		logger.info("{}: Removing Shard: {} from partition table", getClass().getSimpleName(), shard);
+			logger.info("{}: Removing Shard: {} from partition table", getClass().getSimpleName(), shard);
+		}
 		partitionTable.getScheme().removeShard(shard);
 		partitionTable.getBackstage().addDangling(dangling);
 	}
@@ -371,7 +373,9 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 				            .withRelatedEntity(pallet)
 				            .build();
 					if (partitionTable.getBackstage().addCrudDuty(newone)) {
-						logger.info("{}: Adding New Duty: {}", getClass().getSimpleName(), newone);	
+						if (logger.isInfoEnabled()) {
+							logger.info("{}: Adding New Duty: {}", getClass().getSimpleName(), newone);
+						}
 					}
 				} else {
 					logger.error("{}: Skipping Duty CRUD {}: Pallet Not found (pallet id: {})", getClass().getSimpleName(),
@@ -379,7 +383,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 				}
 			}
 		}
-		if (sortedLog!=null) {
+		if (sortedLog!=null && logger.isInfoEnabled()) {
 			logger.info("{}: Skipping Duty CRUD already in PTable: {}", getClass().getSimpleName(), sortedLog);
 		}
 	}
@@ -393,12 +397,14 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 				sortedLog.add(she);
 				it.remove();
 			} else {
-				logger.info("{}: Adding New Pallet: {} with Balancer: {}", getClass().getSimpleName(), she, 
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: Adding New Pallet: {} with Balancer: {}", getClass().getSimpleName(), she, 
 						she.getPallet().getMetadata());
+				}
 				partitionTable.addCrudPallet(she);
 			}
 		}
-		if (!sortedLog.isEmpty()) {
+		if (!sortedLog.isEmpty() && logger.isInfoEnabled()) {
 			logger.info("{}: Skipping Pallet CRUD already in PTable: {}", getClass().getSimpleName(),
 					ShardEntity.toStringIds(sortedLog));
 		}
@@ -419,7 +425,9 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 				throw new RuntimeException("Bad call");
 			}
 			if ((!found && event == CREATE) || (found && event == EntityEvent.REMOVE)) {
-				logger.info("{}: Registering Crud {}: {}", getClass().getSimpleName(), entity.getType(), entity);
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: Registering Crud {}: {}", getClass().getSimpleName(), entity.getType(), entity);
+				}
 				if (typeDuty) {
 					if (event == CREATE) {
 						final ShardEntity pallet = partitionTable.getScheme().getPalletById(entity.getDuty().getPalletId());

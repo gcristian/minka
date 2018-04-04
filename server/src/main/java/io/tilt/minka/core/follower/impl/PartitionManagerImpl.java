@@ -79,7 +79,9 @@ public class PartitionManagerImpl implements PartitionManager {
 	}
 
 	public Void releaseAll() {
-		logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE ALL", getClass().getSimpleName(), partition.getId());
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE ALL", getClass().getSimpleName(), partition.getId());
+		}
 		dettach(partition.getDuties());
 		partition.clean();
 		return null;
@@ -89,8 +91,10 @@ public class PartitionManagerImpl implements PartitionManager {
 	public Void finalized(final Collection<ShardEntity> duties) {
 		for (ShardEntity duty : duties) {
 			if (partition.contains(duty)) {
-				logger.info("{}: ({}) Removing finalized Duty from Partition: {}", getClass().getSimpleName(),
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: ({}) Removing finalized Duty from Partition: {}", getClass().getSimpleName(),
 						partition.getId(), duty.toBrief());
+				}
 				partition.remove(duty);
 			} else {
 				logger.error("{}: ({}) Unable to ACKNOWLEDGE for finalization a never taken Duty !: {}",
@@ -107,13 +111,17 @@ public class PartitionManagerImpl implements PartitionManager {
 			if (entity.getType()==ShardEntity.Type.DUTY) {
 				if (partition.contains(entity)) {
 					if (entity.getUserPayload() == null) {
-						logger.info("{}: ({}) Instructing PartitionDelegate to UPDATE : {}", getClass().getSimpleName(),
+						if (logger.isInfoEnabled()) {
+							logger.info("{}: ({}) Instructing PartitionDelegate to UPDATE : {}", getClass().getSimpleName(),
 								partition.getId(), entity.toBrief());
+						}
 						dependencyPlaceholder.getDelegate().update(entity.getDuty());
 					} else {
-						logger.info("{}: ({}) Instructing PartitionDelegate to RECEIVE: {} with Payload type {}",
+						if (logger.isInfoEnabled()) {
+							logger.info("{}: ({}) Instructing PartitionDelegate to RECEIVE: {} with Payload type {}",
 								getClass().getSimpleName(), partition.getId(), entity.toBrief(),
 								entity.getUserPayload().getClass().getName());
+						}
 						dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), entity.getUserPayload());
 					}
 				} else {
@@ -122,13 +130,17 @@ public class PartitionManagerImpl implements PartitionManager {
 				}
 			} else if (entity.getType()==ShardEntity.Type.PALLET) {
 				if (entity.getUserPayload() == null) {
-					logger.info("{}: ({}) Instructing PartitionDelegate to UPDATE : {}", getClass().getSimpleName(),
+					if (logger.isInfoEnabled()) {
+						logger.info("{}: ({}) Instructing PartitionDelegate to UPDATE : {}", getClass().getSimpleName(),
 							partition.getId(), entity.toBrief());
+					}
 					dependencyPlaceholder.getDelegate().update(entity.getPallet());
 				} else {
-					logger.info("{}: ({}) Instructing PartitionDelegate to RECEIVE: {} with Payload type {}",
+					if (logger.isInfoEnabled()) {
+						logger.info("{}: ({}) Instructing PartitionDelegate to RECEIVE: {} with Payload type {}",
 							getClass().getSimpleName(), partition.getId(), entity.toBrief(),
 							entity.getUserPayload().getClass().getName());
+					}
 					dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), entity.getUserPayload());					
 				}
 			}
@@ -138,8 +150,11 @@ public class PartitionManagerImpl implements PartitionManager {
 
 	@SuppressWarnings("unchecked")
 	public Void dettach(final Collection<ShardEntity> duties) {
-		logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE : {}", getClass().getSimpleName(),
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE : {}", getClass().getSimpleName(),
 				partition.getId(), ShardEntity.toStringBrief(duties));
+		}
+		
 		try {
 			dependencyPlaceholder.getDelegate().release(toSet(duties, duty -> {
 				if (!partition.contains(duty)) {
@@ -171,8 +186,10 @@ public class PartitionManagerImpl implements PartitionManager {
 		 * if (scheduler.acquire(IdentifiedAction.build(RESERVE_DUTY,
 		 * duty.getDuty().getId())) == GRANTED) {
 		 */
-		logger.info("{}: ({}) Instructing PartitionDelegate to TAKE: {}", getClass().getSimpleName(), partition.getId(),
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: ({}) Instructing PartitionDelegate to TAKE: {}", getClass().getSimpleName(), partition.getId(),
 				ShardEntity.toStringBrief(duties));
+		}
 		try {
 			final Set<Pallet<?>> pallets = new HashSet<>();
 			duties.stream().filter(d->partition.add(d))

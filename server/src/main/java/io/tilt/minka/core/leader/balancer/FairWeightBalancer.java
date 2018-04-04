@@ -197,13 +197,15 @@ public class FairWeightBalancer implements Balancer {
 				// fairness thru shard's capacities flattening according total weight
 				// so total bascule's fair value ends up close to equal the total weight
 				final double fair = Math.min(whole.totalLift() * (b.getMaxRealCapacity() / clusterCap), b.getMaxRealCapacity());
-				logger.info("{}: Shard: {} Fair load: {}, capacity: {} (c.c. {}, d.w. {})", 
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: Shard: {} Fair load: {}, capacity: {} (c.c. {}, d.w. {})", 
 						getClass().getSimpleName(), 
 						b.getOwner(), 
 						fair, 
 						b.getMaxRealCapacity(), 
 						clusterCap, 
 						whole.totalLift());
+				}
 				b.setMaxTestingCapacity(fair);
 			}
 		}

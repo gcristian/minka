@@ -152,8 +152,10 @@ class PlanFactory {
 	    final Set<ShardEntity> missing = table.getBackstage().getDutiesMissing();
 		for (final ShardEntity missed : missing) {
 			final Shard lazy = table.getScheme().getDutyLocation(missed);
-			logger.info("{}: Registering {}, missing Duty: {}", PlanFactory.class.getSimpleName(),
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Registering {}, missing Duty: {}", PlanFactory.class.getSimpleName(),
 					lazy == null ? "unattached" : "from falling Shard: " + lazy, missed);
+			}
 			if (lazy != null) {
 				// missing duties are a confirmation per-se from the very shards,
 				// so the ptable gets fixed right away without a realloc.
@@ -170,8 +172,10 @@ class PlanFactory {
 			table.getBackstage().addCrudDuty(missed);
 		}
 		if (!missing.isEmpty()) {
-			logger.info("{}: Registered {} dangling duties {}", PlanFactory.class.getSimpleName(),
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Registered {} dangling duties {}", PlanFactory.class.getSimpleName(),
 					missing.size(), ShardEntity.toStringIds(missing));
+			}
 		}
 		// clear it or nobody will
 		table.getBackstage().clearAllocatedMissing();
@@ -191,9 +195,12 @@ class PlanFactory {
 			 */
 			pendings.addAll(previous.getAllNonConfirmedFromAllDeliveries());
 			if (pendings.isEmpty()) {
-				logger.info("{}: Previous change although unfinished hasnt waiting duties", getClass().getSimpleName());
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: Previous change although unfinished hasnt waiting duties", getClass().getSimpleName());
+				}
 			} else {
-				logger.info("{}: Previous change's unfinished business saved as Dangling: {}",
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: Previous change's unfinished business saved as Dangling: {}",
 						getClass().getSimpleName(), pendings.toString());
 			}
 		}
@@ -211,8 +218,10 @@ class PlanFactory {
 			        shard.getShardID(), 
                     plan.getId());
 			plan.ship(shard, deletion);
-			logger.info("{}: Deleting from: {}, Duty: {}", getClass().getSimpleName(), shard.getShardID(),
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Deleting from: {}, Duty: {}", getClass().getSimpleName(), shard.getShardID(),
 					deletion.toBrief());
+			}
 		}
 	}
 

@@ -133,13 +133,17 @@ public class Distributor implements Service {
 
 	@java.lang.Override
 	public void start() {
-		logger.info("{}: Starting. Scheduling constant periodic check", getName());
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: Starting. Scheduling constant periodic check", getName());
+		}
 		scheduler.schedule(distributor);
 	}
 
 	@java.lang.Override
 	public void stop() {
-		logger.info("{}: Stopping", getName());
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: Stopping", getName());
+		}
 		this.scheduler.stop(distributor);
 	}
 
@@ -161,7 +165,7 @@ public class Distributor implements Service {
 			final int online = partitionTable.getScheme().getShardsByState(ShardState.ONLINE).size();
 			final int min = config.getProctor().getMinShardsOnlineBeforeSharding();
 			if (online < min) {
-			    logger.info("{}: balancing posponed: not enough online shards (min:{}, now:{})", getName(), min, online);
+				logger.warn("{}: balancing posponed: not enough online shards (min:{}, now:{})", getName(), min, online);
 			    return;
 			}
 		    if (!loadFromClientWhenAllOnlines()) {
@@ -174,7 +178,9 @@ public class Distributor implements Service {
 		} catch (Exception e) {
 			logger.error("{}: Unexpected ", getName(), e);
 		} finally {
-			logger.info(LogUtils.END_LINE);
+			if (logger.isInfoEnabled()) {
+				logger.info(LogUtils.END_LINE);
+			}
 		}
 	}
 
@@ -219,11 +225,15 @@ public class Distributor implements Service {
 			partitionTable.addPlan(plan);
 			this.partitionTable.setWorkingHealth(ClusterHealth.UNSTABLE);
 			plan.prepare();
-			logger.info("{}: Balancer generated issues on Plan: {}", getName(), plan.getId());
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Balancer generated issues on Plan: {}", getName(), plan.getId());
+			}
 			return plan;
 		} else {
 			this.partitionTable.setWorkingHealth(ClusterHealth.STABLE);
-			logger.info("{}: Distribution in Balance ", getName(), LogUtils.BALANCED_CHAR);
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Distribution in Balance ", getName(), LogUtils.BALANCED_CHAR);
+			}
 			return null;
 		}
 	}
@@ -260,13 +270,13 @@ public class Distributor implements Service {
         	if (trackByDuty.isEmpty()) {
         		throw new IllegalStateException("delivery with no duties to send ?");
         	}
-        	
-        	logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), 
+        	if (logger.isInfoEnabled()) {
+        		logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), 
         	        delivery.getEvent().toVerb(),
         			delivery.getShard().getShardID(), 
         			trackByDuty.size(), 
         			ShardEntity.toStringIds(new TreeSet<>(trackByDuty.keySet())));
-        	
+        	}
         	delivery.checkState();
         	if (eventBroker.sendList(delivery.getShard().getBrokerChannel(), new ArrayList<>(trackByDuty.keySet()))) {
         		// dont mark to wait for those already confirmed (from fallen shards)
@@ -389,9 +399,11 @@ public class Distributor implements Service {
 	}
 
     private void logStatus() {
-        StringBuilder title = new StringBuilder("Distributor (i")
+    	if (logger.isInfoEnabled()) {
+    		StringBuilder title = new StringBuilder("Distributor (i")
                 .append(++distributionCounter).append(" by Leader: ").append(shardId.toString());
-        logger.info(LogUtils.titleLine(title.toString()));
+    		logger.info(LogUtils.titleLine(title.toString()));
+    	}
         partitionTable.logStatus();
     }
 }

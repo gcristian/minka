@@ -110,7 +110,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		final Heartbeat hb = builder.build();
 		if (log.isDebugEnabled()) {
 			logDebugNicely(hb);
-		} else {
+		} else if (log.isInfoEnabled()){
 			log.info("{}: ({}) {} SeqID: {}, {}", 
 				getClass().getSimpleName(), hb.getShardId(),LogUtils.HB_CHAR, hb.getSequenceId(), 
 				hb.reportsDuties() ? new StringBuilder("Duties: (")
@@ -161,8 +161,10 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		final Log found = shardedDuty.getJournal().find(partition.getId()); 
 		final EntityState stamp = EntityState.CONFIRMED;
 		if (found.getLastState()!=stamp) {
-			log.info("{}: ({}) Changing {} to {} duty: {}", getClass().getSimpleName(), partition.getId(),
+			if (log.isInfoEnabled()) {
+				log.info("{}: ({}) Changing {} to {} duty: {}", getClass().getSimpleName(), partition.getId(),
 					found.getLastState(), stamp, duty.getId());
+			}
 			shardedDuty.getJournal().addEvent(
 					found.getEvent(), 
 					stamp,

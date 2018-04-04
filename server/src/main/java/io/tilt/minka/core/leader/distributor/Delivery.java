@@ -138,9 +138,11 @@ public class Delivery {
 					} else {
 					    // TODO get Partition TAble and check if Shard has long fell offline
 						if (found.getLastState()==EntityState.PENDING) {
-							Plan.logger.info("{}: waiting Shard: {} for {} still in {}, at least Duty: {}", 
-                                getClass().getSimpleName(), shard, duty.getEntity().getId(), 
-                                found.getEvent(), found.getLastState());
+							if (Plan.logger.isInfoEnabled()) {
+								Plan.logger.info("{}: waiting Shard: {} for {} still in {}, at least Duty: {}", 
+	                                getClass().getSimpleName(), shard, duty.getEntity().getId(), 
+	                                found.getEvent(), found.getLastState());
+							}
 							return;
 						}
 					}

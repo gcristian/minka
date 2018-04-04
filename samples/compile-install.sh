@@ -1,4 +1,4 @@
-rm *.log.*
+rm *.log
 cd ../;
 #clean-eclipse; 
 mvn compile install -DskipTests 

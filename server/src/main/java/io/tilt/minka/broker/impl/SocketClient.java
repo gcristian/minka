@@ -145,14 +145,18 @@ public class SocketClient {
 			antiflapper.set(true);
 		}
 		if (alive.get() && antiflapper.get()) {
-			logger.info("{}: ({}) Back to normal", getClass().getSimpleName(), loggingName);
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: ({}) Back to normal", getClass().getSimpleName(), loggingName);
+			}
 			antiflapper.set(false);
 		}
-		logger.info("{}: ({}) Sending: {}", getClass().getSimpleName(), loggingName, msg.getPayloadType());
+		if (logger.isInfoEnabled()) {
+		    logger.info("{}: ({}) Sending: {}", getClass().getSimpleName(), loggingName, msg.getPayloadType());
+		}
 		count.incrementAndGet();
 		if (queueSize>maxQueueThreshold) {
-			logger.error("{}: ({}) LAG of {}, threshold {}, increase broker's connection handler threads (enqueuing: {})", getClass().getSimpleName(), loggingName, queueSize, 
-					maxQueueThreshold, msg);
+			logger.error("{}: ({}) LAG of {}, threshold {}, increase broker's connection handler threads (enqueuing: {})", 
+					getClass().getSimpleName(), loggingName, queueSize, maxQueueThreshold, msg);
 		}
 	}
 
@@ -181,7 +185,9 @@ public class SocketClient {
 	private void sleepIfMust(final int retryDelay) {
 		if (retry.incrementAndGet() > 0) {
 			try {
-				logger.info("{}: ({}) Sleeping {} ms before next retry...", getClass().getSimpleName(), loggingName, retryDelay);
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: ({}) Sleeping {} ms before next retry...", getClass().getSimpleName(), loggingName, retryDelay);
+				}
 				Thread.sleep(retryDelay);
 			} catch (InterruptedException e) {
 				logger.error("{}: ({}) Unexpected while waiting for next client connection retry",
@@ -197,8 +203,10 @@ public class SocketClient {
 			final NetworkShardIdentifier addr = channel.getAddress();
 			final String address = addr.getInetAddress().getHostAddress();
 			final int port = addr.getInetPort();
-			logger.info("{}: ({}) Building client (retry:{}) for outbound messages to: {}", 
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: ({}) Building client (retry:{}) for outbound messages to: {}", 
 					getClass().getSimpleName(), loggingName, retry, addr);
+			}
 			final Bootstrap bootstrap = new Bootstrap();
 			
 			bootstrap.group(clientGroup)
@@ -214,8 +222,10 @@ public class SocketClient {
 				}
 			});
 			this.alive.set(true);
-			logger.info("{}: ({}) Binding to broker: {}:{} at channel: {}", getClass().getSimpleName(), loggingName,
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: ({}) Binding to broker: {}:{} at channel: {}", getClass().getSimpleName(), loggingName,
 					address, port, channel.getChannel().name());
+			}
 			bootstrap.connect(addr.getInetAddress().getHostAddress(), addr.getInetPort())
 				.sync();
 				//.channel().closeFuture().sync();
@@ -227,7 +237,9 @@ public class SocketClient {
 			wrongDisconnection = true;
 			logger.error("{}: ({}) Unexpected while contacting shard's broker", getClass().getSimpleName(), loggingName, e);
 		} finally {
-			logger.info("{}: ({}) Exiting client writing scope", getClass().getSimpleName(), loggingName);
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: ({}) Exiting client writing scope", getClass().getSimpleName(), loggingName);
+			}
 		}
 		return wrongDisconnection;
 	}
@@ -267,16 +279,14 @@ public class SocketClient {
 		}
 		@Override
 		public void channelActive(final ChannelHandlerContext ctx) {
-			onActiveChannel(ctx);
-		}
-
-		private void onActiveChannel(final ChannelHandlerContext ctx) {
 			MessageMetadata msg = null;
 			try {
 				while (!Thread.interrupted()) {
 					msg = queue.take();
 					if (msg != null) {
-						logger.debug("{}: ({}) Writing: {}", getClass().getSimpleName(), loggingName, msg.getPayloadType());
+						if (logger.isDebugEnabled()) {
+							logger.debug("{}: ({}) Writing: {}", getClass().getSimpleName(), loggingName, msg.getPayloadType());
+						}
 						//ctx.writeAndFlush(new MessageMetadata(msg.getPayload(), msg.getInbox()));
 						ctx.writeAndFlush(msg);
 					} else {
@@ -311,8 +321,10 @@ public class SocketClient {
 
 	public void close() {
 		if (clientGroup != null && !clientGroup.isShuttingDown()) {
-			logger.info("{}: ({}) Closing connection to server (total sent: {}, unsent msgs: {})", 
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: ({}) Closing connection to server (total sent: {}, unsent msgs: {})", 
 					getClass().getSimpleName(), loggingName, count.get(), clientHandler.size());
+			}
 			this.alive.set(false);
 			clientGroup.shutdownGracefully();
 		} else {

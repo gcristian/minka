@@ -87,10 +87,15 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	private void ensureOpenPort(final boolean findAnyPort) throws Exception {
 		Exception cause = null;
 		for (int search = 0; search < (findAnyPort ? PORT_SEARCHES_MAX : 1); this.port++, search++) {
-			logger.info("{}: {} port {}:{} (search no.{}/{}) ", getClass().getSimpleName(),
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: {} port {}:{} (search no.{}/{}) ", getClass().getSimpleName(),
 					search == 0 ? "Validating" : "Falling back", sourceHost, this.port, search, PORT_SEARCHES_MAX);
+			}
+			
 			try {
-				logger.info("{}: Booking port {}", getClass().getSimpleName(), this.port);
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: Booking port {}", getClass().getSimpleName(), this.port);
+				}
 				bookedSocket = bookAPort(this.port);
 				if (bookedSocket != null) {
 					return;
@@ -139,8 +144,10 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		if (sourceHost != null) {
 			if (!sourceHost.getHostName().isEmpty() && config.getBroker().isUseMachineHostname()) {
 				id = sourceHost.getHostName();
-                logger.info("{}: Using system's hostname enabled by config: {}", 
-                        getClass().getSimpleName(), id);
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: Using system's hostname enabled by config: {}", 
+                        getClass().getSimpleName(), id);	
+				}
 				final String suffix = config.getBroker().getShardIdSuffix();
 				if (suffix != null && !suffix.isEmpty()) {
 					id += "-" + suffix;
@@ -161,8 +168,10 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		InetAddress fallback = null;
 		boolean specified;
 		try {
-			logger.info("{}: Looking for configured network interfase/address: {}/{}", getClass().getSimpleName(),
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Looking for configured network interfase/address: {}/{}", getClass().getSimpleName(),
 					specifiedInterfase, specifiedAddress);
+			}
 			final Enumeration<NetworkInterface> nis = NetworkInterface.getNetworkInterfaces();
 			while (nis.hasMoreElements()) {
 				final NetworkInterface ni = nis.nextElement();
@@ -170,15 +179,19 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 					if (ni.isLoopback()) {
 						logger.warn("{}: Loopback address not recomended !!", getClass().getSimpleName());
 					}
-					logger.info("{}: Specified Interfase found: {}", getClass().getSimpleName(), ni.getName());
+					if (logger.isInfoEnabled()) {
+						logger.info("{}: Specified Interfase found: {}", getClass().getSimpleName(), ni.getName());
+					}
 				}
 				final Enumeration<InetAddress> ias = ni.getInetAddresses();
 				while (ias.hasMoreElements()) {
 					final InetAddress ia = ias.nextElement();
 					if (ia.getHostName().equals(specifiedAddress)) {
 						specified &= true;
-						logger.info("{}: Specified Host address found: {}:{} with Hostname {}",
+						if (logger.isInfoEnabled()) {
+							logger.info("{}: Specified Host address found: {}:{} with Hostname {}",
 								getClass().getSimpleName(), ia.getHostAddress(), ia.getHostName());
+						}
 					}
 					if (ia.isSiteLocalAddress()) {
 						fallback = fallback == null ? ia : fallback;
@@ -186,8 +199,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 							return ia;
 						}
 					} else if (specified) {
-						logger.warn(
-								"{}: Specified Address: {} is not LAN candidate, "
+						logger.warn("{}: Specified Address: {} is not LAN candidate, "
 										+ "you should specify a non local-only valid interfase and address.",
 								getClass().getSimpleName(), ia.getHostAddress());
 					}

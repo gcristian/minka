@@ -90,7 +90,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 					.every(2000)
 					.build());
 
-			logger.info("{}: Creating SocketServer", getClass().getSimpleName());
+			logger.info("{}: Creating SocketServer", getName());
 			getShardId().leavePortReservation();
 			this.server = new SocketServer(
 					this, 
@@ -121,14 +121,14 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 			while (it.hasNext()) {
 				final Entry<DirectChannel, SocketClient> ch = it.next();
 				if (ch.getValue().hasExpired()) {
-					logger.warn("{}: ({}) DISCARDING obsolete client: {} for channel: {}", getClass().getSimpleName(),
+					logger.warn("{}: ({}) DISCARDING obsolete client: {} for channel: {}", getName(),
 							getShardId(), ch.getKey(), ch.getKey());
 					ch.getValue().close();
 					it.remove();
 				}
 			}
 		} catch (Exception e) {
-			logger.error("{}: Unexpected while discarding old channels", getClass().getSimpleName(), e);
+			logger.error("{}: Unexpected while discarding old channels", getName(), e);
 		}
 	}
 
@@ -138,7 +138,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 		final ShardIdentifier previous = leaderShardContainer.getPreviousLeaderShardId();
 		if (previous == null || !previous.equals(newLeader)) {
 			logger.info("{}: ({}) Closing client connections to previous leader: {}, cause new leader is: {}",
-					getClass().getSimpleName(), super.getShardId(), previous, newLeader);
+					getName(), super.getShardId(), previous, newLeader);
 			closeClients();
 		}
 	}
@@ -175,10 +175,22 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	}
 
 	private synchronized boolean post(final BrokerChannel channel, final ChannelHint type, final Object event) {
+		final SocketClient client = getOrCreate(channel);
+		if (logger.isDebugEnabled()) {
+			logger.debug("{}: ({}) Posting to Broker: {}:{} ({} into {}))", getName(), getShardId(),
+				channel.getAddress().getInetAddress().getHostAddress(), channel.getAddress().getInetPort(),
+				event.getClass().getSimpleName(), channel.getChannel());
+		}
+
+		return client.send(new MessageMetadata(event, channel.getChannel().name()));
+	}
+
+	private SocketClient getOrCreate(final BrokerChannel channel) {
 		SocketClient client = this.clients.get(channel);
 		if (client == null) {
-			logger.info("{}: ({}) CREATING SocketClient for Shard: {}", getClass().getSimpleName(), getShardId(),
-					channel.getAddress());
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: ({}) CREATING SocketClient for Shard: {}", getName(), getShardId(), channel.getAddress());
+			}
 			client = new SocketClient(channel,
 					scheduler,
 					(int)config.beatToMs(config.getBroker().getRetryDelayMiliBeats())/1000, 
@@ -187,12 +199,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 					config);
 			this.clients.put((DirectChannel)channel, client);
 		}
-
-		logger.debug("{}: ({}) Posting to Broker: {}:{} ({} into {}))", getClass().getSimpleName(), getShardId(),
-				channel.getAddress().getInetAddress().getHostAddress(), channel.getAddress().getInetPort(),
-				event.getClass().getSimpleName(), channel.getChannel());
-
-		return client.send(new MessageMetadata(event, channel.getChannel().name()));
+		return client;
 	}
 
 	@Override
