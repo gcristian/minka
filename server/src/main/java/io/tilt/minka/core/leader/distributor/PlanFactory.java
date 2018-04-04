@@ -16,8 +16,10 @@
 package io.tilt.minka.core.leader.distributor;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -202,9 +204,11 @@ class PlanFactory {
 				if (logger.isInfoEnabled()) {
 					logger.info("{}: Previous change's unfinished business saved as Dangling: {}",
 						getClass().getSimpleName(), pendings.toString());
+				}
+				return pendings;
 			}
 		}
-		return pendings;
+		return Collections.emptyList();
 	}
 
 	/* by user deleted */

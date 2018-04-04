@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -46,6 +47,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.EntityState;
@@ -151,7 +153,7 @@ public class Plan implements Comparable<Plan> {
 	
 	@JsonIgnore
 	public List<ShardEntity> getAllNonConfirmedFromAllDeliveries() {
-		final List<ShardEntity> ret = new ArrayList<>();
+		final List<ShardEntity> ret = new LinkedList<>();
 		for (final Delivery delivery: deliveries) {
 			for (final ShardEntity duty: delivery.getDuties()) {
 				if (duty.getLastState()==EntityState.PENDING || 

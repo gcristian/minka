@@ -302,12 +302,17 @@ public class EntityJournal implements Serializable {
 	    		private static final long serialVersionUID = 3709876521530551544L;
 	    		@Override
 	    		public int compare(final TimeState o1, final TimeState o2) {
-	    			return o1.getDate().compareTo(o2.getDate());
+	    			if (o1==null || o2 == null) {
+	    				return o1==null && o2!=null ? -1 : o2==null ? 0 : 1;
+	    			} else {
+	    				return o1.getDate().compareTo(o2.getDate());
+	    			}
 	    		}
 	    	}
 
 	        private final Date date;
 	        private final EntityState state;
+
 	        public TimeState(final Date date, final EntityState state) {
 	            super();
 	            this.date = date;

@@ -34,6 +34,22 @@ public class DutyBuilder<T extends Serializable> {
 	}
 	
 	/**
+	 * Builder with an ID equals to current instant's epoc-second plus nano-seconds elapsed. 
+	 * @param palletId must belong to an already created pallet
+	 * @param <T> the payload type 
+	 * @return a builder for first class citizen duty
+	 */
+	public static <T extends Serializable> DutyBuilder<T> builder(final String palletId) {
+		final Instant now = Instant.now();
+		return new DutyBuilder<>(
+				new StringBuilder()
+					.append(now.getEpochSecond())
+					.append(now.getNano())
+					.toString(), 
+				palletId);
+	}
+	
+	/**
 	 * @param id must be a unique ID within the host app domain when distributed.
 	 * @param palletId must belong to an already created pallet
 	 * @param <T> the payload type 

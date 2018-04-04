@@ -150,7 +150,7 @@ public class Defaulter {
 
 	private static List<Field> getStaticDefaults(Class<?> clas) {
 		final Field[] declaredFields = clas.getDeclaredFields();
-		final List<Field> staticFields = new ArrayList<Field>();
+		final List<Field> staticFields = new ArrayList<Field>(declaredFields.length);
 		for (Field field : declaredFields) {
 			if (Modifier.isStatic(field.getModifiers())) {
 				staticFields.add(field);

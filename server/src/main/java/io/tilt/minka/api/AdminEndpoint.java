@@ -114,10 +114,9 @@ public class AdminEndpoint {
 	@Path("/plans")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response plans() throws JsonProcessingException {
-		final List<Plan> history = table.getHistory();
 		final Map<String, Object> map = new HashMap<>(2);
-		map.put("plans", history.size());
-		map.put("history", history);
+		map.put("plans", table.getHistory().size());
+		map.put("history", table.getHistory());
         return Response.accepted(views.elementToJson(map)).build();
 	}
 

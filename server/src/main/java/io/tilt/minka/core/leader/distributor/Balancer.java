@@ -229,6 +229,10 @@ public interface Balancer {
 		 */
 		SAW(null),
 		/**
+		 * Use hashing order
+		 */
+		HASH(new ShardEntity.HashComparer()),
+		/**
 		 * Use Creation date order, i.e. natural order.
 		 * Use this to keep the migration of duties among shards: to a bare minimum.
 		 * Duty workload weight is considered but natural order restricts the re-accomodation much more.

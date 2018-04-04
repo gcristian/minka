@@ -20,6 +20,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -87,7 +88,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		public Builder addDifference(final DutyDiff duty) {
 			Validate.notNull(duty);
 			if (this.differences==null) {
-				this.differences = new ArrayList<>();
+				this.differences = new LinkedList<>();
 			}
 			this.differences.add(duty);
 			this.reportsCapturedDuties = true;

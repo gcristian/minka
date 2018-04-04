@@ -96,9 +96,22 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		}
 
 		// TODO perhaps in presence of Reallocation not ?
-		if ((beat.reportsDuties() || beat.hasDifferences() || beat.hasWarning()) 
-				&& sourceShard.getState().isAlive()) {
-			declareHeartbeatAbsencesAsMissing(sourceShard, beat.getReportedCapturedDuties());
+		if ((beat.reportsDuties() || beat.hasDifferences() || beat.hasWarning()) && sourceShard.getState().isAlive()) {
+			if (beat.reportsDuties()) {
+				detectMissings(sourceShard, beat.getReportedCapturedDuties());
+			}
+			detectAnomalies(sourceShard, beat.getReportedCapturedDuties());
+		}
+	}
+
+    private void detectAnomalies(final Shard sourceShard, final List<ShardEntity> reportedCapturedDuties) {
+		for (final ShardEntity e : reportedCapturedDuties) {
+			final Shard should = partitionTable.getScheme().getDutyLocation(e);
+			if (should==null) {
+				throw new ConsistencyException("unexisting duty: " + e.toBrief() + " reported by shard: " + sourceShard);
+			} else if (!should.equals(sourceShard)) {
+				throw new ConsistencyException("relocated duty: " + e.toBrief() + " being reported by shard: " + sourceShard);
+			}
 		}
 	}
 
