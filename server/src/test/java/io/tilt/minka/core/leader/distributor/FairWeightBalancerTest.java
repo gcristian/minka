@@ -21,7 +21,7 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.balancer.FairWeightBalancer;
-import io.tilt.minka.core.leader.distributor.Balancer.ShardRef;
+import io.tilt.minka.core.leader.distributor.Balancer.NetworkLocation;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
@@ -273,10 +273,10 @@ public class FairWeightBalancerTest {
 		return ret;
 	}
 	
-	public Map<ShardRef, Set<Duty<?>>> stageFromTable(final PartitionTable table) {
-		final Map<ShardRef, Set<Duty<?>>> ret = new HashMap<>();
+	public Map<NetworkLocation, Set<Duty<?>>> stageFromTable(final PartitionTable table) {
+		final Map<NetworkLocation, Set<Duty<?>>> ret = new HashMap<>();
 		for (final Shard shard: table.getScheme().getShards()) {
-			ret.put(new ShardRef(shard), Collections.emptySet());
+			ret.put(new NetworkLocation(shard), Collections.emptySet());
 		}
 		return ret;
 	}

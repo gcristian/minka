@@ -84,7 +84,7 @@ public class EvenWeightBalancer implements Balancer {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public final void balance(
 			final Pallet<?> pallet,
-			final Map<ShardRef, Set<Duty<?>>> scheme,
+			final Map<NetworkLocation, Set<Duty<?>>> scheme,
 			final Map<EntityEvent, Set<Duty<?>>> backstage,
             final Migrator migrator) {
 		// order new ones and current ones in order to get a fair distro 
@@ -95,7 +95,7 @@ public class EvenWeightBalancer implements Balancer {
 		duties.removeAll(backstage.get(EntityEvent.REMOVE)); // delete those marked for deletion
 		final List<Duty<?>> dutiesSorted = new ArrayList<>(duties);
 		logger.debug("{}: Before Balance: {} ({})", getClass().getSimpleName(), toDutyStringIds(dutiesSorted));
-		final List<ShardRef> availShards = scheme.keySet().stream().filter(s->s.getCapacities()
+		final List<NetworkLocation> availShards = scheme.keySet().stream().filter(s->s.getCapacities()
 				.get(pallet)!=null).collect(Collectors.toList());
 		if (availShards.isEmpty()) {
 			logger.error("{}: Still no shard reported capacity for pallet: {}!", getClass().getSimpleName(), pallet);
@@ -107,11 +107,11 @@ public class EvenWeightBalancer implements Balancer {
 			return;
 		}
 		final Iterator<List<Duty<?>>> itCluster = clusters.iterator();
-		final Iterator<ShardRef> itShards = availShards.iterator();
+		final Iterator<NetworkLocation> itShards = availShards.iterator();
 		while(itCluster.hasNext()) {
-			final ShardRef loc = itShards.next();
+			final NetworkLocation loc = itShards.next();
 			final List<Duty<?>> selection = itCluster.next();
-			final Bascule<ShardRef, Duty<?>> bascule = new Bascule(loc, loc.getCapacities().get(pallet).getTotal());
+			final Bascule<NetworkLocation, Duty<?>> bascule = new Bascule(loc, loc.getCapacities().get(pallet).getTotal());
 			selection.forEach(d->bascule.tryLift(d, d.getWeight()));
 			migrator.override(bascule.getOwner(), bascule.getCargo());
 			if (!bascule.getDiscarded().isEmpty()) {
@@ -124,7 +124,7 @@ public class EvenWeightBalancer implements Balancer {
 
 
 	private List<List<Duty<?>>> formClusters(
-			final List<ShardRef> availableShards, 
+			final List<NetworkLocation> availableShards, 
 			final Set<Duty<?>> duties,
 			final List<Duty<?>> dutiesSorted) {
 

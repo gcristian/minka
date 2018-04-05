@@ -31,7 +31,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Migrator;
-import io.tilt.minka.core.leader.distributor.Balancer.ShardRef;
+import io.tilt.minka.core.leader.distributor.Balancer.NetworkLocation;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.utils.CollectionUtils;
 
@@ -81,7 +81,7 @@ public class EvenSizeBalancer implements Balancer {
 	 */
 	public void balance(
 			final Pallet<?> pallet,
-			final Map<ShardRef, Set<Duty<?>>> scheme,
+			final Map<NetworkLocation, Set<Duty<?>>> scheme,
 			final Map<EntityEvent, Set<Duty<?>>> backstage,
 			final Migrator migrator) {
 		// get a fair distribution
@@ -99,16 +99,16 @@ public class EvenSizeBalancer implements Balancer {
 				deletions.size(), recount);
 
 		// split shards into receptors and emisors while calculating new fair distribution 
-		final Set<ShardRef> receptors = new HashSet<>();
-		final Set<ShardRef> emisors = new HashSet<>();
+		final Set<NetworkLocation> receptors = new HashSet<>();
+		final Set<NetworkLocation> emisors = new HashSet<>();
 		//deletions.addAll(dangling);]
-		final Map<ShardRef, Integer> deltas = checkDeltas(pallet, scheme, evenSize, receptors, emisors, deletions);
+		final Map<NetworkLocation, Integer> deltas = checkDeltas(pallet, scheme, evenSize, receptors, emisors, deletions);
 		if (deltas.isEmpty()) {
 			logger.info("{}: Evenly distributed already (no sharding deltas out of threshold)", getClass().getSimpleName());
 		} else if (!receptors.isEmpty()) {
 			// 2nd step: assign migrations and creations in serie
-			final CollectionUtils.CircularCollection<ShardRef> receptiveCircle = CollectionUtils.circular(receptors);
-			for (final ShardRef emisor : emisors) {
+			final CollectionUtils.CircularCollection<NetworkLocation> receptiveCircle = CollectionUtils.circular(receptors);
+			for (final NetworkLocation emisor : emisors) {
 				final Set<Duty<?>> duties = scheme.get(emisor);
 				int i = 0;
 				final Iterator<Duty<?>> it = duties.iterator();
@@ -126,17 +126,17 @@ public class EvenSizeBalancer implements Balancer {
 	}
 
 	/* evaluate which shards must emit or receive duties by deltas */
-	private Map<ShardRef, Integer> checkDeltas(
+	private Map<NetworkLocation, Integer> checkDeltas(
 			final Pallet<?> pallet,
-			final Map<ShardRef, Set<Duty<?>>> scheme,
+			final Map<NetworkLocation, Set<Duty<?>>> scheme,
 			final int evenSize, 
-			final Set<ShardRef> receptors, 
-			final Set<ShardRef> emisors, 
+			final Set<NetworkLocation> receptors, 
+			final Set<NetworkLocation> emisors, 
 			final Set<Duty<?>> deletions) {
 
-		final Map<ShardRef, Integer> deltas = new HashMap<>();
+		final Map<NetworkLocation, Integer> deltas = new HashMap<>();
 		final int maxDelta = ((Metadata)pallet.getMetadata()).getMaxDutiesDeltaBetweenShards();
-		for (final ShardRef shard : scheme.keySet()) {
+		for (final NetworkLocation shard : scheme.keySet()) {
 			final Set<Duty<?>> shardedDuties = scheme.get(shard);
 			// check if this shard contains the deleting duties 
 			int sizeToRemove = (int) shardedDuties.stream().filter(i -> deletions.contains(i)).count();
@@ -146,12 +146,12 @@ public class EvenSizeBalancer implements Balancer {
 				// use only the spilling out of maxDelta (not delta per-se)
 				deltas.put(shard, delta);
 				logger.info("{}: found Emisor Shard: {} above threshold: {} with {} ", getClass().getSimpleName(),
-						shard.getId(), maxDelta, delta);
+						shard, maxDelta, delta);
 				emisors.add(shard);
 			} else if (delta <= -(maxDelta)) {
 				deltas.put(shard, delta);
 				logger.info("{}: found Receptor Shard: {} below threshold: {} with {}", getClass().getSimpleName(),
-						shard.getId(), maxDelta, delta);
+						shard, maxDelta, delta);
 				receptors.add(shard);
 			}
 		}

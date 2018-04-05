@@ -5,6 +5,9 @@ import java.io.Serializable;
 import org.apache.commons.lang.Validate;
 
 @SuppressWarnings("rawtypes")
+/**
+ * Value object for information that is loaded after the spring context started
+ */
 public class DependencyPlaceholder {
 
 	// default fallback until client is ready to deliver

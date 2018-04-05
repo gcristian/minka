@@ -16,13 +16,13 @@
  */
 package io.tilt.minka.domain;
 
+import static java.util.Objects.requireNonNull;
+
 import java.io.Serializable;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
-import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -33,7 +33,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
-import io.tilt.minka.core.leader.distributor.Balancer.ShardRef;
+import io.tilt.minka.core.leader.distributor.Balancer.NetworkLocation;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
@@ -51,27 +51,25 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 
 	private final BrokerChannel brokerChannel;
 	private final NetworkShardIdentifier shardId;
-	
 	private final DateTime firstTimeSeen;
+    private final SlidingSortedSet<Heartbeat> cardiacLapse;
 	
 	private DateTime lastStatusChange;
-	private final SlidingSortedSet<Heartbeat> cardiacLapse;
 	private ShardState serviceState;
 	private Map<Pallet<?>, Capacity> capacities;
-	
-	public Shard(final BrokerChannel channel, final NetworkShardIdentifier memberId) {
+
+	public Shard(
+	        final BrokerChannel channel, 
+	        final NetworkShardIdentifier memberId) {
 		super();
-		Validate.notNull(memberId);
-		Validate.notNull(channel);
-		this.brokerChannel = channel;
-		this.shardId = memberId;
+		this.brokerChannel = requireNonNull(channel);
+		this.shardId = requireNonNull(memberId);
 		this.serviceState = ShardState.JOINING;
 		this.cardiacLapse = CollectionUtils.sliding(MAX_HEARBEATS_TO_EVALUATE);
 		this.firstTimeSeen = new DateTime(DateTimeZone.UTC);
 		this.lastStatusChange = new DateTime(DateTimeZone.UTC);
 		this.capacities = new HashMap<>();
 	}
-	
 	@JsonIgnore
 	public DateTime getLastStatusChange() {
 		return this.lastStatusChange;
@@ -158,19 +156,19 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		return o1.getFirstTimeSeen().compareTo(o2.getFirstTimeSeen());
 	}
 	
-	public static class DateComparer implements Comparator<ShardRef>, Serializable {
+	public static class DateComparer implements Comparator<NetworkLocation>, Serializable {
 		private static final long serialVersionUID = -2098725005810996576L;
 		@Override
-		public int compare(final ShardRef s, final ShardRef s2) {
+		public int compare(final NetworkLocation s, final NetworkLocation s2) {
 			return compareByCreation(s, s2);
 		}
-		static int compareByCreation(final ShardRef s, final ShardRef s2) {
+		static int compareByCreation(final NetworkLocation s, final NetworkLocation s2) {
 			return s.getCreation().compareTo(s2.getCreation());
 		}
 	}
 	
 	
-	public static class CapacityComparer implements Comparator<ShardRef>, Serializable {
+	public static class CapacityComparer implements Comparator<NetworkLocation>, Serializable {
 		private static final long serialVersionUID = 2191475545082914908L;
 		private final Pallet<?> pallet;
 		public CapacityComparer(Pallet<?> pallet) {
@@ -178,7 +176,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 			this.pallet = pallet;
 		}
 		@Override
-		public int compare(final ShardRef s, final ShardRef s2) {
+		public int compare(final NetworkLocation s, final NetworkLocation s2) {
 			final Capacity cap1 = s.getCapacities().get(pallet);
 			final Capacity cap2 = s2.getCapacities().get(pallet);
 			if (cap1 == null) {

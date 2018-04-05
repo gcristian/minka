@@ -5,21 +5,21 @@ package io.tilt.minka.domain;
  * because it takes time, and inconsistencies will happen
  */
 public enum EntityState {
-	/* when created */
+	/** when created */
 	PREPARED('p'),
-	/* status at leader after being sent */
+	/** status at leader after being sent */
 	PENDING('n'),
-	/* status at followet when arrives */
+	/** status at followet when arrives */
 	RECEIVED('r'),
-	/* status at leader after the effect is confirmed */
+	/** status at leader after the effect is confirmed */
 	CONFIRMED('c'),
-	/* status at leader when a follower falls, and at follower when absent in its delegate's report */
+	/** status at leader when a follower falls, and at follower when absent in its delegate's report */
 	DANGLING('d'),
-	/* suddenly stop being reported from follower: no solution yet */
+	/** suddenly stop being reported from follower: no solution yet */
 	MISSING('m'),
 	/* status at a leader or follower when there's no viable solution for a duty */
 	STUCK('s'),
-	/* status at a follower when absent in delegate's report, only for lazy ones */
+	/** status at a follower when absent in delegate's report, only for lazy ones */
 	FINALIZED('f')
 	;
     

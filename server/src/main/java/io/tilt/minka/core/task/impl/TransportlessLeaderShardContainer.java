@@ -41,30 +41,35 @@ public class TransportlessLeaderShardContainer implements LeaderShardContainer {
 		private final Logger logger = LoggerFactory.getLogger(getClass());
 
 		private final ShardIdentifier myShardId;
+
 		private NetworkShardIdentifier leaderShardId;
 		private NetworkShardIdentifier lastLeaderShardId;
 		private Queue<NetworkShardIdentifier> previousLeaders;
 		private Set<Consumer<NetworkShardIdentifier>> observers;
 
 		public TransportlessLeaderShardContainer(final ShardIdentifier myShardId) {
+            this.myShardId = myShardId;
 			this.previousLeaders = new CollectionUtils.SynchronizedSlidingQueue<NetworkShardIdentifier>(10);
 			this.observers = new HashSet<>();
-			this.myShardId = myShardId;
 		}
 
 		public ShardIdentifier getMyShardId() {
 			return this.myShardId;
 		}
 
-		public final void observeForChange(Consumer<NetworkShardIdentifier> consumer) {
-			logger.info("{}: ({}) Adding to observation group: {} (hash {})", getClass().getSimpleName(), myShardId,
+		public final void observeForChange(final Consumer<NetworkShardIdentifier> consumer) {
+		    if (logger.isInfoEnabled()) {
+		        logger.info("{}: ({}) Adding to observation group: {} (hash {})", getName(), myShardId,
 						consumer, consumer.hashCode());
+		    }
 			this.observers.add(consumer);
 
 			// already elected then tell him 
 			if (leaderShardId != null) {
-				logger.info("{}: ({}) Leader election already happened !: calling {} for consumption (hash {})",
-							getClass().getSimpleName(), myShardId, consumer, consumer.hashCode());
+			    if (logger.isInfoEnabled()) {
+			        logger.info("{}: ({}) Leader election already happened !: calling {} for consumption (hash {})",
+			                getName(), myShardId, consumer, consumer.hashCode());
+			    }
 				consumer.accept(leaderShardId);
 			}
 		}
@@ -75,25 +80,30 @@ public class TransportlessLeaderShardContainer implements LeaderShardContainer {
 			try {
 				boolean firstLeader = lastLeaderShardId == null;
 				if (!firstLeader && lastLeaderShardId.equals(newLeader)) {
+				    if (logger.isInfoEnabled()) {
 						logger.info("{}: ({}) same Leader {} reelected, skipping observer notification",
-								getClass().getSimpleName(), myShardId, this.leaderShardId.getId());
-						previousLeaders.add(leaderShardId);
+						        getName(), myShardId, this.leaderShardId.getId());
+				    }
+					previousLeaders.add(leaderShardId);
 				} else {
-						logger.info("{}: ({}) Updating new Leader elected: {}", getClass().getSimpleName(), myShardId,
-								newLeader);
-						if (!firstLeader) {
-							previousLeaders.add(leaderShardId);
-						}
-						leaderShardId = newLeader;
-						for (Consumer<NetworkShardIdentifier> o : this.observers) {
-							logger.info("{}: ({}) Notifying observer: {}", getClass().getSimpleName(), myShardId,
-										o.getClass().getSimpleName());
-							o.accept(this.leaderShardId);
-						}
-						lastLeaderShardId = newLeader;
+				    if (logger.isInfoEnabled()) {
+						logger.info("{}: ({}) Updating new Leader elected: {}", getName(), myShardId, newLeader);
+				    }
+					if (!firstLeader) {
+						previousLeaders.add(leaderShardId);
+					}
+					leaderShardId = newLeader;
+					for (Consumer<NetworkShardIdentifier> o : this.observers) {
+					    if (logger.isInfoEnabled()) {
+					        logger.info("{}: ({}) Notifying observer: {}", getName(), myShardId,
+									o.getClass().getSimpleName());
+					    }
+						o.accept(this.leaderShardId);
+					}
+					lastLeaderShardId = newLeader;
 				}
 			} catch (Exception e) {
-				logger.error("{}: ({}) LeaderShardContainer: unexpected error", getClass().getSimpleName(), myShardId, e);
+				logger.error("{}: ({}) LeaderShardContainer: unexpected error", getName(), myShardId, e);
 			}
 		}
 

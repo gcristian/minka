@@ -16,6 +16,8 @@
  */
 package io.tilt.minka.domain;
 
+import static java.util.Objects.requireNonNull;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -35,6 +37,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.ConsumerDelegate;
+import io.tilt.minka.api.DependencyPlaceholder;
+import io.tilt.minka.api.PartitionDelegate;
 import io.tilt.minka.core.follower.Follower;
 
 /**
@@ -52,8 +57,9 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 
 	private static final long serialVersionUID = 3233785408081305735L;
 	private static final Random random = new Random();
-
 	private static final int PORT_SEARCHES_MAX = 100;
+	// this doesnt go to leader
+	private transient final DependencyPlaceholder dependencyPlaceholder;
 
 	@JsonProperty(index=1, value="id")
 	private String id;
@@ -65,12 +71,17 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	private final int configuredPort;  
 	@JsonIgnore
 	private final DateTime creation;
+    @JsonProperty(index=5, value="tag")
+    private String tag;
+	@JsonIgnore
 	private transient ServerSocket bookedSocket;
 	@JsonProperty(index=4, value="web-host-port")
-    private String webhostport;   
+    private String webhostport;
 
-
-	public TCPShardIdentifier(final Config config) throws Exception {
+	public TCPShardIdentifier(
+	        final Config config,
+            final DependencyPlaceholder dependencyPlaceholder) throws Exception {
+        this.dependencyPlaceholder = requireNonNull(dependencyPlaceholder);
 		final String hostStr = config.getBroker().getHostPort();
 		final String[] brokerStr = hostStr.split(":");
 		Validate.isTrue(brokerStr.length>1, "Bad broker host format: " + hostStr + "([hostname]:[port])");
@@ -79,12 +90,26 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		this.port = configuredPort;
 		this.sourceHost = findLANAddress(brokerStr[0], config.getBroker().getNetworkInterfase());
 		config.setResolvedShardId(this);
-		ensureOpenPort(config.getBroker().isEnablePortFallback());
+		take(config.getBroker().isEnablePortFallback());
 		buildId(config);
 	}
 
+	@Override
+	public void setTag(final String tag) {
+		this.tag = tag;
+	}
+	@Override
+	public String getTag() {
+		final PartitionDelegate pd = this.dependencyPlaceholder.getDelegate();
+		if (tag == null && pd != null && pd instanceof ConsumerDelegate) {
+			tag = ((ConsumerDelegate)pd).getLocationTag();
+		}
+		return tag;
+	}
+
 	/*  with a best effort for helping multi-tenancy and noisy infra people */
-	private void ensureOpenPort(final boolean findAnyPort) throws Exception {
+	@Override
+	public void take(final boolean findAnyPort) throws Exception {
 		Exception cause = null;
 		for (int search = 0; search < (findAnyPort ? PORT_SEARCHES_MAX : 1); this.port++, search++) {
 			if (logger.isInfoEnabled()) {
@@ -129,7 +154,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	}
 
 	@Override
-	public void leavePortReservation() {
+	public void release() {
 		try {
 			if (bookedSocket != null && !bookedSocket.isClosed()) {
 				bookedSocket.close();
@@ -218,12 +243,12 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	}
 
 	@Override
-	public int getInetPort() {
+	public int getPort() {
 		return this.port;
 	}
 
 	@Override
-	public InetAddress getInetAddress() {
+	public InetAddress getAddress() {
 		return this.sourceHost;
 	}
 
@@ -260,11 +285,11 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 
 	@Override
 	public void close() throws IOException {
-		leavePortReservation();
+		release();
 	}
 
     @Override
-    public void setWebhostPort(final String hostport) {
+    public void setWebHostPort(final String hostport) {
         this.webhostport = hostport;
     }
     

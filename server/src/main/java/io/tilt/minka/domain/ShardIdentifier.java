@@ -32,11 +32,16 @@ import io.tilt.minka.core.follower.Follower;
  */
 public interface ShardIdentifier extends Serializable {
 
+    /** to be used internally to identify follower shards */
 	String getId();
-
+	
+    /** to be used by users as a secondary reference */
+    String getTag();
+    void setTag(String tag);
+    
 	DateTime getCreation();
 	
 	/* receive it after server initialization */
-	void setWebhostPort(String hostport);
+	void setWebHostPort(String hostport);
 
 }

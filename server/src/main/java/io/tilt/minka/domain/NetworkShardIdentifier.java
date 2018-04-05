@@ -30,10 +30,16 @@ import io.tilt.minka.core.follower.Follower;
  */
 public interface NetworkShardIdentifier extends ShardIdentifier {
 
-	int getInetPort();
+    /** free port and any resource taken to ensure usability of the network ID */
+    void release();
+    
+    /** reserve port and any resource that guarantees t he usability of the network ID */
+    void take(boolean findAny) throws Exception;
 
-	InetAddress getInetAddress();
+    /** get the port taken */
+    int getPort();
 
-	void leavePortReservation();
+    /** get the host address taken for ID */
+    InetAddress getAddress();
 	
 }

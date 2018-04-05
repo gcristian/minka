@@ -35,7 +35,6 @@ import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.Shard.ShardState;
 
 /**
  * Drives follower's events like {@linkplain Heartbeat} 
@@ -79,8 +78,11 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 
 		final long readQueueSince = System.currentTimeMillis();
 
-		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.HEARTBEATS, shardId), Heartbeat.class,
-				(Consumer) this, readQueueSince);
+		eventBroker.subscribe(
+		        eventBroker.buildToTarget(config, Channel.HEARTBEATS, shardId), 
+		        Heartbeat.class,
+				(Consumer) this, 
+				readQueueSince);
 
 	}
 
@@ -88,7 +90,9 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void stop() {
 		logger.info("{}: Stopping", getClass().getSimpleName());
-		this.eventBroker.unsubscribe(eventBroker.build(config, Channel.HEARTBEATS), Heartbeat.class,
+		this.eventBroker.unsubscribe(
+		        eventBroker.build(config, Channel.HEARTBEATS), 
+		        Heartbeat.class,
 				(Consumer) this);
 	}
 

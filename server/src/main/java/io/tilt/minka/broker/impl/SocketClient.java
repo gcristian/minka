@@ -201,8 +201,8 @@ public class SocketClient {
 		boolean wrongDisconnection;
 		try {
 			final NetworkShardIdentifier addr = channel.getAddress();
-			final String address = addr.getInetAddress().getHostAddress();
-			final int port = addr.getInetPort();
+			final String address = addr.getAddress().getHostAddress();
+			final int port = addr.getPort();
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: ({}) Building client (retry:{}) for outbound messages to: {}", 
 					getClass().getSimpleName(), loggingName, retry, addr);
@@ -226,7 +226,7 @@ public class SocketClient {
 				logger.info("{}: ({}) Binding to broker: {}:{} at channel: {}", getClass().getSimpleName(), loggingName,
 					address, port, channel.getChannel().name());
 			}
-			bootstrap.connect(addr.getInetAddress().getHostAddress(), addr.getInetPort())
+			bootstrap.connect(addr.getAddress().getHostAddress(), addr.getPort())
 				.sync();
 				//.channel().closeFuture().sync();
 			wrongDisconnection = false;
@@ -260,22 +260,37 @@ public class SocketClient {
 
 		protected boolean send(final MessageMetadata msg) {
 			boolean sent = queue.offer(msg);
-			if (!sent) {
-				// patch any LAG related problem
-				final MessageMetadata eldest = queue.peek();
-				if ((System.currentTimeMillis() - eldest.getCreatedAt()) 
-						> maxLagBeforeDiscardingClientQueueBeats
-						|| queue.size() == maxClientQueueSize) {
-					logger.error("{}: ({}) Clearing queue for LAG reached LIMIT - increment client connector threads size", 
-							getClass().getSimpleName(), loggingName);
-					queue.clear();
-					sent = queue.offer(msg);
-				}
+			if (!sent && isLagTooHigh()) {
+			    queue.clear();
+			    sent = queue.offer(msg);
 			}
 			return sent;
 		}
+
+        private boolean isLagTooHigh() {
+            final MessageMetadata eldest = queue.peek();
+            if ((System.currentTimeMillis() - eldest.getCreatedAt()) 
+            		> maxLagBeforeDiscardingClientQueueBeats
+            		|| queue.size() == maxClientQueueSize) {
+            	logger.error("{}: ({}) Clearing queue for LAG reached LIMIT - increment client connector threads size", 
+            			getClass().getSimpleName(), loggingName);
+            	return true;
+            } else {
+                return false;
+            }
+        }
 		protected int size() {
 			return queue.size();
+		}
+		@Override
+		public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+		    logger.warn("{}: ({}) channel inactivated", getClass().getSimpleName(), loggingName);
+		    super.channelInactive(ctx);
+		}
+		@Override
+		public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
+		    logger.warn("{}: ({}) channel unregistered", getClass().getSimpleName(), loggingName);
+		    super.channelUnregistered(ctx);
 		}
 		@Override
 		public void channelActive(final ChannelHandlerContext ctx) {
@@ -287,7 +302,6 @@ public class SocketClient {
 						if (logger.isDebugEnabled()) {
 							logger.debug("{}: ({}) Writing: {}", getClass().getSimpleName(), loggingName, msg.getPayloadType());
 						}
-						//ctx.writeAndFlush(new MessageMetadata(msg.getPayload(), msg.getInbox()));
 						ctx.writeAndFlush(msg);
 					} else {
 						logger.error("{}: ({}) Waiting for messages to be enqueued: {}", getClass().getSimpleName(),

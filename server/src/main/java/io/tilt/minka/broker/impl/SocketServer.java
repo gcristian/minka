@@ -152,8 +152,10 @@ public class SocketServer {
 	 */
 	private boolean keepListening() {
 		boolean disconnected;
-		logger.info("{}: ({}) Building server (using i: {}) with up to {} concurrent requests",
+		if (logger.isInfoEnabled()) {
+		    logger.info("{}: ({}) Building server (using i: {}) with up to {} concurrent requests",
 				getClass().getSimpleName(), loggingName, networkInterfase, this.connectionHandlerThreads);
+		}
 
 		try {
 			final ServerBootstrap server = new ServerBootstrap();
@@ -176,8 +178,10 @@ public class SocketServer {
 			server.childOption(ChannelOption.AUTO_READ, true);
 			server.childOption(ChannelOption.SO_REUSEADDR, true);
 			
-			logger.info("{}: ({}) Listening to client connections (using i:{}) with up to {} concurrent requests",
+			if (logger.isInfoEnabled()) {
+			    logger.info("{}: ({}) Listening to client connections (using i:{}) with up to {} concurrent requests",
 					getClass().getSimpleName(), loggingName, networkInterfase, this.connectionHandlerThreads);
+			}
 
 			this.channelFuture = server.bind(this.serverAddress, this.serverPort);
 			disconnected = false;
@@ -192,12 +196,14 @@ public class SocketServer {
 	private void shutdown() {
 		if (this.shutdownCallback != null) {
 			try {
-				logger.info("{}: ({}) Executing shutdown callback: {}", getClass().getSimpleName(),
+			    if (logger.isInfoEnabled()) {
+			        logger.info("{}: ({}) Executing shutdown callback: {}", getClass().getSimpleName(),
 						shutdownCallback.getClass().getSimpleName(), loggingName);
+			    }
 				shutdownCallback.run();
 			} catch (Exception e) {
-				logger.error("{}: ({}) Unexpected while executing shutdown callback", getClass().getSimpleName(),
-						loggingName, e);
+				logger.error("{}: ({}) Unexpected while executing shutdown callback", 
+				        getClass().getSimpleName(), loggingName, e);
 			}
 		}
 		close();
@@ -229,7 +235,9 @@ public class SocketServer {
 					return;
 				}
 				MessageMetadata meta = (MessageMetadata) msg;
-				logger.debug("{}: ({}) Reading: {}", getClass().getSimpleName(), loggingName, meta.getPayloadType());
+				if (logger.isDebugEnabled()) {
+				    logger.debug("{}: ({}) Reading: {}", getClass().getSimpleName(), loggingName, meta.getPayloadType());
+				}
 				scheduler.schedule(scheduler.getAgentFactory()
 						.create(
 							Action.BROKER_INCOMING_MESSAGE, 
@@ -245,7 +253,7 @@ public class SocketServer {
 		@Override
 		public void exceptionCaught(final ChannelHandlerContext ctx, final Throwable e) {
 			logger.error("({}) ChannelInboundHandlerAdapter: Unexpected while consuming (who else's using broker port ??)", 
-					loggingName, e);
+					loggingName, e.getMessage());
 			ctx.close();
 		}
 	}

@@ -85,6 +85,9 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 	private final Map<MappingEvent, Runnable> runnables;
 	private final Map<Pallet<P>, Double> capacities;
 	
+	private String locationTag;
+	private boolean explicitlyReady;
+    
 	protected ConsumerDelegate() {
 		super();
 		this.consumers = new HashMap<>();
@@ -145,7 +148,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		log.info("{}: ConsumerDelegate not ready: still unmapped events: {}", getClass().getSimpleName(), ev);
 		return false;
 	}
-	private boolean explicitlyReady;
+	
 	protected boolean isExplicitlyReady() {
 		return this.explicitlyReady;
 	}
@@ -335,4 +338,12 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 			return 0;
 		}
 	}
+
+    public void setLocationTag(final String tag) {
+        this.locationTag = tag;
+    }
+
+    public String getLocationTag() {
+        return locationTag;
+    }
 }

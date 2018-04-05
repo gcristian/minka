@@ -16,6 +16,8 @@
  */
 package io.tilt.minka.broker.impl;
 
+import static java.util.Objects.requireNonNull;
+
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -61,20 +63,23 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private final Config config;
+    private final Scheduler scheduler;
 	private final LeaderShardContainer leaderShardContainer;
-	private final Scheduler scheduler;
+	
 	private SocketServer server;
-
 	private Map<DirectChannel, SocketClient> clients;
 
-	public SocketBroker(Config config, NetworkShardIdentifier shardId, LeaderShardContainer leaderContainerShard,
-			Scheduler scheduler) {
+	public SocketBroker(
+	        final Config config, 
+	        final NetworkShardIdentifier shardId, 
+	        final LeaderShardContainer leaderContainerShard,
+	        final Scheduler scheduler) {
 
 		super(shardId);
-		this.config = config;
-		this.clients = new HashMap<>();
-		this.scheduler = scheduler;
-		this.leaderShardContainer = leaderContainerShard;
+		this.config = requireNonNull(config);
+		this.scheduler = requireNonNull(scheduler);
+		this.leaderShardContainer = requireNonNull(leaderContainerShard);
+        this.clients = new HashMap<>();
 	}
 
 	@Override
@@ -91,12 +96,12 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 					.build());
 
 			logger.info("{}: Creating SocketServer", getName());
-			getShardId().leavePortReservation();
+			getShardId().release();
 			this.server = new SocketServer(
 					this, 
 					config.getBroker().getConnectionHandlerThreads(),
-					getShardId().getInetPort(), 
-					getShardId().getInetAddress().getHostAddress(),
+					getShardId().getPort(), 
+					getShardId().getAddress().getHostAddress(),
 					config.getBroker().getNetworkInterfase(), 
 					scheduler, 
 					(int)config.beatToMs(config.getBroker().getRetryDelayMiliBeats()/1000),
@@ -178,7 +183,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 		final SocketClient client = getOrCreate(channel);
 		if (logger.isDebugEnabled()) {
 			logger.debug("{}: ({}) Posting to Broker: {}:{} ({} into {}))", getName(), getShardId(),
-				channel.getAddress().getInetAddress().getHostAddress(), channel.getAddress().getInetPort(),
+				channel.getAddress().getAddress().getHostAddress(), channel.getAddress().getPort(),
 				event.getClass().getSimpleName(), channel.getChannel());
 		}
 

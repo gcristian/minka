@@ -12,8 +12,10 @@ import java.util.Enumeration;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.domain.TCPShardIdentifier;
 
 public class TCPShardIdentifierTest {
@@ -23,7 +25,7 @@ public class TCPShardIdentifierTest {
 		final int port = 2323;
 		final Config config = new Config("", "localhost:" + port);
 		config.getBroker().setEnablePortFallback(false);
-		final TCPShardIdentifier id = new TCPShardIdentifier(config);
+		final TCPShardIdentifier id = new TCPShardIdentifier(config, Mockito.mock(DependencyPlaceholder.class));
 		
 		ServerSocket ss1 = null;
 		try {
@@ -31,7 +33,7 @@ public class TCPShardIdentifierTest {
 			Assert.assertTrue("it didnt grabbed passed port", ! ss1.isBound());
 		} catch (BindException be) {	
 		} finally {
-			id.leavePortReservation();
+			id.release();
 			if (ss1!=null) {
 				ss1.close();
 			}
@@ -51,7 +53,7 @@ public class TCPShardIdentifierTest {
 		assert ss1.isBound();
 		final Config config = new Config("", "localhost:" + port);
 		config.getBroker().setEnablePortFallback(true);
-		final TCPShardIdentifier id = new TCPShardIdentifier(config);
+		final TCPShardIdentifier id = new TCPShardIdentifier(config, Mockito.mock(DependencyPlaceholder.class));
 		
 		try {
 			final ServerSocket ss2 = new ServerSocket(port + 1);
@@ -59,7 +61,7 @@ public class TCPShardIdentifierTest {
 		} catch (Exception be) {
 			Assert.assertTrue(be instanceof BindException);
 		} finally {
-			id.leavePortReservation();
+			id.release();
 			id.close();
 			ss1.close();
 		}
@@ -69,7 +71,7 @@ public class TCPShardIdentifierTest {
 	public void test_acquires_a_correct_lan_address() throws Exception {
 		final int port = 2323;
 		final Config config = new Config("", "localhost:" + port);
-		final TCPShardIdentifier id = new TCPShardIdentifier(config);
+		final TCPShardIdentifier id = new TCPShardIdentifier(config, Mockito.mock(DependencyPlaceholder.class));
 
 		final String hostname = config.getBroker().getHostPort().split(":")[0];
 		final Enumeration<NetworkInterface> enu = NetworkInterface.getNetworkInterfaces();
@@ -86,7 +88,7 @@ public class TCPShardIdentifierTest {
 			}
 		}
 		Assert.assertTrue("site local address not found", found);
-		id.leavePortReservation();
+		id.release();
 		ServerSocket ss2 = new ServerSocket(port);
 		assert ss2.isBound();
 		id.close();

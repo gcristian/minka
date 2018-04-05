@@ -225,7 +225,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 			builder.host(webHostPort[0]).port(webPort);
 			webhostport = webHostPort[0]+ ":" + webPort;
 		}
-		config.getResolvedShardId().setWebhostPort(webhostport);
+		config.getResolvedShardId().setWebHostPort(webhostport);
 		config.getBootstrap().setWebServerHostPort(webhostport);
 		logger.info("{}: Web host:port = {}", webhostport);
 		builder.path(config.getBootstrap().getWebServerContextPath());
@@ -454,7 +454,8 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	}
 	/**
 	 * Mandatory for pallets using a weighted-balancer to be actually distributed. <br> 
-	 * Explicitly set current shard's capacity for a given Pallet 
+	 * Explicitly set current shard's capacity for a given Pallet.
+	 * Weight value's measure is not validated by Minka against duty weight measure.  
 	 * @param weight 	must be in the same measure than duty weights grouped by this pallet
 	 * @param pallet	the pallet to report capacity about
 	 * @return	the server builder
@@ -464,6 +465,18 @@ public class Minka<D extends Serializable, P extends Serializable> {
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addCapacity(pallet, weight);
 		return this;
 	}
+	
+	/**
+	 * Optional. To be used by custom balancers as a server reference.
+	 * @param tag  any user's meaningful value to the current Minka's location 
+     * @return  the server builder
+	 */
+	public Minka<D, P> setLocationTag(final String tag) {
+        initConsumerDelegate();
+        ((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).setLocationTag(tag);
+        return this;
+    }
+	
 	/**
 	 * Mandatory. After creating this loader the context is created and the Minka's bootstrap process waits
 	 * for all mandatory and optional events to be mapped: before calling load()

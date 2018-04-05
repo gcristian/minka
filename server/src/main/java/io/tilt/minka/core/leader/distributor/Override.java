@@ -64,8 +64,8 @@ public class Override {
             Migrator.log.debug("{}: cluster built {}", getClass().getSimpleName(), getEntities());
             Migrator.log.debug("{}: currents at shard {} ", getClass().getSimpleName(), current);
         }
-        anyChange|=dettachDelta(plan, getEntities(), getShard(), current);
-        anyChange|=attachDelta(plan, getEntities(), getShard(), current);
+        anyChange|=dettachDelta2(plan, getEntities(), getShard(), current);
+        anyChange|=attachDelta2(plan, getEntities(), getShard(), current);
         if (!anyChange) {
             Migrator.log.info("{}: Shard: {}, unchanged", getClass().getSimpleName(), shard);
         }

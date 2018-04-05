@@ -17,8 +17,10 @@ import java.util.function.Consumer;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.broker.impl.SocketBroker;
@@ -56,12 +58,12 @@ public class BrokerTester {
 		// network communication requires some time
 
 		final Config configL = buidConfig(22000);
-		final TCPShardIdentifier shardL = new TCPShardIdentifier(configL);
+		final TCPShardIdentifier shardL = new TCPShardIdentifier(configL, Mockito.mock(DependencyPlaceholder.class));
 
 		final Config configF1 = buidConfig(22001);
-		final TCPShardIdentifier shardF1 = new TCPShardIdentifier(configF1);
+		final TCPShardIdentifier shardF1 = new TCPShardIdentifier(configF1, Mockito.mock(DependencyPlaceholder.class));
 		final Config configF2 = buidConfig(22002);
-		final TCPShardIdentifier shardF2 = new TCPShardIdentifier(configF2);
+		final TCPShardIdentifier shardF2 = new TCPShardIdentifier(configF2, Mockito.mock(DependencyPlaceholder.class));
 
 		final LeaderShardContainer container = new TransportlessLeaderShardContainer(shardL);
 		container.setNewLeader(shardL);
@@ -123,7 +125,7 @@ public class BrokerTester {
 			while (!ports.add(port = rnd.nextInt(MAX_PORT_VALUE)) && port < MIN_PORT_VALUE)
 				;
 			final Config config = buidConfig(port);
-			final TCPShardIdentifier shard = new TCPShardIdentifier(config);
+			final TCPShardIdentifier shard = new TCPShardIdentifier(config, Mockito.mock(DependencyPlaceholder.class));
 			if (container == null) {
 				container = new TransportlessLeaderShardContainer(shard);
 			}

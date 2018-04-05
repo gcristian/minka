@@ -16,12 +16,12 @@
     <!-- si no hay properties: la configuracion se llena de valores predeterminados -->
     <bean id="config" class="io.tilt.minka.api.Config"/>
         
-    <!--   <bean id="journal" class="io.tilt.minka.core.task.impl.JournalImpl"/> -->
-    
+    <bean id="clientHolder" class="io.tilt.minka.api.DependencyPlaceholder"/>
     
     <!-- ID del shard: entregado A Leader/Follower solo informativamente  -->
     <bean id="shardId" class="io.tilt.minka.domain.TCPShardIdentifier">
         <constructor-arg ref="config" />
+        <constructor-arg ref="clientHolder" />
     </bean>
 
     <!-- spectator extenders can be reused for building siblings -->
@@ -66,9 +66,7 @@
     <bean id="partition" class="io.tilt.minka.domain.ShardedPartition">
         <constructor-arg ref="shardId" />
     </bean>
-    
-    <bean id="clientHolder" class="io.tilt.minka.api.DependencyPlaceholder"/>
-    
+        
     <bean id="heartbeatFactory" class="io.tilt.minka.core.follower.impl.HeartbeatFactoryImpl">
         <constructor-arg ref="config" />
         <constructor-arg ref="clientHolder" />

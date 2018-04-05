@@ -221,36 +221,40 @@ public class Plan implements Comparable<Plan> {
     /** @return the inverse operation expected at another shard */
     private EntityEvent inverse(final Delivery del) {
         // we care only movements
-        if (del.getEvent() == EntityEvent.ATTACH) {
+        switch (del.getEvent()) {
+        case ATTACH:
             return EntityEvent.DETACH;
-        } else if (del.getEvent() == EntityEvent.DETACH) {
+        case DETACH:
             return EntityEvent.ATTACH;
+        default:
+            return null;    
         }
-        return null;
     }
     
-    /** @throws Exception last check for paired movement operations: 
+    /**
+     * A last consistency check to avoid driving an invalid plan 
+     * @throws Exception last check for paired movement operations: 
      * a DETACH must be followed by an ATTACH and viceversa */
     private void checkAllEventsPaired() {
-        final Set<ShardEntity> paired = new TreeSet<>();
+        final Set<ShardEntity> alreadyPaired = new TreeSet<>();
         for (Delivery del : deliveries) {
-            final EntityEvent toPairFirstTime = inverse(del);
-            if (toPairFirstTime != null) {
+            final EntityEvent inversion = inverse(del);
+            if (inversion == null) {
                 continue;
             }
             for (final ShardEntity entity : del.getDuties()) {
-                if (!paired.contains(entity) 
+                if (!alreadyPaired.contains(entity) 
                 		&& entity.getJournal().hasEverBeenDistributed() 
                 		&& entity.getLastEvent()!=EntityEvent.REMOVE) {
                     boolean pair = false;
                     for (Delivery tmp : deliveries) {
                         pair |= tmp.getDuties().stream()
                                 .filter(e -> e.equals(entity) 
-                                		&& e.getLastEvent() == toPairFirstTime)
+                                		&& e.getLastEvent() == inversion)
                                 .findFirst()
                                 .isPresent();
                         if (pair) {
-                            paired.add(entity);
+                            alreadyPaired.add(entity);
                             break;
                         }
                     }
@@ -268,7 +272,7 @@ public class Plan implements Comparable<Plan> {
 
     private boolean withLock(final Callable<Boolean> run) {
         try {
-            if (!lock.tryLock(3, TimeUnit.SECONDS)) {
+            if (!lock.tryLock(1, TimeUnit.SECONDS)) {
                 return false;
             }
             return run.call();

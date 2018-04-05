@@ -36,7 +36,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.balancer.BalancingException;
-import io.tilt.minka.core.leader.distributor.Balancer.ShardRef;
+import io.tilt.minka.core.leader.distributor.Balancer.NetworkLocation;
 import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
@@ -81,18 +81,18 @@ public class Migrator {
 	}
 
 	/* specifically transfer from a Source to a Target */
-	public final void transfer(final ShardRef target, final Duty<?> duty) {
+	public final void transfer(final NetworkLocation target, final Duty<?> duty) {
 		requireNonNull(target);
 		requireNonNull(duty);
 		transfer_(null, target, duty);
 	}
-	public final void transfer(final ShardRef source, final ShardRef target, final Duty<?> duty) {
+	public final void transfer(final NetworkLocation source, final NetworkLocation target, final Duty<?> duty) {
 		requireNonNull(source);
 		requireNonNull(target);
 		requireNonNull(duty);
 		transfer_(source, target, duty);
 	}
-	private final void transfer_(final ShardRef source, final ShardRef target, final Duty<?> duty) throws BalancingException {
+	private final void transfer_(final NetworkLocation source, final NetworkLocation target, final Duty<?> duty) throws BalancingException {
 		if (this.transfers == null ) {
 			this.transfers = new LinkedList<>();
 		}
@@ -110,9 +110,10 @@ public class Migrator {
 	}
 	
 	/** leave a reason for distribution exclusion */
-	public final void stuck(final Duty<?> duty, final ShardIdentifier shard) {
+	public final void stuck(final Duty<?> duty, final NetworkLocation location) {
 		requireNonNull(duty);
 	    final ShardEntity e = sourceRefs.get(duty);
+	    final ShardIdentifier shard = location.getId();
         e.getJournal().addEvent(
                 e.getLastEvent(), 
                 EntityState.STUCK, 
@@ -121,7 +122,7 @@ public class Migrator {
 	}
 	
 	/* explicitly override a shard's content, client must look after consistency ! */
-	public final void override(final ShardRef shard, final Set<Duty<?>> clusterx) {
+	public final void override(final NetworkLocation shard, final Set<Duty<?>> clusterx) {
 		requireNonNull(shard);
 		requireNonNull(clusterx);
 		if (this.overrides == null) {
@@ -143,7 +144,7 @@ public class Migrator {
         return reids;
 	}
 	
-	private Shard deref(final ShardRef location) {
+	private Shard deref(final NetworkLocation location) {
 		for (Shard s: table.getScheme().getShards()) {
 			if (s.getShardID().equals(location.getId())) {
 				return s;

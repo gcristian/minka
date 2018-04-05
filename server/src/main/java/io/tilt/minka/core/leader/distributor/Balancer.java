@@ -71,20 +71,20 @@ public interface Balancer {
 	 */
 	void balance(
 			final Pallet<?> pallet,
-			final Map<ShardRef, Set<Duty<?>>> scheme,
+			final Map<NetworkLocation, Set<Duty<?>>> scheme,
 			final Map<EntityEvent, Set<Duty<?>>> backstage,
 			final Migrator migrator);
 	
-	/** safety read-only repr. of a shard for balancers to use */
-	public static class ShardRef implements Comparator<ShardRef>, Comparable<ShardRef> {
+	/** safety read-only Shard's decorator for balancers to use */
+	public static class NetworkLocation implements Comparator<NetworkLocation>, Comparable<NetworkLocation> {
 		private final Shard shard;
-		public ShardRef(final Shard shard) {
+		public NetworkLocation(final Shard shard) {
 			this.shard = shard;
 		}
 		public Map<Pallet<?>, Capacity> getCapacities() {
 			return this.shard.getCapacities();
 		}
-		public NetworkShardIdentifier getId() {
+		protected NetworkShardIdentifier getId() {
 			return this.shard.getShardID();
 		}
 		public DateTime getCreation() {
@@ -94,15 +94,22 @@ public interface Balancer {
 		public String toString() {
 			return this.shard.toString();
 		}
+		/**
+		 * To be used by user's custom balancers for location/server reference. 
+		 * @return the tag set with {@linkplain Minka} on setLocationTag(..) 
+		 */
+		public String getTag() {
+		    return this.shard.getShardID().getTag();
+		}
 		private Shard getShard() {
 			return shard;
 		}
 		@java.lang.Override
-		public int compare(final ShardRef o1, final ShardRef o2) {
+		public int compare(final NetworkLocation o1, final NetworkLocation o2) {
 			return shard.compare(o1.getShard(), o2.shard);
 		}
 		@java.lang.Override
-		public int compareTo(final ShardRef o) {
+		public int compareTo(final NetworkLocation o) {
 			return shard.compareTo(o.getShard());
 		}
 		@java.lang.Override
@@ -111,12 +118,12 @@ public interface Balancer {
 		}
 		@java.lang.Override
 		public boolean equals(Object obj) {
-			if (obj==null || !(obj instanceof ShardRef)) {
+			if (obj==null || !(obj instanceof NetworkLocation)) {
 				return false;
 			} else if (obj==this) {
 				return true;
 			} else {
-				return shard.equals(((ShardRef)obj).getShard());
+				return shard.equals(((NetworkLocation)obj).getShard());
 			}
 		}
 	}

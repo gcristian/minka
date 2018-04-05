@@ -80,14 +80,13 @@ public class Distributor implements Service {
 	private final EntityDao entityDao;
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final LeaderShardContainer leaderShardContainer;
+    private final Agent distributor;
 
 	private int distributionCounter;
 	private boolean initialAdding;
 	private int counter;
 	private PlanFactory planner;
 
-
-	private final Agent distributor;
 
 	Distributor(
 			final Config config, 

@@ -85,22 +85,22 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 			if (!hasBeenAPlan && beat.reportsDuties()) {
 				// there's been a change of leader: i'm initiating with older followers 
 				for (ShardEntity e: beat.getReportedCapturedDuties()) {
-					partitionTable.getScheme().writeDuty(e, sourceShard, EntityEvent.ATTACH);
+					partitionTable.getScheme().writeDuty(e, shard, EntityEvent.ATTACH);
 				}
 			}
 			if (beat.hasWarning() || beat.hasDifferences()) {
-				detectDanglings(beat, sourceShard);
+				detectDanglings(beat, shard);
 			}
 		} else {
-			analyzeHeartbeat(beat, sourceShard);
+			analyzeHeartbeat(beat, shard);
 		}
 
 		// TODO perhaps in presence of Reallocation not ?
-		if ((beat.reportsDuties() || beat.hasDifferences() || beat.hasWarning()) && sourceShard.getState().isAlive()) {
+		if ((beat.reportsDuties() || beat.hasDifferences() || beat.hasWarning()) && shard.getState().isAlive()) {
 			if (beat.reportsDuties()) {
-				detectMissings(sourceShard, beat.getReportedCapturedDuties());
+				detectMissings(shard, beat.getReportedCapturedDuties());
 			}
-			detectAnomalies(sourceShard, beat.getReportedCapturedDuties());
+			detectAnomalies(shard, beat.getReportedCapturedDuties());
 		}
 	}
 
@@ -349,9 +349,8 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 	private void recoverAndRetire(final Shard shard) {
 		final Set<ShardEntity> dangling = partitionTable.getScheme().getDutiesByShard(shard);
 		if (logger.isInfoEnabled()) {
-			logger.info("{}: Saved from fallen Shard: {}, #{} duties: {}", getClass().getSimpleName(), shard,
+			logger.info("{}: Removing fallen Shard: {} from ptable. Saving: #{} duties: {}", getClass().getSimpleName(), shard,
 				dangling.size(), ShardEntity.toStringIds(dangling));
-			logger.info("{}: Removing Shard: {} from partition table", getClass().getSimpleName(), shard);
 		}
 		partitionTable.getScheme().removeShard(shard);
 		partitionTable.getBackstage().addDangling(dangling);

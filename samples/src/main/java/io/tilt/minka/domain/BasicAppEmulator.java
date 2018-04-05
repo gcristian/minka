@@ -80,6 +80,7 @@ public class BasicAppEmulator {
 	    logger.info("{} Loading {} duties: {}", shardId, duties.size(), toStringGroupByPallet(duties));
 		
 		server = new Minka<>(config);
+		server.setLocationTag(server.getClient().getShardIdentity() +"-eltag");
 		server.onPalletLoad(() -> pallets);
 		server.onDutyLoad(()-> duties);
 		

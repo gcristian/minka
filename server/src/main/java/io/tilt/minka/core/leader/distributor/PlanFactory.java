@@ -15,11 +15,9 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,7 +31,7 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.core.leader.distributor.Balancer.ShardRef;
+import io.tilt.minka.core.leader.distributor.Balancer.NetworkLocation;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
@@ -62,10 +60,10 @@ class PlanFactory {
 
 	/** @return a plan if there're changes to apply or NULL if not */
 	final Plan create(final PartitionTable table, final Plan previousChange) {
+		
 		final Plan plan = new Plan(
 				config.beatToMs(config.getDistributor().getPlanExpirationBeats()), 
 				config.getDistributor().getPlanMaxRetries());
-		final List<Shard> onlineShards = table.getScheme().getShardsByState(ShardState.ONLINE);
 		
 		// recently fallen shards
 		final Set<ShardEntity> dangling = new HashSet<>(table.getBackstage().getDutiesDangling());
@@ -81,25 +79,32 @@ class PlanFactory {
 		final Set<ShardEntity> dutyDeletions = table.getBackstage().getDutiesCrud(EntityEvent.REMOVE, null);
 		// lets add those duties of a certain deleting pallet
 		for (ShardEntity p: table.getBackstage().getPalletsCrud(EntityEvent.REMOVE, EntityState.PREPARED)) {
-			dutyDeletions.addAll(table.getStage().getDutiesByPallet(p.getPallet()));
+			dutyDeletions.addAll(table.getScheme().getDutiesByPallet(p.getPallet()));
 		}
 		registerDeletions(table, plan, dutyDeletions);
 		
-		final Set<ShardEntity> ents = new HashSet<>(table.getStage().getDutiesAttached());
+		final Set<ShardEntity> ents = new HashSet<>(table.getScheme().getDutiesAttached());
 		ents.addAll(dutyCreations);
 		boolean changes = false;
-		final Map<String, List<ShardEntity>> scheme = ents.stream()
+		final Map<String, List<ShardEntity>> schemeByPallets = ents.stream()
 				.collect(Collectors.groupingBy(e -> e.getDuty().getPalletId()));
-		for (final Map.Entry<String, List<ShardEntity>> entry : scheme.entrySet()) {
-			final Pallet<?> pallet = table.getStage().getPalletById(entry.getKey()).getPallet();
-			final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
-			logStatus(table, onlineShards, dutyCreations, dutyDeletions, entry.getValue(), pallet, balancer);
-			if (balancer != null) {
-				final Migrator migra = balance(table, pallet, balancer, dutyCreations, dutyDeletions);
-				changes |= migra.write(plan);
-			} else {
-				logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(),
-						pallet.getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
+		if (schemeByPallets.isEmpty()) {
+			logger.warn("{}: Scheme is empty. Nothing to balance", getClass().getSimpleName());
+		} else {
+			final List<Shard> onlineShards = table.getScheme().getShardsByState(ShardState.ONLINE);
+			for (final Map.Entry<String, List<ShardEntity>> entry : schemeByPallets.entrySet()) {
+				final Pallet<?> pallet = table.getScheme().getPalletById(entry.getKey()).getPallet();
+				final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
+				logStatus(table, onlineShards, dutyCreations, dutyDeletions, entry.getValue(), pallet, balancer);
+				if (balancer != null) {
+					final Migrator migra = balance(table, pallet, balancer, dutyCreations, dutyDeletions);
+					changes |= migra.write(plan);
+				} else {
+				    if (logger.isInfoEnabled()) {
+				        logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(),
+							pallet.getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
+				    }
+				}
 			}
 		}
 		if (changes) {
@@ -125,11 +130,11 @@ class PlanFactory {
 				.collect(Collectors.toSet());
 
 		final Set<ShardEntity> sourceRefs = new HashSet<>(removes.size() + adds.size());
-		final Map<ShardRef, Set<Duty<?>>> distro = new TreeMap<>();
+		final Map<NetworkLocation, Set<Duty<?>>> distro = new TreeMap<>();
 		for (Shard shard : table.getScheme().getShards()) {
 			if (shard.getState() == ShardState.ONLINE) {
 				final Set<ShardEntity> located = table.getScheme().getDutiesByShard(pallet, shard);
-				distro.put(new ShardRef(shard), refs(located));
+				distro.put(new NetworkLocation(shard), refs(located));
 				sourceRefs.addAll(located);
 			}
 		}
@@ -188,18 +193,12 @@ class PlanFactory {
 	 * target candidates)
 	 */
 	private final List<ShardEntity> restorePendings(final Plan previous) {
-		List<ShardEntity> pendings = new ArrayList<>();
-		if (previous != null && !previous.getResult().isClosed()) {
-			/*
-			 * .stream() no siempre la NO confirmacion sucede sobre un
-			 * fallen shard .filter(i->i.getServiceState()==QUITTED)
-			 * .collect(Collectors.toList())
-			 */
-			pendings.addAll(previous.getAllNonConfirmedFromAllDeliveries());
-			if (pendings.isEmpty()) {
-				if (logger.isInfoEnabled()) {
-					logger.info("{}: Previous change although unfinished hasnt waiting duties", getClass().getSimpleName());
-				}
+		if (previous != null 
+				&& previous.getResult().isClosed() 
+				&& !previous.getResult().isSuccess()) {
+			final List<ShardEntity> pendings = previous.getAllNonConfirmedFromAllDeliveries();
+			if (pendings.isEmpty() && logger.isInfoEnabled()) {
+				logger.info("{}: Previous change although unfinished hasnt waiting duties", getClass().getSimpleName());
 			} else {
 				if (logger.isInfoEnabled()) {
 					logger.info("{}: Previous change's unfinished business saved as Dangling: {}",
