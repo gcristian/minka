@@ -274,7 +274,11 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	}
 	
 	public int hashCode() {
-		return new HashCodeBuilder().append(getEntity().getId()).toHashCode();
+		final int prime = 31;
+		int res = 1;
+		res *= prime + ((type== null ) ? 0 : type.hashCode());
+		res *= prime + ((getEntity().getId()== null ) ? 0 : getEntity().getId().hashCode());
+		return res;
 	}
 
 	@Override

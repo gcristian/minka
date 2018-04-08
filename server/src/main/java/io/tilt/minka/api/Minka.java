@@ -13,6 +13,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import org.apache.commons.lang.Validate;
+import org.glassfish.grizzly.http.server.BackendConfiguration;
 import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.grizzly.http.server.NetworkListener;
 import org.glassfish.grizzly.threadpool.GrizzlyExecutorService;
@@ -52,6 +53,7 @@ import io.tilt.minka.core.leader.distributor.Balancer;
 public class Minka<D extends Serializable, P extends Serializable> {
 
 	private static final Logger logger = LoggerFactory.getLogger(Minka.class);
+	private final String logname = getClass().getSimpleName();
 
 	/* to enable many minka shards on the same JVM */
 	private static final Map<String, Tenant> tenants = new ConcurrentHashMap<>();

@@ -104,8 +104,9 @@ public class EntityJournal implements Serializable {
 	}
 	
 	@JsonIgnore
+	/** @return an unmodifiable list */
 	public List<Log> getLogs() {
-		return Collections.unmodifiableList(logs);
+		return unmodifiableList(logs);
 	}
 
 	public Iterator<Log> descendingIterator() {
@@ -113,9 +114,9 @@ public class EntityJournal implements Serializable {
 	}
 
 	public List<Log> getLogs(final long planId) {
-        return logs.stream()
+        return unmodifiableList(logs.stream()
         	.filter(et->et.getPlanId()==planId)
-        	.collect(Collectors.toList());
+        	.collect(Collectors.toList()));
     }
 
 	public boolean hasEverBeenDistributed() {

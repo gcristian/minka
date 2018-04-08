@@ -18,6 +18,7 @@ package io.tilt.minka.core.leader;
 
 import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.STABLE;
 import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.UNSTABLE;
+import static java.util.Collections.unmodifiableSet;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -163,14 +164,14 @@ public class PartitionTable {
 		 * @param shard	the shard to get duties from
 		 * @return a copy of duties by shard: dont change duties ! */
 		public Set<ShardEntity> getDutiesByShard(final Shard shard) {
-			return Sets.newHashSet(getPartition(shard).getDuties());
+			return getPartition(shard).getDuties();
 		}
 
 		public Set<ShardEntity> getDutiesByShard(final Pallet<?> pallet, final Shard shard) {
-			return Sets.newHashSet(getPartition(shard)
+			return unmodifiableSet(getPartition(shard)
 					.getDuties().stream()
 					.filter(e -> e.getDuty().getPalletId().equals(pallet.getId()))
-					.collect(Collectors.toList()));
+					.collect(Collectors.toSet()));
 		}
 
 		public Set<ShardEntity> getDutiesAttached() {

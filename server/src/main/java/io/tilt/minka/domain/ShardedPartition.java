@@ -16,6 +16,8 @@
  */
 package io.tilt.minka.domain;
 
+import static java.util.Collections.unmodifiableSet;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -26,7 +28,6 @@ import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 import io.tilt.minka.api.Duty;
@@ -112,14 +113,12 @@ public class ShardedPartition {
 		return null;
 	}
 	
-	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public Set<ShardEntity> getDuties() {
-		return new ImmutableSet.Builder().addAll(duties).build();
+		return unmodifiableSet(duties);
 	}
 
-	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public Set<ShardEntity> getPallets() {
-		return new ImmutableSet.Builder().addAll(pallets).build();
+		return unmodifiableSet(pallets);
 	}
 	public Set<ShardEntity> getDuties(final Pallet<?> pallet) {
 		return this.duties.stream()
