@@ -57,88 +57,88 @@ public class Override {
 		return this.remainingCap;
 	}
 
-    boolean apply(final Plan plan, final PartitionTable table) {
-        boolean anyChange = false;
-        final Set<ShardEntity> current = table.getScheme().getDutiesByShard(pallet, getShard());
-        if (Migrator.log.isDebugEnabled()) {
-            Migrator.log.debug("{}: cluster built {}", getClass().getSimpleName(), getEntities());
-            Migrator.log.debug("{}: currents at shard {} ", getClass().getSimpleName(), current);
-        }
-        anyChange|=dettachDelta2(plan, getEntities(), getShard(), current);
-        anyChange|=attachDelta2(plan, getEntities(), getShard(), current);
-        if (!anyChange) {
-            Migrator.log.info("{}: Shard: {}, unchanged", getClass().getSimpleName(), shard);
-        }
-        return anyChange;
-    }
-    
-	/* dettach anything living in the shard outside what's coming
-    * null or empty cluster translates to: dettach all existing */
-    private final boolean dettachDelta(
-            final Plan plan, 
-            final Set<ShardEntity> clusterSet, 
-            final Shard shard, 
-            final Set<ShardEntity> currents) {
-        
-        List<ShardEntity> detaching = clusterSet==null ? 
-                new ArrayList<>(currents) :
-                currents.stream()
-                    .filter(i -> !clusterSet.contains(i))
-                    .collect(Collectors.toList());
-                
-        if (!detaching.isEmpty()) {
-            final StringBuilder logg = new StringBuilder(detaching.size() * 16);
-            for (ShardEntity detach : detaching) {
-                detach.getJournal().addEvent(EntityEvent.DETACH, 
-                        EntityState.PREPARED, 
-                        shard.getShardID(), 
-                        plan.getId());
-                plan.ship(shard, detach);
-                logg.append(detach.getEntity().getId()).append(", ");
-            }
-            Migrator.log.info("{}: Shipping dettaches from: {}, duties: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
-                detaching.size(), logg.toString());
-            return true;
-        }
-        return false;
-    }
-    
-    /* attach what's not already living in that shard */
-    private final boolean attachDelta(
-            final Plan plan, 
-            final Set<ShardEntity> clusterSet, 
-            final Shard shard, 
-            final Set<ShardEntity> currents) {
-        
-        StringBuilder logg;
-        if (clusterSet != null) {
-            final List<ShardEntity> attaching = clusterSet.stream()
-                    .filter(i -> !currents.contains(i))
-                    .collect(Collectors.toList());
-            if (!attaching.isEmpty()) {
-                logg = new StringBuilder(attaching.size() * 16);
-                for (ShardEntity attach : attaching) {
-                    attach.getJournal().addEvent(EntityEvent.ATTACH, 
-                            EntityState.PREPARED,
-                            shard.getShardID(), 
-                            plan.getId());
-                    plan.ship(shard, attach);
-                    logg.append(attach.getEntity().getId()).append(", ");
-                }
-                Migrator.log.info("{}: Shipping attaches shard: {}, duty: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
-                    attaching.size(), logg.toString());
-                return true;
-            }
-        }
-        return false;
-    }
+	boolean apply(final Plan plan, final PartitionTable table) {
+		boolean anyChange = false;
+		final Set<ShardEntity> current = table.getScheme().getDutiesByShard(pallet, getShard());
+		if (Migrator.log.isDebugEnabled()) {
+			Migrator.log.debug("{}: cluster built {}", getClass().getSimpleName(), getEntities());
+			Migrator.log.debug("{}: currents at shard {} ", getClass().getSimpleName(), current);
+		}
+		anyChange |= dettachDelta(plan, getEntities(), getShard(), current);
+		anyChange |= attachDelta(plan, getEntities(), getShard(), current);
+		if (!anyChange) {
+			Migrator.log.info("{}: Shard: {}, unchanged", getClass().getSimpleName(), shard);
+		}
+		return anyChange;
+	}
+	 
+		/* dettach anything living in the shard outside what's coming
+	    * null or empty cluster translates to: dettach all existing */
+	    private final boolean dettachDelta(
+	            final Plan plan, 
+	            final Set<ShardEntity> clusterSet, 
+	            final Shard shard, 
+	            final Set<ShardEntity> currents) {
+	        
+	        List<ShardEntity> detaching = clusterSet==null ? 
+	                new ArrayList<>(currents) :
+	                currents.stream()
+	                    .filter(i -> !clusterSet.contains(i))
+	                    .collect(Collectors.toList());
+	                
+	        if (!detaching.isEmpty()) {
+	            final StringBuilder logg = new StringBuilder(detaching.size() * 16);
+	            for (ShardEntity detach : detaching) {
+	                detach.getJournal().addEvent(EntityEvent.DETACH, 
+	                        EntityState.PREPARED, 
+	                        shard.getShardID(), 
+	                        plan.getId());
+	                plan.ship(shard, detach);
+	                logg.append(detach.getEntity().getId()).append(", ");
+	            }
+	            Migrator.log.info("{}: Shipping dettaches from: {}, duties: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
+	                detaching.size(), logg.toString());
+	            return true;
+	        }
+	        return false;
+	    }
+	    
+	    /* attach what's not already living in that shard */
+	    private final boolean attachDelta(
+	            final Plan plan, 
+	            final Set<ShardEntity> clusterSet, 
+	            final Shard shard, 
+	            final Set<ShardEntity> currents) {
+	        
+	        StringBuilder logg;
+	        if (clusterSet != null) {
+	            final List<ShardEntity> attaching = clusterSet.stream()
+	                    .filter(i -> !currents.contains(i))
+	                    .collect(Collectors.toList());
+	            if (!attaching.isEmpty()) {
+	                logg = new StringBuilder(attaching.size() * 16);
+	                for (ShardEntity attach : attaching) {
+	                    attach.getJournal().addEvent(EntityEvent.ATTACH, 
+	                            EntityState.PREPARED,
+	                            shard.getShardID(), 
+	                            plan.getId());
+	                    plan.ship(shard, attach);
+	                    logg.append(attach.getEntity().getId()).append(", ");
+	                }
+	                Migrator.log.info("{}: Shipping attaches shard: {}, duty: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
+	                    attaching.size(), logg.toString());
+	                return true;
+	            }
+	        }
+	        return false;
+	    }
+	    
     
 	public int hashCode() {
 		final int prime = 31;
 		int res = 1;
-		for (final Object o: new Object[] {shard, entities}) {
-			res *= prime + ((o == null ) ? 0 : o.hashCode());
-		}
+		res *= prime + ((shard == null ) ? 0 : shard.hashCode());
+		res *= prime + ((entities== null ) ? 0 : entities.hashCode());
 		return res;
 	}
 

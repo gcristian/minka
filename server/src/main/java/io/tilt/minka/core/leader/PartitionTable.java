@@ -336,6 +336,9 @@ public class PartitionTable {
 		public boolean addDangling(final Set<ShardEntity> dangling) {
 		    return this.dutyDangling.addAll(dangling);
 		}
+		public boolean addDangling(final ShardEntity dangling) {
+	    	return this.dutyDangling.add(dangling);
+		}
 		public void cleanAllocatedDanglings() {
 	        dutyDangling.removeAll(
 	            dutyDangling.stream()

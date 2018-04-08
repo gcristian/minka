@@ -68,43 +68,93 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 	 * this's raw from Broker's message reception
 	 */
 	@Override
-	public void accept(final Heartbeat beat, final Shard sourceShard) {
-		if (beat.getStateChange() == ShardState.QUITTED) {
-			checkShardChangingState(sourceShard);
-			return;
-		}
-		sourceShard.addHeartbeat(beat);
+	public void accept(final Heartbeat beat, final Shard shard) {
+	    if (beat.getStateChange()!=null) {
+	        shardStateChange(shard, shard.getState(), beat.getStateChange());
+	        if (beat.getStateChange() == ShardState.QUITTED) {
+	            return;
+	        }
+	    }
+	    
+		shard.addHeartbeat(beat);
 		if (beat.getCapacities()!=null) {
-			sourceShard.setCapacities(beat.getCapacities());
+			shard.setCapacities(beat.getCapacities());
 		}
-		final boolean hasBeenAPlan = partitionTable.getCurrentPlan() != null;
-		final boolean planHapenning = hasBeenAPlan 
-				&& !partitionTable.getCurrentPlan().getResult().isClosed();
 		
-		if (!planHapenning) {
-			if (!hasBeenAPlan && beat.reportsDuties()) {
-				// there's been a change of leader: i'm initiating with older followers 
-				for (ShardEntity e: beat.getReportedCapturedDuties()) {
-					partitionTable.getScheme().writeDuty(e, shard, EntityEvent.ATTACH);
-				}
+		final Plan plan = partitionTable.getCurrentPlan();
+		if (plan!=null && !plan.getResult().isClosed()) {
+			detectAndWriteChanges(beat, shard);
+		} else if (plan == null && beat.reportsDuties()) {
+			// there's been a change of leader: i'm initiating with older followers
+			// TODO use DomainInfo to send a planid so the next leader can validate 
+			// beated's plan is at least some range in between and so leader learns from beats 
+			for (ShardEntity e: beat.getReportedCapturedDuties()) {
+				partitionTable.getScheme().writeDuty(e, shard, EntityEvent.ATTACH);
 			}
-			if (beat.hasWarning() || beat.hasDifferences()) {
-				detectDanglings(beat, shard);
-			}
-		} else {
-			analyzeHeartbeat(beat, shard);
 		}
 
-		// TODO perhaps in presence of Reallocation not ?
-		if ((beat.reportsDuties() || beat.hasDifferences() || beat.hasWarning()) && shard.getState().isAlive()) {
-			if (beat.reportsDuties()) {
-				detectMissings(shard, beat.getReportedCapturedDuties());
-			}
-			detectAnomalies(shard, beat.getReportedCapturedDuties());
+		if ((beat.reportsDuties()) && shard.getState().isAlive()) {
+			detectAndSaveAbsents(shard, beat.getReportedCapturedDuties());
+			detectInvalidShards(shard, beat.getReportedCapturedDuties());
 		}
 	}
+	
+	/*this checks partition table looking for missing duties (not declared dangling, that's diff) */
+	private void detectAndSaveAbsents(final Shard shard, final List<ShardEntity> reportedDuties) {
+		Set<ShardEntity> sortedLog = null;
+		for (final ShardEntity duty : partitionTable.getScheme().getDutiesByShard(shard)) {
+			boolean found = false;
+			boolean foundAsDangling = false;
+			for (ShardEntity reportedDuty : reportedDuties) {
+				if (duty.equals(reportedDuty)) {
+					final EntityState lastState = reportedDuty.getLastState();
+					switch (lastState) {
+					case CONFIRMED:
+					case FINALIZED:
+						found = true;
+						break;
+					case DANGLING:
+						foundAsDangling = true;
+						break;
+					default:
+						logger.error("{}: Follower beated a duty {} when in scheme is: {}",
+								getClass().getSimpleName(), reportedDuty.getLastState(), duty.getLastState());
+						found = true;
+						break;
+					}
+					break;
+				}
+			}
+						
+			if (!found) {
+				boolean done = false;
+				if (foundAsDangling) {
+					done = partitionTable.getBackstage().addDangling(duty);
+				} else {
+					done = partitionTable.getBackstage().addMissing(duty);
+				}
+				// copy the event so it's marked for later consideration
+				if (done) {
+					duty.getJournal().addEvent(
+							duty.getLastEvent(), 
+							foundAsDangling ? EntityState.DANGLING : EntityState.MISSING, 
+							null, // the last shard id 
+							duty.getJournal().getLast().getPlanId());
+				    if (sortedLog==null) {
+				        sortedLog = new TreeSet<>();
+				    }
+					sortedLog.add(duty);
+				}
+			}
+		}
+		if (sortedLog!=null) {
+			logger.error("{}: ShardID: {}, absent duties in Heartbeat: {}, (backing up to backstage)",
+					getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(sortedLog));
+		}
+	}
+	
 
-    private void detectAnomalies(final Shard sourceShard, final List<ShardEntity> reportedCapturedDuties) {
+    private void detectInvalidShards(final Shard sourceShard, final List<ShardEntity> reportedCapturedDuties) {
 		for (final ShardEntity e : reportedCapturedDuties) {
 			final Shard should = partitionTable.getScheme().getDutyLocation(e);
 			if (should==null) {
@@ -115,19 +165,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-	private void detectDanglings(final Heartbeat beat, final Shard sourceShard) {
-        // believe only when online: to avoid Dirty efects after follower's hangs/stucks
-        // so it clears itself before trusting their HBs
-        for (final ShardEntity duty : beat.getReportedCapturedDuties()) {
-        	if (duty.getLastState() == EntityState.DANGLING) {
-        		logger.error("{}: Shard {} reported Dangling Duty (follower's unconfident: {}): {}",
-        				getClass().getSimpleName(), sourceShard.getShardID(), 
-        				duty.getLastEvent(), duty);
-        	}
-        }
-    }
-
-	private void analyzeHeartbeat(final Heartbeat beat, final Shard source) {
+	private void detectAndWriteChanges(final Heartbeat beat, final Shard source) {
 		final Plan plan = partitionTable.getCurrentPlan();
 		final Delivery delivery = plan.getDelivery(source);
 		if (delivery!=null) {
@@ -136,10 +174,10 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 			if (beat.reportsDuties()) {
 				lattestPlanId = latestPlan(beat);
 				if (lattestPlanId==plan.getId()) {
-					changed|=detectAttachments(source, beat.getReportedCapturedDuties(), delivery);
+					changed|=detectAndWriteAttachments(source, beat.getReportedCapturedDuties(), delivery);
 				}
 			}
-    		changed|=detectDettachments(source, beat.getReportedCapturedDuties(), delivery);
+    		changed|=detectAndWriteDetachments(source, beat.getReportedCapturedDuties(), delivery);
     		if (changed) {
     		    delivery.checkState();
     		} else if (lattestPlanId==plan.getId()) {
@@ -175,37 +213,15 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		return lattestPlanId;
 	}
 	
-	 /*this checks partition table looking for missing duties (not declared dangling, that's diff) */
-	private void detectMissings(final Shard shard, final List<ShardEntity> hbDuties) {
-		Set<ShardEntity> sortedLog = null;
-		for (final ShardEntity duty : partitionTable.getScheme().getDutiesByShard(shard)) {
-			boolean found = false;
-			for (ShardEntity hbDuty : hbDuties) {
-				if (duty.equals(hbDuty)) {
-					found = true;
-					break;
-				}
-			}
-			if (!found) {
-				if (partitionTable.getBackstage().addMissing(duty)) {
-				    if (sortedLog==null) {
-				        sortedLog = new TreeSet<>();
-				    }
-					sortedLog.add(duty);
-				}
-			}
-		}
-		if (sortedLog!=null) {
-			logger.warn("{}: ShardID: {}, Missing duties in Heartbeat: {}, (backing up to backstage)",
-					getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(sortedLog));
-		}
-	}
-
+	
 	/** 
 	 * find the up-coming
 	 * @return if there were changes 
 	 */
-	private boolean detectAttachments(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
+	private boolean detectAndWriteAttachments(
+			final Shard shard, 
+			final List<ShardEntity> beatedDuties, 
+			final Delivery delivery) {
 		Set<ShardEntity> sortedLogConfirmed = null;
 		Set<ShardEntity> sortedLogDirty = null;
 		boolean ret = false;
@@ -214,14 +230,15 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 				if (prescripted.equals(beated)) {
 					final Log expected = findConfirmationPair(beated, prescripted, shard.getShardID());
 				    if (expected!=null) {
-			    		if (sortedLogConfirmed==null) {
-			    			sortedLogConfirmed = new TreeSet<>();
-			    		}
-		                sortedLogConfirmed.add(beated);
-		                // remove the one holding older State
+				    	if (logger.isInfoEnabled()) {
+				    		if (sortedLogConfirmed==null) {
+				    			sortedLogConfirmed = new TreeSet<>();
+				    		}
+			                sortedLogConfirmed.add(beated);
+				    	}
                         prescripted.getJournal().addEvent(expected.getEvent(), 
                                 EntityState.CONFIRMED, 
-                                shard.getShardID(), 	                                
+                                shard.getShardID(),
                                 delivery.getPlanId());
                 		if (partitionTable.getScheme().writeDuty(prescripted, shard, expected.getEvent())) {
                 		    ret = true;
@@ -242,7 +259,7 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 				}
 			}
 		}
-		if (sortedLogConfirmed!=null && logger.isInfoEnabled()) {
+		if (sortedLogConfirmed!=null) {
 			logger.info("{}: ShardID: {}, Confirming partition event for Duties: {}", getClass().getSimpleName(),
 					shard.getShardID(), ShardEntity.toStringIds(sortedLogConfirmed));
 		}
@@ -258,27 +275,33 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
             final ShardEntity beated, 
             final ShardEntity delivered,
             final ShardIdentifier shardid) {
-
-        // beated duty must belong to current non-expired plan
-        final long pid = partitionTable.getCurrentPlan().getId();
-        final Log b = beated.getJournal().find(pid, shardid, EntityEvent.ATTACH);
-        if (b!=null) {
-        	final EntityState es = b.getLastState();
-        	if (es==EntityState.CONFIRMED || es == EntityState.RECEIVED) {
-        		final Log d = delivered.getJournal().find(pid, shardid, EntityEvent.ATTACH);
-        		if (d!=null && d.getLastState()!=EntityState.CONFIRMED) {
-        			return d;	
-        		}
+    	Log ret = null;
+    	// beated duty must belong to current non-expired plan
+		final long pid = partitionTable.getCurrentPlan().getId();
+		final Log beatedLog = beated.getJournal().find(pid, shardid, EntityEvent.ATTACH);
+		if (beatedLog != null) {
+			final EntityState beatedState = beatedLog.getLastState();
+			if (beatedState == EntityState.CONFIRMED || beatedState == EntityState.RECEIVED) {
+				final Log deliLog = delivered.getJournal().find(pid, shardid, EntityEvent.ATTACH);
+				if (deliLog != null) {
+					final EntityState deliState = deliLog.getLastState();
+					if (deliState != EntityState.CONFIRMED) {
+						ret = deliLog;
+					} else {
+						//logger.error("{}: confirmation pair found erroneous state: {} on duty: {}",
+							//	getClass().getSimpleName(), deliState, delivered);
+					}
+				}
 			} else {
-				logger.error("{}: Reporting state: {} on Duty: {}", getClass().getSimpleName(), es);
-        	}
-        }
-        return null;
+				logger.error("{}: Reporting state: {} on Duty: {}", getClass().getSimpleName(), beatedState);
+			}
+		}
+        return ret;
     }
 	
 	/** treat un-coming as detaches
 	/** @return whether or not there was an absence confirmed */
-	private boolean detectDettachments(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
+	private boolean detectAndWriteDetachments(final Shard shard, final List<ShardEntity> beatedDuties, final Delivery delivery) {
 	    boolean ret = false;
 		Set<ShardEntity> sortedLog = null;
         final long pid = partitionTable.getCurrentPlan().getId();
@@ -287,44 +310,46 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 			if (!beatedDuties.contains(prescripted)) {
 				final Log found = prescripted.getJournal().find(pid, shard.getShardID(), EntityEvent.DETACH, EntityEvent.REMOVE);
 				if (found!=null && (found.getLastState()==EntityState.PENDING || found.getLastState()==EntityState.MISSING)) {
-					if (sortedLog==null) {
-                        sortedLog = new TreeSet<>();
-                    }
-                    sortedLog.add(prescripted);
-                    prescripted.getJournal().addEvent(found.getEvent(), 
-                            EntityState.CONFIRMED,
-                            shard.getShardID(),
-                            pid);
-                    boolean written = partitionTable.getScheme().writeDuty(prescripted, shard, found.getEvent());
-                    if (written && found.getEvent().isCrud()) {
-                		kickFromNextStage(prescripted, found);
-                		ret = true;
-                    }
+					if (logger.isInfoEnabled()) {
+						if (sortedLog==null) {
+							sortedLog = new TreeSet<>();
+						}
+						sortedLog.add(prescripted);
+					}
+					prescripted.getJournal().addEvent(found.getEvent(), 
+							EntityState.CONFIRMED,
+							shard.getShardID(),
+							pid);
+					boolean written = partitionTable.getScheme().writeDuty(prescripted, shard, found.getEvent());
+					if (written && found.getEvent().isCrud()) {
+						// remove it from the backstage
+						for (ShardEntity duty : partitionTable.getBackstage().getDutiesCrud()) {
+							if (duty.equals(prescripted)) {
+								final Instant lastEventOnCrud = duty.getJournal().getLast().getHead().toInstant();
+								if (found.getHead().toInstant().isAfter(lastEventOnCrud)) {
+									partitionTable.getBackstage().removeCrud(prescripted);
+									break;
+								}
+							}
+						}
+	
+						ret = true;
+					}
 				}
 			}
 		}
 		
-		if (sortedLog!=null && logger.isInfoEnabled()) {
+		if (sortedLog!=null) {
 			logger.info("{}: ShardID: {}, Confirming (by absence) partioning event for Duties: {}",
 					getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(sortedLog));
 		}
 		return ret;
 	}
 
-    private void kickFromNextStage(final ShardEntity prescripted, final Log log) {
-        for (ShardEntity duty: partitionTable.getBackstage().getDutiesCrud()) {
-        	if (duty.equals(prescripted)) {
-        		final Instant lastEventOnCrud = duty.getJournal().getLast().getHead().toInstant();
-        		if (log.getHead().toInstant().isAfter(lastEventOnCrud)) {
-        			partitionTable.getBackstage().removeCrud(prescripted);
-        			break;
-        		}
-        	}
-        }
-    }
-
-	public void checkShardChangingState(final Shard shard) {
-		switch (shard.getState()) {
+	public void shardStateChange(final Shard shard, final ShardState prior, final ShardState newState) {
+		shard.setState(newState);
+		logger.info("{}: ShardID: {} changes to: {}", getClass().getSimpleName(), shard, newState);
+		switch (newState) {
 		case GONE:
 		case QUITTED:
 			recoverAndRetire(shard);
@@ -334,8 +359,8 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 			// TODO get ready
 			break;
 		case QUARANTINE:
-			// TODO lot of consistency checks here on duties 
-			// to avoid chain of shit from heartbeats reporting doubtful stuff 
+			// TODO lot of consistency checks here on duties
+			// to avoid chain of shit from heartbeats reporting doubtful stuff
 			break;
 		default:
 			break;

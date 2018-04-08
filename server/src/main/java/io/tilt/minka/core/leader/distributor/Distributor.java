@@ -167,12 +167,12 @@ public class Distributor implements Service {
 				logger.warn("{}: balancing posponed: not enough online shards (min:{}, now:{})", getName(), min, online);
 			    return;
 			}
-		    if (!loadFromClientWhenAllOnlines()) {
-		        return;
-		    }
-		    
-		    // distribution
-            drive(currPlan);
+			if (!loadFromClientWhenAllOnlines()) {
+				return;
+			}
+
+		// distribution
+			drive(currPlan);
 			communicateUpdates();
 		} catch (Exception e) {
 			logger.error("{}: Unexpected ", getName(), e);
@@ -188,32 +188,32 @@ public class Distributor implements Service {
 	 * attempt to push deliveries ready until latch
 	 * retry plan re-build and repush: 3 times, if it becomes obsolete or expired.
 	 */
-    private void drive(final Plan plan) {
-        boolean rebuild = plan==null || plan.getResult().isClosed();
-        boolean firstTime = true;
-        Plan p = plan;
-        Result r = null;
-        while (firstTime || rebuild) {
-            if (rebuild) {
-                rebuild = false;
-                p = buildPlan(p);
-            }
-            if (p!=null && !p.getResult().isClosed()) {
-                if (r == RETRYING) {
-            		repushPendings(p);
-                } else {
-                    pushAvailable(p);
-                }
-                r = p.getResult();
-            }
-            if (r == CLOSED_EXPIRED || r == CLOSED_OBSOLETE) {
-                rebuild = true;
-            } else if (p!=null) {
-                p.computeState();
-            }
-            firstTime = false;
-        }
-    }
+	private void drive(final Plan plan) {
+		boolean rebuild = plan == null || plan.getResult().isClosed();
+		boolean firstTime = true;
+		Plan p = plan;
+		Result r = null;
+		while (firstTime || rebuild) {
+			if (rebuild) {
+				rebuild = false;
+				p = buildPlan(p);
+			}
+			if (p != null && !p.getResult().isClosed()) {
+				if (r == RETRYING) {
+					repushPendings(p);
+				} else {
+					pushAvailable(p);
+				}
+				r = p.getResult();
+			}
+			if (r == CLOSED_EXPIRED || r == CLOSED_OBSOLETE) {
+				rebuild = true;
+			} else if (p != null) {
+				p.computeState();
+			}
+			firstTime = false;
+		}
+	}
 
 
 	/** @return a plan to drive built at balancer's request */
@@ -239,56 +239,71 @@ public class Distributor implements Service {
 	
 	/* retry already pushed deliveries with pending duties */
 	private void repushPendings(final Plan plan) {
-	    for (Delivery delivery: plan.getAllPendings()) {
-	        push(plan, delivery, true);
-	        if (plan.getResult() == CLOSED_OBSOLETE) {
-                break;
-            }
-	    }
+		for (Delivery delivery : plan.getAllPendings()) {
+			push(plan, delivery, true);
+			if (plan.getResult().isClosed()) {
+				break;
+			}
+		}
 	}
 	
 	/* push parallel deliveries */
 	private void pushAvailable(final Plan plan) {
-	    logger.info("{}: Driving Plan: {}", getName(), plan.getId());
-		while (plan.hasNextParallel() && plan.getResult()!=CLOSED_OBSOLETE) {
-			push(plan, plan.next(), false);
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: Driving Plan: {}", getName(), plan.getId());
+		}
+		boolean deliveryValid = true;
+		while (plan.hasNextParallel() && !plan.getResult().isClosed()) {
+			deliveryValid &= push(plan, plan.next(), false);
+		}
+		if (deliveryValid) {
+			checkAllDeliveriesValid(plan);
 		}
 	}
 
+	private boolean checkAllDeliveriesValid(final Plan plan) {
+		final List<Shard> onlineShards = partitionTable.getScheme().getShardsByState(ShardState.ONLINE);
+		for (final Delivery d: plan.getAllPendings()) {
+			if (!onlineShards.contains(d.getShard())) {
+				logger.error("{}: Plan lost a target shard as online: {}", getName(), d.getShard());
+				plan.obsolete();
+				return false;
+			}
+		}
+		return true;
+	}
+
 	/** @return if plan is still valid */
-    private boolean push(final Plan plan, final Delivery delivery, final boolean retrying) {
-        // check it's still in ptable
-        if (!partitionTable.getScheme().getShardsByState(ShardState.ONLINE).contains(delivery.getShard())) {
-            logger.error("{}: PartitionTable lost transport's target shard: {}", getName(), delivery.getShard());
-            plan.obsolete();
-            return false;
-        } else {
-        	final Map<ShardEntity, Log> trackByDuty = retrying ? 
-        			delivery.getByState(EntityState.PENDING) :
-    				delivery.getByState();
-        	if (trackByDuty.isEmpty()) {
-        		throw new IllegalStateException("delivery with no duties to send ?");
-        	}
-        	if (logger.isInfoEnabled()) {
-        		logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), 
-        	        delivery.getEvent().toVerb(),
-        			delivery.getShard().getShardID(), 
-        			trackByDuty.size(), 
-        			ShardEntity.toStringIds(new TreeSet<>(trackByDuty.keySet())));
-        	}
-        	delivery.checkState();
-        	if (eventBroker.sendList(delivery.getShard().getBrokerChannel(), new ArrayList<>(trackByDuty.keySet()))) {
-        		// dont mark to wait for those already confirmed (from fallen shards)
-                for (ShardEntity duty: trackByDuty.keySet()) {
-                	// PEND only that track of current delivery
-                	trackByDuty.get(duty).addState(EntityState.PENDING);
-                }                
-        	} else {
-        		logger.error("{}: Couldnt transport current issues !!!", getName());
-        	}
-        	return true;
-        }
-    }
+	private boolean push(final Plan plan, final Delivery delivery, final boolean retrying) {
+		// check it's still in ptable
+		if (!partitionTable.getScheme().getShardsByState(ShardState.ONLINE).contains(delivery.getShard())) {
+			logger.error("{}: PartitionTable lost transport's target shard: {}", getName(), delivery.getShard());
+			plan.obsolete();
+			return false;
+		} else {
+			final Map<ShardEntity, Log> trackByDuty = retrying ? delivery.getByState(EntityState.PENDING)
+					: delivery.getByState();
+			if (trackByDuty.isEmpty()) {
+				throw new IllegalStateException("delivery with no duties to send ?");
+			}
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), delivery.getEvent().toVerb(),
+						delivery.getShard().getShardID(), trackByDuty.size(),
+						ShardEntity.toStringIds(new TreeSet<>(trackByDuty.keySet())));
+			}
+			delivery.checkState();
+			if (eventBroker.send(delivery.getShard().getBrokerChannel(), (List)new ArrayList<>(trackByDuty.keySet()))) {
+				// dont mark to wait for those already confirmed (from fallen shards)
+				for (ShardEntity duty : trackByDuty.keySet()) {
+					// PEND only that track of current delivery
+					trackByDuty.get(duty).addState(EntityState.PENDING);
+				}
+			} else {
+				logger.error("{}: Couldnt transport current issues !!!", getName());
+			}
+			return true;
+		}
+	}
 
 	/** @return if distribution can continue, read from storage only first time */
 	private boolean loadFromClientWhenAllOnlines() {
@@ -397,12 +412,12 @@ public class Distributor implements Service {
 		}
 	}
 
-    private void logStatus() {
-    	if (logger.isInfoEnabled()) {
-    		StringBuilder title = new StringBuilder("Distributor (i")
-                .append(++distributionCounter).append(" by Leader: ").append(shardId.toString());
-    		logger.info(LogUtils.titleLine(title.toString()));
-    	}
-        partitionTable.logStatus();
-    }
+	private void logStatus() {
+		if (logger.isInfoEnabled()) {
+			StringBuilder title = new StringBuilder("Distributor (i").append(++distributionCounter).append(" by Leader: ")
+					.append(shardId.toString());
+			logger.info(LogUtils.titleLine(title.toString()));
+		}
+		partitionTable.logStatus();
+	}
 }

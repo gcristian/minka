@@ -47,7 +47,7 @@ import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.EntityState;
 
 /** 
- * Utiliy for {@linkplain Balancer} to request {@linkplain Transfer} and {@linkplain Override}
+ * Balancer's Helper to request {@linkplain Transfer} and {@linkplain Override}
  * of {@linkplain Duty}'s and {@linkplain Pallet}s over {@linkplain Shard}s, 
  * so it can later write a {@linkplain Plan}. 
  * Leveraging the balancer of the distribution process, consistency, validation.

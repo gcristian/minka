@@ -27,7 +27,17 @@ import io.tilt.minka.domain.Heartbeat;
  */
 public interface HeartbeatFactory {
 
-	Heartbeat create();
+	/**
+	 * Gather follower's status data and build conclusive info for Leader decisions. 
+	 * @param forceFullReport	force factory to build a complete detail even when not obliged to.  
+	 * @return	a beat with duties taken, differences, consistency details.
+	 */
+	Heartbeat create(boolean forceFullReport);
+	
+	/**
+	 * Helps the factory to add more information about the shard.
+	 * @param domain
+	 */
 	void setDomainInfo(DomainInfo domain);
 	
 }

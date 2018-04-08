@@ -66,15 +66,16 @@ class PlanFactory {
 				config.getDistributor().getPlanMaxRetries());
 		
 		// recently fallen shards
-		final Set<ShardEntity> dangling = new HashSet<>(table.getBackstage().getDutiesDangling());
 		addMissingAsCrud(table, plan);
-		// add previous fallen and never confirmed migrations
-		dangling.addAll(restorePendings(previousChange));
-		// add danglings as creations prior to migrations
-		final List<ShardEntity> danglingAsCreations = new ArrayList<>();
-		dangling.forEach(dang -> danglingAsCreations.add(ShardEntity.Builder.builderFrom(dang).build()));
 		final Set<ShardEntity> dutyCreations = table.getBackstage().getDutiesCrud(EntityEvent.CREATE, null);
-		dutyCreations.addAll(danglingAsCreations);
+		// add danglings as creations prior to migrations
+		for (ShardEntity d: table.getBackstage().getDutiesDangling()) {
+			dutyCreations.add(ShardEntity.Builder.builderFrom(d).build());
+		}
+		// add previous fallen and never confirmed migrations
+		for (ShardEntity p: restorePendings(previousChange)) {
+			dutyCreations.add(p);
+		}
 		
 		final Set<ShardEntity> dutyDeletions = table.getBackstage().getDutiesCrud(EntityEvent.REMOVE, null);
 		// lets add those duties of a certain deleting pallet
@@ -100,10 +101,10 @@ class PlanFactory {
 					final Migrator migra = balance(table, pallet, balancer, dutyCreations, dutyDeletions);
 					changes |= migra.write(plan);
 				} else {
-				    if (logger.isInfoEnabled()) {
-				        logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(),
+					if (logger.isInfoEnabled()) {
+				    	logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(),
 							pallet.getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
-				    }
+					}
 				}
 			}
 		}
@@ -115,7 +116,7 @@ class PlanFactory {
 		}
 	}
 
-	private final Migrator balance(
+	private static final Migrator balance(
 			final PartitionTable table, 
 			final Pallet<?> pallet, 
 			final Balancer balancer,
@@ -149,7 +150,7 @@ class PlanFactory {
 		return migrator;
 	}
 
-	private final Set<Duty<?>> refs(final Set<ShardEntity> entities) {
+	private static final Set<Duty<?>> refs(final Set<ShardEntity> entities) {
 	    final Set<Duty<?>> ret = new HashSet<>(entities.size());
 	    entities.forEach(e->ret.add(e.getDuty()));
 	    return ret;

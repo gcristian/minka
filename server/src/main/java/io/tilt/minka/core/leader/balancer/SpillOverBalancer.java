@@ -196,7 +196,7 @@ public class SpillOverBalancer implements Balancer {
 			for (final Duty<?> emitted : emitting) {
 				final NetworkLocation receptor = makeSpaceIntoReceptors(loadStrat, emitted, spaceByReceptor);
 				if (receptor == null) {
-					migrator.stuck(emitted, emisor.getId());
+					migrator.stuck(emitted, emisor);
 					unfitting.add(emitted);
 				} else {
 					migrator.transfer(emisor, receptor, emitted);

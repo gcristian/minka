@@ -98,7 +98,7 @@ public interface EventBroker extends Service {
 	boolean send(BrokerChannel channel, Serializable event);
 
 	/* send an event object list to an inbox name */
-	boolean sendList(BrokerChannel channel, List<Serializable> event);
+	boolean send(BrokerChannel channel, List<Serializable> event);
 
 	/* idem overriding channel type */
 	boolean send(

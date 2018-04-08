@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,7 +83,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	}
 
 	@Override
-	public Heartbeat create() {
+	public Heartbeat create(final boolean forceFullReport) {
 		final long now = System.currentTimeMillis();
 		// this's used only if there's nothing important to report (differences, absences, etc)
 		final Heartbeat.Builder builder = Heartbeat.builder(sequence.getAndIncrement(), partition.getId());
@@ -90,9 +91,9 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		partition.getId().getTag();
 		final Set<Duty<?>> reportedDuties = askCurrentCapture();
 		// add reported: as confirmed if previously assigned, dangling otherwise.
-		final List<ShardEntity> tmp = new ArrayList<>(reportedDuties.size() + partition.getDuties().size()); 
-		boolean issues = analyzeAndDetect(builder, reportedDuties, tmp);
-		issues |= detectAbsents(reportedDuties, tmp);
+		final List<ShardEntity> tmp = new ArrayList<>(Math.max(reportedDuties.size(), partition.getDuties().size())); 
+		boolean issues = detectChangesOnReport(builder, reportedDuties, tmp::add);
+		issues |= detectAbsentsFromPartition(reportedDuties, tmp::add);
 		
 		final boolean exclusionExpired = includeTimestamp == 0 || (now - includeTimestamp) > includeFrequency;
 				
@@ -103,8 +104,8 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			newLeader = true;
 		}
 		
-		if (issues || exclusionExpired || partition.wasRecentlyUpdated() || newLeader) {	
-			tmp.forEach(d->builder.addReportedCapturedDuty(d));
+		if (forceFullReport || issues || exclusionExpired || partition.wasRecentlyUpdated() || newLeader) {
+			tmp.forEach(builder::addReportedCapturedDuty);
 			builder.reportsDuties();
 			includeTimestamp = now;
 		}
@@ -112,7 +113,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		final Heartbeat hb = builder.build();
 		if (log.isDebugEnabled()) {
 			logDebugNicely(hb);
-		} else if (log.isInfoEnabled()){
+		} else if (log.isInfoEnabled()) {
 			log.info("{}: ({}) {} SeqID: {}, {}", 
 				getClass().getSimpleName(), hb.getShardId(),LogUtils.HB_CHAR, hb.getSequenceId(), 
 				hb.reportsDuties() ? new StringBuilder("Duties: (")
@@ -123,41 +124,43 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	}
 	
 	/* analyze reported duties and return if there're issues */
-	private boolean analyzeAndDetect(
+	private boolean detectChangesOnReport(
 	        final Heartbeat.Builder builder,
 			final Set<Duty<?>> reportedDuties, 
-			final List<ShardEntity> temp) {
+			final Consumer<ShardEntity> c) {
 	    
 		boolean includeDuties = false;
 		for (final Duty<?> duty : reportedDuties) {
 			ShardEntity shardedDuty = partition.getFromRawDuty(duty);
 			if (shardedDuty != null) {
-				final DutyDiff ddiff = new DutyDiff(duty, shardedDuty.getDuty());
-				if (ddiff.hasDiffs()) {
-					log.error("{}: ({}) Delegate reports a different duty than originally attached ! {}", 
-						getClass().getSimpleName(), partition.getId(), ddiff.getDiff());
-					builder.addDifference(ddiff);
-					builder.withWarning();
-					includeDuties = true;
-				} else {
-					includeDuties |= detectReception(duty, shardedDuty);
+				if (!config.getFollower().getHeartbeatDutyDiffTolerant()) {
+					final DutyDiff ddiff = new DutyDiff(duty, shardedDuty.getDuty());
+					if (ddiff.hasDiffs()) {
+						log.error("{}: ({}) Delegate reports a different duty than originally attached ! {}", 
+							getClass().getSimpleName(), partition.getId(), ddiff.getDiff());
+						builder.addDifference(ddiff);
+						builder.withWarning();
+						includeDuties = true;
+					}
 				}
+				includeDuties |= detectReception(duty, shardedDuty);
 			} else {
 				includeDuties = true;
 				shardedDuty = ShardEntity.Builder.builder(duty).build();
 				shardedDuty.getJournal().addEvent(EntityEvent.ATTACH, 
-				        EntityState.DANGLING, 
-				        this.partition.getId(), 
-                        Plan.PLAN_UNKNOWN);
+						EntityState.MISTAKEN, 
+						this.partition.getId(), 
+						Plan.PLAN_WITHOUT);
 				log.error("{}: ({}) Reporting a Dangling Duty (by Addition): {}", getClass().getSimpleName(),
 						partition.getId(), shardedDuty);
 				builder.withWarning();
 			}
-			temp.add(shardedDuty);
+			c.accept(shardedDuty);
 		}
 		return includeDuties;
 	}
 	
+	/** this confirms action to the leader */
 	private boolean detectReception(final Duty<?> duty, final ShardEntity shardedDuty) {
 		// consider only the last action logged to this shard
 		final Log found = shardedDuty.getJournal().find(partition.getId()); 
@@ -214,18 +217,26 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	}
 
 	/* if there were absent o not */
-	private boolean detectAbsents(final Set<Duty<?>> reportedDuties, final List<ShardEntity> tmp) {
+	private boolean detectAbsentsFromPartition(final Set<Duty<?>> reportedDuties, final Consumer<ShardEntity> c) {
 		boolean ret = false;
 		// add non-reported: as dangling
 		for (final ShardEntity existing : partition.getDuties()) {
 			if (ret = !reportedDuties.contains(existing.getEntity())) {
-				existing.getJournal().addEvent(EntityEvent.REMOVE, 
-					existing.getDuty().isLazyFinalized() ? EntityState.FINALIZED : EntityState.DANGLING, 
-			        this.partition.getId(), 
-			        Plan.PLAN_UNKNOWN);
+				if (existing.getDuty().isLazyFinalized()) {
+					// it's an ES: finalized that will later end in a EV: remove 
+					existing.getJournal().addEvent(existing.getLastEvent(), 
+							EntityState.FINALIZED, 
+							this.partition.getId(),
+							existing.getJournal().getLast().getPlanId());
+				} else {
+					existing.getJournal().addEvent(existing.getLastEvent(), 
+							EntityState.DANGLING, 
+							this.partition.getId(), 
+							existing.getJournal().getLast().getPlanId());
+				}
 				log.error("{}: ({}) Reporting a Dangling Duty (by Erasure): {}", getClass().getSimpleName(),
 						partition.getId(), existing);
-				tmp.add(existing);
+				c.accept(existing);
 			}
 		}
 		return ret;

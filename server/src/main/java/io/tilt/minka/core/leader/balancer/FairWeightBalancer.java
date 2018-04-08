@@ -120,8 +120,8 @@ public class FairWeightBalancer implements Balancer {
 			if (bascules==null) {
 				return;
 			} else if (bascules.isEmpty()) {
-			    for (final Iterator<Duty<?>> itDuties = duties.iterator(); itDuties.hasNext(); 
-		            migrator.stuck(itDuties.next(), null));
+			    //for (final Iterator<Duty<?>> itDuties = duties.iterator(); itDuties.hasNext(); 
+		        //    migrator.stuck(itDuties.next(), null));
 				return;
 			}
     		final Iterator<Bascule<NetworkLocation, Duty<?>>> itBascs = bascules.iterator();
@@ -141,7 +141,7 @@ public class FairWeightBalancer implements Balancer {
 						// adding those left aside by division remainders calc
 						while (itDuties.hasNext()) {
 							if (!bascule.tryLift(duty = itDuties.next(), duty.getWeight())) {
-								//migrator.stuck(duty, bascule.getOwner().getId());
+								migrator.stuck(duty, bascule.getOwner());
 							}
 						}
 					}
@@ -149,7 +149,7 @@ public class FairWeightBalancer implements Balancer {
 					if (!lifted || !itBascs.hasNext() || !itDuties.hasNext()) {
 						while (!itBascs.hasNext() && itDuties.hasNext()) {
 							if (!bascule.tryLift(duty = itDuties.next(), duty.getWeight())) {
-								//migrator.stuck(duty, bascule.getOwner().getId());
+								migrator.stuck(duty, bascule.getOwner());
 							}
 						}
 						migrator.override(bascule.getOwner(), bascule.getCargo());
@@ -188,6 +188,7 @@ public class FairWeightBalancer implements Balancer {
 		double clusterCap = bascules.isEmpty() ? 0 :Bascule.<NetworkLocation, Duty<?>>getMaxRealCapacity(bascules);
 		if (clusterCap <=0) {
 			logger.error("{}: No available or reported capacity for Pallet: {}", getClass().getSimpleName(), pallet);
+			bascules = null;
 		} else {
 			if (whole.totalLift() >= clusterCap) {
 				logger.error("{}: Pallet: {} with Inssuficient/Almost cluster capacity (max: {}, required load: {})", 

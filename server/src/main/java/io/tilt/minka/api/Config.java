@@ -96,8 +96,8 @@ public class Config {
 		public static String THREAD_NAME_BROKER_SERVER_WORKER = PNAME + "BrokerServerWorker";
 		public static String THREAD_NANE_TCP_BROKER_CLIENT = PNAME + "BrokerClient";
 		
-		public static String THREAD_NAME_WEBSERVER_WORKER = PNAME + "-grizzly-webserver-workers";
-		public static String THREAD_NAME_WEBSERVER_KERNEL = PNAME + "-grizzly-webserver-kernel";
+		public static String THREAD_NAME_WEBSERVER_WORKER = PNAME + "-grizzly-ws-workers";
+		public static String THREAD_NAME_WEBSERVER_KERNEL = PNAME + "-grizzly-ws-kernel";
 
 		public static long SEMAPHORE_UNLOCK_RETRY_DELAY_MS = 100l; //50l;
 		private int semaphoreUnlockRetryDelayMs;
@@ -298,45 +298,24 @@ public class Config {
 	}
 
 	public static class FollowerConf {
-		/* each half second */
+		
+		/**
+		 * When true. the heartbeat factory doesnt compares duty definition between
+		 * the one distributed by the leader and the reported by the follower 
+		 */
+		protected static final boolean HEARTBEAT_DUTY_DIFF_TOLERANT = true;
+		private boolean heartbeatDutyDiffTolerant;
+		
 		/*
-		protected static final long HEARTBEAT_START_DELAY_MS = 1000;
-		private long heartbeatDelayMs;
-		*/
+		 * How many beats delay to start sending heartbeats 
+		 */
 		protected static final long HEARTBEAT_START_DELAY_BEATS = 1;
 		private long heartbeatDelayBeats;
 		/*
-		protected static final long HEARTBEAT_DELAY_MS = 2000;
-		private long heartbeatStartDelayMs;
-		*/
+		 * Frequency for sending heartbeats
+		 */
 		protected static final long HEARTBEAT_DELAY_BEATS = 2;
-		private long heartbeatStartDelayBeats;
-		/* 10 seconds enough to start check and release duties if no HB in x time */
-		/*
-		protected static final long HEARTATTACK_CHECK_START_DELAY_MS = 10000;
-		private long heartattackCheckStartDelayMs;
-		protected static final long HEARTATTACK_CHECK_DELAY_MS = 3000;
-		private long heartattackCheckDelayMs;
-		*/
-		
-		protected static final long HEARTATTACK_CHECK_START_DELAY_BEATS = 10;
-		private long heartattackCheckStartDelayBeats;
-		protected static final long HEARTATTACK_CHECK_DELAY_BEATS = 3;
-		private long heartattackCheckDelayBeats;
-		
-		// 20 seconds to let the leader be elected 
-		/*
-		protected static final long CLEARANCE_CHECK_START_DELAY_MS = 10000;
-		private long clearanceCheckStartDelayMs;
-		protected static final long CLEARANCE_CHECK_DELAY_MS = 10000;
-		private long clearanceCheckDelayMs;
-		// 10 seconds old max for clearance before releasing duties 
-		protected static final int CLEARANCE_MAX_ABSENCE_MS = 10000;
-		private int clearanceMaxAbsenceMs;
-		protected static final long MAX_HEARTBEAT_ABSENCE_FOR_RELEASE_MS = 10000;
-		private long maxHeartbeatAbsenceForReleaseMs;		
-		*/
-		
+		private long heartbeatStartDelayBeats;				
 		/* 10 seconds old max for clearance before releasing duties */
 		protected static final int CLEARANCE_MAX_ABSENCE_BEATS = 10;
 		private int clearanceMaxAbsenceBeats;
@@ -362,18 +341,6 @@ public class Config {
 		public void setHeartbeatStartDelayBeats(long heartbeatStartDelayBeats) {
 			this.heartbeatStartDelayBeats = heartbeatStartDelayBeats;
 		}
-		public long getHeartattackCheckStartDelayBeats() {
-			return heartattackCheckStartDelayBeats;
-		}
-		public void setHeartattackCheckStartDelayBeats(long heartattackCheckStartDelayBeats) {
-			this.heartattackCheckStartDelayBeats = heartattackCheckStartDelayBeats;
-		}
-		public long getHeartattackCheckDelayBeats() {
-			return heartattackCheckDelayBeats;
-		}
-		public void setHeartattackCheckDelayBeats(long heartattackCheckDelayBeats) {
-			this.heartattackCheckDelayBeats = heartattackCheckDelayBeats;
-		}
 		public int getClearanceMaxAbsenceBeats() {
 			return clearanceMaxAbsenceBeats;
 		}
@@ -389,6 +356,12 @@ public class Config {
 		public void setMaxHeartbeatBuildFailsBeforeReleasing(int maxHeartbeatBuildFailsBeforeReleasing) {
 			this.maxHeartbeatBuildFailsBeforeReleasing = maxHeartbeatBuildFailsBeforeReleasing;
 		}
+		public boolean getHeartbeatDutyDiffTolerant() {
+			return heartbeatDutyDiffTolerant;
+		}
+		public void setHeartbeatDutyDiffTolerant(boolean  heartbeatDutyDiffTolerant) {
+			this.heartbeatDutyDiffTolerant = heartbeatDutyDiffTolerant;
+		}
 
 	}
 
@@ -400,15 +373,6 @@ public class Config {
 		protected static final int RELOAD_DUTIES_FROM_STORAGE_EACH_PERIODS = 10;
 		private int reloadDutiesFromStorageEachPeriods;
 		/* 10 seconds to let the Proctor discover all Followers before distributing */
-		/*
-		protected final static long START_DELAY_MS = 10000;
-		private long startDelayMs;
-		protected final static long DELAY_MS = 3000;		
-		private long delayMs;
-		protected static final int PLAN_EXPIRATION_SEC = 10;
-		private int planExpirationSec;
-		*/
-		
 		protected final static long START_DELAY_BEATS = 10;
 		private long startDelayBeats;
 		protected final static long DELAY_BEATS = 3;		
@@ -518,14 +482,6 @@ public class Config {
 
 	public static class ProctorConf {
 		/* each 3 seconds */
-		/*
-		protected final static long START_DELAY_MS = 500;
-		private long startDelayMs;
-		protected final static long DELAY_MS = 1000; // i jhad it on 2000
-		private long delayMs;
-		protected static final int MAX_SHARD_JOINING_STATE_MS = 15000;
-		private int maxShardJoiningStateMs;
-		*/
 		protected final static long START_DELAY_BEATS = 1;
 		private long startDelayBeats;
 		protected final static long DELAY_BEATS = 3; // i jhad it on 2000
@@ -545,10 +501,6 @@ public class Config {
 		private int minShardsOnlineBeforeSharding;
 		protected static final double HEARTBEAT_MAX_BIGGEST_DISTANCE_FACTOR = 2.5d;
 		private double heartbeatMaxBiggestDistanceFactor;
-		/*
-		protected static final int HEARTBEAT_LAPSE_SEC = 20;
-		private int heartbeatLapseSec;
-		*/
 		protected static final int HEARTBEAT_LAPSE_BEATS = 15;
 		private int heartbeatLapseBeats;
 		protected static final double HEARTBEAT_MAX_DISTANCE_STANDARD_DEVIATION = 4;

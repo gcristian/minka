@@ -41,7 +41,7 @@ import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.EntityState;
 
 /**
- * Facility to CRUD {@linkplain ShardEntity}
+ * Facility to run CRUD operations over {@linkplain Duty} 
  * 
  * So a {@link Leader} service whoever it is, will receive the event and distribute it
  * to a selected {@link Follower} according their {@link ShardState}

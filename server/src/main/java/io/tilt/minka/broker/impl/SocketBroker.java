@@ -167,7 +167,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	}
 
 	@Override
-	public boolean sendList(final BrokerChannel channel, final List<Serializable> event) {
+	public boolean send(final BrokerChannel channel, final List<Serializable> event) {
 		return post(channel, channel.getChannel().getType(), event);
 	}
 

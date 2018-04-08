@@ -138,8 +138,8 @@ public class Minka<D extends Serializable, P extends Serializable> {
 			if (tenant.getConfig().getBootstrap().isEnableWebserver()) {
 				startWebserver();
 			} else {
-			    logger.info("{}: Webserver disabled by configuration. Enable for a fully functional shard", 
-			            getClass().getSimpleName());
+				logger.info("{}: Webserver disabled by configuration. Enable for a fully functional shard", 
+						getClass().getSimpleName());
 			}
 		} else {
 			logger.error("{}: Can only load Minka once !", getClass().getSimpleName());
@@ -157,9 +157,12 @@ public class Minka<D extends Serializable, P extends Serializable> {
 				.setCorePoolSize(1)
 				.setMaxPoolSize(1);
 		
+		
 		final Iterator<NetworkListener> it = webServer.getListeners().iterator();
 		while (it.hasNext()) {
 			final NetworkListener listener = it.next();
+			logger.info("{}: Reconfiguring webserver listener {}", getClass().getSimpleName(), listener);
+			listener.getTransport().setSelectorRunnersCount(1);
 			((GrizzlyExecutorService)listener.getTransport().getWorkerThreadPool()).reconfigure(
 					config.copy().setPoolName(Config.SchedulerConf.THREAD_NAME_WEBSERVER_WORKER));
 			((GrizzlyExecutorService)listener.getTransport().getKernelThreadPool()).reconfigure(
@@ -469,13 +472,13 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	/**
 	 * Optional. To be used by custom balancers as a server reference.
 	 * @param tag  any user's meaningful value to the current Minka's location 
-     * @return  the server builder
+	 * @return  the server builder
 	 */
 	public Minka<D, P> setLocationTag(final String tag) {
-        initConsumerDelegate();
-        ((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).setLocationTag(tag);
-        return this;
-    }
+		initConsumerDelegate();
+		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).setLocationTag(tag);
+		return this;
+	}
 	
 	/**
 	 * Mandatory. After creating this loader the context is created and the Minka's bootstrap process waits

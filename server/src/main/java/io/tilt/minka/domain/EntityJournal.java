@@ -4,7 +4,8 @@
 
 package io.tilt.minka.domain;
 
-import static java.util.Objects.requireNonNull;
+
+import static java.util.Collections.unmodifiableList;
 
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
@@ -76,17 +77,11 @@ public class EntityJournal implements Serializable {
 	        final ShardIdentifier shardid,
 	        final long planid) {		
         
-        String shid = null;
-        if (shardid==null) {
-        	shid = NOT_APPLIABLE;
-        } else { 
-        	shid = shardid.getId();
-        }
-        
         // look up the right log 
+		final String shid = shardid!=null ? shardid.getId() : null;
 		Log log = (planid > 0) ? find_(planid, shid, event) : null;
 		if (log==null) {
-            logs.add(log = new Log(new Date(), event, shid, planid));
+            logs.add(log = new Log(new Date(), event, shid == null ? NOT_APPLIABLE : shid, planid));
             if (sliding || (sliding= logs.size()== MAX_JOURNAL_SIZE)) {
             	logs.removeFirst();
             }
@@ -112,7 +107,11 @@ public class EntityJournal implements Serializable {
 	public List<Log> getLogs() {
 		return Collections.unmodifiableList(logs);
 	}
-	
+
+	public Iterator<Log> descendingIterator() {
+		return logs.descendingIterator();
+	}
+
 	public List<Log> getLogs(final long planId) {
         return logs.stream()
         	.filter(et->et.getPlanId()==planId)
@@ -148,14 +147,17 @@ public class EntityJournal implements Serializable {
 		return find_(0, shardid.getId(), null);
 	}
 	
+	/** 
+	 * Descends in time (logs are stacked) until an older plan than current is reached. 
+	 * @return a Log matching plan + event + shard, whereas those args. specified or any if omitted 
+	 */
 	private Log find_(final long planid, final String shardid, final EntityEvent...events) {
-		requireNonNull(shardid);
 		Log ret = null;
 		boolean onePlanFound = false;
 		for (final Iterator<Log> it = logs.descendingIterator(); it.hasNext();) {
             final Log log = it.next();
             if ((planid == 0 || log.getPlanId() == planid) 
-            		&& log.getTargetId().equals(shardid)) {
+            		&& (shardid == null || log.getTargetId().equals(shardid))) {
             	onePlanFound = true;
             	if (events==null) {
             		return log;
@@ -251,13 +253,14 @@ public class EntityJournal implements Serializable {
 	    public void addState(final EntityState state) {
 	        this.states.add(new TimeState(new Date(), state));
 	    }
+	    
 	    @Override
 	    public String toString() {
-	        final StringBuilder sb = new StringBuilder(20)
-	        		.append("p:").append(planId)
-	        		.append("dt:").append(sdf.format(head)).append(" ")
-	        		.append("ev:").append(event).append(" ")
-	                .append("sh:").append(targetId).append(" ")
+	        final StringBuilder sb = new StringBuilder(15+3+13+15+25)
+	        		.append("p:").append(planId).append(' ')
+	        		.append("dt:").append(sdf.format(head)).append(' ')
+	        		.append("ev:").append(event).append(' ')
+	                .append("sh:").append(targetId).append(' ')
 	                
 	                ;	        
 	        return sb.toString();
@@ -265,7 +268,13 @@ public class EntityJournal implements Serializable {
 
 		@Override
 		public int hashCode() {
-			return hasher(head, targetId, planId, event);
+			final int prime = 31;
+			int res = 1;
+			res *= prime + ((head == null ) ? 0 : head.hashCode());
+			res *= prime + ((targetId == null ) ? 0 : targetId.hashCode());
+			res *= prime + planId;
+			res *= prime + ((event == null ) ? 0 : event.hashCode());			
+			return res;
 		}
 		@Override
 		public boolean equals(final Object obj) {
@@ -281,16 +290,6 @@ public class EntityJournal implements Serializable {
 						&& event==o.getEvent();
 			}
 		}
-
-		public static int hasher(final Object...objs) {
-			final int prime = 31;
-			int res = 1;
-			for (final Object o: objs) {
-				res *= prime + ((o == null ) ? 0 : o.hashCode());
-			}
-			return res;
-		}
-	    
 	    
 		/**
 		 * A recording timestamp for a reached state 
@@ -327,9 +326,19 @@ public class EntityJournal implements Serializable {
 	        
 			@Override
 			public int hashCode() {
-				return hasher(date, state);
+				final int prime = 31;
+				int res = 1;
+				res *= prime + ((date == null ) ? 0 : date.hashCode());
+				res *= prime + ((state== null ) ? 0 : state.hashCode());
+				return res;
 			}
-	        
+	        @Override
+	        public String toString() {
+	        	return new StringBuilder(8+17+10)
+	        			.append("dt:").append(date).append(' ')
+	        			.append("st:").append(state)
+	        			.toString();
+	        }
 	        @Override
 	        public boolean equals(final Object obj) {
 	        	if (obj==null || !(obj instanceof TimeState)) {
@@ -338,8 +347,7 @@ public class EntityJournal implements Serializable {
 	        		return true;
 	        	} else {
 	        		final TimeState ts = (TimeState)obj;
-	        		return ts.getDate().equals(date)
-	        				&& ts.getState().equals(state);
+	        		return ts.getDate().equals(date) && ts.getState().equals(state);
 	        	}
 	        }
 	    }

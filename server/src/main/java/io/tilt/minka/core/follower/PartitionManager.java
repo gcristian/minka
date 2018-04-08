@@ -29,18 +29,25 @@ import io.tilt.minka.domain.ShardEntity;
  */
 public interface PartitionManager {
 
+	/** drop all duties caused by a safety policy */
 	Void releaseAllOnPolicies();
 
+	/** drop all duties */
 	Void releaseAll();
 
+	/** drop duties from follower caused by proper finalization */
 	Void finalized(Collection<ShardEntity> duty);
 
+	/** contact follower to update duties payloads */
 	Void update(Collection<ShardEntity> duty);
 
+	/** drop duties from follower, that is stopping them */
 	Void dettach(Collection<ShardEntity> duty);
 
+	/** make the follower responsible of duties */
 	Void attach(Collection<ShardEntity> duty);
 
+	/** make the follower know leader's domain information */
 	Void acknowledge(DomainInfo info);
 
 }

@@ -33,6 +33,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.joda.time.DateTime;
@@ -46,7 +47,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.PartitionTable.DataScheme;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.EntityJournal;
 import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
@@ -55,8 +58,9 @@ import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.LogUtils;
 
 /**
- * Acts as a driveable distribution in progress, created thru {@linkplain Migrator} 
- * indirectly by the {@linkplain Balancer} analyzing the {@linkplain PartitionTable}.
+ * Distribution changes require a consistent plan. 
+ * Distribution in progress, created thru {@linkplain Migrator} 
+ * indirectly by the {@linkplain Balancer} analyzing the {@linkplain DataScheme}.
  * Composed of deliveries, migrations, deletions, creations, etc.
  *  
  * Such operations takes coordination to avoid parallelism and inconsistencies 
@@ -156,11 +160,15 @@ public class Plan implements Comparable<Plan> {
 		final List<ShardEntity> ret = new LinkedList<>();
 		for (final Delivery delivery: deliveries) {
 			for (final ShardEntity duty: delivery.getDuties()) {
-				if (duty.getLastState()==EntityState.PENDING || 
-				        duty.getLastState() == EntityState.PREPARED ||
-				        duty.getLastState() == EntityState.MISSING ||
-				        duty.getLastState() == EntityState.STUCK) {
-					ret.add(duty);
+				for (final Log log : duty.getJournal().getLogs(id)) {
+					final EntityState ls = log.getLastState();
+					if (ls==EntityState.PENDING ||
+							ls == EntityState.DANGLING ||
+							ls == EntityState.PREPARED ||
+							ls == EntityState.MISSING ||
+							ls == EntityState.STUCK) {
+						ret.add(duty);
+					}
 				}
 			}
 		}
@@ -196,7 +204,11 @@ public class Plan implements Comparable<Plan> {
 				}
 			}
 		}
-		checkAllEventsPaired();
+		checkAllEventsPaired(deliveries, (unpaired)-> {
+			this.result = Result.CLOSED_ERROR;
+        	this.ended = Instant.now();
+        	logger.error("{}: Invalid Plan with an operation unpaired: " + unpaired.toBrief());
+		});
 		this.shippings.clear();
 		iterator = deliveries.iterator();
 		return iterator.hasNext();
@@ -219,7 +231,7 @@ public class Plan implements Comparable<Plan> {
     }
 
     /** @return the inverse operation expected at another shard */
-    private EntityEvent inverse(final Delivery del) {
+    private static EntityEvent inverse(final Delivery del) {
         // we care only movements
         switch (del.getEvent()) {
         case ATTACH:
@@ -233,9 +245,12 @@ public class Plan implements Comparable<Plan> {
     
     /**
      * A last consistency check to avoid driving an invalid plan 
+     * @param deliveries2 
      * @throws Exception last check for paired movement operations: 
      * a DETACH must be followed by an ATTACH and viceversa */
-    private void checkAllEventsPaired() {
+    private static void checkAllEventsPaired(
+    		final List<Delivery> deliveries, 
+    		final Consumer<ShardEntity> unpaired) {
         final Set<ShardEntity> alreadyPaired = new TreeSet<>();
         for (Delivery del : deliveries) {
             final EntityEvent inversion = inverse(del);
@@ -243,8 +258,9 @@ public class Plan implements Comparable<Plan> {
                 continue;
             }
             for (final ShardEntity entity : del.getDuties()) {
-                if (!alreadyPaired.contains(entity) 
-                		&& entity.getJournal().hasEverBeenDistributed() 
+                final EntityJournal j = entity.getJournal();
+				if (!alreadyPaired.contains(entity) 
+                		&& j.hasEverBeenDistributed() 
                 		&& entity.getLastEvent()!=EntityEvent.REMOVE) {
                     boolean pair = false;
                     for (Delivery tmp : deliveries) {
@@ -259,14 +275,36 @@ public class Plan implements Comparable<Plan> {
                         }
                     }
                     if (!pair) {
-                    	this.result = Result.CLOSED_ERROR;
-                    	this.ended = Instant.now();
-                        throw new IllegalStateException("Invalid Plan with an operation unpaired: " + entity.toBrief());
+                    	// TODO no funciona xq planFactory.addMisingCrud reinicia con CREATE                    	
+                        // avoid unpaired danglings/missing being a/dettached
+                        if (!wasRecentlyUnifinishedlyAllocated(j)) {
+	                    	unpaired.accept(entity);
+                        }
                     }
                 }
             }
         }
     }
+
+	private static boolean wasRecentlyUnifinishedlyAllocated(final EntityJournal j) {
+		boolean isLegitUnpair = false;
+		int maxHistory = 2; // max history back will find a VALID CREATION in some steps
+		for (final Iterator<Log> it = j.descendingIterator(); it.hasNext() && maxHistory > 0;) {
+			final Log l = it.next();
+			if (isLegitUnpair = (l.getEvent()==EntityEvent.CREATE
+					// any suspicious state
+					|| l.getLastState()==EntityState.MISTAKEN
+					|| l.getLastState()==EntityState.PREPARED
+					|| l.getLastState()==EntityState.MISSING
+					|| l.getLastState()==EntityState.PENDING 
+					|| l.getLastState()==EntityState.DANGLING)) {
+				break;
+			} else {
+				maxHistory--;
+			}
+		}
+		return isLegitUnpair;
+	}
     
     private final ReentrantLock lock = new ReentrantLock(true);
 

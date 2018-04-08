@@ -29,8 +29,13 @@ import io.tilt.minka.domain.Heartbeat;
  */
 public interface Heartpump {
 
+	/** @return the last sent beat */
 	DateTime getLastBeat();
 
-	void emit(Heartbeat hb);
+	/**
+	 * Send to the leader the heartbeat pased
+	 * @return	when successfully sent
+	 */
+	boolean emit(Heartbeat hb);
 
 }

@@ -26,7 +26,6 @@ import java.util.Map;
 
 import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.EqualsBuilder;
-import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
@@ -230,11 +229,12 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	}
 
 	public int hashCode() {
-		return new HashCodeBuilder()
-				.append(getShardId())
-				.append(getCreation())
-				.append(getSequenceId())
-				.toHashCode();
+		final int prime = 31;
+		int res = 1;
+		res *= prime + ((shardId == null ) ? 0 : shardId.hashCode());
+		res *= prime + ((creation== null ) ? 0 : creation.hashCode());
+		res *= prime + sequenceId;
+		return res;
 	}
 
 	public boolean equalsInContent(final Heartbeat hb) {

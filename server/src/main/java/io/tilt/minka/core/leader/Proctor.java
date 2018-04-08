@@ -81,11 +81,6 @@ public class Proctor implements Service {
 
 	private final Agent analyzer;
 
-	/*
-	 * 10 mins min: previous time-window lapse to look for events to rebuild
-	 * Partition Table
-	 */
-
 	public Proctor(
 			final Config config, 
 			final PartitionTable partitionTable, 
@@ -174,30 +169,36 @@ public class Proctor implements Service {
 				logger.info("{}: Health: {}, {} shard(s) going to be analyzed: {}", getName(),
 					partitionTable.getVisibilityHealth(), shards.size(), shards);
 			}
+			
 			int sizeOnline = 0;
 			for (Shard shard : shards) {
-				ShardState concludedState = evaluateStateThruHeartbeats(shard);
-				if (concludedState != shard.getState()) {
+				final ShardState newState = evaluateStateThruHeartbeats(shard);
+				final ShardState priorState = shard.getState();
+                if (newState != priorState) {
 					lastUnstableAnalysisId = analysisCounter;
-					shard.setState(concludedState);
-					bokkeeper.checkShardChangingState(shard);
+					bokkeeper.shardStateChange(shard, priorState, newState);
 				}
-				sizeOnline += shard.getState() == ShardState.ONLINE ? 1 : 0;
+				sizeOnline += priorState == ShardState.ONLINE ? 1 : 0;
 			}
-			final ClusterHealth health = sizeOnline == shards.size()
-					&& analysisCounter - lastUnstableAnalysisId >= config.getProctor().getClusterHealthStabilityDelayPeriods()
-							? STABLE : UNSTABLE;
+			final int threshold = config.getProctor().getClusterHealthStabilityDelayPeriods();
+			ClusterHealth health = UNSTABLE;
+			if (sizeOnline == shards.size()
+					&& analysisCounter - lastUnstableAnalysisId >= threshold) {
+				health = STABLE;
+			}
 			if (health != partitionTable.getVisibilityHealth()) {
 				partitionTable.setVisibilityHealth(health);
 				logger.warn("{}: Cluster back to: {} ({}, min unchanged analyses: {})", getName(),
 						partitionTable.getVisibilityHealth(), lastUnstableAnalysisId,
-						config.getProctor().getClusterHealthStabilityDelayPeriods());
+						threshold);
 			}
 			sendDomainInfo();
 			//if (blessCounter++ > 1) {
 				blessCounter = 0;
 				blessShards();
 			//}
+			
+			// 
 		} catch (Exception e) {
 			logger.error("{}: Unexpected while shepherdizing", getName(), e);
 		} finally {
@@ -272,7 +273,7 @@ public class Proctor implements Service {
 
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: {} {} {}, {}, ({}/{}), Seq [{}..{}] {}", getName(), shard,
-				newState == currentState ? "stays in" : "changing to", 
+				newState == currentState ? "staying" : "going", 
 				newState, 
 				msg, 
 				shard.getHeartbeats().size(),

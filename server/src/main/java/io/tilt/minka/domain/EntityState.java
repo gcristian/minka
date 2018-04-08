@@ -17,7 +17,9 @@ public enum EntityState {
 	DANGLING('d'),
 	/** suddenly stop being reported from follower: no solution yet */
 	MISSING('m'),
-	/* status at a leader or follower when there's no viable solution for a duty */
+	/** status at follower: when delegate reports a duty absent in it's partition */
+	MISTAKEN('m'),
+	/** status at a leader or follower when there's no viable solution for a duty */
 	STUCK('s'),
 	/** status at a follower when absent in delegate's report, only for lazy ones */
 	FINALIZED('f')

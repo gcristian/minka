@@ -94,7 +94,9 @@ public class Follower implements Service {
 
 	@Override
 	public void start() {
-		logger.info("{}: ({}) Starting services", getClass().getSimpleName(), config.getLoggingShardId());
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: ({}) Starting services", getClass().getSimpleName(), config.getLoggingShardId());
+		}
 		this.leaderConsumer.start();
 		alive = true;
 		// after partition manager initialized: set emergency shutdown
@@ -104,34 +106,47 @@ public class Follower implements Service {
 
 	@Override
 	public void stop() {
-		logger.info("{}: ({}) Stopping services, on duty since: {}", getClass().getSimpleName(),
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: ({}) Stopping services, on duty since: {}", getClass().getSimpleName(),
 				config.getLoggingShardId(), creation);
+		}
+			
 		if (inService()) {
-			final Heartbeat bye = heartbeatFactory.create();
+			final Heartbeat bye = heartbeatFactory.create(true);
 			bye.setStateChange(ShardState.QUITTED);
 			heartpump.emit(bye);
-			logger.info("{}: ({}) Stopping timer", getClass().getSimpleName(), config.getLoggingShardId());
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: ({}) Stopping timer", getClass().getSimpleName(), config.getLoggingShardId());
+			}
 			scheduler.stop(follow);
 			alive = false;
 			this.leaderConsumer.stop();
 		} else {
-			logger.info("{}: ({}) Follower was not longer in service", getClass().getSimpleName(),
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: ({}) Follower was not longer in service", getClass().getSimpleName(),
 					config.getLoggingShardId());
+			}
 		}
 	}
+	
+	private boolean lastSuccess;
 	
 	private void follow() {
 		checkClearanceOrDrop();		
 		checkBeatsOrDrop(); // avoid release twice
-		heartpump.emit(heartbeatFactory.create());		
+		
+		// prevent factory of a non full detail heartbeat
+		lastSuccess = heartpump.emit(heartbeatFactory.create(!lastSuccess));		
 	}
 
-	/** @return whether or not the clearance is valid */
+	/** 
+	 * Release all Duties from partition if it must.
+	 * @return whether or not the clearance is valid 
+	 */
 	private boolean checkClearanceOrDrop() {
 		boolean lost = false;
 		final Clearance clear = leaderConsumer.getLastClearance();
 		long delta = 0;
-		//int maxAbsence = config.getFollower().getClearanceMaxAbsenceMs();
 		final long hbdelay = config.beatToMs(config.getFollower().getHeartbeatDelayBeats());
 		final int maxAbsenceMs = (int)hbdelay * config.getProctor().getMinAbsentHeartbeatsBeforeShardGone();
 		final int minToJoinMs = (int)hbdelay * (int)config.beatToMs(config.getProctor().getMaxShardJoiningStateBeats());
@@ -155,7 +170,10 @@ public class Follower implements Service {
 		return !lost;
 	}
 
-	/** @return whether or not the pump's last beat is within a healthy time window */
+	/** 
+	 * Release all Duties from partition if it must.
+	 * @return whether or not the pump's last beat is within a healthy time window 
+	 */
 	private boolean checkBeatsOrDrop() {
 		if (heartpump.getLastBeat() != null) {
 			final DateTime expiracy = heartpump.getLastBeat().plus(

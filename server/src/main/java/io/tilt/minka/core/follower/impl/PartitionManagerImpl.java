@@ -174,8 +174,7 @@ public class PartitionManagerImpl implements PartitionManager {
 				dependencyPlaceholder.getDelegate().releasePallet(removing);
 			}
 		} catch (Exception e) {
-			logger.error("{}: ({}) Exception: {}", getClass().getSimpleName(),
-					partition.getId(), e);
+			logger.error("{}: ({}) Exception: {}", getClass().getSimpleName(), partition.getId(), e);
 		}
 		return null;
 	}
@@ -214,7 +213,7 @@ public class PartitionManagerImpl implements PartitionManager {
 	}
 
 	private Set<Duty<?>> toSet(final Collection<ShardEntity> duties, Predicate<ShardEntity> filter) {
-		Set<Duty<?>> set = Sets.newHashSet();
+		Set<Duty<?>> set = new HashSet<>(duties.size());
 		for (ShardEntity dudty : duties) {
 			if (filter == null || filter.test(dudty)) {
 				set.add(dudty.getDuty());

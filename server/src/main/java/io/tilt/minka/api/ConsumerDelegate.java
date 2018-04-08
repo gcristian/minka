@@ -339,11 +339,11 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		}
 	}
 
-    public void setLocationTag(final String tag) {
-        this.locationTag = tag;
-    }
+	public void setLocationTag(final String tag) {
+		this.locationTag = tag;
+	}
 
-    public String getLocationTag() {
-        return locationTag;
-    }
+	public String getLocationTag() {
+		return locationTag;
+	}
 }
