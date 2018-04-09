@@ -83,7 +83,13 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		
 		final Plan plan = partitionTable.getCurrentPlan();
 		if (plan!=null && !plan.getResult().isClosed()) {
-			detectAndWriteChanges(beat, shard);
+			final Delivery delivery = plan.getDelivery(shard);
+			if (delivery!=null) {
+				detectAndWriteChanges(delivery, plan, beat, shard);
+			} else if (logger.isInfoEnabled()){
+				logger.info("{}: no pending Delivery for heartbeat's shard: {}", 
+		            getClass().getSimpleName(), shard.getShardID().toString());
+			}			
 		} else if (plan == null && beat.reportsDuties()) {
 			// there's been a change of leader: i'm initiating with older followers
 			// TODO use DomainInfo to send a planid so the next leader can validate 
@@ -165,36 +171,29 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-	private void detectAndWriteChanges(final Heartbeat beat, final Shard source) {
-		final Plan plan = partitionTable.getCurrentPlan();
-		final Delivery delivery = plan.getDelivery(source);
-		if (delivery!=null) {
-			long lattestPlanId = 0;
-			boolean changed = false;
-			if (beat.reportsDuties()) {
-				lattestPlanId = latestPlan(beat);
-				if (lattestPlanId==plan.getId()) {
-					changed|=detectAndWriteAttachments(source, beat.getReportedCapturedDuties(), delivery);
-				}
+	private void detectAndWriteChanges(final Delivery delivery, final Plan plan, final Heartbeat beat, final Shard source) {
+		long lattestPlanId = 0;
+		boolean changed = false;
+		if (beat.reportsDuties()) {
+			lattestPlanId = latestPlan(beat);
+			if (lattestPlanId==plan.getId()) {
+				changed|=detectAndWriteAttachments(source, beat.getReportedCapturedDuties(), delivery);
 			}
-    		changed|=detectAndWriteDetachments(source, beat.getReportedCapturedDuties(), delivery);
-    		if (changed) {
-    		    delivery.checkState();
-    		} else if (lattestPlanId==plan.getId()) {
-    			// delivery found, no change but expected ? 
-    			logger.warn("{}: Ignoring shard's ({}) heartbeats with a previous Journal: {} (current: {})", 
-    		            getClass().getSimpleName(), source.getShardID().toString(), lattestPlanId, plan.getId());			
-    		}
-    		if (!plan.getResult().isClosed() && plan.hasUnlatched()) {
-    			if (logger.isInfoEnabled()) {
-    				logger.info("{}: Plan unlatched, fwd >> distributor agent ", getClass().getSimpleName());
-    			}
-    		    //scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
-    		}
-		} else {
-			logger.warn("{}: no pending Delivery for heartbeat's shard: {}", 
-	            getClass().getSimpleName(), source.getShardID().toString());
-		}			
+		}
+		changed|=detectAndWriteDetachments(source, beat.getReportedCapturedDuties(), delivery);
+		if (changed) {
+		    delivery.checkState();
+		} else if (lattestPlanId==plan.getId()) {
+			// delivery found, no change but expected ? 
+			logger.warn("{}: Ignoring shard's ({}) heartbeats with a previous Journal: {} (current: {})", 
+		            getClass().getSimpleName(), source.getShardID().toString(), lattestPlanId, plan.getId());			
+		}
+		if (!plan.getResult().isClosed() && plan.hasUnlatched()) {
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Plan unlatched, fwd >> distributor agent ", getClass().getSimpleName());
+			}
+		    //scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
+		}
 		
 		if (plan.getResult().isClosed() && logger.isInfoEnabled()) {
 			logger.info("{}: Plan finished ! (all changes in scheme)", getClass().getSimpleName());
@@ -226,9 +225,9 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 		Set<ShardEntity> sortedLogDirty = null;
 		boolean ret = false;
 		for (final ShardEntity beated : beatedDuties) {
-			for (ShardEntity prescripted : delivery.getDuties()) {
-				if (prescripted.equals(beated)) {
-					final Log expected = findConfirmationPair(beated, prescripted, shard.getShardID());
+			for (ShardEntity delivered : delivery.getDuties()) {
+				if (delivered.equals(beated)) {
+					final Log expected = findConfirmationPair(beated, delivered, shard.getShardID());
 				    if (expected!=null) {
 				    	if (logger.isInfoEnabled()) {
 				    		if (sortedLogConfirmed==null) {
@@ -236,17 +235,17 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 				    		}
 			                sortedLogConfirmed.add(beated);
 				    	}
-                        prescripted.getJournal().addEvent(expected.getEvent(), 
+                        delivered.getJournal().addEvent(expected.getEvent(), 
                                 EntityState.CONFIRMED, 
                                 shard.getShardID(),
                                 delivery.getPlanId());
-                		if (partitionTable.getScheme().writeDuty(prescripted, shard, expected.getEvent())) {
+                		if (partitionTable.getScheme().writeDuty(delivered, shard, expected.getEvent())) {
                 		    ret = true;
                 			// TODO warn: if a remove comes from client while a running plan, we might be avoidint it 
-                			partitionTable.getBackstage().removeCrud(prescripted);
+                			partitionTable.getBackstage().removeCrud(delivered);
             			}
 				    } else {
-						final Date fact = prescripted.getJournal().getLast().getHead();
+						final Date fact = delivered.getJournal().getLast().getHead();
 						final long now = System.currentTimeMillis();
 						if (now - fact.getTime() > MAX_EVENT_DATE_FOR_DIRTY) {
 						    if (sortedLogDirty==null) {
@@ -285,11 +284,18 @@ public class Bookkeeper implements BiConsumer<Heartbeat, Shard> {
 				final Log deliLog = delivered.getJournal().find(pid, shardid, EntityEvent.ATTACH);
 				if (deliLog != null) {
 					final EntityState deliState = deliLog.getLastState();
-					if (deliState != EntityState.CONFIRMED) {
+					if (deliState == EntityState.PENDING || deliState !=EntityState.CONFIRMED) {
+						// expected normal situation
 						ret = deliLog;
+					} else if (deliState == EntityState.CONFIRMED) {
+						// when cluster unstable: bad state but possible 
+						final Shard location = partitionTable.getScheme().getDutyLocation(delivered.getDuty());
+						if (location==null || !location.getShardID().equals(shardid)) {
+							ret = deliLog;	
+						}
 					} else {
-						//logger.error("{}: confirmation pair found erroneous state: {} on duty: {}",
-							//	getClass().getSimpleName(), deliState, delivered);
+						logger.error("{}: confirmation pair found erroneous state: {} on duty: {}",
+								getClass().getSimpleName(), deliState, delivered);
 					}
 				}
 			} else {
