@@ -165,13 +165,13 @@ public class Distributor implements Service {
 			final int min = config.getProctor().getMinShardsOnlineBeforeSharding();
 			if (online < min) {
 				logger.warn("{}: balancing posponed: not enough online shards (min:{}, now:{})", getName(), min, online);
-			    return;
+				return;
 			}
 			if (!loadFromClientWhenAllOnlines()) {
 				return;
 			}
 
-		// distribution
+			// distribution
 			drive(currPlan);
 			communicateUpdates();
 		} catch (Exception e) {

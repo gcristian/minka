@@ -307,17 +307,28 @@ public class Migrator {
 	}
 
 	private boolean inTransfers(final ShardEntity duty) {
-		return transfers!=null && 
-		        transfers.stream()
-    	            .filter(t->t.getEntity().equals(duty))
-    	            .count()>0;
+		if (transfers==null || transfers.isEmpty()) {
+			return false;
+		}
+		for (Transfer t: transfers) {
+			if (t.getEntity().equals(duty)) {
+				return true;
+			}
+		}
+		
+		return false;
 	}
 
 	private boolean inOverrides(final ShardEntity duty) {
-		return overrides!=null && 
-		        overrides.stream()
-		            .filter(o->o.getEntities().contains(duty))
-		            .count()>0;
+		if (overrides==null || overrides.isEmpty()) {
+			return false;
+		}
+		for (Override o: overrides) {
+			if (o.getEntities().contains(duty)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	List<Override> getOverrides() {
