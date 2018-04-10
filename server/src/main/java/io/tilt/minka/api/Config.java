@@ -33,11 +33,11 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.joda.ser.DateTimeSerializer;
 
 import io.tilt.minka.api.Pallet.Storage;
+import io.tilt.minka.core.leader.balancer.Balancer;
+import io.tilt.minka.core.leader.balancer.Balancer.PreSort;
+import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
 import io.tilt.minka.core.leader.balancer.FairWeightBalancer.Dispersion;
 import io.tilt.minka.core.leader.balancer.SpillOverBalancer.MaxUnit;
-import io.tilt.minka.core.leader.distributor.Balancer;
-import io.tilt.minka.core.leader.distributor.Balancer.PreSort;
-import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
 import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.utils.Defaulter;
 
@@ -148,6 +148,10 @@ public class Config {
 		
 		protected static final String WEB_SERVER_CONTEXT_PATH = "minka";
 		private String webServerContextPath;
+
+        protected static final boolean ENABLE_LOGGING = true;
+        private boolean enableLogging;
+
 		
 		public String getServiceName() {
 			return serviceName;
@@ -204,6 +208,12 @@ public class Config {
 		public void setWebServerContextPath(String webServerContextPath) {
 			this.webServerContextPath = webServerContextPath;
 		}
+		public boolean isEnableLogging() {
+            return enableLogging;
+        }
+		public void setEnableLogging(boolean enableLogging) {
+            this.enableLogging = enableLogging;
+        }
 	}
 
 	public static class BrokerConf {

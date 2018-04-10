@@ -35,7 +35,6 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.PartitionDelegate;
-import io.tilt.minka.core.leader.distributor.Balancer;
 import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.domain.Shard.CapacityComparer;
 import io.tilt.minka.domain.Shard.DateComparer;

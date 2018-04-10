@@ -29,9 +29,8 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.distributor.Balancer;
+import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
 import io.tilt.minka.core.leader.distributor.Migrator;
-import io.tilt.minka.core.leader.distributor.Balancer.NetworkLocation;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.utils.CollectionUtils;
 

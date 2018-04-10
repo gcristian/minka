@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.leader.distributor;
+package io.tilt.minka.core.leader.balancer;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -31,11 +31,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.balancer.CoalesceBalancer;
-import io.tilt.minka.core.leader.balancer.EvenSizeBalancer;
-import io.tilt.minka.core.leader.balancer.EvenWeightBalancer;
-import io.tilt.minka.core.leader.balancer.FairWeightBalancer;
-import io.tilt.minka.core.leader.balancer.SpillOverBalancer;
+import io.tilt.minka.core.leader.distributor.Migrator;
+import io.tilt.minka.core.leader.distributor.Plan;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.NetworkShardIdentifier;
@@ -84,7 +81,7 @@ public interface Balancer {
 		public Map<Pallet<?>, Capacity> getCapacities() {
 			return this.shard.getCapacities();
 		}
-		protected NetworkShardIdentifier getId() {
+		public NetworkShardIdentifier getId() {
 			return this.shard.getShardID();
 		}
 		public DateTime getCreation() {

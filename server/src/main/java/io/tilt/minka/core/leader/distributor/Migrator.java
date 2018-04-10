@@ -35,10 +35,12 @@ import com.google.common.util.concurrent.AtomicDouble;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.BalancingException;
-import io.tilt.minka.core.leader.distributor.Balancer.NetworkLocation;
-import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
+import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
+import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.EntityJournal;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
@@ -109,6 +111,11 @@ public class Migrator {
 		transfers.add(new Transfer(source_, target_, entity));
 	}
 	
+	/** @return facility for balancers to access the entity change and distribution history */
+	public List<EntityJournal.Log> getJournal(final Duty<?> duty) {
+	    return requireNonNull(sourceRefs.get(duty)).getJournal().getLogs();
+	}
+	
 	/** leave a reason for distribution exclusion */
 	public final void stuck(final Duty<?> duty, final NetworkLocation location) {
 		requireNonNull(duty);
@@ -128,7 +135,7 @@ public class Migrator {
 		if (this.overrides == null) {
 			this.overrides = new LinkedList<>();
 		}
-		final Set<ShardEntity> cluster = reref(clusterx);
+		final Set<ShardEntity> cluster = deref(clusterx);
 		cluster.forEach(d->checkDuplicate(d));
 		final Shard shard_ = deref(shard);
 		final double remainingCap = validateOverride(shard_, cluster);
@@ -138,7 +145,7 @@ public class Migrator {
 		}
 		overrides.add(new Override(pallet, shard_, new LinkedHashSet<>(cluster), remainingCap));
 	}
-	private Set<ShardEntity> reref(final Set<Duty<?>> refs) {
+	private Set<ShardEntity> deref(final Set<Duty<?>> refs) {
 	    final Set<ShardEntity> reids = new HashSet<>(refs.size());
         refs.forEach(d-> reids.add(sourceRefs.get(d)));
         return reids;

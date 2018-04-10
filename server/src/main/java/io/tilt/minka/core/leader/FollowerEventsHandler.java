@@ -107,22 +107,24 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 		scheduler.run(scheduler.getFactory().build(
 			Scheduler.Action.PARTITION_TABLE_UPDATE, 
 	        PriorityLock.MEDIUM_BLOCKING, () -> {
-				// when a shutdownlock acquired then keep receving HB to evaluate all Slaves are down!
-				Shard shard = partitionTable.getScheme().getShard(hb.getShardId());
-				if (shard == null) {
-					// new member
-					partitionTable.getScheme().addShard(shard = new Shard(
-							eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, hb.getShardId()),
-							hb.getShardId()));
-				}
-				/*
-				final String tag = hb.getShardId().getTag();
-				if (tag!=null) {
-					shard.getShardID().setTag(tag);
-				}
-				*/
-				hbConsumer.accept(hb, shard);
+				hbConsumer.accept(hb, getOrRegisterShard(hb));
 			}));
 	}
+
+    private Shard getOrRegisterShard(final Heartbeat hb) {
+        // when a shutdownlock acquired then keep receving HB to evaluate all Slaves are down!
+        Shard shard = partitionTable.getScheme().getShard(hb.getShardId());
+        if (shard == null) {
+        	// new member
+        	partitionTable.getScheme().addShard(shard = new Shard(
+        			eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, hb.getShardId()),
+        			hb.getShardId()));
+        }
+        final String tag = hb.getShardId().getTag();
+        if (tag!=null) {
+            shard.getShardID().setTag(tag);
+        }
+        return shard;
+    }
 
 }

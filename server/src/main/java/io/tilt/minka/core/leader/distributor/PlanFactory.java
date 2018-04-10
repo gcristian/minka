@@ -31,7 +31,8 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.core.leader.distributor.Balancer.NetworkLocation;
+import io.tilt.minka.core.leader.balancer.Balancer;
+import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
@@ -252,7 +253,7 @@ class PlanFactory {
 		}
 		logger.info("{}: Total cluster capacity: {}", getClass().getSimpleName(), clusterCapacity);
 		logger.info("{}: counting #{};+{};-{} duties: {}", getClass().getSimpleName(),
-			new PartitionTable.DataScheme.SchemeExtractor(table.getScheme())
+			new PartitionTable.Scheme.SchemeExtractor(table.getScheme())
 				.getAccountConfirmed(pallet), 
 			dutyCreations.stream()
 				.filter(d->d.getDuty().getPalletId().equals(pallet.getId()))

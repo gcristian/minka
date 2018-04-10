@@ -127,7 +127,7 @@
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="partitionTable" />
-        <constructor-arg ref="bookkeeper" />
+        <constructor-arg ref="schemeSentry" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="entityDao" />
         <constructor-arg ref="clientHolder" />
@@ -135,7 +135,7 @@
     </bean>
 
     <!-- acceso write-only a la tabla -->
-    <bean id="bookkeeper" class="io.tilt.minka.core.leader.Bookkeeper">
+    <bean id="schemeSentry" class="io.tilt.minka.core.leader.SchemeSentry">
         <constructor-arg ref="partitionTable" />
         <constructor-arg ref="scheduler" />
     </bean>
@@ -144,7 +144,7 @@
     <bean id="proctor" class="io.tilt.minka.core.leader.Proctor">
         <constructor-arg ref="config" />
         <constructor-arg ref="partitionTable" />
-        <constructor-arg ref="bookkeeper" />
+        <constructor-arg ref="schemeSentry" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="shardId" />
@@ -155,7 +155,7 @@
     <bean id="followerEventsHandler" class="io.tilt.minka.core.leader.FollowerEventsHandler">
         <constructor-arg ref="config" />
         <constructor-arg ref="partitionTable" />
-        <constructor-arg ref="bookkeeper" />
+        <constructor-arg ref="schemeSentry" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="shardId" />
@@ -168,7 +168,7 @@
         <constructor-arg ref="partitionTable" />
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="eventBroker" />
-        <constructor-arg ref="bookkeeper" />
+        <constructor-arg ref="schemeSentry" />
         <constructor-arg ref="shardId" />
     </bean>
     
@@ -185,7 +185,7 @@
         <constructor-arg ref="eventBroker" />
     </bean>
     
-    <bean id="stateViews" class="io.tilt.minka.core.leader.StateViews">
+    <bean id="schemeViews" class="io.tilt.minka.core.leader.SchemeViews">
         <constructor-arg ref="leaderShardContainer"/>
     </bean>
     <!-- ============================================================================================
@@ -203,7 +203,7 @@
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderShardContainer" />
         <constructor-arg ref="partitionTable" />
-        <constructor-arg ref="stateViews" />
+        <constructor-arg ref="schemeViews" />
     </bean>
     
     <bean id="configValidator" class="io.tilt.minka.api.ConfigValidator"/>

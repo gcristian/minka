@@ -47,7 +47,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.core.leader.PartitionTable.DataScheme;
+import io.tilt.minka.core.leader.PartitionTable.Scheme;
+import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal;
 import io.tilt.minka.domain.EntityJournal.Log;
@@ -60,7 +61,7 @@ import io.tilt.minka.utils.LogUtils;
 /**
  * Distribution changes require a consistent plan. 
  * Distribution in progress, created thru {@linkplain Migrator} 
- * indirectly by the {@linkplain Balancer} analyzing the {@linkplain DataScheme}.
+ * indirectly by the {@linkplain Balancer} analyzing the {@linkplain Scheme}.
  * Composed of deliveries, migrations, deletions, creations, etc.
  *  
  * Such operations takes coordination to avoid parallelism and inconsistencies 

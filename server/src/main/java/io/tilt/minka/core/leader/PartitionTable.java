@@ -54,10 +54,10 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 import jersey.repackaged.com.google.common.collect.Sets;
 
 /**
- * Only one modifier allowed: {@linkplain Bookkeeper} with a {@linkplain Plan} after a distribution process.
+ * Only one modifier allowed: {@linkplain SchemeSentry} with a {@linkplain Plan} after a distribution process.
  * 
  * Contains the relations between {@linkplain Shard} and {@linkplain Duty}.
- * Continuously checked truth in {@linkplain DataScheme}.
+ * Continuously checked truth in {@linkplain Scheme}.
  * Client CRUD requests and detected problems in {@linkplain Backstage}
  * Built at leader promotion.
  * 
@@ -72,15 +72,15 @@ public class PartitionTable {
 	 * Sharding scheme of entities as a result of a {@linkplain Distributor} phase run. 
 	 * state of continuously checked truth on duties attached to shards.
 	 * any modifications and problem detection goes to {@linkplain Backstage}
-	 * Only maintainer: {@linkplain Bookkeeper}
+	 * Only maintainer: {@linkplain SchemeSentry}
 	 */
-	public static class DataScheme {
+	public static class Scheme {
 		
 		private final Map<ShardIdentifier, Shard> shardsByID;
 		private final Map<Shard, ShardedPartition> partitionsByShard;
 		private final Map<String, ShardEntity> palletsById;
 		
-		public DataScheme() {
+		public Scheme() {
 			this.shardsByID = new HashMap<>();
 			this.partitionsByShard = new HashMap<>();
 			this.palletsById = new HashMap<>();
@@ -251,8 +251,8 @@ public class PartitionTable {
 
 		/** Read-only access */
         public static class SchemeExtractor {
-            private final DataScheme reference;
-            public SchemeExtractor(final DataScheme reference) {
+            private final Scheme reference;
+            public SchemeExtractor(final Scheme reference) {
                 this.reference = reference;
             }
             public double getCapacity(final Pallet<?> pallet, final Shard quest) {
@@ -407,7 +407,7 @@ public class PartitionTable {
 	private ClusterHealth visibilityHealth;
 	private ClusterHealth workingHealth;
 	private ClusterCapacity capacity;
-	private final DataScheme scheme;
+	private final Scheme scheme;
 	private final Backstage backstage;
 	private Plan currentPlan;
 	private SlidingSortedSet<Plan> history;
@@ -443,7 +443,7 @@ public class PartitionTable {
 		this.visibilityHealth = ClusterHealth.STABLE;
 		this.workingHealth = ClusterHealth.STABLE;
 		this.capacity = ClusterCapacity.IDLE;
-		this.scheme = new DataScheme();
+		this.scheme = new Scheme();
 		this.backstage = new Backstage();
 		this.history = CollectionUtils.sliding(20);
 	}
@@ -466,7 +466,7 @@ public class PartitionTable {
 		return this.backstage;
 	}
 	
-	public DataScheme getScheme() {
+	public Scheme getScheme() {
 		return this.scheme;
 	}
 

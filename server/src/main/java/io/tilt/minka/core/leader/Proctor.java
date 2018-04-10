@@ -54,7 +54,7 @@ import io.tilt.minka.utils.LogUtils;
  * Basically observes shards behaviour and classifies in States that enables distribution
  * 
  * Analyze the {@linkplain PartitionTable} defining a shard's {@linkplain ShardState}
- * which in turn feeds from the {@linkplain Bookkeeper} receiving {@linkplain Heartbeat}s
+ * which in turn feeds from the {@linkplain SchemeSentry} receiving {@linkplain Heartbeat}s
  * Also sends {@linkplain Clearance} messages to authorized {@linkplain Shard}s
  * and sends {@linkplain DomainInfo} messages to all shards.
  * 
@@ -69,7 +69,7 @@ public class Proctor implements Service {
 
 	private final Config config;
 	private final PartitionTable partitionTable;
-	private final Bookkeeper bokkeeper;
+	private final SchemeSentry bokkeeper;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
 	private final NetworkShardIdentifier shardId;
@@ -84,7 +84,7 @@ public class Proctor implements Service {
 	public Proctor(
 			final Config config, 
 			final PartitionTable partitionTable, 
-			final Bookkeeper bookkeeper, 
+			final SchemeSentry bookkeeper, 
 			final EventBroker eventBroker, 
 			final Scheduler scheduler, 
 			final NetworkShardIdentifier shardId, 

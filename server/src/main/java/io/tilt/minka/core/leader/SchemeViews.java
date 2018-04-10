@@ -39,8 +39,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.common.util.concurrent.AtomicDouble;
 
-import io.tilt.minka.core.leader.PartitionTable.DataScheme.SchemeExtractor;
-import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
+import io.tilt.minka.core.leader.PartitionTable.Scheme.SchemeExtractor;
+import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
@@ -48,14 +48,15 @@ import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.EntityState;
 
 /**
- * JSON views of process states 
+ * Read only views about the {@linkplain Scheme} 
+ * JSON format.
  * 
  * @author Cristian Gonzalez
  * @since Nov 6, 2016
  */
 @SuppressWarnings("unused")
 @JsonPropertyOrder({"global", "shards", "pallets", "roadmaps"})
-public class StateViews {
+public class SchemeViews {
 
 	private final LeaderShardContainer leaderShardContainer; 
 		
@@ -71,7 +72,7 @@ public class StateViews {
 		mapper.configure(Feature.WRITE_NUMBERS_AS_STRINGS, true);
 	}
 
-	public StateViews(final LeaderShardContainer leaderShardContainer) {
+	public SchemeViews(final LeaderShardContainer leaderShardContainer) {
 		this.leaderShardContainer = requireNonNull(leaderShardContainer);
 	}
 

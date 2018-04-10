@@ -22,8 +22,8 @@ import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 
 import io.tilt.minka.api.Pallet.Storage;
-import io.tilt.minka.core.leader.distributor.Balancer;
-import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
+import io.tilt.minka.core.leader.balancer.Balancer;
+import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 
 /**
  * 

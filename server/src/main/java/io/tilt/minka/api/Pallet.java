@@ -3,7 +3,7 @@ package io.tilt.minka.api;
 import java.io.Serializable;
 import java.util.Comparator;
 
-import io.tilt.minka.core.leader.distributor.Balancer.BalancerMetadata;
+import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 
 /**
  * A grouping factor for Duties with common and specific treatment requirements. <br> 

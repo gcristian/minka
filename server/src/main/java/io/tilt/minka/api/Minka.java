@@ -27,7 +27,7 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import io.tilt.minka.api.Config.BootstrapConf;
 import io.tilt.minka.api.ConsumerDelegate.MappingEvent;
-import io.tilt.minka.core.leader.distributor.Balancer;
+import io.tilt.minka.core.leader.balancer.Balancer;
 
 /**
  * An alternative way of programatically loading Minka  <br>

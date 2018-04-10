@@ -37,7 +37,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.DutyBuilder;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.PalletBuilder;
-import io.tilt.minka.core.leader.distributor.Balancer.Strategy;
+import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
 
 /**
  * A simulator that samples a content from a properties with certain keys and values.

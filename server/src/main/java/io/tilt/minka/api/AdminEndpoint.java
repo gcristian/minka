@@ -36,7 +36,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.wordnik.swagger.annotations.Api;
 
 import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.core.leader.StateViews;
+import io.tilt.minka.core.leader.SchemeViews;
 import io.tilt.minka.core.leader.distributor.Plan;
 
 @Api("Minka Endpoint API")
@@ -49,7 +49,7 @@ public class AdminEndpoint {
 	@Autowired
 	private  PartitionTable table;
 	@Autowired
-	private  StateViews views;
+	private  SchemeViews views;
 
 	@Autowired
 	private  Config config;

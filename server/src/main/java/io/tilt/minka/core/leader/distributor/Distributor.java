@@ -39,10 +39,11 @@ import io.tilt.minka.api.DutyBuilder.Task;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.leader.Bookkeeper;
+import io.tilt.minka.core.leader.SchemeSentry;
 import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
+import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.distributor.Plan.Result;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
@@ -75,7 +76,7 @@ public class Distributor implements Service {
 	private final Scheduler scheduler;
 	private final EventBroker eventBroker;
 	private final PartitionTable partitionTable;
-	private final Bookkeeper bookkeeper;
+	private final SchemeSentry bookkeeper;
 	private final ShardIdentifier shardId;
 	private final EntityDao entityDao;
 	private final DependencyPlaceholder dependencyPlaceholder;
@@ -93,7 +94,7 @@ public class Distributor implements Service {
 			final Scheduler scheduler, 
 			final EventBroker eventBroker,
 			final PartitionTable partitionTable, 
-			final Bookkeeper bookkeeper, 
+			final SchemeSentry bookkeeper, 
 			final ShardIdentifier shardId,
 			final EntityDao dutyDao, 
 			final DependencyPlaceholder dependencyPlaceholder, 
@@ -281,22 +282,22 @@ public class Distributor implements Service {
 			plan.obsolete();
 			return false;
 		} else {
-			final Map<ShardEntity, Log> trackByDuty = retrying ? delivery.getByState(EntityState.PENDING)
+			final Map<ShardEntity, Log> logByDuty = retrying ? delivery.getByState(EntityState.PENDING)
 					: delivery.getByState();
-			if (trackByDuty.isEmpty()) {
+			if (logByDuty.isEmpty()) {
 				throw new IllegalStateException("delivery with no duties to send ?");
 			}
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), delivery.getEvent().toVerb(),
-						delivery.getShard().getShardID(), trackByDuty.size(),
-						ShardEntity.toStringIds(new TreeSet<>(trackByDuty.keySet())));
+						delivery.getShard().getShardID(), logByDuty.size(),
+						ShardEntity.toStringIds(new TreeSet<>(logByDuty.keySet())));
 			}
 			delivery.checkState();
-			if (eventBroker.send(delivery.getShard().getBrokerChannel(), (List)new ArrayList<>(trackByDuty.keySet()))) {
+			if (eventBroker.send(delivery.getShard().getBrokerChannel(), (List)new ArrayList<>(logByDuty.keySet()))) {
 				// dont mark to wait for those already confirmed (from fallen shards)
-				for (ShardEntity duty : trackByDuty.keySet()) {
+				for (ShardEntity duty : logByDuty.keySet()) {
 					// PEND only that track of current delivery
-					trackByDuty.get(duty).addState(EntityState.PENDING);
+					logByDuty.get(duty).addState(EntityState.PENDING);
 				}
 			} else {
 				logger.error("{}: Couldnt transport current issues !!!", getName());

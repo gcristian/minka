@@ -53,7 +53,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	private final Config config;
 	private final PartitionTable partitionTable;
 	private final Scheduler scheduler;
-	private final Bookkeeper bookkeeper;
+	private final SchemeSentry bookkeeper;
 	private final EventBroker eventBroker;
 	private final NetworkShardIdentifier shardId;
 
@@ -63,7 +63,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 			final Config config, 
 			final PartitionTable partitionTable, 
 			final Scheduler scheduler,
-			final Bookkeeper bookkeeper,
+			final SchemeSentry bookkeeper,
 			final EventBroker eventBroker, 
 			final NetworkShardIdentifier shardId) {
 
