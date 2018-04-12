@@ -46,7 +46,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
-import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.PartitionTable.Scheme;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.domain.EntityEvent;
@@ -74,9 +73,9 @@ import io.tilt.minka.utils.LogUtils;
  */
 @JsonAutoDetect
 @JsonPropertyOrder({"id", "created", "started", "elapsed", "ended", "deliveries", "pending"})
-public class Plan implements Comparable<Plan> {
+public class ChangePlan implements Comparable<ChangePlan> {
 
-	protected static final Logger logger = LoggerFactory.getLogger(Plan.class);
+	protected static final Logger logger = LoggerFactory.getLogger(ChangePlan.class);
 	
 	public static final int PLAN_UNKNOWN = -1;
 	public static final int PLAN_WITHOUT = 0;
@@ -99,7 +98,7 @@ public class Plan implements Comparable<Plan> {
 	private Result result = Result.RUNNING;
 	private int retryCounter;
 
-	protected Plan(final long id, final long maxMillis, final int maxRetries) {
+	protected ChangePlan(final long id, final long maxMillis, final int maxRetries) {
 		this.id = id;
 		this.created = Instant.now();
 		this.shippings = new HashMap<>();
@@ -108,7 +107,7 @@ public class Plan implements Comparable<Plan> {
 		this.maxRetries = maxRetries;
 	}
 
-	public Plan(final long maxMillis, final int maxRetries) {
+	public ChangePlan(final long maxMillis, final int maxRetries) {
 		this(sequence.incrementAndGet(), maxMillis, maxRetries);
 	}
 
@@ -141,7 +140,7 @@ public class Plan implements Comparable<Plan> {
 
 	public void obsolete() {
 		this.result = Result.CLOSED_OBSOLETE;
-		logger.warn("{}: Plan going {}", getClass().getSimpleName(), result);
+		logger.warn("{}: ChangePlan going {}", getClass().getSimpleName(), result);
 		this.ended = Instant.now();
 	}
 
@@ -208,7 +207,7 @@ public class Plan implements Comparable<Plan> {
 		checkAllEventsPaired(deliveries, (unpaired)-> {
 			this.result = Result.CLOSED_ERROR;
 			this.ended = Instant.now();
-			logger.error("{}: Invalid Plan with an operation unpaired: " + unpaired.toBrief());
+			logger.error("{}: Invalid ChangePlan with an operation unpaired: " + unpaired.toBrief());
 		});
 		this.shippings.clear();
 		iterator = deliveries.iterator();
@@ -267,12 +266,11 @@ public class Plan implements Comparable<Plan> {
 						.hasEverBeenDistributed() && entity.getLastEvent() != EntityEvent.REMOVE) {
 					boolean pair = false;
 					for (Delivery tmp : deliveries) {
-						pair |= tmp.getDuties()
+						if (pair |= tmp.getDuties()
 								.stream()
 								.filter(e -> e.equals(entity) && e.getLastEvent() == inversion)
 								.findFirst()
-								.isPresent();
-						if (pair) {
+								.isPresent()) {
 							alreadyPaired.add(entity);
 							break;
 						}
@@ -329,7 +327,7 @@ public class Plan implements Comparable<Plan> {
 	public boolean hasNextParallel() {
 		return withLock(() -> {
 			if (started == null) {
-				throw new IllegalStateException("Plan not prepared yet !");
+				throw new IllegalStateException("ChangePlan not prepared yet !");
 			}
 			// set done if none pending
 			deliveries.forEach(d -> d.checkState());
@@ -380,13 +378,13 @@ public class Plan implements Comparable<Plan> {
 			final Instant expiration = started.plusMillis(maxMillis);
 			if (expiration.isBefore(Instant.now())) {
 				if (retryCounter == this.maxRetries) {
-					logger.warn("{}: Abandoning Plan expired ! (max secs:{}) ", getClass().getSimpleName(), maxMillis);
+					logger.warn("{}: Abandoning ChangePlan expired ! (max secs:{}) ", getClass().getSimpleName(), maxMillis);
 					this.result = Result.CLOSED_EXPIRED;
 					this.ended = Instant.now();
 				} else {
 					retryCounter++;
 					this.started = Instant.now();
-					logger.warn("{}: ReSending Plan expired: Retry {} (max secs:{}) ",
+					logger.warn("{}: ReSending ChangePlan expired: Retry {} (max secs:{}) ",
 							getClass().getSimpleName(), retryCounter, maxMillis);
 					this.result = Result.RETRYING;
 				}
@@ -444,7 +442,7 @@ public class Plan implements Comparable<Plan> {
 	}
 
 	@java.lang.Override
-	public int compareTo(Plan o) {
+	public int compareTo(ChangePlan o) {
 		return o.getCreation().compareTo(getCreation());
 	}
 	
@@ -487,14 +485,14 @@ public class Plan implements Comparable<Plan> {
 
 	public static void main(String[] args) throws InterruptedException {
 
-		final CollectionUtils.SlidingSortedSet<Plan> set = CollectionUtils.sliding(5);
+		final CollectionUtils.SlidingSortedSet<ChangePlan> set = CollectionUtils.sliding(5);
 		for (int i = 0; i < 10; i++) {
 			System.out.println(new DateTime(DateTimeZone.UTC));
-			set.add(new Plan(i, 1, 1));
+			set.add(new ChangePlan(i, 1, 1));
 			Thread.sleep(200);
 		}
 		System.out.println("----------");
-		for (Plan p : set.values()) {
+		for (ChangePlan p : set.values()) {
 			assert (p.getId() >= 5);
 		}
 	}

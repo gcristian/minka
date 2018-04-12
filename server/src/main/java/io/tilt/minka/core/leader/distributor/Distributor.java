@@ -16,9 +16,9 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
-import static io.tilt.minka.core.leader.distributor.Plan.Result.CLOSED_EXPIRED;
-import static io.tilt.minka.core.leader.distributor.Plan.Result.CLOSED_OBSOLETE;
-import static io.tilt.minka.core.leader.distributor.Plan.Result.RETRYING;
+import static io.tilt.minka.core.leader.distributor.ChangePlan.Result.CLOSED_EXPIRED;
+import static io.tilt.minka.core.leader.distributor.ChangePlan.Result.CLOSED_OBSOLETE;
+import static io.tilt.minka.core.leader.distributor.ChangePlan.Result.RETRYING;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -44,7 +44,7 @@ import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
 import io.tilt.minka.core.leader.balancer.Balancer;
-import io.tilt.minka.core.leader.distributor.Plan.Result;
+import io.tilt.minka.core.leader.distributor.ChangePlan.Result;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -63,7 +63,7 @@ import io.tilt.minka.utils.LogUtils;
 
 /**
  * Periodically runs specified {@linkplain Balancer}'s over {@linkplain Pallet}'s
- * and drive the {@linkplain Plan} object if any, transporting duties.
+ * and drive the {@linkplain ChangePlan} object if any, transporting duties.
  * 
  * @author Cristian Gonzalez
  * @since Nov 17, 2015
@@ -87,7 +87,7 @@ public class Distributor implements Service {
 	private boolean initialAdding;
 	private int counterForReloads;
 	private int counterForDistro;
-	private PlanFactory planner;
+	private ChangePlanFactory planner;
 
 
 	Distributor(
@@ -129,7 +129,7 @@ public class Distributor implements Service {
 				.every(config.beatToMs(config.getDistributor().getDelayBeats()))
 				.build();
 
-		this.planner = new PlanFactory(config);
+		this.planner = new ChangePlanFactory(config);
 	}
 
 	@java.lang.Override
@@ -156,7 +156,7 @@ public class Distributor implements Service {
 				return;
 			}
 			// skip if unstable unless a plan in progress or expirations will occurr and dismiss
-			final Plan currPlan = partitionTable.getCurrentPlan();
+			final ChangePlan currPlan = partitionTable.getCurrentPlan();
 			if ((currPlan==null || currPlan.getResult().isClosed()) && 
 			        partitionTable.getVisibilityHealth() == ClusterHealth.UNSTABLE) {
 				logger.warn("{}: ({}) Posponing distribution until reaching cluster stability (", getName(), shardId);
@@ -190,10 +190,10 @@ public class Distributor implements Service {
 	 * attempt to push deliveries ready until latch
 	 * retry plan re-build and repush: 3 times, if it becomes obsolete or expired.
 	 */
-	private void drive(final Plan plan) {
-		boolean rebuild = plan == null || plan.getResult().isClosed();
+	private void drive(final ChangePlan changePlan) {
+		boolean rebuild = changePlan == null || changePlan.getResult().isClosed();
 		boolean firstTime = true;
-		Plan p = plan;
+		ChangePlan p = changePlan;
 		Result r = null;
 		while (firstTime || rebuild) {
 			if (rebuild) {
@@ -219,17 +219,17 @@ public class Distributor implements Service {
 
 
 	/** @return a plan to drive built at balancer's request */
-	private Plan buildPlan(final Plan previous) {
-		final Plan plan = planner.create(partitionTable, previous);
+	private ChangePlan buildPlan(final ChangePlan previous) {
+		final ChangePlan changePlan = planner.create(partitionTable, previous);
 		partitionTable.getBackstage().cleanAllocatedDanglings();
-		if (null!=plan) {
-			partitionTable.addPlan(plan);
+		if (null!=changePlan) {
+			partitionTable.addPlan(changePlan);
 			this.partitionTable.setWorkingHealth(ClusterHealth.UNSTABLE);
-			plan.prepare();
+			changePlan.prepare();
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: Balancer generated issues on Plan: {}", getName(), plan.getId());
+				logger.info("{}: Balancer generated issues on ChangePlan: {}", getName(), changePlan.getId());
 			}
-			return plan;
+			return changePlan;
 		} else {
 			this.partitionTable.setWorkingHealth(ClusterHealth.STABLE);
 			if (logger.isInfoEnabled()) {
@@ -240,35 +240,35 @@ public class Distributor implements Service {
 	}
 	
 	/* retry already pushed deliveries with pending duties */
-	private void repushPendings(final Plan plan) {
-		for (Delivery delivery : plan.getAllPendings()) {
-			push(plan, delivery, true);
-			if (plan.getResult().isClosed()) {
+	private void repushPendings(final ChangePlan changePlan) {
+		for (Delivery delivery : changePlan.getAllPendings()) {
+			push(changePlan, delivery, true);
+			if (changePlan.getResult().isClosed()) {
 				break;
 			}
 		}
 	}
 	
 	/* push parallel deliveries */
-	private void pushAvailable(final Plan plan) {
+	private void pushAvailable(final ChangePlan changePlan) {
 		if (logger.isInfoEnabled()) {
-			logger.info("{}: Driving Plan: {}", getName(), plan.getId());
+			logger.info("{}: Driving ChangePlan: {}", getName(), changePlan.getId());
 		}
 		boolean deliveryValid = true;
-		while (plan.hasNextParallel() && !plan.getResult().isClosed()) {
-			deliveryValid &= push(plan, plan.next(), false);
+		while (changePlan.hasNextParallel() && !changePlan.getResult().isClosed()) {
+			deliveryValid &= push(changePlan, changePlan.next(), false);
 		}
 		if (deliveryValid) {
-			checkAllDeliveriesValid(plan);
+			checkAllDeliveriesValid(changePlan);
 		}
 	}
 
-	private boolean checkAllDeliveriesValid(final Plan plan) {
+	private boolean checkAllDeliveriesValid(final ChangePlan changePlan) {
 		final List<Shard> onlineShards = partitionTable.getScheme().getShardsByState(ShardState.ONLINE);
-		for (final Delivery d: plan.getAllPendings()) {
+		for (final Delivery d: changePlan.getAllPendings()) {
 			if (!onlineShards.contains(d.getShard())) {
-				logger.error("{}: Plan lost a target shard as online: {}", getName(), d.getShard());
-				plan.obsolete();
+				logger.error("{}: ChangePlan lost a target shard as online: {}", getName(), d.getShard());
+				changePlan.obsolete();
 				return false;
 			}
 		}
@@ -276,11 +276,11 @@ public class Distributor implements Service {
 	}
 
 	/** @return if plan is still valid */
-	private boolean push(final Plan plan, final Delivery delivery, final boolean retrying) {
+	private boolean push(final ChangePlan changePlan, final Delivery delivery, final boolean retrying) {
 		// check it's still in ptable
 		if (!partitionTable.getScheme().getShardsByState(ShardState.ONLINE).contains(delivery.getShard())) {
 			logger.error("{}: PartitionTable lost transport's target shard: {}", getName(), delivery.getShard());
-			plan.obsolete();
+			changePlan.obsolete();
 			return false;
 		} else {
 			final Map<ShardEntity, Log> logByDuty = retrying ? delivery.getByState(EntityState.PENDING)

@@ -32,7 +32,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Migrator;
-import io.tilt.minka.core.leader.distributor.Plan;
+import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.NetworkShardIdentifier;
@@ -42,7 +42,7 @@ import io.tilt.minka.domain.ShardCapacity.Capacity;
 /**
  * Analyze the current distribution of {@linkplain Duty}'s and propose changes.
  * Changes are made thru {@linkplain Migrator}, they're optional but must be consistent.
- * Identical i.e. repeatable changes wont produce a new {@linkplain Plan} 
+ * Identical i.e. repeatable changes wont produce a new {@linkplain ChangePlan}.
  *
  * @author Cristian Gonzalez
  * @since Jan 6, 2016
@@ -52,7 +52,8 @@ public interface Balancer {
 	static final Logger logger = LoggerFactory.getLogger(Balancer.class);
 
 	/**
-	 * Analyze current distribution and apply overrides or transfers on a {@linkplain Migrator} 
+	 * Analyze current distribution and apply overrides or transfers on a {@linkplain Migrator}
+	 * The algorithm must keep an idempotent behaviour for predictable cluster distribution, and so stability. 
 	 * Try to attach as much duties as possible, dont overwhelm: operation is cancelled.
 	 * 
 	 * Creations and duties (table's current assigned duties) must be balanced.
@@ -66,8 +67,7 @@ public interface Balancer {
 	 * 						and a set of deletions that will cease to exist in the table (already marked)
 	 * @param migrator		a facility to request modifications for duty assignation for the next distribution		
 	 */
-	void balance(
-			final Pallet<?> pallet,
+	void balance(final Pallet<?> pallet,
 			final Map<NetworkLocation, Set<Duty<?>>> scheme,
 			final Map<EntityEvent, Set<Duty<?>>> backstage,
 			final Migrator migrator);

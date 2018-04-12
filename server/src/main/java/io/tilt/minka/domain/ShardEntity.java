@@ -37,7 +37,7 @@ import io.tilt.minka.api.DutyBuilder.Task;
 import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.EntityPayload;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.distributor.Plan;
+import io.tilt.minka.core.leader.distributor.ChangePlan;
 /**
  * Representation of a {@linkplain Duty} selected for an action in a {@linkplain Shard}  
  * 
@@ -66,7 +66,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		this.from = entity;
 		this.type = type;
 		this.journal = new EntityJournal();
-		this.journal.addEvent(EntityEvent.CREATE, EntityState.PREPARED, null, Plan.PLAN_WITHOUT);
+		this.journal.addEvent(EntityEvent.CREATE, EntityState.PREPARED, null, ChangePlan.PLAN_WITHOUT);
 	}
 	
 	public static class Builder {

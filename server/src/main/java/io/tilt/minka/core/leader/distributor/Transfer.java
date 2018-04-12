@@ -52,7 +52,7 @@ class Transfer {
 	}
 	
 	/* dettach in prev. source, attach to next target */
-	boolean apply(final Plan plan, final PartitionTable table) {
+	boolean apply(final ChangePlan changePlan, final PartitionTable table) {
 		final ShardEntity entity = getEntity();
 		final Shard location = table.getScheme().getDutyLocation(entity);
 		if (location != null && location.equals(target)) {
@@ -63,8 +63,8 @@ class Transfer {
 			getEntity().getJournal().addEvent(EntityEvent.DETACH,
 					EntityState.PREPARED,
 					location.getShardID(),
-					plan.getId());
-			plan.ship(source, entity);
+					changePlan.getId());
+			changePlan.ship(source, entity);
 		}
 
 		// TODO this's not longer neccesary: previously there was not a LogList object
@@ -73,8 +73,8 @@ class Transfer {
 		assign.getJournal().addEvent(EntityEvent.ATTACH,
 				EntityState.PREPARED,
 				target.getShardID(),
-				plan.getId());
-		plan.ship(target, assign);
+				changePlan.getId());
+		changePlan.ship(target, assign);
 
 		Migrator.log.info("{}: Shipping transfer from: {} to: {}, Duty: {}",
 				getClass().getSimpleName(),

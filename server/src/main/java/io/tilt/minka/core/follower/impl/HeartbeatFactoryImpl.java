@@ -33,7 +33,7 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.follower.HeartbeatFactory;
-import io.tilt.minka.core.leader.distributor.Plan;
+import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.DutyDiff;
@@ -150,7 +150,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 				shardedDuty.getJournal().addEvent(EntityEvent.ATTACH, 
 						EntityState.MISTAKEN, 
 						this.partition.getId(), 
-						Plan.PLAN_WITHOUT);
+						ChangePlan.PLAN_WITHOUT);
 				log.error("{}: ({}) Reporting a Dangling Duty (by Addition): {}", getClass().getSimpleName(),
 						partition.getId(), shardedDuty);
 				builder.withWarning();

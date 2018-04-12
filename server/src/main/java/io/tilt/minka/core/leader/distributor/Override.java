@@ -57,15 +57,15 @@ public class Override {
 		return this.remainingCap;
 	}
 
-	boolean apply(final Plan plan, final PartitionTable table) {
+	boolean apply(final ChangePlan changePlan, final PartitionTable table) {
 		boolean anyChange = false;
 		final Set<ShardEntity> current = table.getScheme().getDutiesByShard(pallet, getShard());
 		if (Migrator.log.isDebugEnabled()) {
 			Migrator.log.debug("{}: cluster built {}", getClass().getSimpleName(), getEntities());
 			Migrator.log.debug("{}: currents at shard {} ", getClass().getSimpleName(), current);
 		}
-		anyChange |= dettachDelta(plan, getEntities(), getShard(), current);
-		anyChange |= attachDelta(plan, getEntities(), getShard(), current);
+		anyChange |= dettachDelta(changePlan, getEntities(), getShard(), current);
+		anyChange |= attachDelta(changePlan, getEntities(), getShard(), current);
 		if (!anyChange) {
 			Migrator.log.info("{}: Shard: {}, unchanged", getClass().getSimpleName(), shard);
 		}
@@ -75,7 +75,7 @@ public class Override {
 		/* dettach anything living in the shard outside what's coming
 	    * null or empty cluster translates to: dettach all existing */
 	private final boolean dettachDelta(
-			final Plan plan, 
+			final ChangePlan changePlan, 
 			final Set<ShardEntity> clusterSet, 
 			final Shard shard, 
 			final Set<ShardEntity> currents) {
@@ -90,8 +90,8 @@ public class Override {
 				detach.getJournal().addEvent(EntityEvent.DETACH,
 						EntityState.PREPARED,
 						shard.getShardID(),
-						plan.getId());
-				plan.ship(shard, detach);
+						changePlan.getId());
+				changePlan.ship(shard, detach);
 				logg.append(detach.getEntity().getId()).append(", ");
 			}
 			Migrator.log.info("{}: Shipping dettaches from: {}, duties: (#{}) {}",
@@ -106,7 +106,7 @@ public class Override {
 
 	/* attach what's not already living in that shard */
 	private final boolean attachDelta(
-			final Plan plan, 
+			final ChangePlan changePlan, 
 			final Set<ShardEntity> clusterSet, 
 			final Shard shard, 
 			final Set<ShardEntity> currents) {
@@ -122,8 +122,8 @@ public class Override {
 					attach.getJournal().addEvent(EntityEvent.ATTACH,
 							EntityState.PREPARED,
 							shard.getShardID(),
-							plan.getId());
-					plan.ship(shard, attach);
+							changePlan.getId());
+					changePlan.ship(shard, attach);
 					logg.append(attach.getEntity().getId()).append(", ");
 				}
 				Migrator.log.info("{}: Shipping attaches shard: {}, duty: (#{}) {}",

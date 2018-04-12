@@ -39,7 +39,7 @@ import com.google.common.util.concurrent.AtomicDouble;
 import io.tilt.minka.api.ConsistencyException;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.distributor.Plan;
+import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
@@ -51,10 +51,9 @@ import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
-import jersey.repackaged.com.google.common.collect.Sets;
 
 /**
- * Only one modifier allowed: {@linkplain SchemeSentry} with a {@linkplain Plan} after a distribution process.
+ * Only one modifier allowed: {@linkplain SchemeSentry} with a {@linkplain ChangePlan} after a distribution process.
  * 
  * Contains the relations between {@linkplain Shard} and {@linkplain Duty}.
  * Continuously checked truth in {@linkplain Scheme}.
@@ -128,14 +127,18 @@ public class PartitionTable {
 		}
 		/**
 		 * Account the end of the duty movement operation.
-		 * @param duty the entity to act on
-		 * @param where	the sard where it resides 
+		 * @param duty 		the entity to act on
+		 * @param where		the sard where it resides
+		 * @param callback	called when writting is possible
 		 * @return if there was a Scheme change after the action 
 		 */
-		public boolean writeDuty(final ShardEntity duty, final Shard where, final EntityEvent event) {
+		public boolean writeDuty(final ShardEntity duty, final Shard where, final EntityEvent event, final Runnable callback) {
 			if (event.is(EntityEvent.ATTACH) || event.is(EntityEvent.CREATE)) {
 				checkDuplicationFailure(duty, where);
 				if (getPartition(where).add(duty)) {
+					if (callback!=null) {
+						callback.run();
+					}
 					logger.info("{}: Written {} with: {} on shard {}", getClass().getSimpleName(), event, duty, where);
 				} else {
 					throw new ConsistencyException("Attach failure. Confirmed attach/creation already exists");
@@ -143,6 +146,9 @@ public class PartitionTable {
 				return true;
 			} else if (event.is(EntityEvent.DETACH) || event.is(EntityEvent.REMOVE)) {
 				if (getPartition(where).remove(duty)) {
+					if (callback!=null) {
+						callback.run();
+					}
 					logger.info("{}: Written {} with: {} on shard {}", getClass().getSimpleName(), event.toVerb(), duty, where);
 				} else {
 					throw new ConsistencyException("Absence failure. Confirmed deletion actually doesnt exist or it " + 
@@ -418,8 +424,8 @@ public class PartitionTable {
 	private ClusterCapacity capacity;
 	private final Scheme scheme;
 	private final Backstage backstage;
-	private Plan currentPlan;
-	private SlidingSortedSet<Plan> history;
+	private ChangePlan currentPlan;
+	private SlidingSortedSet<ChangePlan> history;
 	
 	/**
 	 * status for the cluster taken as Avg. for the last 5 cycles
@@ -457,15 +463,15 @@ public class PartitionTable {
 		this.history = CollectionUtils.sliding(20);
 	}
 		
-	public Set<Plan> getHistory() {
+	public Set<ChangePlan> getHistory() {
 		return this.history.values();
 	}
 
-	public Plan getCurrentPlan() {
+	public ChangePlan getCurrentPlan() {
 		return this.currentPlan;
 	}
 
-	public void addPlan(final Plan change) {
+	public void addPlan(final ChangePlan change) {
 		this.currentPlan = change;
 		this.history.add(change);
 	}

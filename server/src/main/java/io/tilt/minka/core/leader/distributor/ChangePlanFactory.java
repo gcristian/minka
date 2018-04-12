@@ -49,25 +49,25 @@ import io.tilt.minka.utils.LogUtils;
  * @author Cristian Gonzalez
  * @since Ene 4, 2015
  */
-class PlanFactory {
+class ChangePlanFactory {
 
-	private static final Logger logger = LoggerFactory.getLogger(PlanFactory.class);
+	private static final Logger logger = LoggerFactory.getLogger(ChangePlanFactory.class);
 
 	private final Config config;
 
-	PlanFactory(final Config config) {
+	ChangePlanFactory(final Config config) {
 		this.config = config;
 	}
 
 	/** @return a plan if there're changes to apply or NULL if not */
-	final Plan create(final PartitionTable table, final Plan previousChange) {
+	final ChangePlan create(final PartitionTable table, final ChangePlan previousChange) {
 		
-		final Plan plan = new Plan(
+		final ChangePlan changePlan = new ChangePlan(
 				config.beatToMs(config.getDistributor().getPlanExpirationBeats()), 
 				config.getDistributor().getPlanMaxRetries());
 		
 		// recently fallen shards
-		addMissingAsCrud(table, plan);
+		addMissingAsCrud(table, changePlan);
 		final Set<ShardEntity> dutyCreations = table.getBackstage().getDutiesCrud(EntityEvent.CREATE, null);
 		// add danglings as creations prior to migrations
 		for (ShardEntity d: table.getBackstage().getDutiesDangling()) {
@@ -83,7 +83,7 @@ class PlanFactory {
 		for (ShardEntity p: table.getBackstage().getPalletsCrud(EntityEvent.REMOVE, EntityState.PREPARED)) {
 			dutyDeletions.addAll(table.getScheme().getDutiesByPallet(p.getPallet()));
 		}
-		registerDeletions(table, plan, dutyDeletions);
+		registerDeletions(table, changePlan, dutyDeletions);
 		
 		final Set<ShardEntity> ents = new HashSet<>(table.getScheme().getDutiesAttached());
 		ents.addAll(dutyCreations);
@@ -100,7 +100,7 @@ class PlanFactory {
 				logStatus(table, onlineShards, dutyCreations, dutyDeletions, entry.getValue(), pallet, balancer);
 				if (balancer != null) {
 					final Migrator migra = balance(table, pallet, balancer, dutyCreations, dutyDeletions);
-					changes |= migra.write(plan);
+					changes |= migra.write(changePlan);
 				} else {
 					if (logger.isInfoEnabled()) {
 						logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(),
@@ -110,9 +110,9 @@ class PlanFactory {
 			}
 		}
 		if (changes) {
-			return plan;
+			return changePlan;
 		} else {
-			plan.discard();
+			changePlan.discard();
 			return null;
 		}
 	}
@@ -157,32 +157,33 @@ class PlanFactory {
 		return ret;
 	}
 	
-	private static void addMissingAsCrud(final PartitionTable table, final Plan plan) {
+	private static void addMissingAsCrud(final PartitionTable table, final ChangePlan changePlan) {
 	    final Set<ShardEntity> missing = table.getBackstage().getDutiesMissing();
 		for (final ShardEntity missed : missing) {
 			final Shard lazy = table.getScheme().getDutyLocation(missed);
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: Registering {}, missing Duty: {}", PlanFactory.class.getSimpleName(),
+				logger.info("{}: Registering {}, missing Duty: {}", ChangePlanFactory.class.getSimpleName(),
 					lazy == null ? "unattached" : "from falling Shard: " + lazy, missed);
 			}
 			if (lazy != null) {
-				// missing duties are a confirmation per-se from the very shards,
-				// so the ptable gets fixed right away without a realloc.
-				missed.getJournal().addEvent(EntityEvent.REMOVE, 
-						EntityState.CONFIRMED,
-						lazy.getShardID(),
-						plan.getId());
-				table.getScheme().writeDuty(missed, lazy, EntityEvent.REMOVE);
+				table.getScheme().writeDuty(missed, lazy, EntityEvent.REMOVE, ()-> {
+					// missing duties are a confirmation per-se from the very shards,
+					// so the ptable gets fixed right away without a realloc.
+					missed.getJournal().addEvent(EntityEvent.REMOVE, 
+							EntityState.CONFIRMED,
+							lazy.getShardID(),
+							changePlan.getId());					
+				});
 			}
 			missed.getJournal().addEvent(EntityEvent.CREATE, 
 					EntityState.PREPARED,
 					null,
-					plan.getId());
+					changePlan.getId());
 			table.getBackstage().addCrudDuty(missed);
 		}
 		if (!missing.isEmpty()) {
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: Registered {} dangling duties {}", PlanFactory.class.getSimpleName(),
+				logger.info("{}: Registered {} dangling duties {}", ChangePlanFactory.class.getSimpleName(),
 					missing.size(), ShardEntity.toStringIds(missing));
 			}
 		}
@@ -194,7 +195,7 @@ class PlanFactory {
 	 * check waiting duties never confirmed (for fallen shards as previous
 	 * target candidates)
 	 */
-	private final List<ShardEntity> restorePendings(final Plan previous) {
+	private final List<ShardEntity> restorePendings(final ChangePlan previous) {
 		if (previous != null 
 				&& previous.getResult().isClosed() 
 				&& !previous.getResult().isSuccess()) {
@@ -213,7 +214,7 @@ class PlanFactory {
 	}
 
 	/* by user deleted */
-	private final void registerDeletions(final PartitionTable table, final Plan plan,
+	private final void registerDeletions(final PartitionTable table, final ChangePlan changePlan,
 			final Set<ShardEntity> deletions) {
 
 		for (final ShardEntity deletion : deletions) {
@@ -221,8 +222,8 @@ class PlanFactory {
 			deletion.getJournal().addEvent(EntityEvent.DETACH, 
 					EntityState.PREPARED,
 					shard.getShardID(),
-					plan.getId());
-			plan.ship(shard, deletion);
+					changePlan.getId());
+			changePlan.ship(shard, deletion);
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Deleting from: {}, Duty: {}", getClass().getSimpleName(), shard.getShardID(),
 					deletion.toBrief());

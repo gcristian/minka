@@ -31,8 +31,7 @@ import io.tilt.minka.api.ConsistencyException;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Delivery;
-import io.tilt.minka.core.leader.distributor.Plan;
-import io.tilt.minka.core.leader.distributor.SchemeWriter;
+import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Heartbeat;
@@ -78,21 +77,21 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			shard.setCapacities(beat.getCapacities());
 		}
 		
-		final Plan plan = partitionTable.getCurrentPlan();
-		if (plan!=null && !plan.getResult().isClosed()) {
-			final Delivery delivery = plan.getDelivery(shard);
+		final ChangePlan changePlan = partitionTable.getCurrentPlan();
+		if (changePlan!=null && !changePlan.getResult().isClosed()) {
+			final Delivery delivery = changePlan.getDelivery(shard);
 			if (delivery!=null) {
-				schemeWriter.detectChanges(delivery, plan, beat, shard);
+				schemeWriter.detectChanges(delivery, changePlan, beat, shard);
 			} else if (logger.isInfoEnabled()){
 				logger.info("{}: no pending Delivery for heartbeat's shard: {}", 
 						getClass().getSimpleName(), shard.getShardID().toString());
 			}			
-		} else if (plan == null && beat.reportsDuties()) {
+		} else if (changePlan == null && beat.reportsDuties()) {
 			// there's been a change of leader: i'm initiating with older followers
 			// TODO use DomainInfo to send a planid so the next leader can validate 
 			// beated's plan is at least some range in between and so leader learns from beats 
 			for (ShardEntity e: beat.getReportedCapturedDuties()) {
-				partitionTable.getScheme().writeDuty(e, shard, EntityEvent.ATTACH);
+				partitionTable.getScheme().writeDuty(e, shard, EntityEvent.ATTACH, null);
 			}
 		}
 

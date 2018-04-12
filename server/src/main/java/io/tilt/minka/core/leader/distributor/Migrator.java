@@ -51,7 +51,7 @@ import io.tilt.minka.domain.EntityState;
 /** 
  * Balancer's Helper to request {@linkplain Transfer} and {@linkplain Override}
  * of {@linkplain Duty}'s and {@linkplain Pallet}s over {@linkplain Shard}s, 
- * so it can later write a {@linkplain Plan}. 
+ * so it can later write a {@linkplain ChangePlan}. 
  * Leveraging the balancer of the distribution process, consistency, validation.
  * 
  * A new plan will not be shipped when balancers do repeatable distributions and there're no 
@@ -125,7 +125,7 @@ public class Migrator {
 				e.getLastEvent(),
 				EntityState.STUCK,
 				shard,
-				Plan.PLAN_WITHOUT);
+				ChangePlan.PLAN_WITHOUT);
 	}
 	
 	/* explicitly override a shard's content, client must look after consistency ! */
@@ -241,7 +241,7 @@ public class Migrator {
 	
 	/** effectively write overrided and transfered operations to plan 
 	 * @return if the execution effectively generated any changes */ 
-	final boolean write(final Plan plan) {
+	final boolean write(final ChangePlan changePlan) {
 		boolean anyChange = false;
 		if (isEmpty()) {
 			return false;
@@ -251,7 +251,7 @@ public class Migrator {
 		if (overrides!=null) {
 			if (!anyExclusions()) {
 				for (final Override ov : overrides) {
-					anyChange |= ov.apply(plan, table);
+					anyChange |= ov.apply(changePlan, table);
 				}
 			}
 		}
@@ -259,7 +259,7 @@ public class Migrator {
 			// by now transfers dont use weights and capacities but SpillOver which is almost deprecated
 			// balancers using transfers only make delta changes, without reassigning
 			for (Transfer tr: transfers) {
-				anyChange|=tr.apply(plan, table);
+				anyChange|=tr.apply(changePlan, table);
 			}
 		}
 		return anyChange;

@@ -30,7 +30,7 @@ import io.tilt.minka.core.leader.ClientEventsHandler;
 import io.tilt.minka.core.leader.Leader;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.SchemeViews;
-import io.tilt.minka.core.leader.distributor.Plan;
+import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.impl.ZookeeperLeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
@@ -160,7 +160,7 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 		final ShardEntity entity = builder.build();
 		entity.getJournal().addEvent(event, EntityState.PREPARED, 
 				this.shardId,
-				Plan.PLAN_WITHOUT);
+				ChangePlan.PLAN_WITHOUT);
 		if (leader.inService()) {
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Recurring to local leader !", getClass().getSimpleName());

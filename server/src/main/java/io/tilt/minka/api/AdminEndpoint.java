@@ -37,7 +37,7 @@ import com.wordnik.swagger.annotations.Api;
 
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.SchemeViews;
-import io.tilt.minka.core.leader.distributor.Plan;
+import io.tilt.minka.core.leader.distributor.ChangePlan;
 
 @Api("Minka Endpoint API")
 @Path("admin")

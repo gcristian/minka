@@ -198,7 +198,7 @@ public class EntityJournal implements Serializable {
 
 	/**
 	 * a list of States {Prepared, Pending...Confirmed} 
-	 * for an EntityEvent {Create, Attach..Dettach}, a Shard and a Plan.
+	 * for an EntityEvent {Create, Attach..Dettach}, a Shard and a ChangePlan.
 	 */
 	public static class Log implements Serializable {
 

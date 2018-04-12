@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.leader.distributor;
+package io.tilt.minka.core.leader;
 
 import java.time.Instant;
 import java.util.Date;
@@ -26,7 +26,8 @@ import org.apache.logging.log4j.util.BiConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.distributor.ChangePlan;
+import io.tilt.minka.core.leader.distributor.Delivery;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.EntityState;
@@ -37,8 +38,9 @@ import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
 
 /**
+ * Single-point of write access to the {@linkplain Scheme}.
  * Inspects {@linkplain Heartbeat}'s looking for expected 
- * changes according the current distribution {@linkplain Plan}
+ * changes according the current distribution {@linkplain ChangePlan}
  *  
  * @author Cristian Gonzalez
  * @since Mar 7, 2018
@@ -58,23 +60,24 @@ public class SchemeWriter {
 
 	/** @return true if the scheme wrote the change */
 	private boolean write(final ShardEntity entity, final Log log, final Shard source, final long planId) {
-		entity.getJournal().addEvent(log.getEvent(),
-				EntityState.CONFIRMED,
-				source.getShardID(),
-				planId);
-		return partitionTable.getScheme().writeDuty(entity, source, log.getEvent());
+		return partitionTable.getScheme().writeDuty(entity, source, log.getEvent(), ()-> {
+				entity.getJournal().addEvent(log.getEvent(),
+						EntityState.CONFIRMED,
+						source.getShardID(),
+						planId);
+				});
 	}
 
 	/** match entity journals for planned changes and write to the scheme */
-	public void detectChanges(final Delivery delivery, final Plan plan, final Heartbeat beat, final Shard source) {
+	public void detectChanges(final Delivery delivery, final ChangePlan changePlan, final Heartbeat beat, final Shard source) {
 		long lattestPlanId = 0;
 		boolean changed[] = new boolean[1];
 		if (beat.reportsDuties()) {
 			lattestPlanId = latestPlan(beat);
-			if (lattestPlanId==plan.getId()) {
+			if (lattestPlanId==changePlan.getId()) {
 				onFoundAttachments(source, beat.getReportedCapturedDuties(), delivery,
 					(log, entity) -> {
-						if (write(entity, log, source, plan.getId())) {
+						if (write(entity, log, source, changePlan.getId())) {
 							// TODO warn: if a remove comes from client while a running plan, we might be
 							// avoidint it
 							partitionTable.getBackstage().removeCrud(entity);
@@ -85,7 +88,7 @@ public class SchemeWriter {
 		}
 		onFoundDetachments(source, beat.getReportedCapturedDuties(), delivery,
 			(log, entity) -> {
-				changed[0] |= write(entity, log, source, plan.getId());
+				changed[0] |= write(entity, log, source, changePlan.getId());
 				if (changed[0] && log.getEvent().isCrud()) {
 					// remove it from the backstage
 					for (ShardEntity duty : partitionTable.getBackstage().getDutiesCrud()) {
@@ -101,20 +104,20 @@ public class SchemeWriter {
 			});
 		if (changed[0]) {
 			delivery.checkState();
-		} else if (lattestPlanId==plan.getId()) {
+		} else if (lattestPlanId==changePlan.getId()) {
 			// delivery found, no change but expected ? 
 			logger.warn("{}: Ignoring shard's ({}) heartbeats with a previous Journal: {} (current: {})", 
-					getClass().getSimpleName(), source.getShardID().toString(), lattestPlanId, plan.getId());			
+					getClass().getSimpleName(), source.getShardID().toString(), lattestPlanId, changePlan.getId());			
 		}
-		if (!plan.getResult().isClosed() && plan.hasUnlatched()) {
+		if (!changePlan.getResult().isClosed() && changePlan.hasUnlatched()) {
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: Plan unlatched, fwd >> distributor agent ", getClass().getSimpleName());
+				logger.info("{}: ChangePlan unlatched, fwd >> distributor agent ", getClass().getSimpleName());
 			}
 			// scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
 		}
 		
-		if (plan.getResult().isClosed() && logger.isInfoEnabled()) {
-			logger.info("{}: Plan finished ! (all changes in scheme)", getClass().getSimpleName());
+		if (changePlan.getResult().isClosed() && logger.isInfoEnabled()) {
+			logger.info("{}: ChangePlan finished ! (all changes in scheme)", getClass().getSimpleName());
 		}
 	}
 

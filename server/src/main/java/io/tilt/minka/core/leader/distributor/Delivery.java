@@ -36,7 +36,7 @@ import io.tilt.minka.utils.CollectionUtils;
 /**
  * A single {@linkplain EntityEvent} over many {@linkplain ShardEntity} 
  * intended on a single {@linkplain Shard}
- * Isolated from other deliveries. Created by the {@linkplain Plan} 
+ * Isolated from other deliveries. Created by the {@linkplain ChangePlan} 
  * Coordinated by the {@linkplain Distributor}
  * @author Cristian Gonzalez
  * @since Aug 11, 2017
@@ -137,8 +137,8 @@ public class Delivery {
 					if (found.getLastState() != EntityState.CONFIRMED) {
 						noneLeft = false;
 						// TODO get Partition TAble and check if Shard has long fell offline
-						if (Plan.logger.isInfoEnabled()) {
-							Plan.logger.info("{}: waiting Shard: {} for {} still in {}, at least Duty: {}",
+						if (ChangePlan.logger.isInfoEnabled()) {
+							ChangePlan.logger.info("{}: waiting Shard: {} for {} still in {}, at least Duty: {}",
 									getClass().getSimpleName(),
 									shard,
 									duty.getEntity().getId(),
