@@ -100,9 +100,11 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	}
 	@Override
 	public String getTag() {
-		final PartitionDelegate pd = this.dependencyPlaceholder.getDelegate();
-		if (tag == null && pd != null && pd instanceof ConsumerDelegate) {
-			tag = ((ConsumerDelegate)pd).getLocationTag();
+		if (tag == null 
+				&& dependencyPlaceholder!=null 
+				&& dependencyPlaceholder.getDelegate() != null 
+				&& dependencyPlaceholder.getDelegate() instanceof ConsumerDelegate) {
+			tag = ((ConsumerDelegate)dependencyPlaceholder.getDelegate()).getLocationTag();
 		}
 		return tag;
 	}
