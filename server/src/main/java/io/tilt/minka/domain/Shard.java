@@ -52,7 +52,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	private final BrokerChannel brokerChannel;
 	private final NetworkShardIdentifier shardId;
 	private final DateTime firstTimeSeen;
-    private final SlidingSortedSet<Heartbeat> cardiacLapse;
+    private final SlidingSortedSet<Heartbeat> beats;
 	
 	private DateTime lastStatusChange;
 	private ShardState serviceState;
@@ -65,7 +65,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		this.brokerChannel = requireNonNull(channel);
 		this.shardId = requireNonNull(memberId);
 		this.serviceState = ShardState.JOINING;
-		this.cardiacLapse = CollectionUtils.sliding(MAX_HEARBEATS_TO_EVALUATE);
+		this.beats = CollectionUtils.sliding(MAX_HEARBEATS_TO_EVALUATE);
 		this.firstTimeSeen = new DateTime(DateTimeZone.UTC);
 		this.lastStatusChange = new DateTime(DateTimeZone.UTC);
 		this.capacities = new HashMap<>();
@@ -105,21 +105,21 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		return this.capacities;
 	}
 
-	public void addHeartbeat(final Heartbeat hb) {
+	public void enterHeartbeat(final Heartbeat hb) {
 		if (hb.getStateChange() != null) {
 			this.serviceState = hb.getStateChange();
 		}
-		this.cardiacLapse.add(hb);
+		this.beats.add(hb);
 	}
 	
 	@JsonIgnore
 	public SlidingSortedSet<Heartbeat> getHeartbeats() {
-		return this.cardiacLapse;
+		return this.beats;
 	}
 	
 	@JsonProperty(index=3, value="heartbeat-last")
 	private Heartbeat getLast() {
-	    return this.cardiacLapse.first();
+	    return this.beats.first();
 	}
 
 	public ShardState getState() {

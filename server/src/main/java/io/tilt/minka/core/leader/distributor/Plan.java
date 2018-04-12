@@ -333,31 +333,27 @@ public class Plan implements Comparable<Plan> {
             deliveries.forEach(d->d.checkState());
             if (!iterator.hasNext()) {
                 return false;
-            } else {
-    	        // there's more, but are they allowed right now ?
-    			if (lastDelivery==null) {
-    			    // first time here
-    			    return true;
-    			} else {	
-    			    final EntityEvent nextDeliveryEvent = deliveries.get(deliveryIdx).getEvent();
-    		        if (nextDeliveryEvent==lastDelivery.getEvent()) {
-    		            // identical future events are parallelized
-    		            return true;
-    			    } else {
-    			        // future events require all past confirmed
-    			        for (int i = 0; i < deliveryIdx; i++) {
-    			        	final Delivery d = deliveries.get(i);
-    			            if (d.getStep() == Delivery.Step.PENDING) {
-    			            	if (logger.isInfoEnabled()) {
-    			            		logger.info("{}: No more parallels: past deliveries yet pending", getClass().getSimpleName());
-    			            	}
-    			                return false;
-    			            }
-    			        }
-    			        return true;
-    			    }
-    			}
             }
+	        // there's more, but are they allowed right now ?
+			if (lastDelivery==null) {
+			    // first time here
+			    return true;
+			}	
+	        if (deliveries.get(deliveryIdx).getEvent()==lastDelivery.getEvent()) {
+	            // identical future events are parallelized
+	            return true;
+		    }
+	        // other future events require all past confirmed
+	        for (int i = 0; i < deliveryIdx; i++) {
+	        	final Delivery d = deliveries.get(i);
+	            if (d.getStep() == Delivery.Step.PENDING) {
+	            	if (logger.isInfoEnabled()) {
+	            		logger.info("{}: No more parallels: past deliveries yet pending", getClass().getSimpleName());
+	            	}
+	                return false;
+	            }
+	        }
+	        return true;
         });
     }
     

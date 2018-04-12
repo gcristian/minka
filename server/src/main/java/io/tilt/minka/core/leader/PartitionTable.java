@@ -127,6 +127,7 @@ public class PartitionTable {
 			}
 		}
 		/**
+		 * Account the end of the duty movement operation.
 		 * @param duty the entity to act on
 		 * @param where	the sard where it resides 
 		 * @return if there was a Scheme change after the action 
@@ -197,7 +198,7 @@ public class PartitionTable {
 			return allDuties;
 		}
 
-		private synchronized ShardedPartition getPartition(Shard shard) {
+		private synchronized ShardedPartition getPartition(final Shard shard) {
 			ShardedPartition po = this.partitionsByShard.get(shard);
 			if (po == null) {
 				this.partitionsByShard.put(shard, 

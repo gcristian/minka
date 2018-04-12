@@ -73,7 +73,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	        }
 	    }
 	    
-		shard.addHeartbeat(beat);
+		shard.enterHeartbeat(beat);
 		if (beat.getCapacities()!=null) {
 			shard.setCapacities(beat.getCapacities());
 		}
@@ -99,6 +99,9 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		if ((beat.reportsDuties()) && shard.getState().isAlive()) {
 			detectAndSaveAbsents(shard, beat.getReportedCapturedDuties());
 			detectInvalidShards(shard, beat.getReportedCapturedDuties());
+			if (beat.hasDifferences()) {
+			    // TODO
+			}
 		}
 	}
 	

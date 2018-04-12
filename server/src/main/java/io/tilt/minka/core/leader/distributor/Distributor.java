@@ -83,9 +83,10 @@ public class Distributor implements Service {
 	private final LeaderShardContainer leaderShardContainer;
     private final Agent distributor;
 
-	private int distributionCounter;
+	
 	private boolean initialAdding;
-	private int counter;
+	private int counterForReloads;
+	private int counterForDistro;
 	private PlanFactory planner;
 
 
@@ -308,10 +309,12 @@ public class Distributor implements Service {
 
 	/** @return if distribution can continue, read from storage only first time */
 	private boolean loadFromClientWhenAllOnlines() {
-		if (initialAdding || (config.getDistributor().isReloadDutiesFromStorage()
-				&& config.getDistributor().getReloadDutiesFromStorageEachPeriods() == counter++)) {
+	    final boolean reload = !initialAdding && (config.getDistributor().isReloadDutiesFromStorage()
+                && config.getDistributor().getReloadDutiesFromStorageEachPeriods() == counterForReloads++);
+	    
+		if (initialAdding || reload) {
+		    counterForReloads = 0;
 			logger.info("{}: reloading duties from storage", getName());
-			counter = 0;
 			final Set<Duty<?>> duties = reloadDutiesFromStorage();
 			final Set<Pallet<?>> pallets = reloadPalletsFromStorage();
 			if (duties == null || duties.isEmpty() || pallets == null || pallets.isEmpty()) {
@@ -415,7 +418,7 @@ public class Distributor implements Service {
 
 	private void logStatus() {
 		if (logger.isInfoEnabled()) {
-			StringBuilder title = new StringBuilder("Distributor (i").append(++distributionCounter).append(" by Leader: ")
+			StringBuilder title = new StringBuilder("Distributor (i").append(++counterForDistro).append(" by Leader: ")
 					.append(shardId.toString());
 			logger.info(LogUtils.titleLine(title.toString()));
 		}

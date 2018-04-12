@@ -136,18 +136,19 @@ public class ShardedPartition {
 	public boolean add(final ShardEntity entity) {
 		logger.info("{}: Adding entity: {}", id, entity.toBrief());
 		updateLastChange();
-		final Set<ShardEntity> set = entity.getType()==ShardEntity.Type.DUTY ? duties : pallets; 
-		return set.add(entity);
+		return byType(entity).add(entity);
 	}
 	public boolean remove(final ShardEntity entity) {
 		updateLastChange();
-		final Set<ShardEntity> set = entity.getType()==ShardEntity.Type.DUTY ? duties : pallets;
-		return set.remove(entity);
+		return byType(entity).remove(entity);
 	}
 	public boolean contains(final ShardEntity entity) {
-		final Set<ShardEntity> set = entity.getType()==ShardEntity.Type.DUTY ? duties : pallets; 
-		return set.contains(entity);
-	} 	
+		return byType(entity).contains(entity);
+	}
+    private Set<ShardEntity> byType(final ShardEntity entity) {
+        return entity.getType()==ShardEntity.Type.DUTY ? duties : pallets;
+    }
+
 	public boolean wasRecentlyUpdated() {
 		return (System.currentTimeMillis() - lastUpdateTimestamp) < recentUpdateThreshold;
 	}

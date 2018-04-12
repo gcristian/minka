@@ -128,27 +128,24 @@ public class Delivery {
 	        }
 	    } else if (step==Step.PENDING){
         	// for all duties grouped together with same Event to the same Shard..
-            int pending = duties.size();
+            boolean noneLeft = true;
     		for (final ShardEntity duty : duties) {
     			// look up confirmation for the specific logged event matching this delivery
     			final Log found = duty.getJournal().find(getPlanId(), shard.getShardID(), getEvent());
     			if (found!=null) {
-    				if (found.getLastState()==EntityState.CONFIRMED) {
-					    pending--;
-					} else {
+    				if (found.getLastState()!=EntityState.CONFIRMED) {
+					    noneLeft = false;
 					    // TODO get Partition TAble and check if Shard has long fell offline
-						if (found.getLastState()==EntityState.PENDING) {
-							if (Plan.logger.isInfoEnabled()) {
-								Plan.logger.info("{}: waiting Shard: {} for {} still in {}, at least Duty: {}", 
-	                                getClass().getSimpleName(), shard, duty.getEntity().getId(), 
-	                                found.getEvent(), found.getLastState());
-							}
-							return;
+						if (Plan.logger.isInfoEnabled()) {
+							Plan.logger.info("{}: waiting Shard: {} for {} still in {}, at least Duty: {}", 
+                                getClass().getSimpleName(), shard, duty.getEntity().getId(), 
+                                found.getEvent(), found.getLastState());
 						}
+						return;
 					}
     			}
     		}
-    		if (pending==0) {
+    		if (noneLeft) {
     		    this.step = Step.DONE;
     		}
 	    }

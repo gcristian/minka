@@ -22,11 +22,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.apache.logging.log4j.util.BiConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.EntityState;
@@ -45,28 +45,60 @@ import io.tilt.minka.domain.ShardIdentifier;
  */
 public class SchemeWriter {
 
-	private final Logger logger = LoggerFactory.getLogger(getClass());
-
 	private static final int MAX_EVENT_DATE_FOR_DIRTY = 10000;
-
+	
+    private final Logger logger = LoggerFactory.getLogger(getClass());
+    
 	private final PartitionTable partitionTable;
 	
+	/** solely instance */
 	public SchemeWriter(final PartitionTable partitionTable) {
 		this.partitionTable = partitionTable;
+	}
+
+	/** @return true if the scheme wrote the change */
+	private boolean write(final ShardEntity entity, final Log log, final Shard source, final long planId) {
+    	entity.getJournal().addEvent(log.getEvent(), 
+                EntityState.CONFIRMED, 
+                source.getShardID(),
+                planId);
+        return partitionTable.getScheme().writeDuty(entity, source, log.getEvent());
 	}
 
 	/** match entity journals for planned changes and write to the scheme */
 	public void detectChanges(final Delivery delivery, final Plan plan, final Heartbeat beat, final Shard source) {
 		long lattestPlanId = 0;
-		boolean changed = false;
+		boolean changed[] = new boolean[1];
 		if (beat.reportsDuties()) {
 			lattestPlanId = latestPlan(beat);
 			if (lattestPlanId==plan.getId()) {
-				changed|=detectAndWriteAttachments(source, beat.getReportedCapturedDuties(), delivery);
+				onFoundAttachments(source, beat.getReportedCapturedDuties(), delivery,
+			        (log, entity)-> {
+			            if (write(entity, log, source, plan.getId())) {
+			                // TODO warn: if a remove comes from client while a running plan, we might be avoidint it 
+			                partitionTable.getBackstage().removeCrud(entity);
+			                changed[0]|=true;
+			            } 
+			        });
 			}
 		}
-		changed|=detectAndWriteDetachments(source, beat.getReportedCapturedDuties(), delivery);
-		if (changed) {
+		onFoundDetachments(source, beat.getReportedCapturedDuties(), delivery,
+	        (log, entity)-> {
+                changed[0]|= write(entity, log, source, plan.getId());
+                if (changed[0] && log.getEvent().isCrud()) {
+                    // remove it from the backstage
+                    for (ShardEntity duty : partitionTable.getBackstage().getDutiesCrud()) {
+                        if (duty.equals(entity)) {
+                            final Instant lastEventOnCrud = duty.getJournal().getLast().getHead().toInstant();
+                            if (log.getHead().toInstant().isAfter(lastEventOnCrud)) {
+                                partitionTable.getBackstage().removeCrud(entity);
+                                break;
+                            }
+                        }
+                    }
+                }
+	        });
+		if (changed[0]) {
 		    delivery.checkState();
 		} else if (lattestPlanId==plan.getId()) {
 			// delivery found, no change but expected ? 
@@ -102,13 +134,13 @@ public class SchemeWriter {
 	 * find the up-coming
 	 * @return if there were changes 
 	 */
-	private boolean detectAndWriteAttachments(
+	private void onFoundAttachments(
 			final Shard shard, 
 			final List<ShardEntity> beatedDuties, 
-			final Delivery delivery) {
+			final Delivery delivery,
+			final BiConsumer<Log, ShardEntity> c) {
 		Set<ShardEntity> sortedLogConfirmed = null;
 		Set<ShardEntity> sortedLogDirty = null;
-		boolean ret = false;
 		for (final ShardEntity beated : beatedDuties) {
 			for (ShardEntity delivered : delivery.getDuties()) {
 				if (delivered.equals(beated)) {
@@ -120,15 +152,7 @@ public class SchemeWriter {
 				    		}
 			                sortedLogConfirmed.add(beated);
 				    	}
-                        delivered.getJournal().addEvent(expected.getEvent(), 
-                                EntityState.CONFIRMED, 
-                                shard.getShardID(),
-                                delivery.getPlanId());
-                		if (partitionTable.getScheme().writeDuty(delivered, shard, expected.getEvent())) {
-                		    ret = true;
-                			// TODO warn: if a remove comes from client while a running plan, we might be avoidint it 
-                			partitionTable.getBackstage().removeCrud(delivered);
-            			}
+                        c.accept(expected, delivered);
 				    } else {
 						final Date fact = delivered.getJournal().getLast().getHead();
 						final long now = System.currentTimeMillis();
@@ -151,7 +175,6 @@ public class SchemeWriter {
 			logger.warn("{}: ShardID: {}, Reporting DIRTY partition event for Duties: {}", getClass().getSimpleName(),
 					shard.getShardID(), ShardEntity.toStringIds(sortedLogDirty));
 		}
-		return ret;
 	}
 
 	/** @return the expected delivered event matching the beated logs */
@@ -191,12 +214,13 @@ public class SchemeWriter {
     }
 	
 	/** treat un-coming as detaches
-	/** @return whether or not there was an absence confirmed */
-	private boolean detectAndWriteDetachments(
+	/** @return whether or not there was an absence confirmed 
+	 * @param c */
+	private void onFoundDetachments(
 	        final Shard shard, 
 	        final List<ShardEntity> beatedDuties, 
-	        final Delivery delivery) {
-	    boolean ret = false;
+	        final Delivery delivery,
+	        final BiConsumer<Log, ShardEntity> c) {
 		Set<ShardEntity> sortedLog = null;
         final long pid = partitionTable.getCurrentPlan().getId();
         
@@ -210,25 +234,7 @@ public class SchemeWriter {
 						}
 						sortedLog.add(prescripted);
 					}
-					prescripted.getJournal().addEvent(found.getEvent(), 
-							EntityState.CONFIRMED,
-							shard.getShardID(),
-							pid);
-					boolean written = partitionTable.getScheme().writeDuty(prescripted, shard, found.getEvent());
-					if (written && found.getEvent().isCrud()) {
-						// remove it from the backstage
-						for (ShardEntity duty : partitionTable.getBackstage().getDutiesCrud()) {
-							if (duty.equals(prescripted)) {
-								final Instant lastEventOnCrud = duty.getJournal().getLast().getHead().toInstant();
-								if (found.getHead().toInstant().isAfter(lastEventOnCrud)) {
-									partitionTable.getBackstage().removeCrud(prescripted);
-									break;
-								}
-							}
-						}
-	
-						ret = true;
-					}
+					c.accept(found, prescripted);
 				}
 			}
 		}
@@ -237,7 +243,6 @@ public class SchemeWriter {
 			logger.info("{}: ShardID: {}, Confirming (by absence) partioning event for Duties: {}",
 					getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(sortedLog));
 		}
-		return ret;
 	}
 
 	public void shardStateChange(final Shard shard, final ShardState prior, final ShardState newState) {
