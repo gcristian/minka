@@ -103,7 +103,7 @@ class PlanFactory {
 					changes |= migra.write(plan);
 				} else {
 					if (logger.isInfoEnabled()) {
-				    	logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(),
+						logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", getClass().getSimpleName(),
 							pallet.getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
 					}
 				}
@@ -152,9 +152,9 @@ class PlanFactory {
 	}
 
 	private static final Set<Duty<?>> refs(final Set<ShardEntity> entities) {
-	    final Set<Duty<?>> ret = new HashSet<>(entities.size());
-	    entities.forEach(e->ret.add(e.getDuty()));
-	    return ret;
+		final Set<Duty<?>> ret = new HashSet<>(entities.size());
+		entities.forEach(e -> ret.add(e.getDuty()));
+		return ret;
 	}
 	
 	private static void addMissingAsCrud(final PartitionTable table, final Plan plan) {
@@ -169,15 +169,15 @@ class PlanFactory {
 				// missing duties are a confirmation per-se from the very shards,
 				// so the ptable gets fixed right away without a realloc.
 				missed.getJournal().addEvent(EntityEvent.REMOVE, 
-						EntityState.CONFIRMED, 
-				        lazy.getShardID(), 
-				        plan.getId());
+						EntityState.CONFIRMED,
+						lazy.getShardID(),
+						plan.getId());
 				table.getScheme().writeDuty(missed, lazy, EntityEvent.REMOVE);
 			}
 			missed.getJournal().addEvent(EntityEvent.CREATE, 
 					EntityState.PREPARED,
-			        null, 
-                    plan.getId());
+					null,
+					plan.getId());
 			table.getBackstage().addCrudDuty(missed);
 		}
 		if (!missing.isEmpty()) {
@@ -220,8 +220,8 @@ class PlanFactory {
 			final Shard shard = table.getScheme().getDutyLocation(deletion);
 			deletion.getJournal().addEvent(EntityEvent.DETACH, 
 					EntityState.PREPARED,
-			        shard.getShardID(), 
-                    plan.getId());
+					shard.getShardID(),
+					plan.getId());
 			plan.ship(shard, deletion);
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Deleting from: {}, Duty: {}", getClass().getSimpleName(), shard.getShardID(),
@@ -231,8 +231,7 @@ class PlanFactory {
 	}
 
 	private void logStatus(
-	        final PartitionTable table, 
-	        final List<Shard> onlineShards,
+			final PartitionTable table, final List<Shard> onlineShards,
 			final Set<ShardEntity> dutyCreations, 
 			final Set<ShardEntity> dutyDeletions,
 			final List<ShardEntity> duties,

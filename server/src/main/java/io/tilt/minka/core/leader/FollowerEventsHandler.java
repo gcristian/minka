@@ -79,8 +79,8 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 		final long readQueueSince = System.currentTimeMillis();
 
 		eventBroker.subscribe(
-		        eventBroker.buildToTarget(config, Channel.HEARTBEATS, shardId), 
-		        Heartbeat.class,
+				eventBroker.buildToTarget(config, Channel.HEARTBEATS, shardId),
+				Heartbeat.class,
 				(Consumer) this, 
 				readQueueSince);
 
@@ -91,8 +91,8 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 	public void stop() {
 		logger.info("{}: Stopping", getClass().getSimpleName());
 		this.eventBroker.unsubscribe(
-		        eventBroker.build(config, Channel.HEARTBEATS), 
-		        Heartbeat.class,
+				eventBroker.build(config, Channel.HEARTBEATS),
+				Heartbeat.class,
 				(Consumer) this);
 	}
 
@@ -106,25 +106,25 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 
 		scheduler.run(scheduler.getFactory().build(
 			Scheduler.Action.PARTITION_TABLE_UPDATE, 
-	        PriorityLock.MEDIUM_BLOCKING, () -> {
+			PriorityLock.MEDIUM_BLOCKING, () -> {
 				hbConsumer.accept(hb, getOrRegisterShard(hb));
 			}));
 	}
 
     private Shard getOrRegisterShard(final Heartbeat hb) {
-        // when a shutdownlock acquired then keep receving HB to evaluate all Slaves are down!
-        Shard shard = partitionTable.getScheme().getShard(hb.getShardId());
-        if (shard == null) {
-        	// new member
-        	partitionTable.getScheme().addShard(shard = new Shard(
-        			eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, hb.getShardId()),
-        			hb.getShardId()));
-        }
-        final String tag = hb.getShardId().getTag();
-        if (tag!=null) {
-            shard.getShardID().setTag(tag);
-        }
-        return shard;
-    }
+		// when a shutdownlock acquired then keep receving HB to evaluate all Slaves are down!
+		Shard shard = partitionTable.getScheme().getShard(hb.getShardId());
+		if (shard == null) {
+			// new member
+			partitionTable.getScheme().addShard(shard = new Shard(
+					eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, hb.getShardId()),
+					hb.getShardId()));
+		}
+		final String tag = hb.getShardId().getTag();
+		if (tag != null) {
+			shard.getShardID().setTag(tag);
+		}
+		return shard;
+	}
 
 }

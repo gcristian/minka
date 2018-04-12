@@ -108,25 +108,22 @@ public class DatasetEmulator implements ClusterEmulatorProvider {
 		final Set<Duty<String>> duties = new HashSet<>();
 		final AtomicInteger numerator = new AtomicInteger();
 		
-		for (Object key: prop.keySet()) {
-		    if (key.toString().startsWith(DUTIES_PALLETS )) {
-		        final String chunk = prop.getProperty(key.toString())
-		                .replace(" ", "")
-		                .replace("\t", "");
-		        Validate.isTrue(dutyPalletFrmtTermPt.matcher(chunk).find(), DUTIES_PALLETS_FRMT_EXPLAIN + chunk);
-		        parseDutyFromString(key.toString(), chunk, (duty)->duties.add(duty), numerator);
-		    }
+		for (Object key : prop.keySet()) {
+			if (key.toString().startsWith(DUTIES_PALLETS)) {
+				final String chunk = prop.getProperty(key.toString())
+						.replace(" ", "")
+						.replace("\t", "");
+				Validate.isTrue(dutyPalletFrmtTermPt.matcher(chunk).find(), DUTIES_PALLETS_FRMT_EXPLAIN + chunk);
+				parseDutyFromString(key.toString(), chunk, (duty) -> duties.add(duty), numerator);
+			}
 		}
 		return duties;
 	}
 
-	private void parseDutyFromString(
-	        final String key,
-            final String chunk,
-	        final Consumer<Duty<String>> callback, 
-	        final AtomicInteger numerator) {
-	    
-        final String palletName = key.substring(DUTIES_PALLETS.length()+1);
+	private void parseDutyFromString(final String key, final String chunk, 
+			final Consumer<Duty<String>> callback, final AtomicInteger numerator) {
+
+		final String palletName = key.substring(DUTIES_PALLETS.length()+1);
 		final String[] parse = chunk.split(FIELD_DELIM);
 		final String sliceStr = parse[0].trim();
 		final String weightStr = parse[1].trim();
@@ -136,7 +133,7 @@ public class DatasetEmulator implements ClusterEmulatorProvider {
 		int weight = 0;
 		if (rangePos > 0) {
 			range = new int[] { 
-			        Integer.parseInt(weightStr.trim().split(RANGE_DELIM)[0].trim()), 
+					Integer.parseInt(weightStr.trim().split(RANGE_DELIM)[0].trim()), 
 					Integer.parseInt(weightStr.split(RANGE_DELIM)[1].trim()) };
 		} else {
 			weight = Integer.parseInt(weightStr);
@@ -156,20 +153,20 @@ public class DatasetEmulator implements ClusterEmulatorProvider {
 	@Override
 	public Set<Pallet<String>> loadPallets() {
 		final Set<Pallet<String>> pallets = new HashSet<>();
-		for (Object key: prop.keySet()) {
-		    if (key.toString().startsWith(DUTIES_PALLETS)) {  
-        		final StringTokenizer tok = new StringTokenizer(prop.getProperty(key.toString())
-        		        .replace(" ", "")
-        		        .replace("\t", ""), TERM_DELIM);
-        		while (tok.hasMoreTokens()) {
-        			String pbal = tok.nextToken();	
-        			final Strategy strat = Strategy.valueOf(pbal.trim().split(FIELD_DELIM)[2].trim());
-        			final String palletName = key.toString().substring(DUTIES_PALLETS.length()+1).trim();
-        			pallets.add(PalletBuilder.<String>builder(palletName)
-        					.with(strat.getBalancerMetadata())
-        					.build());
-        		}
-		    }
+		for (Object key : prop.keySet()) {
+			if (key.toString().startsWith(DUTIES_PALLETS)) {
+				final StringTokenizer tok = new StringTokenizer(prop.getProperty(key.toString())
+						.replace(" ", "")
+						.replace("\t", ""), TERM_DELIM);
+				while (tok.hasMoreTokens()) {
+					String pbal = tok.nextToken();
+					final Strategy strat = Strategy.valueOf(pbal.trim().split(FIELD_DELIM)[2].trim());
+					final String palletName = key.toString().substring(DUTIES_PALLETS.length() + 1).trim();
+					pallets.add(PalletBuilder.<String>builder(palletName)
+							.with(strat.getBalancerMetadata())
+							.build());
+				}
+			}
 		}
 		return pallets; 
 	}
@@ -180,10 +177,10 @@ public class DatasetEmulator implements ClusterEmulatorProvider {
 	
 	@Override
 	public double loadShardCapacity(
-	        final Pallet<String> pallet, 
-	        final Set<Duty<String>> duties, 
-	        final String shardIdentifier) {
-	    
+			final Pallet<String> pallet, 
+			final Set<Duty<String>> duties, 
+			final String shardIdentifier) {
+
 		final String port = shardIdentifier.split(FIELD_DELIM)[1];
 		final String key = port + pallet.getId();
 		Double ret = capacities.get(key);
@@ -194,40 +191,40 @@ public class DatasetEmulator implements ClusterEmulatorProvider {
 	}
 
 	private double readCapacityFromProperties(
-	        final Pallet<String> pallet, 
-	        final Set<Duty<String>> allDuties, 
-	        final String port, 
-	        final String shardId) {
-	    
+			final Pallet<String> pallet, 
+			final Set<Duty<String>> allDuties, 
+			final String port, 
+			final String shardId) {
+
 		double ret = 0;
 		for (Object key: prop.keySet()) {
-		    if (key.toString().startsWith(SHARDS_CAPACITIES)) {
-		        final String portStr = key.toString().substring(SHARDS_CAPACITIES.length()+1);
-        		final StringTokenizer tok = new StringTokenizer(prop.getProperty(key.toString()), TERM_DELIM);
-        		while (tok.hasMoreTokens()) {
-        			final String cap = tok.nextToken();
-        			if (cap.trim().isEmpty()) {
-        				continue;
-        			}
-        			Validate.isTrue(shardCapFrmtTermPt.matcher(cap).find(), SHARD_CAP_FRMT_EXPLAIN + cap);
-        			final String[] capParse = cap.split(FIELD_DELIM);
-        			final String pid = capParse[0].trim();
-        			final String capacity = capParse[1].trim();
-        			
-        			if (portStr.equals(port) && pid.equals(pallet.getId())) {
-        				if (capacity.startsWith(POWER)) {
-        					AtomicDouble accumWeight = new AtomicDouble(0);
-        					allDuties.stream()
-        					    .filter(d->d.getPalletId().equals(pid))
-        						.forEach(d->accumWeight.addAndGet(d.getWeight()));
-        					ret = accumWeight.get() * Double.parseDouble(capacity.substring(1));
-        				} else {
-        					ret = Double.parseDouble(capacity);
-        				}
-        				break;
-        			}
-        		}
-		    }
+			if (key.toString().startsWith(SHARDS_CAPACITIES)) {
+				final String portStr = key.toString().substring(SHARDS_CAPACITIES.length()+1);
+				final StringTokenizer tok = new StringTokenizer(prop.getProperty(key.toString()), TERM_DELIM);
+				while (tok.hasMoreTokens()) {
+					final String cap = tok.nextToken();
+					if (cap.trim().isEmpty()) {
+						continue;
+					}
+					Validate.isTrue(shardCapFrmtTermPt.matcher(cap).find(), SHARD_CAP_FRMT_EXPLAIN + cap);
+					final String[] capParse = cap.split(FIELD_DELIM);
+					final String pid = capParse[0].trim();
+					final String capacity = capParse[1].trim();
+
+					if (portStr.equals(port) && pid.equals(pallet.getId())) {
+						if (capacity.startsWith(POWER)) {
+							AtomicDouble accumWeight = new AtomicDouble(0);
+							allDuties.stream()
+									.filter(d -> d.getPalletId().equals(pid))
+									.forEach(d -> accumWeight.addAndGet(d.getWeight()));
+							ret = accumWeight.get() * Double.parseDouble(capacity.substring(1));
+						} else {
+							ret = Double.parseDouble(capacity);
+						}
+						break;
+					}
+				}
+			}
 		}
 		if (!logflags.contains(pallet)) {
 			logger.info("{} Capacity pallet: {} = {}", shardId, pallet.getId(), ret);

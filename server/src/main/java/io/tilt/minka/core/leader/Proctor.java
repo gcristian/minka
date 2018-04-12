@@ -174,7 +174,7 @@ public class Proctor implements Service {
 			for (Shard shard : shards) {
 				final ShardState newState = evaluateStateThruHeartbeats(shard);
 				final ShardState priorState = shard.getState();
-                if (newState != priorState) {
+				if (newState != priorState) {
 					lastUnstableAnalysisId = analysisCounter;
 					bokkeeper.shardStateChange(shard, priorState, newState);
 				}

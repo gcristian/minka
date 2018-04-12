@@ -52,15 +52,15 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	private final BrokerChannel brokerChannel;
 	private final NetworkShardIdentifier shardId;
 	private final DateTime firstTimeSeen;
-    private final SlidingSortedSet<Heartbeat> beats;
+	private final SlidingSortedSet<Heartbeat> beats;
 	
 	private DateTime lastStatusChange;
 	private ShardState serviceState;
 	private Map<Pallet<?>, Capacity> capacities;
 
 	public Shard(
-	        final BrokerChannel channel, 
-	        final NetworkShardIdentifier memberId) {
+			final BrokerChannel channel, 
+			final NetworkShardIdentifier memberId) {
 		super();
 		this.brokerChannel = requireNonNull(channel);
 		this.shardId = requireNonNull(memberId);
@@ -137,12 +137,12 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 
 	@Override
 	public boolean equals(final Object obj) {
-	    if (obj==null || !(obj instanceof Shard)) {
-	        return false;
-	    } else if (obj==this) {
-	        return true;
-	    } else {
-			return ((Shard)obj).getShardID().equals(getShardID());
+		if (obj == null || !(obj instanceof Shard)) {
+			return false;
+		} else if (obj == this) {
+			return true;
+		} else {
+			return ((Shard) obj).getShardID().equals(getShardID());
 		}
 	}
 
@@ -192,63 +192,60 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 
 	public enum ShardState {
 
-	    /**
-	     * all nodes START in this state
-	     * while becoming Online after a Quarantine period
-	     */
-	    JOINING,
-	    /** 
-	    * the node has been continuously online for a long time
-	    * so it can trustworthly receive work 
-	    */
-	    ONLINE,
-	    /**
-	        * the node interrupted heartbeats time enough to be
-	        * considered not healthly online.
-	        * in this state all nodes tend to rapidly go ONLINE or fall GONE 
-	        */
-	    QUARANTINE,
+		/**
+		 * all nodes START in this state while becoming Online after a Quarantine period
+		 */
+		JOINING,
+		/**
+		 * the node has been continuously online for a long time so it can trustworthly
+		 * receive work
+		 */
+		ONLINE,
+		/**
+		 * the node interrupted heartbeats time enough to be considered not healthly
+		 * online. in this state all nodes tend to rapidly go ONLINE or fall GONE
+		 */
+		QUARANTINE,
 
-	    /** 
-	    * the node emited a last heartbeat announcing offline mode
-	    * either being manually stopped or cleanly shuting down
-	    * so its ignored by the master
-	    */
-	    QUITTED,
+		/**
+		 * the node emited a last heartbeat announcing offline mode either being
+		 * manually stopped or cleanly shuting down so its ignored by the master
+		 */
+		QUITTED,
 
-	    /**
-	    * the server discontinued heartbeats and cannot longer
-	    * be considered alive, recover its reserved duties
-	    */
-	    GONE
+		/**
+		 * the server discontinued heartbeats and cannot longer be considered alive,
+		 * recover its reserved duties
+		 */
+		GONE
 
-	    ;
+		;
 
-	    public boolean isAlive() {
-	        return this == ONLINE || this == QUARANTINE || this == JOINING;
-	    }
+		public boolean isAlive() {
+			return this == ONLINE || this == QUARANTINE || this == JOINING;
+		}
 
-	    public enum Reason {
+		public enum Reason {
 
-	        INITIALIZING,
-	        /*
-	         * the shard persistently ignores commands from the Follower shard
-	         */
-	        REBELL,
-	        /*
-	         * "inconsistent behaviour measured in short lapses"
-	         *
-	         * not trustworthly shard
-	         */
-	        FLAPPING,
-	        /*
-	         * "no recent HBs from the shard, long enough"
-	         * 
-	         * the node has ceased to send heartbeats for time enough to be
-	         * considered gone and unrecoverable so it is ignored by the master
-	         */
-	        LOST;
-	    }
+			INITIALIZING,
+			/*
+			 * the shard persistently ignores commands from the Follower shard
+			 */
+			REBELL,
+			/*
+			 * "inconsistent behaviour measured in short lapses"
+			 *
+			 * not trustworthly shard
+			 */
+			FLAPPING,
+			/*
+			 * "no recent HBs from the shard, long enough"
+			 * 
+			 * the node has ceased to send heartbeats for time enough to be considered gone
+			 * and unrecoverable so it is ignored by the master
+			 */
+			LOST;
+		}
 	}
 
 	@Override

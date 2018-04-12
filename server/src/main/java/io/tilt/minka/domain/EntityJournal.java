@@ -72,27 +72,27 @@ public class EntityJournal implements Serializable {
 	 * @param planid	version of plan
 	 */
 	public void addEvent(
-	        final EntityEvent event, 
-	        final EntityState state, 
-	        final ShardIdentifier shardid,
-	        final long planid) {		
-        
-        // look up the right log 
-		final String shid = shardid!=null ? shardid.getId() : null;
+		final EntityEvent event, 
+		final EntityState state, 
+		final ShardIdentifier shardid, 
+		final long planid) {
+
+		// look up the right log
+		final String shid = shardid != null ? shardid.getId() : null;
 		Log log = (planid > 0) ? find_(planid, shid, event) : null;
-		if (log==null) {
-            logs.add(log = new Log(new Date(), event, shid == null ? NOT_APPLIABLE : shid, planid));
-            if (sliding || (sliding= logs.size()== MAX_JOURNAL_SIZE)) {
-            	logs.removeFirst();
-            }
-        }
-        log.addState(state);
-    }
+		if (log == null) {
+			logs.add(log = new Log(new Date(), event, shid == null ? NOT_APPLIABLE : shid, planid));
+			if (sliding || (sliding = logs.size() == MAX_JOURNAL_SIZE)) {
+				logs.removeFirst();
+			}
+		}
+		log.addState(state);
+	}
 	
 	
 	@JsonProperty("log-size")
 	public int eventSize() {
-	    return this.logs == null ? 0 : this.logs.size();
+		return this.logs == null ? 0 : this.logs.size();
 	}
 	
 	public Log getLast() {
@@ -156,26 +156,26 @@ public class EntityJournal implements Serializable {
 		Log ret = null;
 		boolean onePlanFound = false;
 		for (final Iterator<Log> it = logs.descendingIterator(); it.hasNext();) {
-            final Log log = it.next();
-            if ((planid == 0 || log.getPlanId() == planid) 
-            		&& (shardid == null || log.getTargetId().equals(shardid))) {
-            	onePlanFound = true;
-            	if (events==null) {
-            		return log;
-            	} else {
-	            	for (EntityEvent ee: events) {
-	            		if (log.getEvent() == ee) {
-	            			return log;
-	            		}
-	            	}
-            	}
-            	break;
-            } else if (planid > log.getPlanId()) {
-            	// avoid phantom events
-            	break;
-            } else if (planid ==0 && onePlanFound) {
-            	break;
-            }
+			final Log log = it.next();
+			if ((planid == 0 || log.getPlanId() == planid) 
+					&& (shardid == null || log.getTargetId().equals(shardid))) {
+				onePlanFound = true;
+				if (events == null) {
+					return log;
+				} else {
+					for (EntityEvent ee : events) {
+						if (log.getEvent() == ee) {
+							return log;
+						}
+					}
+				}
+				break;
+			} else if (planid > log.getPlanId()) {
+				// avoid phantom events
+				break;
+			} else if (planid == 0 && onePlanFound) {
+				break;
+			}
 		}
 		return ret;
 	}
@@ -183,17 +183,17 @@ public class EntityJournal implements Serializable {
 	@JsonProperty("log")
 	public List<String> getStringHistory() {
 		final Map<TimeState, String> ordered = new TreeMap<>(new TimeState.DateComparer());
-	    for (Log el: logs) {	    	
-	        for (final TimeState ts: el.getStates()) {
-	        	ordered.put(ts, String.format("%s %s: %s (%s) at %s", 
-	        			el.getPlanId(), 
-	        			el.getEvent(), 
-	        			el.getTargetId(), 
-	        			ts.getState(), 
-	        			sdf.format(ts.getDate()))); 
-	        }
-	    }
-	    return new ArrayList<>(ordered.values());
+		for (Log el : logs) {
+			for (final TimeState ts : el.getStates()) {
+				ordered.put(ts, String.format("%s %s: %s (%s) at %s",
+								el.getPlanId(),
+								el.getEvent(),
+								el.getTargetId(),
+								ts.getState(),
+								sdf.format(ts.getDate())));
+			}
+		}
+		return new ArrayList<>(ordered.values());
 	}
 
 	/**
@@ -202,70 +202,74 @@ public class EntityJournal implements Serializable {
 	 */
 	public static class Log implements Serializable {
 
-	    private static final long serialVersionUID = -8873965041941783628L;
-	    
-	    private final Date head;
-	    private final EntityEvent event;
-	    private final LinkedList<TimeState> states = new LinkedList<>();
-	    private final String targetId;
-	    private final long planId;
-	    
-	    private Log(final Date head, final EntityEvent event, final String targetId, final long planId) {
-	        super();
-	        this.head = head;
-	        this.event = event;
-	        this.targetId = targetId;
-	        this.planId = planId;
-	    }
-	    public Date getHead() {
-	        return this.head;
-	    }
-	    public EntityEvent getEvent() {
-	        return this.event;
-	    }
-	    public String getTargetId() {
-	        return this.targetId;
-	    }
-	    public long getPlanId() {
-	        return this.planId;
-	    }
-	    
-	    // ---------------------------------------------------------------------------------------------------
-	    
-	    public List<TimeState> getStates() {
-	        return Collections.unmodifiableList(states);
-	    }
-	        
-	    public EntityState getLastState() {
-	    	return this.states.getLast().getState();
-	    }
-	    
-	    public boolean matches(final Log log) {
-	    	return matches(log.getEvent(), log.getTargetId(), log.getPlanId());
-	    }
-	    
-	    /** @return whether passed log belongs to the same shard, version plan and type of event */	    
-	    public boolean matches(final EntityEvent event, final String targetId, final long planId) {
-	    	return event == this.event
-	    			&& targetId.equals(this.targetId)
-	    			&& planId == this.planId;
-	    }
-	    
-	    public void addState(final EntityState state) {
-	        this.states.add(new TimeState(new Date(), state));
-	    }
-	    
-	    @Override
-	    public String toString() {
-	        final StringBuilder sb = new StringBuilder(15+3+13+15+25)
-	        		.append("p:").append(planId).append(' ')
-	        		.append("dt:").append(sdf.format(head)).append(' ')
-	        		.append("ev:").append(event).append(' ')
-	                .append("sh:").append(targetId).append(' ')
-	                
-	                ;	        
-	        return sb.toString();
-	    }
+		private static final long serialVersionUID = -8873965041941783628L;
+
+		private final Date head;
+		private final EntityEvent event;
+		private final LinkedList<TimeState> states = new LinkedList<>();
+		private final String targetId;
+		private final long planId;
+
+		private Log(final Date head, final EntityEvent event, final String targetId, final long planId) {
+			super();
+			this.head = head;
+			this.event = event;
+			this.targetId = targetId;
+			this.planId = planId;
+		}
+
+		public Date getHead() {
+			return this.head;
+		}
+
+		public EntityEvent getEvent() {
+			return this.event;
+		}
+
+		public String getTargetId() {
+			return this.targetId;
+		}
+
+		public long getPlanId() {
+			return this.planId;
+		}
+
+		// ---------------------------------------------------------------------------------------------------
+
+		public List<TimeState> getStates() {
+			return Collections.unmodifiableList(states);
+		}
+
+		public EntityState getLastState() {
+			return this.states.getLast().getState();
+		}
+
+		public boolean matches(final Log log) {
+			return matches(log.getEvent(), log.getTargetId(), log.getPlanId());
+		}
+
+		/**
+		 * @return whether passed log belongs to the same shard, version plan and type of event
+		 */
+		public boolean matches(final EntityEvent event, final String targetId, final long planId) {
+			return event == this.event && targetId.equals(this.targetId) && planId == this.planId;
+		}
+
+		public void addState(final EntityState state) {
+			this.states.add(new TimeState(new Date(), state));
+		}
+
+		@Override
+		public String toString() {
+			final StringBuilder sb = new StringBuilder(15 + 3 + 13 + 15 + 25)
+					.append("p:").append(planId).append(' ')
+					.append("dt:").append(sdf.format(head)).append(' ')
+					.append("ev:").append(event).append(' ')
+					.append("sh:").append(targetId).append(' ')
+
+			;
+			return sb.toString();
+		}
 
 		@Override
 		public int hashCode() {
@@ -295,36 +299,39 @@ public class EntityJournal implements Serializable {
 		/**
 		 * A recording timestamp for a reached state 
 		 */
-	    public static class TimeState implements Serializable {
-	        private static final long serialVersionUID = -3611519717574368897L;
-	        
-	    	public static class DateComparer implements Comparator<TimeState>, Serializable {
-	    		private static final long serialVersionUID = 3709876521530551544L;
-	    		@Override
-	    		public int compare(final TimeState o1, final TimeState o2) {
-	    			if (o1==null || o2 == null) {
-	    				return o1==null && o2!=null ? -1 : o2==null ? 0 : 1;
-	    			} else {
-	    				return o1.getDate().compareTo(o2.getDate());
-	    			}
-	    		}
-	    	}
+		public static class TimeState implements Serializable {
+			private static final long serialVersionUID = -3611519717574368897L;
 
-	        private final Date date;
-	        private final EntityState state;
+			public static class DateComparer implements Comparator<TimeState>, Serializable {
+				private static final long serialVersionUID = 3709876521530551544L;
 
-	        public TimeState(final Date date, final EntityState state) {
-	            super();
-	            this.date = date;
-	            this.state = state;
-	        }
-	        public Date getDate() {
-	            return this.date;
-	        }
-	        public EntityState getState() {
-	            return this.state;
-	        }
-	        
+				@Override
+				public int compare(final TimeState o1, final TimeState o2) {
+					if (o1 == null || o2 == null) {
+						return o1 == null && o2 != null ? -1 : o2 == null ? 0 : 1;
+					} else {
+						return o1.getDate().compareTo(o2.getDate());
+					}
+				}
+			}
+
+			private final Date date;
+			private final EntityState state;
+
+			public TimeState(final Date date, final EntityState state) {
+				super();
+				this.date = date;
+				this.state = state;
+			}
+
+			public Date getDate() {
+				return this.date;
+			}
+
+			public EntityState getState() {
+				return this.state;
+			}
+
 			@Override
 			public int hashCode() {
 				final int prime = 31;
@@ -333,25 +340,26 @@ public class EntityJournal implements Serializable {
 				res *= prime + ((state== null ) ? 0 : state.hashCode());
 				return res;
 			}
-	        @Override
-	        public String toString() {
-	        	return new StringBuilder(8+17+10)
-	        			.append("dt:").append(date).append(' ')
-	        			.append("st:").append(state)
-	        			.toString();
-	        }
-	        @Override
-	        public boolean equals(final Object obj) {
-	        	if (obj==null || !(obj instanceof TimeState)) {
-	        		return false;
-	        	} else if (obj==this) {
-	        		return true;
-	        	} else {
-	        		final TimeState ts = (TimeState)obj;
-	        		return ts.getDate().equals(date) && ts.getState().equals(state);
-	        	}
-	        }
-	    }
+
+			@Override
+			public String toString() {
+				return new StringBuilder(8 + 17 + 10)
+						.append("dt:").append(date).append(' ')
+						.append("st:").append(state).toString();
+			}
+
+			@Override
+			public boolean equals(final Object obj) {
+				if (obj == null || !(obj instanceof TimeState)) {
+					return false;
+				} else if (obj == this) {
+					return true;
+				} else {
+					final TimeState ts = (TimeState) obj;
+					return ts.getDate().equals(date) && ts.getState().equals(state);
+				}
+			}
+		}
 
 	}
 	

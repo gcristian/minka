@@ -260,9 +260,9 @@ public class Bootstrap implements Service {
 		return electionName;
 	}
 
-    @Override
-    public boolean inService() {
-        return this.start!=null;
-    }
+	@Override
+	public boolean inService() {
+		return this.start != null;
+	}
 
 }

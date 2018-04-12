@@ -182,53 +182,52 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	 */
 	@SuppressWarnings("unchecked")
 	private <R> R runSynchronized(final Synchronized sync) {
-	    try {
-    		Validate.notNull(sync);
-    		if (sync.getPriority() == PriorityLock.HIGH_ISOLATED) {
-    			call(sync, false);
-    			return (R) new Boolean(true);
-    		}
-    
-    		final boolean untilGrant = sync.getPriority() == PriorityLock.MEDIUM_BLOCKING;
-    		int retries = 0;
-    		while (!Thread.interrupted()) {
-    			final Permission p = untilGrant ? acquireBlocking(sync.getAction()) : acquire(sync.getAction());
-    			if (logger.isDebugEnabled()) {
-    				logger.debug("{}: ({}) {} operation {} to {}", getName(), logName, sync.getAction(), p,
-    					sync.getTask().getClass().getSimpleName());
-    			}
-    			if (p == GRANTED) {
-    				return call(sync, true);
-    			} else if (p == RETRY && untilGrant) {
-    				checkQueue();
-    				if (retries++ < getConfig().getScheduler().getSemaphoreUnlockMaxRetries()) {
-    					if (logger.isDebugEnabled()) {
-    						logger.warn("{}: ({}) Sleeping while waiting to acquire lock: {}", getName(), logName,
-    							sync.getAction());
-    					}
-    					// TODO: WTF -> LockSupport.parkUntil(Config.SEMAPHORE_UNLOCK_RETRY_DELAY_MS);
-    					try {
-    						Thread.sleep(getConfig().getScheduler().getSemaphoreUnlockRetryDelayMs());
-    						continue;
-    					} catch (InterruptedException e) {
-    						logger.error("{}: ({}) While sleeping for unlock delay", getName(), logName, e);
-    						break;
-    					}
-    				} else {
-    					logger.warn("{}: ({}) Coordination starved ({}) for action: {} too many retries ({})", getName(),
-    						logName, p, sync.getAction(), retries);
-    					break;
-    				}
-    			} else {
-    				checkQueue();
-    				logger.error("{}: Unexpected situation !", getName());
-    				break;
-    			}				
-    		}
-	    } catch (Exception e) {
-	    	checkQueue();
-	        logger.error("{}: Unexpected ", getName(), e);
-	    }
+		try {
+			Validate.notNull(sync);
+			if (sync.getPriority() == PriorityLock.HIGH_ISOLATED) {
+				call(sync, false);
+				return (R) new Boolean(true);
+			}
+
+			final boolean untilGrant = sync.getPriority() == PriorityLock.MEDIUM_BLOCKING;
+			int retries = 0;
+			while (!Thread.interrupted()) {
+				final Permission p = untilGrant ? acquireBlocking(sync.getAction()) : acquire(sync.getAction());
+				if (logger.isDebugEnabled()) {
+					logger.debug("{}: ({}) {} operation {} to {}", getName(), logName, 
+							sync.getAction(), p, sync.getTask().getClass().getSimpleName());
+				}
+				if (p == GRANTED) {
+					return call(sync, true);
+				} else if (p == RETRY && untilGrant) {
+					checkQueue();
+					if (retries++ < getConfig().getScheduler().getSemaphoreUnlockMaxRetries()) {
+						if (logger.isDebugEnabled()) {
+							logger.warn("{}: ({}) Sleeping while waiting to acquire lock: {}", getName(), logName, sync.getAction());
+						}
+						// TODO: WTF -> LockSupport.parkUntil(Config.SEMAPHORE_UNLOCK_RETRY_DELAY_MS);
+						try {
+							Thread.sleep(getConfig().getScheduler().getSemaphoreUnlockRetryDelayMs());
+							continue;
+						} catch (InterruptedException e) {
+							logger.error("{}: ({}) While sleeping for unlock delay", getName(), logName, e);
+							break;
+						}
+					} else {
+						logger.warn("{}: ({}) Coordination starved ({}) for action: {} too many retries ({})", getName(), logName, p, sync
+								.getAction(), retries);
+						break;
+					}
+				} else {
+					checkQueue();
+					logger.error("{}: Unexpected situation !", getName());
+					break;
+				}
+			}
+		} catch (Exception e) {
+			checkQueue();
+			logger.error("{}: Unexpected ", getName(), e);
+		}
 		return null;
 	}
 
@@ -252,14 +251,14 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 			logger.error("{}: ({}) Untrapped task's exception while executing: {} task: {}", getName(), logName,
 				sync.getTask().getClass().getName(), sync.getAction(), t);
 		} finally {
-		    try {
-		        if (inSync) {
-	                release(sync.getAction());
-	            }
-            } catch (Throwable t2) {
-                logger.error("{}: ({}) Untrapped task's exception while Releasing: {} task: {}", getName(), logName,
-                        sync.getTask().getClass().getName(), sync.getAction(), t2);
-            }
+			try {
+				if (inSync) {
+					release(sync.getAction());
+				}
+			} catch (Throwable t2) {
+				logger.error("{}: ({}) Untrapped task's exception while Releasing: {} task: {}", 
+						getName(), logName, sync.getTask().getClass().getName(), sync.getAction(), t2);
+			}
 		}
 		return null;
 	}

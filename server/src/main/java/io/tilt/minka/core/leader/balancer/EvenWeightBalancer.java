@@ -85,7 +85,7 @@ public class EvenWeightBalancer implements Balancer {
 			final Pallet<?> pallet,
 			final Map<NetworkLocation, Set<Duty<?>>> scheme,
 			final Map<EntityEvent, Set<Duty<?>>> backstage,
-            final Migrator migrator) {
+			final Migrator migrator) {
 		// order new ones and current ones in order to get a fair distro 
 		final Comparator comparator = ((Metadata)pallet.getMetadata()).getPresort().getComparator();
 		final Set<Duty<?>> duties = new TreeSet<>(comparator);

@@ -91,7 +91,7 @@ public class Leader implements Service {
 	@Override
 	public void start() {
 		try {
-		    this.start = new Date();
+			this.start = new Date();
 			//if (!locks.runOnLockRace(Names.getLeaderLockName(config.getServiceName()), ()-> {
 			scheduler.run(scheduler.getFactory().build(Action.LEADERSHIP, PriorityLock.LOW_ON_PERMISSION, () -> {
 				try {
@@ -123,7 +123,7 @@ public class Leader implements Service {
 
 	@Override
 	public void stop() {
-	    this.start = null;
+		this.start = null;
 		logger.info("{}: Stopping ({})", getClass().getSimpleName(), !served ? "never served" : "paid my duty");
 		proctor.stop();
 		distributor.stop();

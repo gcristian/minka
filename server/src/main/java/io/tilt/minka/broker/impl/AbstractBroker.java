@@ -61,9 +61,9 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 
 	@Override
 	public void accept(final MessageMetadata meta) {
-	    if (logger.isInfoEnabled()) {
-	        logger.info("{}: ({}) Receiving {}", getClass().getSimpleName(), shardId, meta.getPayloadType());
-	    }
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: ({}) Receiving {}", getClass().getSimpleName(), shardId, meta.getPayloadType());
+		}
 		String key = meta.getInbox() + meta.getPayloadType().getSimpleName();
 		if (logger.isDebugEnabled()) {
 		    logger.debug("{}: ({}) Looking subscribed consumer to Key: {}", getClass().getSimpleName(), shardId, key);
@@ -111,8 +111,8 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 						key);
 				return true;
 			} else {
-			    if (logger.isInfoEnabled()) {
-			        logger.info("{}: ({}) {} Subscribing channel: {} with Type: {} ",
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: ({}) {} Subscribing channel: {} with Type: {} ",
 						getClass().getSimpleName(), shardId, consumer.getClass().getSimpleName(), channel.getChannel().name(), 
 						eventType.getSimpleName());
 			    }
@@ -125,7 +125,7 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 			}
 
 			if (logger.isInfoEnabled()) {
-			    logger.debug("{}: ({}) Saving handler: {} on Key: {}", getClass().getSimpleName(),
+				logger.debug("{}: ({}) Saving handler: {} on Key: {}", getClass().getSimpleName(),
 					channel.getAddress().toString(), consumer.getClass().getSimpleName(), key);
 			}
 

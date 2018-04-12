@@ -72,7 +72,7 @@ public class Distributor implements Service {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private final Config config;
+	private final Config config;
 	private final Scheduler scheduler;
 	private final EventBroker eventBroker;
 	private final PartitionTable partitionTable;
@@ -418,8 +418,8 @@ public class Distributor implements Service {
 
 	private void logStatus() {
 		if (logger.isInfoEnabled()) {
-			StringBuilder title = new StringBuilder("Distributor (i").append(++counterForDistro).append(" by Leader: ")
-					.append(shardId.toString());
+			StringBuilder title = new StringBuilder("Distributor (i").append(++counterForDistro)
+					.append(" by Leader: ").append(shardId.toString());
 			logger.info(LogUtils.titleLine(title.toString()));
 		}
 		partitionTable.logStatus();

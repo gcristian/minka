@@ -40,9 +40,8 @@ import io.tilt.minka.utils.LogUtils;
  * @since Nov 9, 2016
  */
 public class BasicAppEmulator {
-    
-    
-    private static final Logger logger = LoggerFactory.getLogger(BasicAppEmulator.class);
+
+	private static final Logger logger = LoggerFactory.getLogger(BasicAppEmulator.class);
 
 	// TreeSet() to enter them in the default minka order: comparator by id   
 	private final Set<Duty<String>> runningDuties = new TreeSet<>();
@@ -64,21 +63,21 @@ public class BasicAppEmulator {
 	public Minka<String, String> getServer() {
 		return this.server;
 	}
-	
+
 	public void close() {
-	    if (this.server!=null) {
-	        this.server.destroy();
-	    }
+		if (this.server != null) {
+			this.server.destroy();
+		}
 	}
 	
 	public void start(final ClusterEmulatorProvider loader) throws Exception {
-	    java.util.Objects.requireNonNull(loader);
-	    
-	    final Set<Duty<String>> duties = new TreeSet<>(loader.loadDuties());
-	    final Set<Pallet<String>> pallets = new TreeSet<>(loader.loadPallets());
+		java.util.Objects.requireNonNull(loader);
 
-	    logger.info("{} Loading {} duties: {}", shardId, duties.size(), toStringGroupByPallet(duties));
-		
+		final Set<Duty<String>> duties = new TreeSet<>(loader.loadDuties());
+		final Set<Pallet<String>> pallets = new TreeSet<>(loader.loadPallets());
+
+		logger.info("{} Loading {} duties: {}", shardId, duties.size(), toStringGroupByPallet(duties));
+
 		server = new Minka<>(config);
 		server.setLocationTag(server.getClient().getShardIdentity() +"-eltag");
 		server.onPalletLoad(() -> pallets);
@@ -134,10 +133,10 @@ public class BasicAppEmulator {
 	}
 	
 	public MinkaClient<String, String> getClient() {
-	    if (this.server!=null) {
-	        return this.server.getClient();
-	    }
-	    return null;
+		if (this.server != null) {
+			return this.server.getClient();
+		}
+		return null;
 	}
 	
 	

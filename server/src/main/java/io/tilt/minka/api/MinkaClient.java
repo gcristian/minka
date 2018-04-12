@@ -160,23 +160,23 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 		final ShardEntity entity = builder.build();
 		entity.getJournal().addEvent(event, EntityState.PREPARED, 
 				this.shardId,
-                Plan.PLAN_WITHOUT);
+				Plan.PLAN_WITHOUT);
 		if (leader.inService()) {
-		    if (logger.isInfoEnabled()) {
-		        logger.info("{}: Recurring to local leader !", getClass().getSimpleName());
-		    }
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Recurring to local leader !", getClass().getSimpleName());
+			}
 			clientMediator.mediateOnEntity(entity);
 		} else {
-		    if (logger.isInfoEnabled()) {
-		        logger.info("{}: Sending {}: {} with Event: {} to leader in service", getClass().getSimpleName(), 
-					entity.getType(), raw, event);
-		    }
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Sending {}: {} with Event: {} to leader in service", 
+						getClass().getSimpleName(), entity.getType(), raw, event);
+			}
 			sent = eventBroker.send(
-			        eventBroker.buildToTarget(
-			                config, 
-			                Channel.FROM_CLIENT,
-			                leaderShardContainer.getLeaderShardId()), 
-			        entity);
+					eventBroker.buildToTarget(
+							config, 
+							Channel.FROM_CLIENT,
+							leaderShardContainer.getLeaderShardId()), 
+					entity);
 		}
 		return sent;
 	}

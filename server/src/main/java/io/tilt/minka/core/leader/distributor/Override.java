@@ -34,7 +34,7 @@ import io.tilt.minka.domain.EntityState;
  * it computes to a delta change considering currently already assigned duties on the target shard.
  */
 public class Override {
-    
+
 	private final Pallet<?> pallet;
 	private final Shard shard;
 	private final Set<ShardEntity> entities;
@@ -74,66 +74,69 @@ public class Override {
 	 
 		/* dettach anything living in the shard outside what's coming
 	    * null or empty cluster translates to: dettach all existing */
-	    private final boolean dettachDelta(
-	            final Plan plan, 
-	            final Set<ShardEntity> clusterSet, 
-	            final Shard shard, 
-	            final Set<ShardEntity> currents) {
-	        
-	        List<ShardEntity> detaching = clusterSet==null ? 
-	                new ArrayList<>(currents) :
-	                currents.stream()
-	                    .filter(i -> !clusterSet.contains(i))
-	                    .collect(Collectors.toList());
-	                
-	        if (!detaching.isEmpty()) {
-	            final StringBuilder logg = new StringBuilder(detaching.size() * 16);
-	            for (ShardEntity detach : detaching) {
-	                detach.getJournal().addEvent(EntityEvent.DETACH, 
-	                        EntityState.PREPARED, 
-	                        shard.getShardID(), 
-	                        plan.getId());
-	                plan.ship(shard, detach);
-	                logg.append(detach.getEntity().getId()).append(", ");
-	            }
-	            Migrator.log.info("{}: Shipping dettaches from: {}, duties: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
-	                detaching.size(), logg.toString());
-	            return true;
-	        }
-	        return false;
-	    }
-	    
-	    /* attach what's not already living in that shard */
-	    private final boolean attachDelta(
-	            final Plan plan, 
-	            final Set<ShardEntity> clusterSet, 
-	            final Shard shard, 
-	            final Set<ShardEntity> currents) {
-	        
-	        StringBuilder logg;
-	        if (clusterSet != null) {
-	            final List<ShardEntity> attaching = clusterSet.stream()
-	                    .filter(i -> !currents.contains(i))
-	                    .collect(Collectors.toList());
-	            if (!attaching.isEmpty()) {
-	                logg = new StringBuilder(attaching.size() * 16);
-	                for (ShardEntity attach : attaching) {
-	                    attach.getJournal().addEvent(EntityEvent.ATTACH, 
-	                            EntityState.PREPARED,
-	                            shard.getShardID(), 
-	                            plan.getId());
-	                    plan.ship(shard, attach);
-	                    logg.append(attach.getEntity().getId()).append(", ");
-	                }
-	                Migrator.log.info("{}: Shipping attaches shard: {}, duty: (#{}) {}", getClass().getSimpleName(), shard.getShardID(),
-	                    attaching.size(), logg.toString());
-	                return true;
-	            }
-	        }
-	        return false;
-	    }
-	    
-    
+	private final boolean dettachDelta(
+			final Plan plan, 
+			final Set<ShardEntity> clusterSet, 
+			final Shard shard, 
+			final Set<ShardEntity> currents) {
+
+		List<ShardEntity> detaching = clusterSet == null ? new ArrayList<>(currents) : currents.stream()
+				.filter(i -> !clusterSet.contains(i))
+				.collect(Collectors.toList());
+
+		if (!detaching.isEmpty()) {
+			final StringBuilder logg = new StringBuilder(detaching.size() * 16);
+			for (ShardEntity detach : detaching) {
+				detach.getJournal().addEvent(EntityEvent.DETACH,
+						EntityState.PREPARED,
+						shard.getShardID(),
+						plan.getId());
+				plan.ship(shard, detach);
+				logg.append(detach.getEntity().getId()).append(", ");
+			}
+			Migrator.log.info("{}: Shipping dettaches from: {}, duties: (#{}) {}",
+					getClass().getSimpleName(),
+					shard.getShardID(),
+					detaching.size(),
+					logg.toString());
+			return true;
+		}
+		return false;
+	}
+
+	/* attach what's not already living in that shard */
+	private final boolean attachDelta(
+			final Plan plan, 
+			final Set<ShardEntity> clusterSet, 
+			final Shard shard, 
+			final Set<ShardEntity> currents) {
+
+		StringBuilder logg;
+		if (clusterSet != null) {
+			final List<ShardEntity> attaching = clusterSet.stream()
+					.filter(i -> !currents.contains(i))
+					.collect(Collectors.toList());
+			if (!attaching.isEmpty()) {
+				logg = new StringBuilder(attaching.size() * 16);
+				for (ShardEntity attach : attaching) {
+					attach.getJournal().addEvent(EntityEvent.ATTACH,
+							EntityState.PREPARED,
+							shard.getShardID(),
+							plan.getId());
+					plan.ship(shard, attach);
+					logg.append(attach.getEntity().getId()).append(", ");
+				}
+				Migrator.log.info("{}: Shipping attaches shard: {}, duty: (#{}) {}",
+						getClass().getSimpleName(),
+						shard.getShardID(),
+						attaching.size(),
+						logg.toString());
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public int hashCode() {
 		final int prime = 31;
 		int res = 1;
@@ -142,30 +145,27 @@ public class Override {
 		return res;
 	}
 
-    @java.lang.Override
-    public boolean equals(final Object obj) {
-    	if (obj==null || !(obj instanceof Override)) {
-    		return false;
-    	} else if (obj == this) {
-    		return true;
-    	} else {
-    		final Override o = (Override)obj;
-    		return o.getShard().equals(shard)
-    				&& o.getEntities().equals(entities);
-    		
-    	}
-    }
-    
-    @java.lang.Override
-    public String toString() {
-    	final StringBuilder sb = new StringBuilder("override shard:");
-    	sb.append(shard).append(", entities:");
-    	for (ShardEntity se: entities) {
-    		sb.append(se.toBrief()).append(',');
-    	}
-    	return sb.toString();
-    }
-    
-    
-    
+	@java.lang.Override
+	public boolean equals(final Object obj) {
+		if (obj == null || !(obj instanceof Override)) {
+			return false;
+		} else if (obj == this) {
+			return true;
+		} else {
+			final Override o = (Override) obj;
+			return o.getShard().equals(shard) && o.getEntities().equals(entities);
+
+		}
+	}
+
+	@java.lang.Override
+	public String toString() {
+		final StringBuilder sb = new StringBuilder("override shard:");
+		sb.append(shard).append(", entities:");
+		for (ShardEntity se : entities) {
+			sb.append(se.toBrief()).append(',');
+		}
+		return sb.toString();
+	}
+
 }

@@ -101,24 +101,21 @@ public interface EventBroker extends Service {
 	boolean send(BrokerChannel channel, List<Serializable> event);
 
 	/* idem overriding channel type */
-	boolean send(
-	        BrokerChannel channel, 
-	        ChannelHint hint, 
-	        Serializable event);
+	boolean send(BrokerChannel channel, ChannelHint hint, Serializable event);
 
 	/* use a driver to handle events of a certain type */
 	boolean subscribe(
-	        BrokerChannel channel, 
-	        Class<? extends Serializable> type, 
-	        Consumer<Serializable> driver,
+			BrokerChannel channel, 
+			Class<? extends Serializable> type, 
+			Consumer<Serializable> driver,
 			long sinceTimestamp);
 
 	@SuppressWarnings("unchecked")
-    void subscribeEvents(
-    		BrokerChannel channel, 
-    		Consumer<Serializable> driver, 
-    		long sinceNowLapse, 
-    		Class<? extends Serializable>...classes);
+	void subscribeEvents(
+			BrokerChannel channel, 
+			Consumer<Serializable> driver, 
+			long sinceNowLapse, 
+			Class<? extends Serializable>... classes);
 
 	/* unregister the driver handling events of a certain type */
 	boolean unsubscribe(

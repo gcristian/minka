@@ -124,7 +124,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 
 	@Override
 	public boolean inService() {
-	    return this.start!=null;
+		return this.start!=null;
 	}
 	
 	@Override

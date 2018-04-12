@@ -38,102 +38,102 @@ import io.tilt.minka.utils.CollectionUtils;
  */
 public class TransportlessLeaderShardContainer implements LeaderShardContainer {
 
-		private final Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-		private final ShardIdentifier myShardId;
+	private final ShardIdentifier myShardId;
 
-		private NetworkShardIdentifier leaderShardId;
-		private NetworkShardIdentifier lastLeaderShardId;
-		private Queue<NetworkShardIdentifier> previousLeaders;
-		private Set<Consumer<NetworkShardIdentifier>> observers;
+	private NetworkShardIdentifier leaderShardId;
+	private NetworkShardIdentifier lastLeaderShardId;
+	private Queue<NetworkShardIdentifier> previousLeaders;
+	private Set<Consumer<NetworkShardIdentifier>> observers;
 
-		public TransportlessLeaderShardContainer(final ShardIdentifier myShardId) {
-            this.myShardId = myShardId;
-			this.previousLeaders = new CollectionUtils.SynchronizedSlidingQueue<NetworkShardIdentifier>(10);
-			this.observers = new HashSet<>();
+	public TransportlessLeaderShardContainer(final ShardIdentifier myShardId) {
+        this.myShardId = myShardId;
+		this.previousLeaders = new CollectionUtils.SynchronizedSlidingQueue<NetworkShardIdentifier>(10);
+		this.observers = new HashSet<>();
+	}
+
+	public ShardIdentifier getMyShardId() {
+		return this.myShardId;
+	}
+
+	public final void observeForChange(final Consumer<NetworkShardIdentifier> consumer) {
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: ({}) Adding to observation group: {} (hash {})", getName(), myShardId, consumer, consumer
+					.hashCode());
 		}
+		this.observers.add(consumer);
 
-		public ShardIdentifier getMyShardId() {
-			return this.myShardId;
+		// already elected then tell him 
+		if (leaderShardId != null) {
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: ({}) Leader election already happened !: calling {} for consumption (hash {})", 
+						getName(), myShardId, consumer, consumer.hashCode());
+			}
+			consumer.accept(leaderShardId);
 		}
+	}
 
-		public final void observeForChange(final Consumer<NetworkShardIdentifier> consumer) {
-		    if (logger.isInfoEnabled()) {
-		        logger.info("{}: ({}) Adding to observation group: {} (hash {})", getName(), myShardId,
-						consumer, consumer.hashCode());
-		    }
-			this.observers.add(consumer);
-
-			// already elected then tell him 
-			if (leaderShardId != null) {
-			    if (logger.isInfoEnabled()) {
-			        logger.info("{}: ({}) Leader election already happened !: calling {} for consumption (hash {})",
-			                getName(), myShardId, consumer, consumer.hashCode());
+	@Override
+	public void setNewLeader(final NetworkShardIdentifier newLeader) {
+		Validate.notNull(newLeader, "Cannot set a Null leader !");
+		try {
+			boolean firstLeader = lastLeaderShardId == null;
+			if (!firstLeader && lastLeaderShardId.equals(newLeader)) {
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: ({}) same Leader {} reelected, skipping observer notification",
+							getName(), myShardId, this.leaderShardId.getId());
 			    }
-				consumer.accept(leaderShardId);
-			}
-		}
-
-		@Override
-		public void setNewLeader(final NetworkShardIdentifier newLeader) {
-			Validate.notNull(newLeader, "Cannot set a Null leader !");
-			try {
-				boolean firstLeader = lastLeaderShardId == null;
-				if (!firstLeader && lastLeaderShardId.equals(newLeader)) {
-				    if (logger.isInfoEnabled()) {
-						logger.info("{}: ({}) same Leader {} reelected, skipping observer notification",
-						        getName(), myShardId, this.leaderShardId.getId());
-				    }
-					previousLeaders.add(leaderShardId);
-				} else {
-				    if (logger.isInfoEnabled()) {
-						logger.info("{}: ({}) Updating new Leader elected: {}", getName(), myShardId, newLeader);
-				    }
-					if (!firstLeader) {
-						previousLeaders.add(leaderShardId);
-					}
-					leaderShardId = newLeader;
-					for (Consumer<NetworkShardIdentifier> o : this.observers) {
-					    if (logger.isInfoEnabled()) {
-					        logger.info("{}: ({}) Notifying observer: {}", getName(), myShardId,
-									o.getClass().getSimpleName());
-					    }
-						o.accept(this.leaderShardId);
-					}
-					lastLeaderShardId = newLeader;
+				previousLeaders.add(leaderShardId);
+			} else {
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: ({}) Updating new Leader elected: {}", getName(), myShardId, newLeader);
 				}
-			} catch (Exception e) {
-				logger.error("{}: ({}) LeaderShardContainer: unexpected error", getName(), myShardId, e);
+				if (!firstLeader) {
+					previousLeaders.add(leaderShardId);
+				}
+				leaderShardId = newLeader;
+				for (Consumer<NetworkShardIdentifier> o : this.observers) {
+				    if (logger.isInfoEnabled()) {
+				        logger.info("{}: ({}) Notifying observer: {}", getName(), myShardId,
+								o.getClass().getSimpleName());
+				    }
+					o.accept(this.leaderShardId);
+				}
+				lastLeaderShardId = newLeader;
 			}
+		} catch (Exception e) {
+			logger.error("{}: ({}) LeaderShardContainer: unexpected error", getName(), myShardId, e);
 		}
+	}
 
-		public final NetworkShardIdentifier getPreviousLeaderShardId() {
-			return previousLeaders.peek();
-		}
+	public final NetworkShardIdentifier getPreviousLeaderShardId() {
+		return previousLeaders.peek();
+	}
 
-		public final NetworkShardIdentifier getLeaderShardId() {
-			return this.leaderShardId;
-		}
+	public final NetworkShardIdentifier getLeaderShardId() {
+		return this.leaderShardId;
+	}
 
-		@Override
-		public final List<NetworkShardIdentifier> getAllPreviousLeaders() {
-			// TODO
-			return null;
-		}
+	@Override
+	public final List<NetworkShardIdentifier> getAllPreviousLeaders() {
+		// TODO
+		return null;
+	}
 
-		@Override
-		public boolean imLeader() {
-			return this.myShardId.equals(leaderShardId);
-		}
+	@Override
+	public boolean imLeader() {
+		return this.myShardId.equals(leaderShardId);
+	}
 
-        @Override
-        public void start() {
-            // TODO Auto-generated method stub
-        }
+	@Override
+	public void start() {
+		// TODO Auto-generated method stub
+	}
 
-        @Override
-        public void stop() {
-            // TODO Auto-generated method stub     
-        }
+	@Override
+	public void stop() {
+		// TODO Auto-generated method stub
+	}
 
 }

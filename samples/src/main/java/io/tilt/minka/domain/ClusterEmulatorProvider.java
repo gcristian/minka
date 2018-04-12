@@ -27,13 +27,10 @@ import io.tilt.minka.api.Pallet;
  * every time a different shard takes leadership role, and reports specific capacities for every shard configured. 
  */
 public interface ClusterEmulatorProvider {
-	
-    Set<Duty<String>> loadDuties();
 
-    Set<Pallet<String>> loadPallets();
-    
-    double loadShardCapacity(
-    		Pallet<String> pallet, 
-    		Set<Duty<String>> allDuties, 
-    		String shardIdentifier);	    
+	Set<Duty<String>> loadDuties();
+
+	Set<Pallet<String>> loadPallets();
+
+	double loadShardCapacity(Pallet<String> pallet, Set<Duty<String>> allDuties, String shardIdentifier);	    
 }

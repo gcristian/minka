@@ -51,36 +51,38 @@ class Transfer {
 		return target;
 	}
 	
-    /* dettach in prev. source, attach to next target */
-    boolean apply(final Plan plan, final PartitionTable table) {
-        final ShardEntity entity = getEntity();
-        final Shard location = table.getScheme().getDutyLocation(entity);
-        if (location!=null && location.equals(target)) {
-            Migrator.log.info("{}: Transfers mean no change for Duty: {}", getClass().getSimpleName(), toString());
-            return false;
-        }
-        if (source!=null) {
-            getEntity().getJournal().addEvent(EntityEvent.DETACH, 
-                    EntityState.PREPARED, 
-                    location.getShardID(), 
-                    plan.getId());
-            plan.ship(source, entity);
-        }
-        
-        // TODO this's not longer neccesary: previously there was not a LogList object  
-        
-        final ShardEntity assign = ShardEntity.Builder.builderFrom(entity).build();
-        assign.getJournal().addEvent(EntityEvent.ATTACH, 
-                EntityState.PREPARED,
-                target.getShardID(), 
-                plan.getId());
-        plan.ship(target, assign);
-        
-        Migrator.log.info("{}: Shipping transfer from: {} to: {}, Duty: {}", getClass().getSimpleName(),
-                source!=null ? source.getShardID() : "[new]", target.getShardID(), assign.toString());
-        return true;
-    }
-    
+	/* dettach in prev. source, attach to next target */
+	boolean apply(final Plan plan, final PartitionTable table) {
+		final ShardEntity entity = getEntity();
+		final Shard location = table.getScheme().getDutyLocation(entity);
+		if (location != null && location.equals(target)) {
+			Migrator.log.info("{}: Transfers mean no change for Duty: {}", getClass().getSimpleName(), toString());
+			return false;
+		}
+		if (source != null) {
+			getEntity().getJournal().addEvent(EntityEvent.DETACH,
+					EntityState.PREPARED,
+					location.getShardID(),
+					plan.getId());
+			plan.ship(source, entity);
+		}
+
+		// TODO this's not longer neccesary: previously there was not a LogList object
+
+		final ShardEntity assign = ShardEntity.Builder.builderFrom(entity).build();
+		assign.getJournal().addEvent(EntityEvent.ATTACH,
+				EntityState.PREPARED,
+				target.getShardID(),
+				plan.getId());
+		plan.ship(target, assign);
+
+		Migrator.log.info("{}: Shipping transfer from: {} to: {}, Duty: {}",
+				getClass().getSimpleName(),
+				source != null ? source.getShardID() : "[new]",
+				target.getShardID(),
+				assign.toString());
+		return true;
+	}
 
 	public int hashCode() {
 		final int prime = 31;

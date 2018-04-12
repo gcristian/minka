@@ -81,18 +81,18 @@ public class SchemeViews {
 		return mapper.writeValueAsString(o);
 	}
 
-    public String shardsToJson(final PartitionTable table) throws JsonProcessingException {
-        Validate.notNull(table);
-        return mapper.writeValueAsString(buildShards(table));
-    }
+	public String shardsToJson(final PartitionTable table) throws JsonProcessingException {
+		Validate.notNull(table);
+		return mapper.writeValueAsString(buildShards(table));
+	}
 
-    public Map<String, Object> buildShards(final PartitionTable table) {
-        Validate.notNull(table);
-        final Map<String, Object> map = new LinkedHashMap<>();
-        map.put("leaderShardId", leaderShardContainer.getLeaderShardId());
-        map.put("shards", table.getScheme().getShards());
-        return map;
-    }
+	public Map<String, Object> buildShards(final PartitionTable table) {
+		Validate.notNull(table);
+		final Map<String, Object> map = new LinkedHashMap<>();
+		map.put("leaderShardId", leaderShardContainer.getLeaderShardId());
+		map.put("shards", table.getScheme().getShards());
+		return map;
+	}
 
 	public String distributionToJson(final PartitionTable table) throws JsonProcessingException {
 		Validate.notNull(table);
@@ -110,9 +110,10 @@ public class SchemeViews {
 	public String dutiesToJson(final PartitionTable table) throws JsonProcessingException {
 		return elementToJson(buildDuties(table, false));
 	}
+
 	public String entitiesToJson(final PartitionTable table) throws JsonProcessingException {
-        return elementToJson(buildDuties(table, true));
-    }
+		return elementToJson(buildDuties(table, true));
+	}
 	private List<Object> buildDuties(final PartitionTable table, boolean entities) {
 		Validate.notNull(table);
 		final List<Object> ret = new ArrayList<>();
@@ -132,7 +133,7 @@ public class SchemeViews {
 		
 		for (final ShardEntity pallet: extractor.getPallets()) {
 			final Set<ShardEntity> crud = table.getBackstage()
-			        .getDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED).stream()
+					.getDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED).stream()
 					.filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId()))
 					.collect(Collectors.toSet());
 								
@@ -141,16 +142,16 @@ public class SchemeViews {
 
 			final List<DutyView> dutyRepList = new ArrayList<>();
 			table.getScheme().getDutiesByPallet(pallet.getPallet())
-			    .forEach(d->dutyRepList.add(
-			            new DutyView(
-			                    d.getDuty().getId(), 
-			                    d.getDuty().getWeight())));
+					.forEach(d -> dutyRepList.add(
+							new DutyView(
+									d.getDuty().getId(),
+									d.getDuty().getWeight())));
 			
 			ret.add(palletView(
-			            pallet.getPallet().getId(), 
-			            extractor.getCapacityTotal(pallet.getPallet()), 
-			            extractor.getSizeTotal(pallet.getPallet()), 
-			            extractor.getWeightTotal(pallet.getPallet()), 
+						pallet.getPallet().getId(),
+						extractor.getCapacityTotal(pallet.getPallet()),
+						extractor.getSizeTotal(pallet.getPallet()),
+						extractor.getWeightTotal(pallet.getPallet()),
 						pallet.getPallet().getMetadata().getBalancer().getName(), 
 						crud.size(), 
 						dettachedWeight.get(), 
@@ -163,30 +164,30 @@ public class SchemeViews {
 	}
 
 	private static List<Map<String, Object>> buildShardRep(final PartitionTable table) {	    
-	    final List<Map<String, Object>> ret = new LinkedList<>();
-	    final SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
-	    for (final Shard shard: extractor.getShards()) {
+		final List<Map<String, Object>> ret = new LinkedList<>();
+		final SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
+		for (final Shard shard : extractor.getShards()) {
 			final List<Map<String , Object>> palletsAtShard =new LinkedList<>();
 			
 			for (final ShardEntity pallet: extractor.getPallets()) {
 				final Set<ShardEntity> duties = table.getScheme().getDutiesByShard(pallet.getPallet(), shard);
 				final List<DutyView> dutyRepList = new LinkedList<>();
 				duties.forEach(d->dutyRepList.add(
-				        new DutyView(
-				                d.getDuty().getId(), 
-				                d.getDuty().getWeight())));
+						new DutyView(
+								d.getDuty().getId(),
+								d.getDuty().getWeight())));
 				palletsAtShard.add(
-				        palletAtShardView(
-				                pallet.getPallet().getId(), 
-				                extractor.getCapacity(pallet.getPallet(), shard),
-				                duties.size(), 
-				                extractor.getWeight(pallet.getPallet(), shard), 
-				                dutyRepList));
+						palletAtShardView(
+								pallet.getPallet().getId(),
+								extractor.getCapacity(pallet.getPallet(), shard),
+								duties.size(),
+								extractor.getWeight(pallet.getPallet(), shard),
+								dutyRepList));
 				
 			}
 			ret.add(shardView(
-			        shard.getShardID().getId(), 
-			        shard.getFirstTimeSeen(), 
+					shard.getShardID().getId(),
+					shard.getFirstTimeSeen(),
 					palletsAtShard, 
 					shard.getState().toString()));
 		}
@@ -194,7 +195,7 @@ public class SchemeViews {
 	}
 
 	private static Map<String, Object> buildGlobal(final PartitionTable table) {
-	    SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
+		SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
 		final int unstaged = table.getBackstage().getDutiesCrud(EntityEvent.CREATE, null).size();
 		final int staged = extractor.getSizeTotal();		
 		final Map<String, Object> map = new LinkedHashMap<>();
@@ -208,10 +209,10 @@ public class SchemeViews {
 	
 	
 	private static Map<String, Object> shardView(
-	        final String shardId, 
-	        final DateTime creation, 
-	        final List<Map<String , Object>> pallets, 
-	        final String status) {
+			final String shardId, 
+			final DateTime creation, 
+			final List<Map<String, Object>> pallets, 
+			final String status) {
 			
 		final Map<String, Object> map = new LinkedHashMap<>();
 		map.put("shard-id", shardId);
@@ -223,9 +224,9 @@ public class SchemeViews {
 	
 	
 	private static Map<String , Object> palletAtShardView (
-	        final String id, final double capacity, final int size, final double weight, 
-            final List<DutyView> duties) {
-	    
+			final String id, final double capacity, final int size, final double weight, 
+			final List<DutyView> duties) {
+
 		final Map<String , Object> map = new LinkedHashMap<>();
 		map.put("id", id);
 		map.put("size", size);
@@ -248,9 +249,9 @@ public class SchemeViews {
 	}
 	
 	private static Map<String, Object> palletView(final String id, final double capacity, final int stagedSize, 
-	        final double stagedWeight, final String balancer, final int unstagedSize, 
-	        final double unstagedWeight, final DateTime creation, final BalancerMetadata meta, 
-	        final List<DutyView> duties) {
+			final double stagedWeight, final String balancer, final int unstagedSize, 
+			final double unstagedWeight, final DateTime creation, final BalancerMetadata meta, 
+			final List<DutyView> duties) {
 		
 		final Map<String, Object> map = new LinkedHashMap<>();
 		map.put("id", id);
@@ -258,13 +259,13 @@ public class SchemeViews {
 		map.put("cluster-capacity", capacity);
 		map.put("size-staged", stagedSize);
 		map.put("size-unstaged", unstagedSize);
-        map.put("weight-staged", stagedWeight);
+		map.put("weight-staged", stagedWeight);
 		map.put("weight-unstaged", unstagedWeight);
 		String str = "0";
-        if (unstagedSize + stagedSize > 0 && stagedSize > 0) {
-            str = String.valueOf((stagedSize*100) / (unstagedSize + stagedSize)) ;
-        }
-        map.put("allocation", str + "%");
+		if (unstagedSize + stagedSize > 0 && stagedSize > 0) {
+			str = String.valueOf((stagedSize*100) / (unstagedSize + stagedSize)) ;
+		}
+		map.put("allocation", str + "%");
 		map.put("creation", creation.toString());
 		map.put("balancer-metadata", meta);
 		map.put("balancer", balancer);

@@ -103,12 +103,13 @@ public class AdminEndpoint {
 	public Response duties() throws JsonProcessingException {
 		return Response.accepted(views.dutiesToJson(table)).build();
 	}
-    @GET
-    @Path("/entities")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response entities() throws JsonProcessingException {
-        return Response.accepted(views.entitiesToJson(table)).build();
-    }
+
+	@GET
+	@Path("/entities")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response entities() throws JsonProcessingException {
+		return Response.accepted(views.entitiesToJson(table)).build();
+	}
 
 	@GET
 	@Path("/plans")

@@ -66,13 +66,13 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	 */
 	@Override
 	public void accept(final Heartbeat beat, final Shard shard) {
-	    if (beat.getStateChange()!=null) {
-	        shardStateChange(shard, shard.getState(), beat.getStateChange());
-	        if (beat.getStateChange() == ShardState.QUITTED) {
-	            return;
-	        }
-	    }
-	    
+		if (beat.getStateChange() != null) {
+			shardStateChange(shard, shard.getState(), beat.getStateChange());
+			if (beat.getStateChange() == ShardState.QUITTED) {
+				return;
+			}
+		}
+
 		shard.enterHeartbeat(beat);
 		if (beat.getCapacities()!=null) {
 			shard.setCapacities(beat.getCapacities());
@@ -85,7 +85,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 				schemeWriter.detectChanges(delivery, plan, beat, shard);
 			} else if (logger.isInfoEnabled()){
 				logger.info("{}: no pending Delivery for heartbeat's shard: {}", 
-		            getClass().getSimpleName(), shard.getShardID().toString());
+						getClass().getSimpleName(), shard.getShardID().toString());
 			}			
 		} else if (plan == null && beat.reportsDuties()) {
 			// there's been a change of leader: i'm initiating with older followers
@@ -146,9 +146,9 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 							foundAsDangling ? EntityState.DANGLING : EntityState.MISSING, 
 							null, // the last shard id 
 							duty.getJournal().getLast().getPlanId());
-				    if (sortedLog==null) {
-				        sortedLog = new TreeSet<>();
-				    }
+					if (sortedLog==null) {
+						sortedLog = new TreeSet<>();
+					}
 					sortedLog.add(duty);
 				}
 			}
@@ -160,7 +160,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	}
 	
 
-    private void detectInvalidShards(final Shard sourceShard, final List<ShardEntity> reportedCapturedDuties) {
+	private void detectInvalidShards(final Shard sourceShard, final List<ShardEntity> reportedCapturedDuties) {
 		for (final ShardEntity e : reportedCapturedDuties) {
 			final Shard should = partitionTable.getScheme().getDutyLocation(e);
 			if (should==null) {
@@ -211,10 +211,10 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		return shardLocation != null && shardLocation.getState().isAlive();
 	}
 
-    private boolean presentInPartition(final Duty<?> duty) {
-        final Shard shardLocation = partitionTable.getScheme().getDutyLocation(duty);
-        return shardLocation != null && shardLocation.getState().isAlive();
-    }
+	private boolean presentInPartition(final Duty<?> duty) {
+		final Shard shardLocation = partitionTable.getScheme().getDutyLocation(duty);
+		return shardLocation != null && shardLocation.getState().isAlive();
+	}
 
 	public void enterDutiesFromSource(final List<Duty<?>> dutiesFromSource) {
 		Set<Duty<?>> sortedLog = null;
@@ -223,17 +223,17 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			final Duty<?> duty = it.next();
 			final ShardEntity pallet = partitionTable.getScheme().getPalletById(duty.getPalletId());
 			if (presentInPartition(duty)) {
-			    if (sortedLog==null) {
-			        sortedLog = new TreeSet<>();
-			    }
+				if (sortedLog == null) {
+					sortedLog = new TreeSet<>();
+				}
 				sortedLog.add(duty);
 				it.remove();
 			} else {
 				if (pallet!=null) {
-				    final ShardEntity newone = ShardEntity.Builder
-				            .builder(duty)
-				            .withRelatedEntity(pallet)
-				            .build();
+					final ShardEntity newone = ShardEntity.Builder
+							.builder(duty)
+							.withRelatedEntity(pallet)
+							.build();
 					if (partitionTable.getBackstage().addCrudDuty(newone)) {
 						if (logger.isInfoEnabled()) {
 							logger.info("{}: Adding New Duty: {}", getClass().getSimpleName(), newone);

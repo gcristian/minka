@@ -102,10 +102,9 @@ public class FairWeightBalancer implements Balancer {
 	 * this algorithm makes the best effort allocating all duties over it's fairness formula
 	 * also fixing division remainders, but without overwhelming shards. 
 	 */
-	public void balance(
-	        final Pallet<?> pallet,
-	        final Map<NetworkLocation, Set<Duty<?>>> scheme,
-	        final Map<EntityEvent, Set<Duty<?>>> backstage,
+	public void balance(final Pallet<?> pallet, 
+			final Map<NetworkLocation, Set<Duty<?>>> scheme, 
+			final Map<EntityEvent, Set<Duty<?>>> backstage,
 			final Migrator migrator) {
 
 		final Metadata meta = (Metadata)pallet.getMetadata();
@@ -119,14 +118,14 @@ public class FairWeightBalancer implements Balancer {
 			if (bascules==null) {
 				return;
 			} else if (bascules.isEmpty()) {
-			    //for (final Iterator<Duty<?>> itDuties = duties.iterator(); itDuties.hasNext(); 
-		        //    migrator.stuck(itDuties.next(), null));
+				// for (final Iterator<Duty<?>> itDuties = duties.iterator();itDuties.hasNext();
+				// migrator.stuck(itDuties.next(), null));
 				return;
 			}
-    		final Iterator<Bascule<NetworkLocation, Duty<?>>> itBascs = bascules.iterator();
-    		final Iterator<Duty<?>> itDuties = duties.iterator();
-    		Duty<?> duty = null;
-    		boolean lifted = true;
+			final Iterator<Bascule<NetworkLocation, Duty<?>>> itBascs = bascules.iterator();
+			final Iterator<Duty<?>> itDuties = duties.iterator();
+			Duty<?> duty = null;
+			boolean lifted = true;
 			while (itBascs.hasNext()) {
 				final Bascule<NetworkLocation, Duty<?>> bascule = itBascs.next();
 				while (itDuties.hasNext() || !lifted) {
@@ -156,23 +155,23 @@ public class FairWeightBalancer implements Balancer {
 					}
 				}
 			}
-    		if (itDuties.hasNext()) {
-    			logger.error("{}: Insufficient cluster capacity for Pallet: {}, remaining duties without distribution {}", 
-    				getClass().getSimpleName(), pallet, duty.getId());
-    			while (itDuties.hasNext()) {
-    				migrator.stuck(itDuties.next(), null);
-			    }
-    		}
+			if (itDuties.hasNext()) {
+				logger.error("{}: Insufficient cluster capacity for Pallet: {}, remaining duties without distribution {}",
+						getClass().getSimpleName(), pallet, duty.getId());
+				while (itDuties.hasNext()) {
+					migrator.stuck(itDuties.next(), null);
+				}
+			}
 		} else {
 			logger.error("{}: Out of sleeping budget !");
 		}
 	}
 
 	private final Set<Bascule<NetworkLocation, Duty<?>>> buildBascules(
-	        final Pallet<?> pallet, 
-	        final Set<NetworkLocation> onlineShards, 
-	        final Set<Duty<?>> duties) {
-	    
+			final Pallet<?> pallet, 
+			final Set<NetworkLocation> onlineShards, 
+			final Set<Duty<?>> duties) {
+
 		final Bascule<NetworkLocation, Duty<?>> whole = new Bascule<>();
 		duties.forEach(d->whole.lift(d.getWeight()));
 		Set<Bascule<NetworkLocation, Duty<?>>> bascules = new LinkedHashSet<>();

@@ -196,14 +196,14 @@ public class SocketServer {
 	private void shutdown() {
 		if (this.shutdownCallback != null) {
 			try {
-			    if (logger.isInfoEnabled()) {
-			        logger.info("{}: ({}) Executing shutdown callback: {}", getClass().getSimpleName(),
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: ({}) Executing shutdown callback: {}", getClass().getSimpleName(),
 						shutdownCallback.getClass().getSimpleName(), loggingName);
-			    }
+				}
 				shutdownCallback.run();
 			} catch (Exception e) {
 				logger.error("{}: ({}) Unexpected while executing shutdown callback", 
-				        getClass().getSimpleName(), loggingName, e);
+						getClass().getSimpleName(), loggingName, e);
 			}
 		}
 		close();

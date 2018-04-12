@@ -168,8 +168,9 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	
 	@JsonIgnore
 	public DateTime getCreation() {
-        return this.creation;
-    }
+		return this.creation;
+	}
+
 	@JsonProperty(index=3, value="creation")
 	private String getCreation_() {
 		return this.creation.toString();
@@ -182,8 +183,8 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	
 	@JsonIgnore
 	public DateTime getReception() {
-        return this.reception;
-    }
+		return this.reception;
+	}
 	
 	@JsonProperty(index=5, value="reception")
 	private String getReception_() {

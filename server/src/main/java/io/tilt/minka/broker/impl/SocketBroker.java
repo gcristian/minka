@@ -70,16 +70,16 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	private Map<DirectChannel, SocketClient> clients;
 
 	public SocketBroker(
-	        final Config config, 
-	        final NetworkShardIdentifier shardId, 
-	        final LeaderShardContainer leaderContainerShard,
-	        final Scheduler scheduler) {
+			final Config config, 
+			final NetworkShardIdentifier shardId, 
+			final LeaderShardContainer leaderContainerShard,
+			final Scheduler scheduler) {
 
 		super(shardId);
 		this.config = requireNonNull(config);
 		this.scheduler = requireNonNull(scheduler);
 		this.leaderShardContainer = requireNonNull(leaderContainerShard);
-        this.clients = new HashMap<>();
+		this.clients = new HashMap<>();
 	}
 
 	@Override

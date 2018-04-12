@@ -34,17 +34,16 @@ public class FileDatasetEmulator {
 		
 	}
 
-    protected static DatasetEmulator fromFile(final String clusterDefinitionFilepath) 
-            throws FileNotFoundException, IOException, Exception {
-    	
-        // Read a dataset file into a properties
-        final FileInputStream fis = new FileInputStream(clusterDefinitionFilepath);
-        final Properties prop = new Properties();
-        prop.load(fis);
-        fis.close();
-        
-        return new DatasetEmulator(prop);
-    }
-	    
-    
+	protected static DatasetEmulator fromFile(final String clusterDefinitionFilepath) 
+			throws FileNotFoundException, IOException, Exception {
+
+		// Read a dataset file into a properties
+		final FileInputStream fis = new FileInputStream(clusterDefinitionFilepath);
+		final Properties prop = new Properties();
+		prop.load(fis);
+		fis.close();
+
+		return new DatasetEmulator(prop);
+	}
+
 }

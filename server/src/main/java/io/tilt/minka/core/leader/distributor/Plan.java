@@ -98,62 +98,62 @@ public class Plan implements Comparable<Plan> {
 	private Instant ended;
 	private Result result = Result.RUNNING;
 	private int retryCounter;
-    
-    protected Plan(final long id, final long maxMillis, final int maxRetries) {
-        this.id = id;
-        this.created = Instant.now();
-        this.shippings = new HashMap<>();
-        this.deliveries = new ArrayList<>();
-        this.maxMillis = maxMillis;
-        this.maxRetries = maxRetries;
-    }
 
-    public Plan(final long maxMillis, final int maxRetries) {
-        this(sequence.incrementAndGet(), maxMillis, maxRetries);
-    }
-    
-    public void discard() {
-    	sequence.decrementAndGet();
-    }
-        
-    public static enum Result {
-    	/* still a running plan */
-    	RUNNING,
-    	/* resending deliveries for a nth time */
-    	RETRYING,
-    	/* all deliveries passed from enqueued to pending and confirmed */
-    	CLOSED_APPLIED,
-    	/* plan contains invalid shippings unable to deliver */
-    	CLOSED_ERROR,
-    	/* some deliveries became obsolete/impossible, rebuilding is required */
-    	CLOSED_OBSOLETE,
-    	/* some deliveries were never confirmed beyond retries/waiting limits */
-    	CLOSED_EXPIRED
-    	;
+	protected Plan(final long id, final long maxMillis, final int maxRetries) {
+		this.id = id;
+		this.created = Instant.now();
+		this.shippings = new HashMap<>();
+		this.deliveries = new ArrayList<>();
+		this.maxMillis = maxMillis;
+		this.maxRetries = maxRetries;
+	}
 
-    	public boolean isSuccess() {
-    		return this == CLOSED_APPLIED;
-    	}
-    	public boolean isClosed() {
-    	    return this != RUNNING && this !=RETRYING;
-    	}
-    }
-    
-    public void obsolete() {
-    	this.result = Result.CLOSED_OBSOLETE;
-    	logger.warn("{}: Plan going {}", getClass().getSimpleName(), result);
-    	this.ended = Instant.now();
-    }
+	public Plan(final long maxMillis, final int maxRetries) {
+		this(sequence.incrementAndGet(), maxMillis, maxRetries);
+	}
 
-    public Result getResult() {
+	public void discard() {
+		sequence.decrementAndGet();
+	}
+
+	public static enum Result {
+		/* still a running plan */
+		RUNNING,
+		/* resending deliveries for a nth time */
+		RETRYING,
+		/* all deliveries passed from enqueued to pending and confirmed */
+		CLOSED_APPLIED,
+		/* plan contains invalid shippings unable to deliver */
+		CLOSED_ERROR,
+		/* some deliveries became obsolete/impossible, rebuilding is required */
+		CLOSED_OBSOLETE,
+		/* some deliveries were never confirmed beyond retries/waiting limits */
+		CLOSED_EXPIRED;
+
+		public boolean isSuccess() {
+			return this == CLOSED_APPLIED;
+		}
+
+		public boolean isClosed() {
+			return this != RUNNING && this != RETRYING;
+		}
+	}
+
+	public void obsolete() {
+		this.result = Result.CLOSED_OBSOLETE;
+		logger.warn("{}: Plan going {}", getClass().getSimpleName(), result);
+		this.ended = Instant.now();
+	}
+
+	public Result getResult() {
 		return this.result;
 	}
-    
+
 	@JsonIgnore
 	public List<Delivery> getAllPendings() {
-	    return deliveries.stream()
-	            .filter(d->d.getStep()==Delivery.Step.PENDING)
-	            .collect(Collectors.toList());
+		return deliveries.stream()
+				.filter(d -> d.getStep() == Delivery.Step.PENDING)
+				.collect(Collectors.toList());
 	}
 	
 	@JsonIgnore
@@ -177,17 +177,17 @@ public class Plan implements Comparable<Plan> {
 	}
 		
 	public Delivery getDelivery(final Shard shard) {
-	    return deliveries.stream()
-	        .filter(d->d.getStep()==Delivery.Step.PENDING && d.getShard().equals(shard))
-	        .findFirst()
-	        .orElse(null);
+		return deliveries.stream()
+				.filter(d -> d.getStep() == Delivery.Step.PENDING && d.getShard().equals(shard))
+				.findFirst()
+				.orElse(null);
 	}
-	
+
 	private static List<EntityEvent> consistentEventsOrder = Arrays.asList(
-	        EntityEvent.REMOVE, 
-	        EntityEvent.DETACH, 
-	        EntityEvent.CREATE, 
-	        EntityEvent.ATTACH);
+			EntityEvent.REMOVE,
+			EntityEvent.DETACH,
+			EntityEvent.CREATE,
+			EntityEvent.ATTACH);
 
 	/**
 	 * transforms shippings of transfers and overrides, into a consistent gradual change plan
@@ -207,8 +207,8 @@ public class Plan implements Comparable<Plan> {
 		}
 		checkAllEventsPaired(deliveries, (unpaired)-> {
 			this.result = Result.CLOSED_ERROR;
-        	this.ended = Instant.now();
-        	logger.error("{}: Invalid Plan with an operation unpaired: " + unpaired.toBrief());
+			this.ended = Instant.now();
+			logger.error("{}: Invalid Plan with an operation unpaired: " + unpaired.toBrief());
 		});
 		this.shippings.clear();
 		iterator = deliveries.iterator();
@@ -226,66 +226,68 @@ public class Plan implements Comparable<Plan> {
 	
 	 /** @return whether or not all sent and pending deliveries were confirmed
 	  * and following ENQUEUED deliveries can be requested */
-    public boolean hasUnlatched() {
-        return deliveries.stream().allMatch(d -> d.getStep() == Delivery.Step.DONE);
-                
-    }
+	public boolean hasUnlatched() {
+		return deliveries.stream().allMatch(d -> d.getStep() == Delivery.Step.DONE);
 
-    /** @return the inverse operation expected at another shard */
-    private static EntityEvent inverse(final Delivery del) {
-        // we care only movements
-        switch (del.getEvent()) {
-        case ATTACH:
-            return EntityEvent.DETACH;
-        case DETACH:
-            return EntityEvent.ATTACH;
-        default:
-            return null;    
-        }
-    }
-    
-    /**
-     * A last consistency check to avoid driving an invalid plan 
-     * @param deliveries2 
-     * @throws Exception last check for paired movement operations: 
-     * a DETACH must be followed by an ATTACH and viceversa */
-    private static void checkAllEventsPaired(
-    		final List<Delivery> deliveries, 
-    		final Consumer<ShardEntity> unpaired) {
-        final Set<ShardEntity> alreadyPaired = new TreeSet<>();
-        for (Delivery del : deliveries) {
-            final EntityEvent inversion = inverse(del);
-            if (inversion == null) {
-                continue;
-            }
-            for (final ShardEntity entity : del.getDuties()) {
-                final EntityJournal j = entity.getJournal();
-				if (!alreadyPaired.contains(entity) 
-                		&& j.hasEverBeenDistributed() 
-                		&& entity.getLastEvent()!=EntityEvent.REMOVE) {
-                    boolean pair = false;
-                    for (Delivery tmp : deliveries) {
-                        pair |= tmp.getDuties().stream()
-                                .filter(e -> e.equals(entity) 
-                                		&& e.getLastEvent() == inversion)
-                                .findFirst()
-                                .isPresent();
-                        if (pair) {
-                            alreadyPaired.add(entity);
-                            break;
-                        }
-                    }
-                    if (!pair) {
-                    	// TODO no funciona xq planFactory.addMisingCrud reinicia con CREATE                    	
-                        // avoid unpaired danglings/missing being a/dettached
-                        if (!wasRecentlyUnifinishedlyAllocated(j)) {
-	                    	unpaired.accept(entity);
-                        }
-                    }
-                }
-            }
-        }
-    }
+	}
+
+	/** @return the inverse operation expected at another shard */
+	private static EntityEvent inverse(final Delivery del) {
+		// we care only movements
+		switch (del.getEvent()) {
+		case ATTACH:
+			return EntityEvent.DETACH;
+		case DETACH:
+			return EntityEvent.ATTACH;
+		default:
+			return null;
+		}
+	}
+
+	/**
+	 * A last consistency check to avoid driving an invalid plan
+	 * 
+	 * @param deliveries2
+	 * @throws Exception
+	 *             last check for paired movement operations: a DETACH must be
+	 *             followed by an ATTACH and viceversa
+	 */
+	private static void checkAllEventsPaired(
+			final List<Delivery> deliveries, 
+			final Consumer<ShardEntity> unpaired) {
+		final Set<ShardEntity> alreadyPaired = new TreeSet<>();
+		for (Delivery del : deliveries) {
+			final EntityEvent inversion = inverse(del);
+			if (inversion == null) {
+				continue;
+			}
+			for (final ShardEntity entity : del.getDuties()) {
+				final EntityJournal j = entity.getJournal();
+				if (!alreadyPaired.contains(entity) && j
+						.hasEverBeenDistributed() && entity.getLastEvent() != EntityEvent.REMOVE) {
+					boolean pair = false;
+					for (Delivery tmp : deliveries) {
+						pair |= tmp.getDuties()
+								.stream()
+								.filter(e -> e.equals(entity) && e.getLastEvent() == inversion)
+								.findFirst()
+								.isPresent();
+						if (pair) {
+							alreadyPaired.add(entity);
+							break;
+						}
+					}
+					if (!pair) {
+						// TODO no funciona xq planFactory.addMisingCrud reinicia con CREATE
+						// avoid unpaired danglings/missing being a/dettached
+						if (!wasRecentlyUnifinishedlyAllocated(j)) {
+							unpaired.accept(entity);
+						}
+					}
+				}
+			}
+		}
+	}
 
 	private static boolean wasRecentlyUnifinishedlyAllocated(final EntityJournal j) {
 		boolean isLegitUnpair = false;
@@ -307,96 +309,98 @@ public class Plan implements Comparable<Plan> {
 		return isLegitUnpair;
 	}
     
-    private final ReentrantLock lock = new ReentrantLock(true);
+	private final ReentrantLock lock = new ReentrantLock(true);
 
-    private boolean withLock(final Callable<Boolean> run) {
-        try {
-            if (!lock.tryLock(1, TimeUnit.SECONDS)) {
-                return false;
-            }
-            return run.call();
-        } catch (Exception e) {
-            logger.error("unexpected", e);
-            return false;
-        } finally {
-            lock.unlock();            
-        }
-    }
-    
+	private boolean withLock(final Callable<Boolean> run) {
+		try {
+			if (!lock.tryLock(1, TimeUnit.SECONDS)) {
+				return false;
+			}
+			return run.call();
+		} catch (Exception e) {
+			logger.error("unexpected", e);
+			return false;
+		} finally {
+			lock.unlock();
+		}
+	}
+
     /** @return whether caller has permission to get next delivery   */
-    public boolean hasNextParallel() {
-        return withLock(()-> {
-            if (started==null) {
-                throw new IllegalStateException("Plan not prepared yet !");
-            }
-            // set done if none pending
-            deliveries.forEach(d->d.checkState());
-            if (!iterator.hasNext()) {
-                return false;
-            }
-	        // there's more, but are they allowed right now ?
-			if (lastDelivery==null) {
-			    // first time here
-			    return true;
-			}	
-	        if (deliveries.get(deliveryIdx).getEvent()==lastDelivery.getEvent()) {
-	            // identical future events are parallelized
-	            return true;
-		    }
-	        // other future events require all past confirmed
-	        for (int i = 0; i < deliveryIdx; i++) {
-	        	final Delivery d = deliveries.get(i);
-	            if (d.getStep() == Delivery.Step.PENDING) {
-	            	if (logger.isInfoEnabled()) {
-	            		logger.info("{}: No more parallels: past deliveries yet pending", getClass().getSimpleName());
-	            	}
-	                return false;
-	            }
-	        }
-	        return true;
-        });
-    }
-    
-    /** @return if all deliveries are fully confirmed */ 
-    public void computeState() {
-    	if (this.result.isClosed()) {
-    	    return;
-    	} else if (deliveries.isEmpty()) {
-    	    throw new IllegalStateException("plan without deliveries cannot compute state");
-    	}
-	    boolean allDone = true;
-        for (Delivery d: deliveries) {
-            if (d.getStep() != Delivery.Step.DONE) {
-                allDone = false;
-                break;
-            }
-        }
-        if (allDone) {
-            this.result = Result.CLOSED_APPLIED;
-            this.ended = Instant.now();
-        } else {
-            final Instant expiration = started.plusMillis(maxMillis);
-    		if (expiration.isBefore(Instant.now())) {
-    			if (retryCounter == this.maxRetries) {
-    				logger.warn("{}: Abandoning Plan expired ! (max secs:{}) ", getClass().getSimpleName(), maxMillis);
-    				this.result = Result.CLOSED_EXPIRED;
-    				this.ended = Instant.now();
-    			} else {
-    				retryCounter++;
-    				this.started = Instant.now();
-    				logger.warn("{}: ReSending Plan expired: Retry {} (max secs:{}) ", getClass().getSimpleName(),
-    						retryCounter, maxMillis);
-    				this.result = Result.RETRYING;
-    			}
-    		} else {
-    			if (logger.isInfoEnabled()) {
-    				logger.info("{}: Drive in progress waiting recent deliveries ({}'s to expire)", getClass().getSimpleName(),
-    					getId(), (expiration.toEpochMilli() - System.currentTimeMillis()) / 1000);
-    			}
-    			this.result = Result.RUNNING;
-    		}
-    	}
-    }	
+	public boolean hasNextParallel() {
+		return withLock(() -> {
+			if (started == null) {
+				throw new IllegalStateException("Plan not prepared yet !");
+			}
+			// set done if none pending
+			deliveries.forEach(d -> d.checkState());
+			if (!iterator.hasNext()) {
+				return false;
+			}
+			// there's more, but are they allowed right now ?
+			if (lastDelivery == null) {
+				// first time here
+				return true;
+			}
+			if (deliveries.get(deliveryIdx).getEvent() == lastDelivery.getEvent()) {
+				// identical future events are parallelized
+				return true;
+			}
+			// other future events require all past confirmed
+			for (int i = 0; i < deliveryIdx; i++) {
+				final Delivery d = deliveries.get(i);
+				if (d.getStep() == Delivery.Step.PENDING) {
+					if (logger.isInfoEnabled()) {
+						logger.info("{}: No more parallels: past deliveries yet pending", getClass().getSimpleName());
+					}
+					return false;
+				}
+			}
+			return true;
+		});
+	}
+
+	/** @return if all deliveries are fully confirmed */
+	public void computeState() {
+		if (this.result.isClosed()) {
+			return;
+		} else if (deliveries.isEmpty()) {
+			throw new IllegalStateException("plan without deliveries cannot compute state");
+		}
+		boolean allDone = true;
+		for (Delivery d : deliveries) {
+			if (d.getStep() != Delivery.Step.DONE) {
+				allDone = false;
+				break;
+			}
+		}
+		if (allDone) {
+			this.result = Result.CLOSED_APPLIED;
+			this.ended = Instant.now();
+		} else {
+			final Instant expiration = started.plusMillis(maxMillis);
+			if (expiration.isBefore(Instant.now())) {
+				if (retryCounter == this.maxRetries) {
+					logger.warn("{}: Abandoning Plan expired ! (max secs:{}) ", getClass().getSimpleName(), maxMillis);
+					this.result = Result.CLOSED_EXPIRED;
+					this.ended = Instant.now();
+				} else {
+					retryCounter++;
+					this.started = Instant.now();
+					logger.warn("{}: ReSending Plan expired: Retry {} (max secs:{}) ",
+							getClass().getSimpleName(), retryCounter, maxMillis);
+					this.result = Result.RETRYING;
+				}
+			} else {
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: Drive in progress waiting recent deliveries ({}'s to expire)",
+							getClass().getSimpleName(),
+							getId(),
+							(expiration.toEpochMilli() - System.currentTimeMillis()) / 1000);
+				}
+				this.result = Result.RUNNING;
+			}
+		}
+	}
 
 	/** 
 	 * declare a dettaching or attaching step to deliver on a shard
@@ -413,17 +417,17 @@ public class Plan implements Comparable<Plan> {
 	 * }
 	 */
 	protected void ship(final Shard shard, final ShardEntity duty) {
-	    withLock(()-> {
-    		CollectionUtils.getOrPut(
-    			CollectionUtils.getOrPut(
-    	            shippings, 
-    		        duty.getLastEvent(), 
-    		        ()->new HashMap<>()), 
-    		    shard, 
-    		    ()->new ArrayList<>())
-    	    .add(duty);
-    		return false;
-	    });
+		withLock(() -> {
+			CollectionUtils.getOrPut(
+					CollectionUtils.getOrPut(
+							shippings,
+							duty.getLastEvent(),
+							() -> new HashMap<>()),
+					shard,
+					() -> new ArrayList<>())
+					.add(duty);
+			return false;
+		});
 	}
 	
 	@JsonIgnore
@@ -482,17 +486,17 @@ public class Plan implements Comparable<Plan> {
 	}
 
 	public static void main(String[] args) throws InterruptedException {
-        
-	    final CollectionUtils.SlidingSortedSet<Plan> set = CollectionUtils.sliding(5);
-	    for (int i = 0; i < 10; i++) {
-	        System.out.println(new DateTime(DateTimeZone.UTC));
-	        set.add(new Plan(i, 1,1));
-	        Thread.sleep(200);
-	    }
-	    System.out.println("----------");
-	    for (Plan p : set.values()) {
-	        assert(p.getId()>=5);
-	    }
-    }
+
+		final CollectionUtils.SlidingSortedSet<Plan> set = CollectionUtils.sliding(5);
+		for (int i = 0; i < 10; i++) {
+			System.out.println(new DateTime(DateTimeZone.UTC));
+			set.add(new Plan(i, 1, 1));
+			Thread.sleep(200);
+		}
+		System.out.println("----------");
+		for (Plan p : set.values()) {
+			assert (p.getId() >= 5);
+		}
+	}
 
 }

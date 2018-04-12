@@ -59,15 +59,16 @@ public class BasicClusterEmulator {
 
 	}
 
-    private static BasicAppEmulator emulatedApp(final String filepath, final int port) 
-            throws FileNotFoundException, IOException, Exception {
-        
-        // Start the Application which starts a Minka server and loads duties and pallets from a sampler 
-        
-        final Config config = new Config("localhost:2181", "192.168.0.102:" + port);
-        final BasicAppEmulator app = new BasicAppEmulator(config);
-        app.start(FileDatasetEmulator.fromFile(filepath));
-        return app;
-    }
+	private static BasicAppEmulator emulatedApp(final String filepath, final int port) 
+			throws FileNotFoundException, IOException, Exception {
+
+		// Start the Application which starts a Minka server and loads duties and
+		// pallets from a sampler
+
+		final Config config = new Config("localhost:2181", "192.168.0.102:" + port);
+		final BasicAppEmulator app = new BasicAppEmulator(config);
+		app.start(FileDatasetEmulator.fromFile(filepath));
+		return app;
+	}
 
 }

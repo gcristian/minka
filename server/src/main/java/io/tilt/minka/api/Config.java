@@ -51,17 +51,17 @@ public class Config {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
 	protected static final ObjectMapper objectMapper = new ObjectMapper();
-    static {
-        objectMapper.configure(SerializationFeature.WRITE_NULL_MAP_VALUES, false);
-        objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-        objectMapper.configure(SerializationFeature.CLOSE_CLOSEABLE, true);
-        objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
-        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
+	static {
+		objectMapper.configure(SerializationFeature.WRITE_NULL_MAP_VALUES, false);
+		objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+		objectMapper.configure(SerializationFeature.CLOSE_CLOSEABLE, true);
+		objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
+		objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
 
-        final SimpleModule simpleModule = new SimpleModule("module-1");
-        simpleModule.addSerializer(DateTime.class, new DateTimeSerializer());
-        objectMapper.registerModule(simpleModule);
-    }
+		final SimpleModule simpleModule = new SimpleModule("module-1");
+		simpleModule.addSerializer(DateTime.class, new DateTimeSerializer());
+		objectMapper.registerModule(simpleModule);
+	}
 	
 	@JsonIgnore
 	public final DateTime loadTime = new DateTime(DateTimeZone.UTC);
@@ -149,9 +149,8 @@ public class Config {
 		protected static final String WEB_SERVER_CONTEXT_PATH = "minka";
 		private String webServerContextPath;
 
-        protected static final boolean ENABLE_LOGGING = true;
-        private boolean enableLogging;
-
+		protected static final boolean ENABLE_LOGGING = true;
+		private boolean enableLogging;
 		
 		public String getServiceName() {
 			return serviceName;
@@ -208,12 +207,14 @@ public class Config {
 		public void setWebServerContextPath(String webServerContextPath) {
 			this.webServerContextPath = webServerContextPath;
 		}
+
 		public boolean isEnableLogging() {
-            return enableLogging;
-        }
+			return enableLogging;
+		}
+
 		public void setEnableLogging(boolean enableLogging) {
-            this.enableLogging = enableLogging;
-        }
+			this.enableLogging = enableLogging;
+		}
 	}
 
 	public static class BrokerConf {
@@ -238,8 +239,8 @@ public class Config {
 		/** True: try number-consecutive open ports if specified is busy, False: break bootup */
 		protected static final boolean ENABLE_PORT_FALLBACK = true;
 		public boolean enablePortFallback;
-        protected static final boolean USE_MACHINE_HOSTNAME = false;
-        public boolean useMachineHostname;
+		protected static final boolean USE_MACHINE_HOSTNAME = false;
+		public boolean useMachineHostname;
 		protected static final String SHARD_ID_SUFFIX = "";
 		private String shardIdSuffix;
 		protected static final String NETWORK_INTERFASE = "lo";
@@ -282,11 +283,12 @@ public class Config {
 			this.enablePortFallback = enablePortFallback;
 		}
 		public boolean isUseMachineHostname() {
-            return this.useMachineHostname;
-        }
+			return this.useMachineHostname;
+		}
+
 		public void setUseMachineHostname(boolean useMachineHostname) {
-            this.useMachineHostname = useMachineHostname;
-        }
+			this.useMachineHostname = useMachineHostname;
+		}
 		public String getShardIdSuffix() {
 			return this.shardIdSuffix;
 		}

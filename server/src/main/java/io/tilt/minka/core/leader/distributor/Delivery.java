@@ -43,7 +43,7 @@ import io.tilt.minka.utils.CollectionUtils;
  */
 @JsonPropertyOrder({"order", "shard", "event", "state"})
 public class Delivery {
-    
+
 	private final List<ShardEntity> duties;
 	private final Shard shard;
 	private final EntityEvent event;
@@ -53,11 +53,11 @@ public class Delivery {
 	private Step step;
 
 	protected Delivery(
-	        final List<ShardEntity> duties, 
-	        final Shard shard, 
-	        final EntityEvent event, 
-	        final int order, 
-	        final long planId) {
+			final List<ShardEntity> duties,
+			final Shard shard,
+			final EntityEvent event,
+			final int order,
+			final long planId) {
 		super();
 		this.duties = requireNonNull(duties);
 		this.shard = requireNonNull(shard);
@@ -67,8 +67,9 @@ public class Delivery {
 		this.step = Step.ENQUEUED;
 	}
 	public int getOrder() {
-        return this.order;
-    }
+		return this.order;
+	}
+
 	@JsonIgnore
 	public List<ShardEntity> getDuties() {
 		return this.duties;
@@ -85,12 +86,12 @@ public class Delivery {
 	}
 	
 	public static enum Step {
-	    // waiting for it's turn to be delivered
-	    ENQUEUED,
-	    // sent, waiting for shard confirmation
-	    PENDING,
-	    // delivered 
-	    DONE,
+		// waiting for it's turn to be delivered
+		ENQUEUED,
+		// sent, waiting for shard confirmation
+		PENDING,
+		// delivered
+		DONE,
 	}
 	
 	protected Map<ShardEntity, Log> getByState() {
@@ -103,16 +104,16 @@ public class Delivery {
 	
 	private Map<ShardEntity, Log> getByState_(final EntityState state) {
 		final Map<ShardEntity, Log> ret = new HashMap<>(duties.size());
-	    for (ShardEntity duty: duties) {
-	    	for (Log log: duty.getJournal().getLogs()) {
-	    		if (log.matches(getEvent(), shard.getShardID().getId(), getPlanId())
-	    				&& (state == null || log.getLastState()==state)) {
-	    			ret.put(duty, log);
-	    			break;
-	    		}
-	    	}
-	    }
-	    return ret;
+		for (ShardEntity duty : duties) {
+			for (Log log : duty.getJournal().getLogs()) {
+				if (log.matches(getEvent(),shard.getShardID().getId(), getPlanId()) 
+						&& (state == null || log.getLastState() == state)) {
+					ret.put(duty, log);
+					break;
+				}
+			}
+		}
+		return ret;
 	}
 	
 	public Step getStep() {
@@ -120,45 +121,48 @@ public class Delivery {
 	}
 	
 	public void checkState() {
-	    if (step==Step.ENQUEUED) {
-	        if (duties.isEmpty()) {
-	            throw new IllegalStateException("delivery without duties cannot go to pending !");
-	        } else {
-	            step = Step.PENDING;
-	        }
-	    } else if (step==Step.PENDING){
-        	// for all duties grouped together with same Event to the same Shard..
-            boolean noneLeft = true;
-    		for (final ShardEntity duty : duties) {
-    			// look up confirmation for the specific logged event matching this delivery
-    			final Log found = duty.getJournal().find(getPlanId(), shard.getShardID(), getEvent());
-    			if (found!=null) {
-    				if (found.getLastState()!=EntityState.CONFIRMED) {
-					    noneLeft = false;
-					    // TODO get Partition TAble and check if Shard has long fell offline
+		if (step == Step.ENQUEUED) {
+			if (duties.isEmpty()) {
+				throw new IllegalStateException("delivery without duties cannot go to pending !");
+			} else {
+				step = Step.PENDING;
+			}
+		} else if (step == Step.PENDING) {
+			// for all duties grouped together with same Event to the same Shard..
+			boolean noneLeft = true;
+			for (final ShardEntity duty : duties) {
+				// look up confirmation for the specific logged event matching this delivery
+				final Log found = duty.getJournal().find(getPlanId(), shard.getShardID(), getEvent());
+				if (found != null) {
+					if (found.getLastState() != EntityState.CONFIRMED) {
+						noneLeft = false;
+						// TODO get Partition TAble and check if Shard has long fell offline
 						if (Plan.logger.isInfoEnabled()) {
-							Plan.logger.info("{}: waiting Shard: {} for {} still in {}, at least Duty: {}", 
-                                getClass().getSimpleName(), shard, duty.getEntity().getId(), 
-                                found.getEvent(), found.getLastState());
+							Plan.logger.info("{}: waiting Shard: {} for {} still in {}, at least Duty: {}",
+									getClass().getSimpleName(),
+									shard,
+									duty.getEntity().getId(),
+									found.getEvent(),
+									found.getLastState());
 						}
 						return;
 					}
-    			}
-    		}
-    		if (noneLeft) {
-    		    this.step = Step.DONE;
-    		}
-	    }
+				}
+			}
+			if (noneLeft) {
+				this.step = Step.DONE;
+			}
+		}
 	}
 		
 	@java.lang.Override
 	public String toString() {
-	    return event + "-" + shard + "-" + duties.size();
+		return event + "-" + shard + "-" + duties.size();
 	}
 	
 	@JsonProperty("shard")
 	private String getShard_() {
-	    return shard.toString();
+		return shard.toString();
 	}
 
 	@JsonProperty("state")
@@ -166,8 +170,9 @@ public class Delivery {
 	final Map<EntityState, StringBuilder> getState() {
 		final Map<EntityState, StringBuilder> ret = new HashMap<>();
 		for (final ShardEntity duty: duties) {
-		    CollectionUtils.getOrPut(ret, duty.getLastState(), ()->new StringBuilder())
-		        .append(duty.getDuty().getId()).append(", ");
+			CollectionUtils.getOrPut(ret, duty.getLastState(), () -> new StringBuilder())
+					.append(duty.getDuty().getId())
+					.append(", ");
 		}
 		
 		return ret;

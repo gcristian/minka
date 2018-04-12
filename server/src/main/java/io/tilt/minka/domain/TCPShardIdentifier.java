@@ -71,17 +71,17 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	private final int configuredPort;  
 	@JsonIgnore
 	private final DateTime creation;
-    @JsonProperty(index=5, value="tag")
-    private String tag;
+	@JsonProperty(index = 5, value = "tag")
+	private String tag;
 	@JsonIgnore
 	private transient ServerSocket bookedSocket;
-	@JsonProperty(index=4, value="web-host-port")
-    private String webhostport;
+	@JsonProperty(index = 4, value = "web-host-port")
+	private String webhostport;
 
 	public TCPShardIdentifier(
-	        final Config config,
-            final DependencyPlaceholder dependencyPlaceholder) throws Exception {
-        this.dependencyPlaceholder = requireNonNull(dependencyPlaceholder);
+			final Config config,
+			final DependencyPlaceholder dependencyPlaceholder) throws Exception {
+		this.dependencyPlaceholder = requireNonNull(dependencyPlaceholder);
 		final String hostStr = config.getBroker().getHostPort();
 		final String[] brokerStr = hostStr.split(":");
 		Validate.isTrue(brokerStr.length>1, "Bad broker host format: " + hostStr + "([hostname]:[port])");
@@ -173,7 +173,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 				id = sourceHost.getHostName();
 				if (logger.isInfoEnabled()) {
 					logger.info("{}: Using system's hostname enabled by config: {}", 
-                        getClass().getSimpleName(), id);	
+							getClass().getSimpleName(), id);	
 				}
 				final String suffix = config.getBroker().getShardIdSuffix();
 				if (suffix != null && !suffix.isEmpty()) {
@@ -261,9 +261,9 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	@Override
 	public boolean equals(final Object obj) {
 		if (obj == null || !(obj instanceof TCPShardIdentifier)) {
-		    return false;
-		} else if (obj==this) {
-		    return true;
+			return false;
+		} else if (obj == this) {
+			return true;
 		} else {
 			return ((TCPShardIdentifier) obj).getId().equals(getId());
 		}
@@ -290,13 +290,13 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		release();
 	}
 
-    @Override
-    public void setWebHostPort(final String hostport) {
-        this.webhostport = hostport;
-    }
-    
-    public String getWebhostport() {
-        return this.webhostport;
-    }
+	@Override
+	public void setWebHostPort(final String hostport) {
+		this.webhostport = hostport;
+	}
+
+	public String getWebhostport() {
+		return this.webhostport;
+	}
 
 }

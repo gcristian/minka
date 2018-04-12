@@ -66,12 +66,12 @@ public enum EntityEvent {
 	}
 	
 	public EntityEvent fromCode(final char code) {
-	    for (EntityEvent ee: EntityEvent.values()) {
-	        if (ee.getCode() == code) {
-	            return ee;
-	        }
-	    }
-	    throw new IllegalArgumentException("entity event code: " + code + " doesnt exist");
+		for (EntityEvent ee : EntityEvent.values()) {
+			if (ee.getCode() == code) {
+				return ee;
+			}
+		}
+		throw new IllegalArgumentException("entity event code: " + code + " doesnt exist");
 	}
 	
 /*	

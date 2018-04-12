@@ -119,13 +119,13 @@ public class Migrator {
 	/** leave a reason for distribution exclusion */
 	public final void stuck(final Duty<?> duty, final NetworkLocation location) {
 		requireNonNull(duty);
-	    final ShardEntity e = sourceRefs.get(duty);
-	    final ShardIdentifier shard = location.getId();
-        e.getJournal().addEvent(
-                e.getLastEvent(), 
-                EntityState.STUCK, 
-                shard, 
-                Plan.PLAN_WITHOUT);
+		final ShardEntity e = sourceRefs.get(duty);
+		final ShardIdentifier shard = location.getId();
+		e.getJournal().addEvent(
+				e.getLastEvent(),
+				EntityState.STUCK,
+				shard,
+				Plan.PLAN_WITHOUT);
 	}
 	
 	/* explicitly override a shard's content, client must look after consistency ! */
@@ -146,9 +146,9 @@ public class Migrator {
 		overrides.add(new Override(pallet, shard_, new LinkedHashSet<>(cluster), remainingCap));
 	}
 	private Set<ShardEntity> deref(final Set<Duty<?>> refs) {
-	    final Set<ShardEntity> reids = new HashSet<>(refs.size());
-        refs.forEach(d-> reids.add(sourceRefs.get(d)));
-        return reids;
+		final Set<ShardEntity> reids = new HashSet<>(refs.size());
+		refs.forEach(d -> reids.add(sourceRefs.get(d)));
+		return reids;
 	}
 	
 	private Shard deref(final NetworkLocation location) {
@@ -250,9 +250,9 @@ public class Migrator {
 				transfers!=null ? transfers.size() : 0, overrides!=null ? overrides.size() : 0);
 		if (overrides!=null) {
 			if (!anyExclusions()) {
-			    for (final Override ov: overrides) {			
-    				anyChange|=ov.apply(plan, table);
-    			}
+				for (final Override ov : overrides) {
+					anyChange |= ov.apply(plan, table);
+				}
 			}
 		}
 		if (transfers!=null) {
@@ -269,7 +269,7 @@ public class Migrator {
 	    boolean ret = false;
 		for (final ShardEntity duty: table.getBackstage().getDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED)) {
 			if (duty.getDuty().getPalletId().equals(pallet.getId()) && 
-			        !inTransfers(duty) && 
+					!inTransfers(duty) && 
 					!inOverrides(duty) && 
 					unfairlyIgnored(duty)) {
 				ret = true;

@@ -79,9 +79,9 @@ public class SocketClient {
 	private final Agent connector;
 
 	protected SocketClient(
-	        final BrokerChannel channel, 
-	        final Scheduler scheduler, 
-	        final int retryDelay,
+			final BrokerChannel channel, 
+			final Scheduler scheduler, 
+			final int retryDelay,
 			final int maxRetries, 
 			final String loggingName, 
 			final Config config) {
@@ -215,8 +215,8 @@ public class SocketClient {
 				@Override
 				public void initChannel(SocketChannel ch) throws Exception {
 					ch.pipeline()
-					    .addLast("encoder", new ObjectEncoder())
-					    .addLast("decoder", new ObjectDecoder(ClassResolvers.weakCachingResolver(null)))
+						.addLast("encoder", new ObjectEncoder())
+						.addLast("decoder", new ObjectDecoder(ClassResolvers.weakCachingResolver(null)))
 						.addLast("handler", clientHandler)
 						.addLast(new ExceptionHandler());
 				}
@@ -267,30 +267,30 @@ public class SocketClient {
 			return sent;
 		}
 
-        private boolean isLagTooHigh() {
-            final MessageMetadata eldest = queue.peek();
-            if ((System.currentTimeMillis() - eldest.getCreatedAt()) 
-            		> maxLagBeforeDiscardingClientQueueBeats
-            		|| queue.size() == maxClientQueueSize) {
-            	logger.error("{}: ({}) Clearing queue for LAG reached LIMIT - increment client connector threads size", 
-            			getClass().getSimpleName(), loggingName);
-            	return true;
-            } else {
-                return false;
-            }
-        }
+		private boolean isLagTooHigh() {
+			final MessageMetadata eldest = queue.peek();
+			if ((System.currentTimeMillis() - eldest.getCreatedAt()) > maxLagBeforeDiscardingClientQueueBeats || queue
+					.size() == maxClientQueueSize) {
+				logger.error("{}: ({}) Clearing queue for LAG reached LIMIT - increment client connector threads size", getClass()
+						.getSimpleName(), loggingName);
+				return true;
+			} else {
+				return false;
+			}
+		}
+
 		protected int size() {
 			return queue.size();
 		}
 		@Override
 		public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-		    logger.warn("{}: ({}) channel inactivated", getClass().getSimpleName(), loggingName);
-		    super.channelInactive(ctx);
+			logger.warn("{}: ({}) channel inactivated", getClass().getSimpleName(), loggingName);
+			super.channelInactive(ctx);
 		}
 		@Override
 		public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-		    logger.warn("{}: ({}) channel unregistered", getClass().getSimpleName(), loggingName);
-		    super.channelUnregistered(ctx);
+			logger.warn("{}: ({}) channel unregistered", getClass().getSimpleName(), loggingName);
+			super.channelUnregistered(ctx);
 		}
 		@Override
 		public void channelActive(final ChannelHandlerContext ctx) {

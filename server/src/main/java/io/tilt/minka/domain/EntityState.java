@@ -24,17 +24,19 @@ public enum EntityState {
 	/** status at a follower when absent in delegate's report, only for lazy ones */
 	FINALIZED('f')
 	;
-    
-    private final char code;
-    EntityState(final char c) {
-        this.code = c;
-    }
-    public EntityState fromCode(final char code) {
-        for (EntityState s: EntityState.values()) {
-            if (s.code == code) {
-                return s;
-            }
-        }
-        throw new IllegalArgumentException("shardentity state code: " + code + " not exists");
-    }
+
+	private final char code;
+
+	EntityState(final char c) {
+		this.code = c;
+	}
+
+	public EntityState fromCode(final char code) {
+		for (EntityState s : EntityState.values()) {
+			if (s.code == code) {
+				return s;
+			}
+		}
+		throw new IllegalArgumentException("shardentity state code: " + code + " not exists");
+	}
 }
