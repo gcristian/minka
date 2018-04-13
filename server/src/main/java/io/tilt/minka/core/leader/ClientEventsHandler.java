@@ -90,13 +90,13 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 
 	private void cleanShutdown(final ShardCommand op) {
 		//Locks.stopCandidate(Names.getLeaderName(config.getServiceName()), false);		
-		for (Shard slave : partitionTable.getScheme().getShardsByState(ShardState.ONLINE)) {
-			eventBroker.send(slave.getBrokerChannel(), op);
-		}
+		partitionTable.getScheme().onShards(ShardState.ONLINE.filter(), shard-> {
+			eventBroker.send(shard.getBrokerChannel(), op);
+		});
 		boolean offline = false;
 		while (!offline && !Thread.interrupted()) {
 			LockSupport.parkUntil(5000l);
-			offline = partitionTable.getScheme().getShardsByState(ShardState.ONLINE).size() == 0;
+			offline = partitionTable.getScheme().shardsSize(ShardState.ONLINE.filter()) == 0;
 		}
 		// only then close subscriptions
 		stop();
@@ -158,15 +158,15 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 				}
 				eventBroker.send(location.getBrokerChannel(), entity);
 			} else if (entity.getType()==ShardEntity.Type.PALLET) {
-				for (Shard location: partitionTable.getScheme().getPalletLocations(entity)) {
-					if (location.getState().isAlive()) {
+				partitionTable.getScheme().filterPalletLocations(entity, shard-> {
+					if (shard.getState().isAlive()) {
 						final Serializable payloadType = entity.getUserPayload() != null
 								? entity.getUserPayload().getClass().getSimpleName() : "[empty]";
 						logger.info("{}: Routing event with Payload: {} on {} to Shard: {}", getClass().getSimpleName(),
-								payloadType, entity, location);
-						eventBroker.send(location.getBrokerChannel(), entity);
+								payloadType, entity, shard);
+						eventBroker.send(shard.getBrokerChannel(), entity);
 					}
-				}
+				});
 			}
 		} else {
 			bookkeeper.enterCRUD(entity);

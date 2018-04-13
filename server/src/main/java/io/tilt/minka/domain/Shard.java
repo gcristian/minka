@@ -22,6 +22,7 @@ import java.io.Serializable;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.joda.time.DateTime;
@@ -223,6 +224,14 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 
 		public boolean isAlive() {
 			return this == ONLINE || this == QUARANTINE || this == JOINING;
+		}
+
+		public Predicate<Shard> filter() {
+			return shard->shard.getState()==this;
+		}
+
+		public Predicate<Shard> negative() {
+			return shard->shard.getState()!=this;
 		}
 
 		public enum Reason {

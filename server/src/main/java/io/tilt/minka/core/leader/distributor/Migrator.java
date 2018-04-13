@@ -152,12 +152,7 @@ public class Migrator {
 	}
 	
 	private Shard deref(final NetworkLocation location) {
-		for (Shard s: table.getScheme().getShards()) {
-			if (s.getShardID().equals(location.getId())) {
-				return s;
-			}
-		}
-		return null;
+		return table.getScheme().findShard(shard->shard.getShardID().equals(location.getId())); 
 	}
 	
 	private double validateOverride(final Shard target, final Set<ShardEntity> cluster) {
@@ -219,11 +214,11 @@ public class Migrator {
 		if (entity.getLastEvent()==EntityEvent.REMOVE) {
 			throw new BalancingException("bad transfer: duty: %s is marked for deletion, cannot be balanced", entity);
 		}
-		for (ShardEntity duty: table.getBackstage().getDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED)) {
+		table.getBackstage().onDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED, duty-> {
 			if (duty.equals(entity)) {
 				throw new BalancingException("bad transfer: duty: %s is just marked for deletion, cannot be balanced", entity);
 			}
-		}
+		});
 	}
 
 	private void checkDuplicate(final ShardEntity entity) {
@@ -266,28 +261,29 @@ public class Migrator {
 	}
 
 	private boolean anyExclusions() {
-	    boolean ret = false;
-		for (final ShardEntity duty: table.getBackstage().getDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED)) {
+	    boolean[] ret = new boolean[1];
+		table.getBackstage().onDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED, duty-> {
 			if (duty.getDuty().getPalletId().equals(pallet.getId()) && 
 					!inTransfers(duty) && 
 					!inOverrides(duty) && 
 					unfairlyIgnored(duty)) {
-				ret = true;
+				ret[0] = true;
 				log.error("bad exclusion: duty: {} was just marked for creation, it must be balanced !", duty.toBrief());
 			}
-		}
-		final Set<ShardEntity> deletions = table.getBackstage().getDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED);
-		for (final ShardEntity curr: table.getScheme().getDutiesAttached()) {
+		});
+		final Set<ShardEntity> deletions = new HashSet<>();
+		table.getBackstage().onDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED, deletions::add);
+		table.getScheme().onDuties(curr-> {
 			if (curr.getDuty().getPalletId().equals(pallet.getId()) && 
 			        !deletions.contains(curr) && 
 					!inTransfers(curr) && 
 					!inOverrides(curr) && 
 					unfairlyIgnored(curr)) {
-				ret = true;
+				ret[0]= true;
 				log.warn("bad exclusion: duty: " + curr.toBrief() + " is in ptable and was excluded from balancing !");
 			}
-		}
-		return ret;
+		});
+		return ret[0];
 	}
 	
 	private boolean unfairlyIgnored(ShardEntity duty) {

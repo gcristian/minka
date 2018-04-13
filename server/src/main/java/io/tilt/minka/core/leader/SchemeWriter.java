@@ -39,6 +39,7 @@ import io.tilt.minka.domain.ShardIdentifier;
 
 /**
  * Single-point of write access to the {@linkplain Scheme}.
+ * Contains the rules of allocation and migration consistency to determine changes. 
  * Inspects {@linkplain Heartbeat}'s looking for expected 
  * changes according the current distribution {@linkplain ChangePlan}
  *  

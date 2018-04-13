@@ -90,7 +90,9 @@ public class SchemeViews {
 		Validate.notNull(table);
 		final Map<String, Object> map = new LinkedHashMap<>();
 		map.put("leaderShardId", leaderShardContainer.getLeaderShardId());
-		map.put("shards", table.getScheme().getShards());
+		final List<Shard> list = new ArrayList<>();
+		table.getScheme().onShards(null, list::add);
+		map.put("shards", list);
 		return map;
 	}
 
@@ -117,7 +119,7 @@ public class SchemeViews {
 	private List<Object> buildDuties(final PartitionTable table, boolean entities) {
 		Validate.notNull(table);
 		final List<Object> ret = new ArrayList<>();
-		table.getScheme().getDuties().forEach(e->ret.add(entities ? e: e.getDuty()));
+		table.getScheme().onDuties(e->ret.add(entities ? e: e.getDuty()));
 		return ret;
 	}
 
@@ -132,18 +134,20 @@ public class SchemeViews {
 		final SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
 		
 		for (final ShardEntity pallet: extractor.getPallets()) {
-			final Set<ShardEntity> crud = table.getBackstage()
-					.getDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED).stream()
-					.filter(d->d.getDuty().getPalletId().equals(pallet.getPallet().getId()))
-					.collect(Collectors.toSet());
-								
+			
 			AtomicDouble dettachedWeight = new AtomicDouble();
-			crud.forEach(d->dettachedWeight.addAndGet(d.getDuty().getWeight()));
+			final int[] crudSize = new int[1];
+			table.getBackstage().onDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED, e-> {
+				if (e.getDuty().getPalletId().equals(pallet.getPallet().getId())) {
+					crudSize[0]++;
+					dettachedWeight.addAndGet(e.getDuty().getWeight());
+				}
+			});
+								
 
 			final List<DutyView> dutyRepList = new ArrayList<>();
-			table.getScheme().getDutiesByPallet(pallet.getPallet())
-					.forEach(d -> dutyRepList.add(
-							new DutyView(
+			table.getScheme().onDutiesByPallet(pallet.getPallet(), 
+					d -> dutyRepList.add(new DutyView(
 									d.getDuty().getId(),
 									d.getDuty().getWeight())));
 			
@@ -153,7 +157,7 @@ public class SchemeViews {
 						extractor.getSizeTotal(pallet.getPallet()),
 						extractor.getWeightTotal(pallet.getPallet()),
 						pallet.getPallet().getMetadata().getBalancer().getName(), 
-						crud.size(), 
+						crudSize[0], 
 						dettachedWeight.get(), 
 						new DateTime(pallet.getJournal().getFirst().getHead()),
 						pallet.getPallet().getMetadata(),
@@ -170,17 +174,19 @@ public class SchemeViews {
 			final List<Map<String , Object>> palletsAtShard =new LinkedList<>();
 			
 			for (final ShardEntity pallet: extractor.getPallets()) {
-				final Set<ShardEntity> duties = table.getScheme().getDutiesByShard(pallet.getPallet(), shard);
 				final List<DutyView> dutyRepList = new LinkedList<>();
-				duties.forEach(d->dutyRepList.add(
+				int[] size = new int[1];
+				table.getScheme().onDuties(shard, pallet.getPallet(), d-> {
+					size[0]++;
+					dutyRepList.add(
 						new DutyView(
 								d.getDuty().getId(),
-								d.getDuty().getWeight())));
+								d.getDuty().getWeight()));});
 				palletsAtShard.add(
 						palletAtShardView(
 								pallet.getPallet().getId(),
 								extractor.getCapacity(pallet.getPallet(), shard),
-								duties.size(),
+								size[0],
 								extractor.getWeight(pallet.getPallet(), shard),
 								dutyRepList));
 				
@@ -196,7 +202,7 @@ public class SchemeViews {
 
 	private static Map<String, Object> buildGlobal(final PartitionTable table) {
 		SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
-		final int unstaged = table.getBackstage().getDutiesCrud(EntityEvent.CREATE, null).size();
+		final int unstaged = table.getBackstage().sizeDutiesCrud(EntityEvent.CREATE, null);
 		final int staged = extractor.getSizeTotal();		
 		final Map<String, Object> map = new LinkedHashMap<>();
 		map.put("size-duties", staged+unstaged);

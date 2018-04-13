@@ -163,7 +163,7 @@ public class Distributor implements Service {
 				return;
 			}
 			logStatus();
-			final int online = partitionTable.getScheme().getShardsByState(ShardState.ONLINE).size();
+			final int online = partitionTable.getScheme().shardsSize(ShardState.ONLINE.filter());
 			final int min = config.getProctor().getMinShardsOnlineBeforeSharding();
 			if (online < min) {
 				logger.warn("{}: balancing posponed: not enough online shards (min:{}, now:{})", getName(), min, online);
@@ -241,12 +241,11 @@ public class Distributor implements Service {
 	
 	/* retry already pushed deliveries with pending duties */
 	private void repushPendings(final ChangePlan changePlan) {
-		for (Delivery delivery : changePlan.getAllPendings()) {
-			push(changePlan, delivery, true);
-			if (changePlan.getResult().isClosed()) {
-				break;
+		changePlan.onDeliveries(d->d.getStep() == Delivery.Step.PENDING, delivery-> {
+			if (!changePlan.getResult().isClosed()) {
+				push(changePlan, delivery, true);
 			}
-		}
+		});
 	}
 	
 	/* push parallel deliveries */
@@ -264,21 +263,26 @@ public class Distributor implements Service {
 	}
 
 	private boolean checkAllDeliveriesValid(final ChangePlan changePlan) {
-		final List<Shard> onlineShards = partitionTable.getScheme().getShardsByState(ShardState.ONLINE);
-		for (final Delivery d: changePlan.getAllPendings()) {
-			if (!onlineShards.contains(d.getShard())) {
+		final boolean valid[] = new boolean[] {true};
+		changePlan.onDeliveries(d->d.getStep() == Delivery.Step.PENDING, d-> {
+			if (!deliveryShardValid(d)) {
 				logger.error("{}: ChangePlan lost a target shard as online: {}", getName(), d.getShard());
 				changePlan.obsolete();
-				return false;
+				valid[0] = false;
 			}
-		}
-		return true;
+		});
+		return valid[0];
+	}
+
+	private boolean deliveryShardValid(final Delivery d) {
+		return partitionTable.getScheme().filterShards(
+				sh->sh.equals(d.getShard()) && sh.getState()==ShardState.ONLINE);							
 	}
 
 	/** @return if plan is still valid */
 	private boolean push(final ChangePlan changePlan, final Delivery delivery, final boolean retrying) {
 		// check it's still in ptable
-		if (!partitionTable.getScheme().getShardsByState(ShardState.ONLINE).contains(delivery.getShard())) {
+		if (!deliveryShardValid(delivery)) {
 			logger.error("{}: PartitionTable lost transport's target shard: {}", getName(), delivery.getShard());
 			changePlan.obsolete();
 			return false;
@@ -350,11 +354,10 @@ public class Distributor implements Service {
 	private void checkUnexistingDutiesFromStorage() {
 		if (config.getDistributor().isRunConsistencyCheck() && partitionTable.getCurrentPlan().areShippingsEmpty()) {
 			// only warn in case there's no reallocation ahead
-			final Set<ShardEntity> currently = partitionTable.getScheme().getDuties();
 			final Set<ShardEntity> sorted = new TreeSet<>();
 			for (Duty<?> duty: reloadDutiesFromStorage()) {
 				final ShardEntity entity = ShardEntity.Builder.builder(duty).build();
-				if (!currently.contains(entity)) {
+				if (!partitionTable.getScheme().dutyExists(entity)) {
 					sorted.add(entity);
 				}
 			}

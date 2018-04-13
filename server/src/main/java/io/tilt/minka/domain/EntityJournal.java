@@ -26,8 +26,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.tilt.minka.domain.EntityJournal.Log.TimeState;
 
 /**
- * 
- * A list of {@linkplain Log} contained in a {@linkplain ShardEntity}
+ * Operation and state registry for entities. Living within {@linkplain ShardEntity} instances.
+ * Facility methods for a single point of access for {@linkplain Log} instances.
  *  
  * Deliveries are organized so events occurr in this order:
  * 
@@ -153,7 +153,6 @@ public class EntityJournal implements Serializable {
 	 * @return a Log matching plan + event + shard, whereas those args. specified or any if omitted 
 	 */
 	private Log find_(final long planid, final String shardid, final EntityEvent...events) {
-		Log ret = null;
 		boolean onePlanFound = false;
 		for (final Iterator<Log> it = logs.descendingIterator(); it.hasNext();) {
 			final Log log = it.next();
@@ -177,7 +176,7 @@ public class EntityJournal implements Serializable {
 				break;
 			}
 		}
-		return ret;
+		return null;
 	}
 
 	@JsonProperty("log")

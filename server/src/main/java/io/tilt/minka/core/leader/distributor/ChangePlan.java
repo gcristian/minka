@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -34,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.joda.time.DateTime;
@@ -102,7 +104,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		this.id = id;
 		this.created = Instant.now();
 		this.shippings = new HashMap<>();
-		this.deliveries = new ArrayList<>();
+		this.deliveries = Collections.emptyList();
 		this.maxMillis = maxMillis;
 		this.maxRetries = maxRetries;
 	}
@@ -149,10 +151,10 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	}
 
 	@JsonIgnore
-	public List<Delivery> getAllPendings() {
-		return deliveries.stream()
-				.filter(d -> d.getStep() == Delivery.Step.PENDING)
-				.collect(Collectors.toList());
+	public void onDeliveries(final Predicate<Delivery> test, final Consumer<Delivery> d) {
+		deliveries.stream()
+				.filter(test)
+				.forEach(d);
 	}
 	
 	@JsonIgnore
@@ -199,6 +201,9 @@ public class ChangePlan implements Comparable<ChangePlan> {
 				for (final Entry<Shard, List<ShardEntity>> e: shippings.get(event).entrySet()) {
 					// one delivery for each shard
 					if (!e.getValue().isEmpty()) {
+						if (deliveries.isEmpty()) {
+							deliveries = new ArrayList<>();
+						}
 						deliveries.add(new Delivery(e.getValue(), e.getKey(), event, order++, id));
 					}
 				}

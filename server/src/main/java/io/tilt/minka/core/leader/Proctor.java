@@ -23,8 +23,10 @@ import static io.tilt.minka.utils.LogUtils.HEALTH_DOWN;
 import static io.tilt.minka.utils.LogUtils.HEALTH_UP;
 import static java.util.Objects.requireNonNull;
 
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
@@ -48,6 +50,7 @@ import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
+import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.utils.LogUtils;
 
 /**
@@ -122,11 +125,11 @@ public class Proctor implements Service {
 
 	private void blessShards() {
 		try {
-			final List<Shard> shards = partitionTable.getScheme().getShardsByState(null);
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: Blessing {} shards {}", getName(), shards.size(), shards);
+				logger.info("{}: Blessing {} shards", getName(), partitionTable.getScheme().shardsSize(null));
 			}
-			shards.forEach(i -> eventBroker.send(i.getBrokerChannel(), EVENT_SET, Clearance.create(shardId)));
+			partitionTable.getScheme().onShards(null, 
+					shard->eventBroker.send(shard.getBrokerChannel(), EVENT_SET, Clearance.create(shardId)));
 		} catch (Exception e) {
 			logger.error("{}: Unexpected while blessing", getName(), e);
 		} finally {
@@ -137,13 +140,13 @@ public class Proctor implements Service {
 	}
 	
 	private void sendDomainInfo() {
-		for (final Shard shard: partitionTable.getScheme().getShardsByState(null)) {
-			if (!shard.getState().equals(ShardState.GONE)) {
-				final DomainInfo dom = new DomainInfo();
-				dom.setDomainPallets(partitionTable.getScheme().getPallets());
-				eventBroker.send(shard.getBrokerChannel(), EVENT_SET, dom);
-			}
-		}
+		final Set<ShardEntity> allPallets = new HashSet<>();
+		partitionTable.getScheme().onPallets(allPallets::add);
+		partitionTable.getScheme().onShards(ShardState.GONE.negative(), shard-> {
+			final DomainInfo dom = new DomainInfo();
+			dom.setDomainPallets(allPallets);
+			eventBroker.send(shard.getBrokerChannel(), EVENT_SET, dom);
+		});
 	}
 
 	private void analyzeShards() {
@@ -159,31 +162,32 @@ public class Proctor implements Service {
 							.append(shardId.toString())
 							.toString()));
 			}
-			final List<Shard> shards = partitionTable.getScheme().getShards();
-			if (shards.isEmpty()) {
+			final int size = partitionTable.getScheme().shardsSize();
+			if (size==0) {
 				logger.warn("{}: Partition queue empty: no shards emiting heartbeats ?", getName());
 				return;
 			}
 			lastUnstableAnalysisId = analysisCounter == 1 ? 1 : lastUnstableAnalysisId;
 			if (logger.isInfoEnabled()) {
+				final StringBuilder sb = new StringBuilder();
+				partitionTable.getScheme().onShards(null, shard->sb.append(shard).append(','));
 				logger.info("{}: Health: {}, {} shard(s) going to be analyzed: {}", getName(),
-					partitionTable.getVisibilityHealth(), shards.size(), shards);
+					partitionTable.getVisibilityHealth(), size, sb.toString());
 			}
 			
-			int sizeOnline = 0;
-			for (Shard shard : shards) {
+			final int[] sizeOnline = new int[1];
+			partitionTable.getScheme().onShards(null, shard-> {
 				final ShardState newState = evaluateStateThruHeartbeats(shard);
 				final ShardState priorState = shard.getState();
 				if (newState != priorState) {
 					lastUnstableAnalysisId = analysisCounter;
 					bokkeeper.shardStateChange(shard, priorState, newState);
 				}
-				sizeOnline += priorState == ShardState.ONLINE ? 1 : 0;
-			}
+				sizeOnline[0] += priorState == ShardState.ONLINE || newState == ShardState.ONLINE ? 1 : 0;
+			});
 			final int threshold = config.getProctor().getClusterHealthStabilityDelayPeriods();
 			ClusterHealth health = UNSTABLE;
-			if (sizeOnline == shards.size()
-					&& analysisCounter - lastUnstableAnalysisId >= threshold) {
+			if (sizeOnline[0] == size && analysisCounter - lastUnstableAnalysisId >= threshold) {
 				health = STABLE;
 			}
 			if (health != partitionTable.getVisibilityHealth()) {

@@ -68,7 +68,8 @@ class ChangePlanFactory {
 		
 		// recently fallen shards
 		addMissingAsCrud(table, changePlan);
-		final Set<ShardEntity> dutyCreations = table.getBackstage().getDutiesCrud(EntityEvent.CREATE, null);
+		final Set<ShardEntity> dutyCreations = new HashSet<>();
+		table.getBackstage().onDutiesCrud(EntityEvent.CREATE, null, dutyCreations::add);
 		// add danglings as creations prior to migrations
 		for (ShardEntity d: table.getBackstage().getDutiesDangling()) {
 			dutyCreations.add(ShardEntity.Builder.builderFrom(d).build());
@@ -78,14 +79,16 @@ class ChangePlanFactory {
 			dutyCreations.add(p);
 		}
 		
-		final Set<ShardEntity> dutyDeletions = table.getBackstage().getDutiesCrud(EntityEvent.REMOVE, null);
+		final Set<ShardEntity> dutyDeletions = new HashSet<>();
+		table.getBackstage().onDutiesCrud(EntityEvent.REMOVE, null, dutyDeletions::add);
 		// lets add those duties of a certain deleting pallet
-		for (ShardEntity p: table.getBackstage().getPalletsCrud(EntityEvent.REMOVE, EntityState.PREPARED)) {
-			dutyDeletions.addAll(table.getScheme().getDutiesByPallet(p.getPallet()));
-		}
+		table.getBackstage().onPalletsCrud(EntityEvent.REMOVE, EntityState.PREPARED, p-> {
+			table.getScheme().onDutiesByPallet(p.getPallet(), dutyDeletions::add);
+		});
 		registerDeletions(table, changePlan, dutyDeletions);
 		
-		final Set<ShardEntity> ents = new HashSet<>(table.getScheme().getDutiesAttached());
+		final Set<ShardEntity> ents = new HashSet<>();
+		table.getScheme().onDuties(ents::add);
 		ents.addAll(dutyCreations);
 		boolean changes = false;
 		final Map<String, List<ShardEntity>> schemeByPallets = ents.stream()
@@ -93,11 +96,11 @@ class ChangePlanFactory {
 		if (schemeByPallets.isEmpty()) {
 			logger.warn("{}: Scheme is empty. Nothing to balance", getClass().getSimpleName());
 		} else {
-			final List<Shard> onlineShards = table.getScheme().getShardsByState(ShardState.ONLINE);
-			for (final Map.Entry<String, List<ShardEntity>> entry : schemeByPallets.entrySet()) {
-				final Pallet<?> pallet = table.getScheme().getPalletById(entry.getKey()).getPallet();
+			for (final Map.Entry<String, List<ShardEntity>> e : ents.stream()
+					.collect(Collectors.groupingBy(e -> e.getDuty().getPalletId())).entrySet()) {
+				final Pallet<?> pallet = table.getScheme().getPalletById(e.getKey()).getPallet();
 				final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
-				logStatus(table, onlineShards, dutyCreations, dutyDeletions, entry.getValue(), pallet, balancer);
+				logStatus(table, dutyCreations, dutyDeletions, e.getValue(), pallet, balancer);
 				if (balancer != null) {
 					final Migrator migra = balance(table, pallet, balancer, dutyCreations, dutyDeletions);
 					changes |= migra.write(changePlan);
@@ -133,14 +136,17 @@ class ChangePlanFactory {
 
 		final Set<ShardEntity> sourceRefs = new HashSet<>(removes.size() + adds.size());
 		final Map<NetworkLocation, Set<Duty<?>>> distro = new TreeMap<>();
-		for (Shard shard : table.getScheme().getShards()) {
-			if (shard.getState() == ShardState.ONLINE) {
-				final Set<ShardEntity> located = table.getScheme().getDutiesByShard(pallet, shard);
-				distro.put(new NetworkLocation(shard), refs(located));
-				sourceRefs.addAll(located);
-			}
-		}
-
+		
+		// add the currently distributed duties
+		table.getScheme().onShards(ShardState.ONLINE.filter(), shard-> {
+			final Set<Duty<?>> located = new HashSet<>();
+			table.getScheme().onDuties(shard, pallet, d-> {
+				located.add(d.getDuty());
+				sourceRefs.add(d);
+			}); 
+			distro.put(new NetworkLocation(shard), located);
+		});
+		// add the currently distributed duties
 		sourceRefs.addAll(removes);
 		sourceRefs.addAll(adds);
 		final Migrator migrator = new Migrator(table, pallet, sourceRefs);
@@ -232,7 +238,7 @@ class ChangePlanFactory {
 	}
 
 	private void logStatus(
-			final PartitionTable table, final List<Shard> onlineShards,
+			final PartitionTable table, 
 			final Set<ShardEntity> dutyCreations, 
 			final Set<ShardEntity> dutyDeletions,
 			final List<ShardEntity> duties,
@@ -244,13 +250,13 @@ class ChangePlanFactory {
 		}
 		
 		logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "Building Pallet: %s for %s", pallet.getId(), balancer.getClass().getSimpleName()));
-		double clusterCapacity = 0;
-		for (final Shard node: onlineShards) {
+		final double[] clusterCapacity = new double[1];
+		table.getScheme().onShards(ShardState.ONLINE.filter(), node-> {
 			final Capacity cap = node.getCapacities().get(pallet);
 			final double currTotal = cap == null ? 0 :  cap.getTotal();
 			logger.info("{}: Capacity Shard {} : {}", getClass().getSimpleName(), node.toString(), currTotal);
-			clusterCapacity += currTotal;
-		}
+			clusterCapacity[0] += currTotal;
+		});
 		logger.info("{}: Total cluster capacity: {}", getClass().getSimpleName(), clusterCapacity);
 		logger.info("{}: counting #{};+{};-{} duties: {}", getClass().getSimpleName(),
 			new PartitionTable.Scheme.SchemeExtractor(table.getScheme())

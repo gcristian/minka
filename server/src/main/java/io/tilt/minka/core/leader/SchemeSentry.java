@@ -254,7 +254,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		final Iterator<Pallet<?>> it = palletsFromSource.iterator();
 		while (it.hasNext()) {
 			final ShardEntity she = ShardEntity.Builder.builder(it.next()).build();
-			if (partitionTable.getScheme().getPallets().contains(she)) {
+			if (partitionTable.getScheme().filterPallets(she::equals)) {
 				sortedLog.add(she);
 				it.remove();
 			} else {
@@ -280,7 +280,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		for (final ShardEntity entity : dutiesFromAction) {
 			final boolean typeDuty = entity.getType()==ShardEntity.Type.DUTY;
 			final boolean found = (typeDuty && presentInPartition(entity)) || 
-					(!typeDuty && partitionTable.getScheme().getPallets().contains(entity));
+					(!typeDuty && partitionTable.getScheme().filterPallets(entity::equals));
 			final EntityEvent event = entity.getLastEvent();
 			if (!event.isCrud()) {
 				throw new RuntimeException("Bad call");

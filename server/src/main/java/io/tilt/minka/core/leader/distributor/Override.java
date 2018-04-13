@@ -18,6 +18,7 @@
 package io.tilt.minka.core.leader.distributor;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -59,13 +60,15 @@ public class Override {
 
 	boolean apply(final ChangePlan changePlan, final PartitionTable table) {
 		boolean anyChange = false;
-		final Set<ShardEntity> current = table.getScheme().getDutiesByShard(pallet, getShard());
+		
 		if (Migrator.log.isDebugEnabled()) {
 			Migrator.log.debug("{}: cluster built {}", getClass().getSimpleName(), getEntities());
-			Migrator.log.debug("{}: currents at shard {} ", getClass().getSimpleName(), current);
+			final Set<ShardEntity> tmp = new HashSet<>();
+			table.getScheme().onDuties(getShard(), pallet, tmp::add);
+			Migrator.log.debug("{}: currents at shard {} ", getClass().getSimpleName(), tmp);
 		}
-		anyChange |= dettachDelta(changePlan, getEntities(), getShard(), current);
-		anyChange |= attachDelta(changePlan, getEntities(), getShard(), current);
+		anyChange |= dettachDelta(changePlan, table);
+		anyChange |= attachDelta(changePlan, table);
 		if (!anyChange) {
 			Migrator.log.info("{}: Shard: {}, unchanged", getClass().getSimpleName(), shard);
 		}
@@ -76,29 +79,25 @@ public class Override {
 	    * null or empty cluster translates to: dettach all existing */
 	private final boolean dettachDelta(
 			final ChangePlan changePlan, 
-			final Set<ShardEntity> clusterSet, 
-			final Shard shard, 
-			final Set<ShardEntity> currents) {
+			final PartitionTable table) {
 
-		List<ShardEntity> detaching = clusterSet == null ? new ArrayList<>(currents) : currents.stream()
-				.filter(i -> !clusterSet.contains(i))
-				.collect(Collectors.toList());
-
-		if (!detaching.isEmpty()) {
-			final StringBuilder logg = new StringBuilder(detaching.size() * 16);
-			for (ShardEntity detach : detaching) {
+		final StringBuilder logg = new StringBuilder(16*10);
+		final int[] detaching = new int[1];
+		table.getScheme().onDuties(getShard(), pallet, detach-> {
+			if (entities == null || !entities.contains(detach)) {
 				detach.getJournal().addEvent(EntityEvent.DETACH,
 						EntityState.PREPARED,
 						shard.getShardID(),
 						changePlan.getId());
 				changePlan.ship(shard, detach);
 				logg.append(detach.getEntity().getId()).append(", ");
+				detaching[0]++;
 			}
+		});
+		
+		if (detaching[0]>0) {
 			Migrator.log.info("{}: Shipping dettaches from: {}, duties: (#{}) {}",
-					getClass().getSimpleName(),
-					shard.getShardID(),
-					detaching.size(),
-					logg.toString());
+					getClass().getSimpleName(), shard.getShardID(), detaching[0], logg.toString());
 			return true;
 		}
 		return false;
@@ -107,18 +106,14 @@ public class Override {
 	/* attach what's not already living in that shard */
 	private final boolean attachDelta(
 			final ChangePlan changePlan, 
-			final Set<ShardEntity> clusterSet, 
-			final Shard shard, 
-			final Set<ShardEntity> currents) {
+			final PartitionTable table) {
 
-		StringBuilder logg;
-		if (clusterSet != null) {
-			final List<ShardEntity> attaching = clusterSet.stream()
-					.filter(i -> !currents.contains(i))
-					.collect(Collectors.toList());
-			if (!attaching.isEmpty()) {
-				logg = new StringBuilder(attaching.size() * 16);
-				for (ShardEntity attach : attaching) {
+		final StringBuilder logg = new StringBuilder(10 * 16); 
+		int attaching = 0;
+		if (entities != null) {
+			for (final ShardEntity attach: entities) {
+				if (!table.getScheme().dutyExistsAt(attach, getShard())) {
+					attaching++;
 					attach.getJournal().addEvent(EntityEvent.ATTACH,
 							EntityState.PREPARED,
 							shard.getShardID(),
@@ -126,13 +121,12 @@ public class Override {
 					changePlan.ship(shard, attach);
 					logg.append(attach.getEntity().getId()).append(", ");
 				}
-				Migrator.log.info("{}: Shipping attaches shard: {}, duty: (#{}) {}",
-						getClass().getSimpleName(),
-						shard.getShardID(),
-						attaching.size(),
-						logg.toString());
-				return true;
 			}
+		}
+		if (attaching>0) {
+			Migrator.log.info("{}: Shipping attaches shard: {}, duty: (#{}) {}",
+				getClass().getSimpleName(), shard.getShardID(), attaching, logg.toString());
+			return true;
 		}
 		return false;
 	}

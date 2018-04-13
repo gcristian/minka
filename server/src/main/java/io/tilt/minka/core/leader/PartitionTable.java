@@ -18,17 +18,16 @@ package io.tilt.minka.core.leader;
 
 import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.STABLE;
 import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.UNSTABLE;
-import static java.util.Collections.unmodifiableSet;
-
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,17 +83,44 @@ public class PartitionTable {
 			this.partitionsByShard = new HashMap<>();
 			this.palletsById = new HashMap<>();
 		}
-		
-		public List<Shard> getShardsByState(final ShardState filter) {
-			return shardsByID.values().stream().filter(i -> i.getState() == filter || filter == null)
-					.collect(Collectors.toList());
+		public void onShards(final Predicate<Shard> test, final Consumer<Shard> consumer) {
+			for (Shard sh: shardsByID.values()) {
+				if (test == null || test.test(sh) || test == null) {
+					consumer.accept(sh);
+				}
+			}
 		}
+		public Shard findShard(final Predicate<Shard> test) {
+			for (Shard sh: shardsByID.values()) {
+				if (test == null || test.test(sh) || test == null) {
+					return sh;
+				}
+			}
+			return null;
+		}
+
+		/** @return true if any shard passed the predicate */
+		public boolean filterShards(final Predicate<Shard> test) {
+			return shardsByID.values().stream().anyMatch(test);
+		}
+		
+		public int shardsSize(final Predicate<Shard> test) {
+			return test == null
+					? shardsByID.size() 
+					: (int)shardsByID.values().stream().filter(test).count();
+		}
+
 		public ShardEntity getPalletById(final String id) {
 			return this.palletsById.get(id);
 		}
-		public Set<ShardEntity> getPallets() {
-			return Collections.unmodifiableSet(new HashSet<>(this.palletsById.values()));
+		public void onPallets(final Consumer<ShardEntity> consumer) {
+			palletsById.values().forEach(consumer);
 		}
+		public boolean filterPallets(final Predicate<ShardEntity> test) {
+			return palletsById.values().stream().anyMatch(test);
+		}
+		
+		
 		/**
 		 * When a Shard has been offline and their dangling duties reassigned
 		 * after completing Change's cycles: the shard must be deleted
@@ -133,7 +159,9 @@ public class PartitionTable {
 		 * @return if there was a Scheme change after the action 
 		 */
 		public boolean writeDuty(final ShardEntity duty, final Shard where, final EntityEvent event, final Runnable callback) {
-			if (event.is(EntityEvent.ATTACH) || event.is(EntityEvent.CREATE)) {
+			final boolean createAttach = event.is(EntityEvent.ATTACH) || event.is(EntityEvent.CREATE);
+			//final boolean removeDetach = !createAttach && (event.is(EntityEvent.DETACH) || event.is(EntityEvent.REMOVE));
+			if (createAttach) {
 				checkDuplicationFailure(duty, where);
 				if (getPartition(where).add(duty)) {
 					if (callback!=null) {
@@ -153,12 +181,21 @@ public class PartitionTable {
 				} else {
 					throw new ConsistencyException("Absence failure. Confirmed deletion actually doesnt exist or it " + 
 							"was already confirmed");
-				}
-				return true;
+/*
 			}
-			return false;
+			final ShardedPartition partition = getPartition(where);
+			if ((createAttach && partition.add(duty)) || (removeDetach && partition.remove(duty))) {
+				if (callback!=null) {
+					callback.run();
+*/
+				}
+				logger.info("{}: Written {} on: {} at [{}]", getClass().getSimpleName(), event.name(), duty, where);
+				return true;
+			} else {
+				throw new ConsistencyException(event.toVerb() + " failure. Confirmed " + event.name() + " already exists");
+			}
 		}
-
+		
 		private void checkDuplicationFailure(final ShardEntity duty, final Shard reporter) {
 			for (Shard sh : partitionsByShard.keySet()) {
 				if (!sh.equals(reporter) && partitionsByShard.get(sh).contains(duty)) {
@@ -174,36 +211,48 @@ public class PartitionTable {
 			return getPartition(shard).getDuties();
 		}
 
-		public Set<ShardEntity> getDutiesByShard(final Pallet<?> pallet, final Shard shard) {
-			return unmodifiableSet(getPartition(shard)
-					.getDuties().stream()
-					.filter(e -> e.getDuty().getPalletId().equals(pallet.getId()))
-					.collect(Collectors.toSet()));
-		}
-
-		public Set<ShardEntity> getDutiesAttached() {
-			return getDutiesAllByShardState(null, null);
-		}
-		public Set<ShardEntity> getDuties() {
-			return getDutiesAllByShardState(null, null);
-		}
-		public Set<ShardEntity> getDutiesByPallet(final Pallet<?> pallet) {
-			return getDutiesAllByShardState(pallet, null);
-		}
-		private Set<ShardEntity> getDutiesAllByShardState(final Pallet<?> pallet, final ShardState state) {
-			final Set<ShardEntity> allDuties = new HashSet<>();
-			for (Shard shard : partitionsByShard.keySet().stream()
-					.filter(s -> s.getState() == state || state == null)
-					.collect(Collectors.toList())) {
-				allDuties.addAll(pallet == null ? 
-						partitionsByShard.get(shard).getDuties() :
-						partitionsByShard.get(shard).getDuties().stream()
-								.filter(d -> d.getDuty().getPalletId().equals(pallet.getId()))
-								.collect(Collectors.toList()));
+		public void onDuties(final Shard shard, final Pallet<?> pallet, final Consumer<ShardEntity> consumer) {
+			for (ShardEntity e: getPartition(shard).getDuties()) {
+				if (pallet==null || e.getDuty().getPalletId().equals(pallet.getId())) {
+					consumer.accept(e);
+				}
 			}
-			return allDuties;
 		}
-
+		
+		public void onDuties(final Consumer<ShardEntity> consumer) {
+			onDuties(null, null, consumer, null, false);
+		}
+		public void onDutiesByPallet(final Pallet<?> pallet, final Consumer<ShardEntity> consumer) {
+			onDuties(pallet, null, consumer, null, false);
+		}
+		public boolean dutyExists(final ShardEntity e) {
+			final boolean ret[] = new boolean[1];
+			onDuties(null, null, ee-> ret[0]=true, ee-> ee.equals(e), true);
+			return ret[0];
+		}
+		
+		public boolean dutyExistsAt(final ShardEntity e, final Shard shard) {
+			return getPartition(shard).getDuties().contains(e);
+		}
+		
+		private void onDuties(final Pallet<?> pallet, final ShardState state, final Consumer<ShardEntity> consumer, 
+				final Predicate<ShardEntity> test, final boolean one) {
+			for (Shard shard: shardsByID.values()) {
+				if (state==null || shard.getState()==state) {
+					for (final ShardEntity e: partitionsByShard.get(shard).getDuties()) {
+						if (pallet == null || e.getDuty().getPalletId().equals(pallet.getId())) {
+							if (test==null || test.test(e)) {
+								consumer.accept(e);
+								if (one) {
+									return;
+								}
+							}
+						}
+					}	
+				}
+			}
+		}
+		
 		private synchronized ShardedPartition getPartition(final Shard shard) {
 			ShardedPartition po = this.partitionsByShard.get(shard);
 			if (po == null) {
@@ -238,21 +287,19 @@ public class PartitionTable {
 			return null;
 		}
 
-		public List<Shard> getPalletLocations(final ShardEntity se) {
-			final List<Shard> ret = new ArrayList<>();
+		public void filterPalletLocations(final ShardEntity pallet, final Consumer<Shard> consumer) {
 			for (final Shard shard : partitionsByShard.keySet()) {
-				for (ShardEntity st : partitionsByShard.get(shard).getPallets()) {
-					if (st.equals(se)) {
-						ret.add(shard);
+				for (ShardEntity pp : partitionsByShard.get(shard).getPallets()) {
+					if (pp.equals(pallet)) {
+						consumer.accept(shard);
 						break;
 					}
 				}
 			}
-			return ret;
 		}
-
-		public List<Shard> getShards() {
-			return Lists.newArrayList(this.shardsByID.values());
+		
+		public int shardsSize() {
+			return this.shardsByID.values().size();
 		}
 
 		/** Read-only access */
@@ -358,10 +405,16 @@ public class PartitionTable {
 			return this.dutyDangling.add(dangling);
 		}
 		public void cleanAllocatedDanglings() {
-			dutyDangling.removeAll(
-					dutyDangling.stream()
-							.filter(e -> e.getLastState() != EntityState.STUCK)
-							.collect(Collectors.toList()));
+			removeNonStuck(dutyDangling);
+		}
+		private void removeNonStuck(final Set<ShardEntity> set) {
+			final Iterator<ShardEntity> it = set.iterator();
+			while (it.hasNext()) {
+				final ShardEntity e = it.next();
+				if (e.getLastState() != EntityState.STUCK) {
+					it.remove();
+				}
+			}
 		}
 
 		public int accountCrudDuties() {
@@ -385,10 +438,7 @@ public class PartitionTable {
 			return Collections.unmodifiableSet(this.dutyMissings);
 		}
 		public void clearAllocatedMissing() {
-			dutyMissings.removeAll(
-					dutyMissings.stream()
-							.filter(e -> e.getLastState() != EntityState.STUCK)
-							.collect(Collectors.toList()));
+			removeNonStuck(dutyMissings);
 		}
 		
 		public boolean addMissing(final Set<ShardEntity> duties) {
@@ -403,20 +453,29 @@ public class PartitionTable {
 			this.dutyCrud.clear();
 			this.dutyCrud = new HashSet<>();
 		}
-		private Set<ShardEntity> getEntityCrudWithFilter(
-				final ShardEntity.Type type, final EntityEvent event, final EntityState state) {
-			return (type == ShardEntity.Type.DUTY ? 
-				getDutiesCrud() : palletCrud).stream()
-					.filter(e -> (event == null || e.getJournal().getLast().getEvent() == event) 
-							&& (state == null || e.getJournal().getLast().getLastState() == state))
-					.collect(Collectors.toCollection(HashSet::new));
+		public int sizeDutiesCrud(final EntityEvent event, final EntityState state) {
+			final int[] size = new int[1];
+			onEntitiesCrud(ShardEntity.Type.DUTY, event, state, e->size[0]++);
+			return size[0];
 		}
-		public Set<ShardEntity> getDutiesCrud(final EntityEvent event, final EntityState state) {
-			return getEntityCrudWithFilter(ShardEntity.Type.DUTY, event, state);
+		public void onDutiesCrud(final EntityEvent event, final EntityState state, final Consumer<ShardEntity> consumer) {
+			onEntitiesCrud(ShardEntity.Type.DUTY, event, state, consumer);
 		}
-		public Set<ShardEntity> getPalletsCrud(final EntityEvent event, final EntityState state) {
-			return getEntityCrudWithFilter(ShardEntity.Type.PALLET, event, state);
+		public void onPalletsCrud(final EntityEvent event, final EntityState state, final Consumer<ShardEntity> consumer) {
+			onEntitiesCrud(ShardEntity.Type.PALLET, event, state, consumer);
 		}
+		private void onEntitiesCrud(
+				final ShardEntity.Type type, 
+				final EntityEvent event, 
+				final EntityState state, 
+				final Consumer<ShardEntity> consumer) {
+			
+			(type == ShardEntity.Type.DUTY ? getDutiesCrud() : palletCrud).stream()
+				.filter(e -> (event == null || e.getJournal().getLast().getEvent() == event) 
+					&& (state == null || e.getJournal().getLast().getLastState() == state))
+				.forEach(consumer);
+		}
+
 	}
 	
 	private ClusterHealth visibilityHealth;
