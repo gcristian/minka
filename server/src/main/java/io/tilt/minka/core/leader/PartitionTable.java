@@ -151,6 +151,7 @@ public class PartitionTable {
 				return true;
 			}
 		}
+		
 		/**
 		 * Account the end of the duty movement operation.
 		 * @param duty 		the entity to act on
@@ -159,41 +160,21 @@ public class PartitionTable {
 		 * @return if there was a Scheme change after the action 
 		 */
 		public boolean writeDuty(final ShardEntity duty, final Shard where, final EntityEvent event, final Runnable callback) {
-			final boolean createAttach = event.is(EntityEvent.ATTACH) || event.is(EntityEvent.CREATE);
-			//final boolean removeDetach = !createAttach && (event.is(EntityEvent.DETACH) || event.is(EntityEvent.REMOVE));
-			if (createAttach) {
+			final boolean add = event.is(EntityEvent.ATTACH) || event.is(EntityEvent.CREATE);
+			final boolean del = !add && (event.is(EntityEvent.DETACH) || event.is(EntityEvent.REMOVE));
+			final ShardedPartition part = getPartition(where);
+			if (add) {
 				checkDuplicationFailure(duty, where);
-				if (getPartition(where).add(duty)) {
-					if (callback!=null) {
-						callback.run();
-					}
-					logger.info("{}: Written {} with: {} on shard {}", getClass().getSimpleName(), event, duty, where);
-				} else {
-					throw new ConsistencyException("Attach failure. Confirmed attach/creation already exists");
-				}
-				return true;
-			} else if (event.is(EntityEvent.DETACH) || event.is(EntityEvent.REMOVE)) {
-				if (getPartition(where).remove(duty)) {
-					if (callback!=null) {
-						callback.run();
-					}
-					logger.info("{}: Written {} with: {} on shard {}", getClass().getSimpleName(), event.toVerb(), duty, where);
-				} else {
-					throw new ConsistencyException("Absence failure. Confirmed deletion actually doesnt exist or it " + 
-							"was already confirmed");
-/*
-			}
-			final ShardedPartition partition = getPartition(where);
-			if ((createAttach && partition.add(duty)) || (removeDetach && partition.remove(duty))) {
+			} 
+			if ((add && part.add(duty)) || del && part.remove(duty)) {
 				if (callback!=null) {
 					callback.run();
-*/
 				}
 				logger.info("{}: Written {} on: {} at [{}]", getClass().getSimpleName(), event.name(), duty, where);
-				return true;
 			} else {
-				throw new ConsistencyException(event.toVerb() + " failure. Confirmed " + event.name() + " already exists");
+				throw new ConsistencyException("Attach failure. Confirmed attach/creation already exists");
 			}
+			return true;
 		}
 		
 		private void checkDuplicationFailure(final ShardEntity duty, final Shard reporter) {
