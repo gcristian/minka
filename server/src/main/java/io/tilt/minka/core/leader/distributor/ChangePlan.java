@@ -30,13 +30,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -312,54 +308,36 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		return isLegitUnpair;
 	}
     
-	private final ReentrantLock lock = new ReentrantLock(true);
-
-	private boolean withLock(final Callable<Boolean> run) {
-		try {
-			if (!lock.tryLock(1, TimeUnit.SECONDS)) {
-				return false;
-			}
-			return run.call();
-		} catch (Exception e) {
-			logger.error("unexpected", e);
-			return false;
-		} finally {
-			lock.unlock();
-		}
-	}
-
     /** @return whether caller has permission to get next delivery   */
 	public boolean hasNextParallel() {
-		return withLock(() -> {
-			if (started == null) {
-				throw new IllegalStateException("ChangePlan not prepared yet !");
-			}
-			// set done if none pending
-			deliveries.forEach(d -> d.checkState());
-			if (!iterator.hasNext()) {
+		if (started == null) {
+			throw new IllegalStateException("ChangePlan not prepared yet !");
+		}
+		// set done if none pending
+		deliveries.forEach(d -> d.checkState());
+		if (!iterator.hasNext()) {
+			return false;
+		}
+		// there's more, but are they allowed right now ?
+		if (lastDelivery == null) {
+			// first time here
+			return true;
+		}
+		if (deliveries.get(deliveryIdx).getEvent() == lastDelivery.getEvent()) {
+			// identical future events are parallelized
+			return true;
+		}
+		// other future events require all past confirmed
+		for (int i = 0; i < deliveryIdx; i++) {
+			final Delivery d = deliveries.get(i);
+			if (d.getStep() == Delivery.Step.PENDING) {
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: No more parallels: past deliveries yet pending", getClass().getSimpleName());
+				}
 				return false;
 			}
-			// there's more, but are they allowed right now ?
-			if (lastDelivery == null) {
-				// first time here
-				return true;
-			}
-			if (deliveries.get(deliveryIdx).getEvent() == lastDelivery.getEvent()) {
-				// identical future events are parallelized
-				return true;
-			}
-			// other future events require all past confirmed
-			for (int i = 0; i < deliveryIdx; i++) {
-				final Delivery d = deliveries.get(i);
-				if (d.getStep() == Delivery.Step.PENDING) {
-					if (logger.isInfoEnabled()) {
-						logger.info("{}: No more parallels: past deliveries yet pending", getClass().getSimpleName());
-					}
-					return false;
-				}
-			}
-			return true;
-		});
+		}
+		return true;
 	}
 
 	/** @return if all deliveries are fully confirmed */
@@ -420,17 +398,14 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	 * }
 	 */
 	protected void ship(final Shard shard, final ShardEntity duty) {
-		withLock(() -> {
-			CollectionUtils.getOrPut(
-					CollectionUtils.getOrPut(
-							shippings,
-							duty.getLastEvent(),
-							() -> new HashMap<>()),
-					shard,
-					() -> new ArrayList<>())
-					.add(duty);
-			return false;
-		});
+		CollectionUtils.getOrPut(
+				CollectionUtils.getOrPut(
+						shippings,
+						duty.getLastEvent(),
+						() -> new HashMap<>()),
+				shard,
+				() -> new ArrayList<>())
+				.add(duty);
 	}
 	
 	@JsonIgnore
