@@ -196,8 +196,9 @@ public class EntityJournal implements Serializable {
 	}
 
 	/**
-	 * a list of States {Prepared, Pending...Confirmed} 
-	 * for an EntityEvent {Create, Attach..Dettach}, a Shard and a ChangePlan.
+	 * Registry of an {@linkplain EntityEvent} with a list of {@linkplain TimeState}, 
+	 * for a given conmposed key of {@linkplain ShardEntity}, {@linkplain Plan}, {@linkplain Shard}
+	 * Recording any distribution related operation information.
 	 */
 	public static class Log implements Serializable {
 

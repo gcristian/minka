@@ -180,7 +180,7 @@ public interface Semaphore extends Service {
 
 
 		private RuleFactory(Action action) {
-			this.relatedByHierarchy = new HashMap<>();
+			this.relatedByHierarchy = new HashMap<>(Hierarchy.values().length);
 			for (Hierarchy level : Hierarchy.values()) {
 				relatedByHierarchy.put(level, Lists.newArrayList());
 			}

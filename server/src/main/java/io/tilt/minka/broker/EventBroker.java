@@ -110,7 +110,6 @@ public interface EventBroker extends Service {
 			Consumer<Serializable> driver,
 			long sinceTimestamp);
 
-	@SuppressWarnings("unchecked")
 	void subscribeEvents(
 			BrokerChannel channel, 
 			Consumer<Serializable> driver, 

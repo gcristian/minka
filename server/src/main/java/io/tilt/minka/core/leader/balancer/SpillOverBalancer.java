@@ -139,7 +139,7 @@ public class SpillOverBalancer implements Balancer {
 				meta.getMaxUnit() == MaxUnit.USE_CAPACITY ? "{shard's capacity}" : meta.getMaxValue());
 			
 			boolean loadStrat = meta.getMaxUnit() == MaxUnit.DUTY_WEIGHT || meta.getMaxUnit() == MaxUnit.USE_CAPACITY;
-			final Map<NetworkLocation, AtomicDouble> spaceByReceptor = new HashMap<>();
+			final Map<NetworkLocation, AtomicDouble> spaceByReceptor = new HashMap<>(scheme.size());
 			final SetMultimap<NetworkLocation, Duty<?>> trans = collectTransceivers(pallet, scheme, loadStrat, spaceByReceptor, meta);
 			if (trans==null || (spaceByReceptor.isEmpty() && !trans.isEmpty())) {
 				logger.warn("{}: Couldnt find receptors to spill over to", getClass().getSimpleName());

@@ -55,7 +55,6 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	private final SynchronizedFactory syncFactory;
 	
 	/* for local scope actions */
-	private final Map<Action, Rule> rules;
 	private long lastCheck;
 	private final String logName;
 
@@ -80,10 +79,6 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		executor.setRemoveOnCancelPolicy(true);
 		executor.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
 		executor.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
-		
-
-		this.rules = new HashMap<>();
-		getLockingRules().forEach(rule -> this.rules.put(rule.getAction(), rule));
 
 		this.futuresBySynchro = new HashMap<>();
 		this.runnablesBySynchro = new HashMap<>();

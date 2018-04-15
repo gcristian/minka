@@ -96,10 +96,16 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	private Result result = Result.RUNNING;
 	private int retryCounter;
 
+	private static List<EntityEvent> consistentEventsOrder = Arrays.asList(
+			EntityEvent.REMOVE,
+			EntityEvent.DETACH,
+			EntityEvent.CREATE,
+			EntityEvent.ATTACH);
+
 	protected ChangePlan(final long id, final long maxMillis, final int maxRetries) {
 		this.id = id;
 		this.created = Instant.now();
-		this.shippings = new HashMap<>();
+		this.shippings = new HashMap<>(consistentEventsOrder.size());
 		this.deliveries = Collections.emptyList();
 		this.maxMillis = maxMillis;
 		this.maxRetries = maxRetries;
@@ -179,12 +185,6 @@ public class ChangePlan implements Comparable<ChangePlan> {
 				.findFirst()
 				.orElse(null);
 	}
-
-	private static List<EntityEvent> consistentEventsOrder = Arrays.asList(
-			EntityEvent.REMOVE,
-			EntityEvent.DETACH,
-			EntityEvent.CREATE,
-			EntityEvent.ATTACH);
 
 	/**
 	 * transforms shippings of transfers and overrides, into a consistent gradual change plan
@@ -402,7 +402,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 				CollectionUtils.getOrPut(
 						shippings,
 						duty.getLastEvent(),
-						() -> new HashMap<>()),
+						() -> new HashMap<>(2)),
 				shard,
 				() -> new ArrayList<>())
 				.add(duty);

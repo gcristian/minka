@@ -127,7 +127,7 @@ public interface Balancer {
 		
 	/** so clients can add new balancers */
 	public static class Directory {
-		private final static Map<Class<? extends Balancer>, Balancer> directory = new HashMap<>();
+		private final static Map<Class<? extends Balancer>, Balancer> directory = new HashMap<>(Strategy.values().length);
 		static {
 			try {
 				for (Strategy strat: Strategy.values()) {

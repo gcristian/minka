@@ -133,7 +133,7 @@ public class EvenSizeBalancer implements Balancer {
 			final Set<NetworkLocation> emisors, 
 			final Set<Duty<?>> deletions) {
 
-		final Map<NetworkLocation, Integer> deltas = new HashMap<>();
+		final Map<NetworkLocation, Integer> deltas = new HashMap<>(scheme.keySet().size());
 		final int maxDelta = ((Metadata)pallet.getMetadata()).getMaxDutiesDeltaBetweenShards();
 		for (final NetworkLocation shard : scheme.keySet()) {
 			final Set<Duty<?>> shardedDuties = scheme.get(shard);

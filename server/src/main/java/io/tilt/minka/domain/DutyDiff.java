@@ -100,7 +100,7 @@ public class DutyDiff {
 	}
 	private boolean init() {
 		if (diffs==null) {
-			diffs = new HashMap<>();
+			diffs = new HashMap<>(6);
 		}
 		return true;
 	}

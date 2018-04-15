@@ -65,11 +65,13 @@ public class SemaphoreImpl implements Service, Semaphore {
 
 	public SemaphoreImpl(final Config config, final SpectatorSupplier supplier, final String logName) {
 		this.config = config;
-		this.rules = new HashMap<>();
 		this.logName = logName;
 		this.supplier = supplier;
 		
-		getLockingRules().forEach(rule -> this.rules.put(rule.getAction(), rule));
+		
+		final List<Rule> ruless = getLockingRules();
+		this.rules = new HashMap<>(ruless.size());
+		ruless.forEach(rule -> this.rules.put(rule.getAction(), rule));
 		locksByAction = new HashMap<>();
 		final CycleDetectingLockFactory lockFactory = CycleDetectingLockFactory.newInstance(Policies.DISABLED);
 		for (final Action key : Action.values()) {

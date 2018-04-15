@@ -134,7 +134,7 @@ class ChangePlanFactory {
 				.collect(Collectors.toSet());
 
 		final Set<ShardEntity> sourceRefs = new HashSet<>(removes.size() + adds.size());
-		final Map<NetworkLocation, Set<Duty<?>>> distro = new TreeMap<>();
+		final Map<NetworkLocation, Set<Duty<?>>> scheme = new TreeMap<>();
 		
 		// add the currently distributed duties
 		table.getScheme().onShards(ShardState.ONLINE.filter(), shard-> {
@@ -143,16 +143,16 @@ class ChangePlanFactory {
 				located.add(d.getDuty());
 				sourceRefs.add(d);
 			}); 
-			distro.put(new NetworkLocation(shard), located);
+			scheme.put(new NetworkLocation(shard), located);
 		});
 		// add the currently distributed duties
 		sourceRefs.addAll(removes);
 		sourceRefs.addAll(adds);
 		final Migrator migrator = new Migrator(table, pallet, sourceRefs);
-		final Map<EntityEvent, Set<Duty<?>>> backstage = new HashMap<>();
+		final Map<EntityEvent, Set<Duty<?>>> backstage = new HashMap<>(2);
 		backstage.put(EntityEvent.CREATE, refs(adds));
 		backstage.put(EntityEvent.REMOVE, refs(removes));
-		balancer.balance(pallet, distro, backstage, migrator);
+		balancer.balance(pallet, scheme, backstage, migrator);
 		return migrator;
 	}
 

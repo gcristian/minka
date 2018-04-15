@@ -79,7 +79,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 		this.config = requireNonNull(config);
 		this.scheduler = requireNonNull(scheduler);
 		this.leaderShardContainer = requireNonNull(leaderContainerShard);
-		this.clients = new HashMap<>();
+		this.clients = new HashMap<>(5);
 	}
 
 	@Override

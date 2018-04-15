@@ -23,9 +23,9 @@ import static io.tilt.minka.core.leader.distributor.ChangePlan.Result.RETRYING;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.Validate;
@@ -287,26 +287,26 @@ public class Distributor implements Service {
 			changePlan.obsolete();
 			return false;
 		} else {
-			final Map<ShardEntity, Log> logByDuty = retrying ? delivery.getByState(EntityState.PENDING)
-					: delivery.getByState();
-			if (logByDuty.isEmpty()) {
+			final List<ShardEntity> payload = new ArrayList<>();
+			final List<Log> logs = new ArrayList<>();
+			final BiConsumer<ShardEntity, Log> bc = (e, l)-> { payload.add(e); logs.add(l); };
+			int deliCount = (retrying)  ? delivery.contentsByState(EntityState.PENDING, bc) :  delivery.contentsByState(bc);
+			if (deliCount == 0) {
 				throw new IllegalStateException("delivery with no duties to send ?");
 			}
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), delivery.getEvent().toVerb(),
-						delivery.getShard().getShardID(), logByDuty.size(),
-						ShardEntity.toStringIds(new TreeSet<>(logByDuty.keySet())));
+						delivery.getShard().getShardID(), deliCount,
+						ShardEntity.toStringIds(payload));
 			}
 			delivery.checkState();
-			if (eventBroker.send(delivery.getShard().getBrokerChannel(), (List)new ArrayList<>(logByDuty.keySet()))) {
+			if (eventBroker.send(delivery.getShard().getBrokerChannel(), (List)payload)) {
 				// dont mark to wait for those already confirmed (from fallen shards)
-				for (ShardEntity duty : logByDuty.keySet()) {
-					// PEND only that track of current delivery
-					logByDuty.get(duty).addState(EntityState.PENDING);
-				}
+				logs.forEach(l->l.addState(EntityState.PENDING));
 			} else {
 				logger.error("{}: Couldnt transport current issues !!!", getName());
 			}
+			
 			return true;
 		}
 	}

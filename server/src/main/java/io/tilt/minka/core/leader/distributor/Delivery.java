@@ -21,6 +21,8 @@ import static java.util.Objects.requireNonNull;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -94,26 +96,27 @@ public class Delivery {
 		DONE,
 	}
 	
-	protected Map<ShardEntity, Log> getByState() {
-		return getByState_(null);
+	protected int contentsByState(final BiConsumer<ShardEntity, Log> bicons) {
+		return contentsByState_(null, bicons);
 	}
 	
-	protected Map<ShardEntity, Log> getByState(final EntityState state) {
-		return getByState_(state);
+	protected int contentsByState(final EntityState state, final BiConsumer<ShardEntity, Log> bicons) {
+		return contentsByState_(state, bicons);
 	}
 	
-	private Map<ShardEntity, Log> getByState_(final EntityState state) {
-		final Map<ShardEntity, Log> ret = new HashMap<>(duties.size());
+	private int contentsByState_(final EntityState state, final BiConsumer<ShardEntity, Log> bicons) {
+		int count = 0;
 		for (ShardEntity duty : duties) {
 			for (Log log : duty.getJournal().getLogs()) {
 				if (log.matches(getEvent(),shard.getShardID().getId(), getPlanId()) 
 						&& (state == null || log.getLastState() == state)) {
-					ret.put(duty, log);
+					bicons.accept(duty, log);
+					count++;
 					break;
 				}
 			}
 		}
-		return ret;
+		return count;
 	}
 	
 	public Step getStep() {
@@ -168,7 +171,7 @@ public class Delivery {
 	@JsonProperty("state")
 	/* only for serialization */
 	final Map<EntityState, StringBuilder> getState() {
-		final Map<EntityState, StringBuilder> ret = new HashMap<>();
+		final Map<EntityState, StringBuilder> ret = new HashMap<>(3); // any of given prepared, pending, confirmed
 		for (final ShardEntity duty: duties) {
 			CollectionUtils.getOrPut(ret, duty.getLastState(), () -> new StringBuilder())
 					.append(duty.getDuty().getId())

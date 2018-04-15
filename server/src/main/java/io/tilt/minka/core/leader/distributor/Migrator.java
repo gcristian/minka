@@ -17,6 +17,7 @@
 package io.tilt.minka.core.leader.distributor;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,6 +29,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -98,7 +101,7 @@ public class Migrator {
 	}
 	private final void transfer_(final NetworkLocation source, final NetworkLocation target, final Duty<?> duty) throws BalancingException {
 		if (this.transfers == null ) {
-			this.transfers = new LinkedList<>();
+			this.transfers = new ArrayList<>(table.getScheme().shardsSize());
 		}
 		final Shard source_ = deref(source);
 		final Shard target_ = deref(target);
@@ -131,34 +134,29 @@ public class Migrator {
 	}
 	
 	/* explicitly override a shard's content, client must look after consistency ! */
-	public final void override(final NetworkLocation shard, final Set<Duty<?>> clusterx) {
+	public final void override(final NetworkLocation shard, final Set<Duty<?>> cluster) {
 		requireNonNull(shard);
-		requireNonNull(clusterx);
+		requireNonNull(cluster);
 		if (this.overrides == null) {
-			this.overrides = new LinkedList<>();
+			this.overrides = new ArrayList<>(table.getScheme().shardsSize());
 		}
 		
-		final Set<ShardEntity> cluster = deref(clusterx);
-		cluster.forEach(d->checkDuplicate(d));
+		cluster.forEach(derefd->checkDuplicate(sourceRefs.get(derefd)));
+		final Stream<ShardEntity> derefdCluster = cluster.stream().map(d->sourceRefs.get(d));
 		final Shard shard_ = deref(shard);
-		final double remainingCap = validateOverride(shard_, cluster);
+		final double remainingCap = validateOverride(shard_, derefdCluster);
 		if (!cluster.isEmpty() && log.isInfoEnabled()) {
 			log.info("{}: Requesting Override: {}, remain cap: {}, with {}", getClass().getSimpleName(), shard_, remainingCap, 
-				ShardEntity.toStringIds(cluster));
+				ShardEntity.toStringIds(derefdCluster));
 		}
-		overrides.add(new Override(pallet, shard_, new LinkedHashSet<>(cluster), remainingCap));
-	}
-	private Set<ShardEntity> deref(final Set<Duty<?>> refs) {
-		final Set<ShardEntity> reids = new HashSet<>(refs.size());
-		refs.forEach(d -> reids.add(sourceRefs.get(d)));
-		return reids;
+		overrides.add(new Override(pallet, shard_, derefdCluster.collect(toCollection(LinkedHashSet::new)), remainingCap));
 	}
 	
 	private Shard deref(final NetworkLocation location) {
 		return table.getScheme().findShard(shard->shard.getShardID().equals(location.getId())); 
 	}
 	
-	private double validateOverride(final Shard target, final Set<ShardEntity> cluster) {
+	private double validateOverride(final Shard target, final Stream<ShardEntity> cluster) {
 		for (Override ov: overrides) {
 			if (ov.getShard().equals(target)) {
 				throw new BalancingException("bad override: this shard: %s has already being overrided !", target);
@@ -167,7 +165,7 @@ public class Migrator {
 		return checkSuitable(target, cluster);
 	}
 
-	private double checkSuitable(final Shard target, final Set<ShardEntity> cluster) {
+	private double checkSuitable(final Shard target, final Stream<ShardEntity> cluster) {
 		double remainingCap = 0;
 		if (isWeightedPallet()) {
 			final AtomicDouble accum = new AtomicDouble(0);

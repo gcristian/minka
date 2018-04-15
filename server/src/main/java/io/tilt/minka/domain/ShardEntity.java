@@ -20,6 +20,7 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;
@@ -203,6 +204,12 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	public static String toStringIds(Collection<ShardEntity> duties) {
 		final StringBuilder sb = new StringBuilder(duties.size()*10);
+		duties.forEach(i -> sb.append(i.getEntity().toString()).append(", "));
+		return sb.toString();
+	}
+
+	public static String toStringIds(Stream<ShardEntity> duties) {
+		final StringBuilder sb = new StringBuilder(10*10);
 		duties.forEach(i -> sb.append(i.getEntity().toString()).append(", "));
 		return sb.toString();
 	}
