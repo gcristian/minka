@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -75,9 +76,7 @@ class ChangePlanFactory {
 			dutyCreations.add(ShardEntity.Builder.builderFrom(d).build());
 		}
 		// add previous fallen and never confirmed migrations
-		for (ShardEntity p: restorePendings(previousChange)) {
-			dutyCreations.add(p);
-		}
+		restorePendings(previousChange, dutyCreations::add);
 		
 		final Set<ShardEntity> dutyDeletions = new HashSet<>();
 		table.getBackstage().onDutiesCrud(EntityEvent.REMOVE, null, dutyDeletions::add);
@@ -201,22 +200,20 @@ class ChangePlanFactory {
 	 * check waiting duties never confirmed (for fallen shards as previous
 	 * target candidates)
 	 */
-	private final List<ShardEntity> restorePendings(final ChangePlan previous) {
+	private void restorePendings(final ChangePlan previous, final Consumer<ShardEntity> c) {
 		if (previous != null 
 				&& previous.getResult().isClosed() 
 				&& !previous.getResult().isSuccess()) {
-			final List<ShardEntity> pendings = previous.getAllNonConfirmedFromAllDeliveries();
-			if (pendings.isEmpty() && logger.isInfoEnabled()) {
+			int rescued = previous.findAllNonConfirmedFromAllDeliveries(c);
+			if (rescued ==0 && logger.isInfoEnabled()) {
 				logger.info("{}: Previous change although unfinished hasnt waiting duties", getClass().getSimpleName());
 			} else {
 				if (logger.isInfoEnabled()) {
 					logger.info("{}: Previous change's unfinished business saved as Dangling: {}",
-						getClass().getSimpleName(), pendings.toString());
+						getClass().getSimpleName(), rescued);
 				}
-				return pendings;
 			}
 		}
-		return Collections.emptyList();
 	}
 
 	/* by user deleted */

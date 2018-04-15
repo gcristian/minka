@@ -26,6 +26,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Spliterator;
+import java.util.Spliterators;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -135,6 +137,7 @@ public class Migrator {
 		if (this.overrides == null) {
 			this.overrides = new LinkedList<>();
 		}
+		
 		final Set<ShardEntity> cluster = deref(clusterx);
 		cluster.forEach(d->checkDuplicate(d));
 		final Shard shard_ = deref(shard);

@@ -153,9 +153,8 @@ public class ChangePlan implements Comparable<ChangePlan> {
 				.forEach(d);
 	}
 	
-	@JsonIgnore
-	public List<ShardEntity> getAllNonConfirmedFromAllDeliveries() {
-		final List<ShardEntity> ret = new LinkedList<>();
+	public int findAllNonConfirmedFromAllDeliveries(final Consumer<ShardEntity> c) {
+		int rescueCount = 0;
 		for (final Delivery delivery: deliveries) {
 			for (final ShardEntity duty: delivery.getDuties()) {
 				for (final Log log : duty.getJournal().getLogs(id)) {
@@ -165,12 +164,13 @@ public class ChangePlan implements Comparable<ChangePlan> {
 							ls == EntityState.PREPARED ||
 							ls == EntityState.MISSING ||
 							ls == EntityState.STUCK) {
-						ret.add(duty);
+						c.accept(duty);
+						rescueCount++;
 					}
 				}
 			}
 		}
-		return ret;
+		return rescueCount;
 	}
 		
 	public Delivery getDelivery(final Shard shard) {
