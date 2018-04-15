@@ -76,7 +76,7 @@ public class Distributor implements Service {
 	private final Scheduler scheduler;
 	private final EventBroker eventBroker;
 	private final PartitionTable partitionTable;
-	private final SchemeSentry bookkeeper;
+	private final SchemeSentry schemeSentry;
 	private final ShardIdentifier shardId;
 	private final EntityDao entityDao;
 	private final DependencyPlaceholder dependencyPlaceholder;
@@ -95,7 +95,7 @@ public class Distributor implements Service {
 			final Scheduler scheduler, 
 			final EventBroker eventBroker,
 			final PartitionTable partitionTable, 
-			final SchemeSentry bookkeeper, 
+			final SchemeSentry schemeSentry, 
 			final ShardIdentifier shardId,
 			final EntityDao dutyDao, 
 			final DependencyPlaceholder dependencyPlaceholder, 
@@ -105,7 +105,7 @@ public class Distributor implements Service {
 		this.scheduler = scheduler;
 		this.eventBroker = eventBroker;
 		this.partitionTable = partitionTable;
-		this.bookkeeper = bookkeeper;
+		this.schemeSentry = schemeSentry;
 		this.shardId = shardId;
 		this.entityDao = dutyDao;
 		this.leaderShardContainer = leaderShardContainer;
@@ -336,8 +336,8 @@ public class Distributor implements Service {
 				logger.info("{}: {} reported {} entities for sharding...", getName(),
 					config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster",
 					duties.size());
-				bookkeeper.enterPalletsFromSource(new ArrayList<>(pallets));
-				bookkeeper.enterDutiesFromSource(new ArrayList<>(duties));
+				schemeSentry.enterPalletsFromSource(new ArrayList<>(pallets));
+				schemeSentry.enterDutiesFromSource(new ArrayList<>(duties));
 				initialAdding = false;
 			}
 			if (partitionTable.getBackstage().getDutiesCrud().isEmpty()) {

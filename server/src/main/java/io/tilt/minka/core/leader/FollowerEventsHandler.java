@@ -18,6 +18,7 @@ package io.tilt.minka.core.leader;
 
 import static java.util.Objects.requireNonNull;
 
+import java.time.Instant;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -54,6 +55,7 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 	private final Scheduler scheduler;
 	private final NetworkShardIdentifier shardId;
 
+	private Instant lastBeat;
 
 	public FollowerEventsHandler(
 			final Config config, 
@@ -68,22 +70,19 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 		this.hbConsumer = requireNonNull(hbConsumer);
 		this.eventBroker = requireNonNull(eventBroker);
 		this.scheduler = requireNonNull(scheduler);
-		this.shardId = requireNonNull(shardId);
+		this.shardId = requireNonNull(shardId);		
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public void start() {
 		logger.info("{}: Starting. Scheduling constant shepherding check", getName());
-
 		final long readQueueSince = System.currentTimeMillis();
-
 		eventBroker.subscribe(
 				eventBroker.buildToTarget(config, Channel.HEARTBEATS, shardId),
 				Heartbeat.class,
 				(Consumer) this, 
 				readQueueSince);
-
 	}
 
 	@Override
@@ -95,9 +94,10 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 				Heartbeat.class,
 				(Consumer) this);
 	}
-
+		
 	@Override
 	public void accept(final Heartbeat hb) {
+		lastBeat = Instant.ofEpochMilli(hb.getCreation().getMillis());
 		hb.setReception(new DateTime(DateTimeZone.UTC));
 		if (logger.isDebugEnabled()) {
 			logger.debug("{}: Receiving Heartbeat: {} delayed {}ms", getName(), hb.toString(),
@@ -127,4 +127,7 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 		return shard;
 	}
 
+    public Instant getLastBeat() {
+		return lastBeat;
+	}
 }

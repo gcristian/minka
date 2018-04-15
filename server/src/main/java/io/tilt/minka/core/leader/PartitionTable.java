@@ -216,8 +216,11 @@ public class PartitionTable {
 			return getPartition(shard).getDuties().contains(e);
 		}
 		
-		private void onDuties(final Pallet<?> pallet, final ShardState state, final Consumer<ShardEntity> consumer, 
-				final Predicate<ShardEntity> test, final boolean one) {
+		private void onDuties(final Pallet<?> pallet, 
+				final ShardState state, 
+				final Consumer<ShardEntity> consumer, 
+				final Predicate<ShardEntity> test, 
+				final boolean one) {
 			for (Shard shard: shardsByID.values()) {
 				if (state==null || shard.getState()==state) {
 					for (final ShardEntity e: partitionsByShard.get(shard).getDuties()) {

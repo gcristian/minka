@@ -17,11 +17,7 @@
 
 package io.tilt.minka.core.leader.distributor;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionTable;
@@ -62,9 +58,9 @@ public class Override {
 		boolean anyChange = false;
 		
 		if (Migrator.log.isDebugEnabled()) {
-			Migrator.log.debug("{}: cluster built {}", getClass().getSimpleName(), getEntities());
-			final Set<ShardEntity> tmp = new HashSet<>();
-			table.getScheme().onDuties(getShard(), pallet, tmp::add);
+			Migrator.log.debug("{}: cluster built {}", getClass().getSimpleName(), entities);
+			final StringBuilder tmp = new StringBuilder();
+			table.getScheme().onDuties(getShard(), pallet, d->tmp.append(d).append(", "));
 			Migrator.log.debug("{}: currents at shard {} ", getClass().getSimpleName(), tmp);
 		}
 		anyChange |= dettachDelta(changePlan, table);

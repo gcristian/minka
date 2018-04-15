@@ -52,7 +52,7 @@ public class Follower implements Service {
 
 	private final DateTime creation;
 
-	private final LeaderEventsHandler leaderConsumer;
+	private final LeaderEventsHandler leaderEventsHandler;
 	private final Config config;
 	private final EventBroker eventBroker;
 
@@ -75,7 +75,7 @@ public class Follower implements Service {
 		this.alive = true;
 		this.heartpump = heartpump;
 		this.heartbeatFactory = heartbeatFactory;
-		this.leaderConsumer = leaderConsumer;
+		this.leaderEventsHandler = leaderConsumer;
 		this.config = config;
 		this.eventBroker = eventBroker;
 		this.creation = new DateTime(DateTimeZone.UTC);
@@ -97,7 +97,7 @@ public class Follower implements Service {
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: ({}) Starting services", getClass().getSimpleName(), config.getLoggingShardId());
 		}
-		this.leaderConsumer.start();
+		this.leaderEventsHandler.start();
 		alive = true;
 		// after partition manager initialized: set emergency shutdown
 		eventBroker.setBrokerShutdownCallback(() -> stop());
@@ -120,7 +120,7 @@ public class Follower implements Service {
 			}
 			scheduler.stop(follow);
 			alive = false;
-			this.leaderConsumer.stop();
+			this.leaderEventsHandler.stop();
 		} else {
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: ({}) Follower was not longer in service", getClass().getSimpleName(),
@@ -145,7 +145,7 @@ public class Follower implements Service {
 	 */
 	private boolean checkClearanceOrDrop() {
 		boolean lost = false;
-		final Clearance clear = leaderConsumer.getLastClearance();
+		final Clearance clear = leaderEventsHandler.getLastClearance();
 		long delta = 0;
 		final long hbdelay = config.beatToMs(config.getFollower().getHeartbeatDelayBeats());
 		final int maxAbsenceMs = (int)hbdelay * config.getProctor().getMinAbsentHeartbeatsBeforeShardGone();
@@ -161,7 +161,7 @@ public class Follower implements Service {
 				logger.error("{}: ({}) Executing Clearance policy, last: {} too old (Max: {}, Past: {} msecs)",
 					getClass().getSimpleName(), config.getLoggingShardId(),
 					clear != null ? clear.getCreation() : "null", maxAbsenceMs, delta);
-				leaderConsumer.getPartitionManager().releaseAllOnPolicies();
+				leaderEventsHandler.getPartitionManager().releaseAllOnPolicies();
 			} else if (!lost) {
 				logger.debug("{}: ({}) Clearence certified #{} from Leader: {}", getClass().getSimpleName(),
 						config.getLoggingShardId(), clear.getSequenceId(), clear.getLeaderShardId());
@@ -182,7 +182,7 @@ public class Follower implements Service {
 				if (!partition.getDuties().isEmpty()) {
 					logger.warn("{}: ({}) Executing Heartattack policy (last HB: {}): releasing delegate's held duties",
 							getClass().getSimpleName(), config.getLoggingShardId(), expiracy);
-					leaderConsumer.getPartitionManager().releaseAllOnPolicies();
+					leaderEventsHandler.getPartitionManager().releaseAllOnPolicies();
 				}
 				return false;
 			}

@@ -18,9 +18,8 @@ package io.tilt.minka.core.task;
 
 import static java.util.Objects.requireNonNull;
 
+import java.time.Instant;
 import java.util.Date;
-
-import javax.swing.text.DefaultEditorKit.InsertBreakAction;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
@@ -121,12 +120,20 @@ public class Bootstrap implements Service {
 			start();
 		}
 	}
-	
+
+
+	private Runnable iHaveFollowers() {
+		return ()-> {
+		final Instant now = Instant.now();
+		if (now.minusMillis(config.beatToMs(5)).isAfter(leader.getFollowerEventsHandler().getLastBeat())) {
+			// TODO release le
+		}};
+	}
+
 	
 	@Override
 	public void start() {
 	    this.start = new Date();
-		//journal.commit(compose(this.getClass(), Fact.bootstrapper_start).with(Case.ISSUED).build());
 		logger.info(LogUtils.getGreetings(leader.getShardId(), config.getBootstrap().getServiceName(), 
 				config.getBootstrap().getWebServerHostPort()));
 		// check configuration is valid and not unstable-prone
@@ -134,13 +141,10 @@ public class Bootstrap implements Service {
 		scheduler.start();
 		leaderShardContainer.start(); // all latter services will use it
 		eventBroker.start(); // enable the principal service
-		// let the client call us
-		//partitionDelegate.setPartitionService(minkaClient);
 		locks = new Locks(spectatorSupplier.get());
 		readyAwareBooting(); // start the real thing
 		// after booting to avoid booting's failure race condition with restart()
 		locks.setConnectionLostCallback(() -> restart());
-		//journal.commit(compose(this.getClass(), Fact.bootstrapper_start).with(Case.SOLVED).build());
 	}
 
 	@Override
@@ -148,7 +152,6 @@ public class Bootstrap implements Service {
 	public void stop() {
 		if (inService()) {
 		    this.start=null;
-			//journal.commit(compose(this.getClass(), Fact.bootstrapper_stop).with(Case.ISSUED).build());
 			logger.info("{}: ({}) Destroying context..", getName(), shardId);
 			if (config.getBootstrap().isLeaderShardAlsoFollows()) {
 				follower.stop();
@@ -162,7 +165,6 @@ public class Bootstrap implements Service {
 			// close the task controller at last
 			scheduler.stop();
 			locks.close();
-			//journal.commit(compose(this.getClass(), Fact.bootstrapper_stop).with(Case.SOLVED).build());
 		} else {
 			logger.warn("{}: ({}) Stopping ? I'm not in service", getName(), shardId);
 		}
@@ -177,18 +179,12 @@ public class Bootstrap implements Service {
 		logger.warn("{}: ({}) ZK Connection's lost fallback: restarting leader and leader's shard-container", getName(),
 				shardId);
 
-		/*
-		 * skip this while not using global locks because will bring a loooong
-		 * tail but it must be done scheduler.destroy(); scheduler.init();
-		 */
-
 		// stop current leader if on service and start the highlander booting all over again
 		if (config.getBootstrap().isPublishLeaderCandidature() && leader.inService()) {
 			leader.stop();
 		}
 		// ignore container's current held refs. and start it over
 		leaderShardContainer.stop();
-		// TODO me voy a esforzar no deberia necesitar reiniciar el follower ! 
 		spectatorSupplier.renew();
 		leaderShardContainer.start();
 		bootLeadershipCandidate();

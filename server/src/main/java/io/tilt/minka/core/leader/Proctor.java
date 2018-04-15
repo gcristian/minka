@@ -72,7 +72,7 @@ public class Proctor implements Service {
 
 	private final Config config;
 	private final PartitionTable partitionTable;
-	private final SchemeSentry bokkeeper;
+	private final SchemeSentry schemeSentry;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
 	private final NetworkShardIdentifier shardId;
@@ -95,7 +95,7 @@ public class Proctor implements Service {
 
 		this.config = requireNonNull(config);
 		this.partitionTable = requireNonNull(partitionTable);
-		this.bokkeeper = requireNonNull(bookkeeper);
+		this.schemeSentry = requireNonNull(bookkeeper);
 		this.eventBroker = requireNonNull(eventBroker);
 		this.scheduler = requireNonNull(scheduler);
 		this.shardId = requireNonNull(shardId);
@@ -181,7 +181,7 @@ public class Proctor implements Service {
 				final ShardState priorState = shard.getState();
 				if (newState != priorState) {
 					lastUnstableAnalysisId = analysisCounter;
-					bokkeeper.shardStateChange(shard, priorState, newState);
+					schemeSentry.shardStateChange(shard, priorState, newState);
 				}
 				sizeOnline[0] += priorState == ShardState.ONLINE || newState == ShardState.ONLINE ? 1 : 0;
 			});

@@ -131,4 +131,7 @@ public class Leader implements Service {
 		clientEventsHandler.stop();
 	}
 
+	public FollowerEventsHandler getFollowerEventsHandler() {
+		return followerEventsHandler;
+	}
 }
