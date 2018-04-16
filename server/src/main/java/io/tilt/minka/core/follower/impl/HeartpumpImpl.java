@@ -38,7 +38,8 @@ public class HeartpumpImpl implements Heartpump {
 	private final EventBroker eventBroker;
 	private final ShardedPartition partition;
 	private final LeaderShardContainer leaderShardContainer;
-
+	private final String classname = getClass().getSimpleName();
+	
 	private DateTime lastHeartbeatTimestamp;
 
 	public HeartpumpImpl(
@@ -61,7 +62,7 @@ public class HeartpumpImpl implements Heartpump {
 	public boolean emit(final Heartbeat arg) {
 		try {
 			if (leaderShardContainer.getLeaderShardId() == null) {
-				logger.warn("{}: Still without an acknowledged Leader shard !", getClass().getSimpleName(),
+				logger.warn("{}: Still without an acknowledged Leader shard !", classname,
 						config.getLoggingShardId());
 				//return false;
 			}
@@ -80,11 +81,11 @@ public class HeartpumpImpl implements Heartpump {
 				this.lastHeartbeatTimestamp = new DateTime(DateTimeZone.UTC);
 				return true;
 			} else {
-				logger.error("{}: ({}) Broker did not sent Heartbeat !", getClass().getSimpleName(),
+				logger.error("{}: ({}) Broker did not sent Heartbeat !", classname,
 						config.getLoggingShardId());
 			}
 		} catch (Exception e) {
-			logger.error("{}: ({}) Broker with exception", getClass().getSimpleName(), config.getLoggingShardId(), e);
+			logger.error("{}: ({}) Broker with exception", classname, config.getLoggingShardId(), e);
 		}
 		return false;
 	}

@@ -51,7 +51,8 @@ import io.tilt.minka.domain.EntityState;
 public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
-
+	private final String classname = getClass().getSimpleName();
+	
 	private final PartitionTable partitionTable;
 	private final SchemeWriter schemeWriter;
 	
@@ -123,7 +124,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 						break;
 					default:
 						logger.error("{}: Follower beated a duty {} when in scheme is: {}",
-								getClass().getSimpleName(), reportedDuty.getLastState(), duty.getLastState());
+								classname, reportedDuty.getLastState(), duty.getLastState());
 						found = true;
 						break;
 					}
@@ -172,7 +173,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 
 	public void shardStateChange(final Shard shard, final ShardState prior, final ShardState newState) {
 		shard.setState(newState);
-		logger.info("{}: ShardID: {} changes to: {}", getClass().getSimpleName(), shard, newState);
+		logger.info("{}: ShardID: {} changes to: {}", classname, shard, newState);
 		switch (newState) {
 		case GONE:
 		case QUITTED:
@@ -198,7 +199,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	private void recoverAndRetire(final Shard shard) {
 		final Set<ShardEntity> dangling = partitionTable.getScheme().getDutiesByShard(shard);
 		if (logger.isInfoEnabled()) {
-			logger.info("{}: Removing fallen Shard: {} from ptable. Saving: #{} duties: {}", getClass().getSimpleName(), shard,
+			logger.info("{}: Removing fallen Shard: {} from ptable. Saving: #{} duties: {}", classname, shard,
 				dangling.size(), ShardEntity.toStringIds(dangling));
 		}
 		partitionTable.getScheme().removeShard(shard);
@@ -235,17 +236,17 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 							.build();
 					if (partitionTable.getBackstage().addCrudDuty(newone)) {
 						if (logger.isInfoEnabled()) {
-							logger.info("{}: Adding New Duty: {}", getClass().getSimpleName(), newone);
+							logger.info("{}: Adding New Duty: {}", classname, newone);
 						}
 					}
 				} else {
-					logger.error("{}: Skipping Duty CRUD {}: Pallet Not found (pallet id: {})", getClass().getSimpleName(),
+					logger.error("{}: Skipping Duty CRUD {}: Pallet Not found (pallet id: {})", classname,
 							duty, duty.getPalletId());
 				}
 			}
 		}
 		if (sortedLog!=null && logger.isInfoEnabled()) {
-			logger.info("{}: Skipping Duty CRUD already in PTable: {}", getClass().getSimpleName(), sortedLog);
+			logger.info("{}: Skipping Duty CRUD already in PTable: {}", classname, sortedLog);
 		}
 	}
 
@@ -259,14 +260,14 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 				it.remove();
 			} else {
 				if (logger.isInfoEnabled()) {
-					logger.info("{}: Adding New Pallet: {} with Balancer: {}", getClass().getSimpleName(), she, 
+					logger.info("{}: Adding New Pallet: {} with Balancer: {}", classname, she, 
 						she.getPallet().getMetadata());
 				}
 				partitionTable.addCrudPallet(she);
 			}
 		}
 		if (!sortedLog.isEmpty() && logger.isInfoEnabled()) {
-			logger.info("{}: Skipping Pallet CRUD already in PTable: {}", getClass().getSimpleName(),
+			logger.info("{}: Skipping Pallet CRUD already in PTable: {}", classname,
 					ShardEntity.toStringIds(sortedLog));
 		}
 	}
@@ -287,7 +288,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			}
 			if ((!found && event == CREATE) || (found && event == EntityEvent.REMOVE)) {
 				if (logger.isInfoEnabled()) {
-					logger.info("{}: Registering Crud {}: {}", getClass().getSimpleName(), entity.getType(), entity);
+					logger.info("{}: Registering Crud {}: {}", classname, entity.getType(), entity);
 				}
 				if (typeDuty) {
 					if (event == CREATE) {
@@ -298,7 +299,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 										.withRelatedEntity(pallet)
 										.build());
 						} else {
-							logger.error("{}: Skipping Crud Event {}: Pallet ID :{} set not found or yet created", getClass().getSimpleName(),
+							logger.error("{}: Skipping Crud Event {}: Pallet ID :{} set not found or yet created", classname,
 									event, entity, entity.getDuty().getPalletId());
 						}
 					} else {

@@ -23,6 +23,7 @@ import static io.tilt.minka.utils.LogUtils.HEALTH_DOWN;
 import static io.tilt.minka.utils.LogUtils.HEALTH_UP;
 import static java.util.Objects.requireNonNull;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -168,23 +169,22 @@ public class Proctor implements Service {
 				return;
 			}
 			lastUnstableAnalysisId = analysisCounter == 1 ? 1 : lastUnstableAnalysisId;
-			if (logger.isInfoEnabled()) {
-				final StringBuilder sb = new StringBuilder();
-				partitionTable.getScheme().onShards(null, shard->sb.append(shard).append(','));
-				logger.info("{}: Health: {}, {} shard(s) going to be analyzed: {}", getName(),
-					partitionTable.getVisibilityHealth(), size, sb.toString());
-			}
+			logState(size);
 			
 			final int[] sizeOnline = new int[1];
+			final List<Runnable> actions = new ArrayList<>(size);
 			partitionTable.getScheme().onShards(null, shard-> {
 				final ShardState newState = evaluateStateThruHeartbeats(shard);
 				final ShardState priorState = shard.getState();
 				if (newState != priorState) {
 					lastUnstableAnalysisId = analysisCounter;
-					schemeSentry.shardStateChange(shard, priorState, newState);
+					actions.add(()->schemeSentry.shardStateChange(shard, priorState, newState));
 				}
 				sizeOnline[0] += priorState == ShardState.ONLINE || newState == ShardState.ONLINE ? 1 : 0;
 			});
+			if (!actions.isEmpty()) {
+				actions.forEach(Runnable::run);
+			}
 			final int threshold = config.getProctor().getClusterHealthStabilityDelayPeriods();
 			ClusterHealth health = UNSTABLE;
 			if (sizeOnline[0] == size && analysisCounter - lastUnstableAnalysisId >= threshold) {
@@ -209,6 +209,15 @@ public class Proctor implements Service {
 			if (logger.isInfoEnabled()) {
 				logger.info(LogUtils.END_LINE);
 			}
+		}
+	}
+
+	private void logState(final int size) {
+		if (logger.isInfoEnabled()) {
+			final StringBuilder sb = new StringBuilder();
+			partitionTable.getScheme().onShards(null, shard->sb.append(shard).append(','));
+			logger.info("{}: Health: {}, {} shard(s) going to be analyzed: {}", getName(),
+				partitionTable.getVisibilityHealth(), size, sb.toString());
 		}
 	}
 	

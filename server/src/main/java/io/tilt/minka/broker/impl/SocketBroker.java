@@ -217,7 +217,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 
 	@Override
 	public void setBrokerShutdownCallback(Runnable callback) {
-		//server.setShutdownCallback(callback);
+		server.setShutdownCallback(callback);
 	}
 
 	public class DirectChannel implements BrokerChannel {

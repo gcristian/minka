@@ -60,23 +60,24 @@ import io.tilt.minka.spectator.MessageMetadata;
 public class SocketClient {
 
 	final Logger logger = LoggerFactory.getLogger(getClass());
-
+	private final String classname = getClass().getSimpleName();
+	
 	/* for client */
-	private EventLoopGroup clientGroup;
-	private SocketClientHandler clientHandler;
 	private final AtomicBoolean alive;
 	private final AtomicInteger retry;
-	private String loggingName;
-
-	private long creation;
-	private long lastUsage;
 	private final long clientExpiration;
-	private final AtomicLong count;
 	private final AtomicBoolean antiflapper;
 	private final int maxQueueThreshold;
-
 	private final Scheduler scheduler; 
 	private final Agent connector;
+	
+	private EventLoopGroup clientGroup;
+	private SocketClientHandler clientHandler;
+	
+	private String loggingName;
+	private long creation;
+	private long lastUsage;
+	private long sentCounter;
 
 	protected SocketClient(
 			final BrokerChannel channel, 
@@ -90,7 +91,6 @@ public class SocketClient {
 		this.clientHandler = new SocketClientHandler(
 				config.beatToMs(config.getBroker().getMaxLagBeforeDiscardingClientQueueBeats()), 
 				config.getBroker().getMaxClientQueueSize());
-		this.count = new AtomicLong();
 		this.antiflapper = new AtomicBoolean(true);
 		this.alive = new AtomicBoolean();
 		this.retry  = new AtomicInteger();
@@ -120,7 +120,7 @@ public class SocketClient {
 		} else {
 			long elapsed = System.currentTimeMillis() - lastUsage;
 			if (elapsed > this.clientExpiration) {
-				logger.warn("{}: ({}) expired ! {} old (for max is: {})", getClass().getSimpleName(), loggingName,
+				logger.warn("{}: ({}) expired ! {} old (for max is: {})", classname, loggingName,
 						elapsed, this.clientExpiration);
 				return true;
 			} else {
@@ -138,25 +138,26 @@ public class SocketClient {
 	private void logging(final MessageMetadata msg) {
 		int queueSize = this.clientHandler.size();
 		if (!alive.get()) {
-			if (!antiflapper.get() || count.get()==0) {
-				logger.warn("{}: ({}) UNABLE to send SocketChannel Not Ready (enqueuing: {}), {}", getClass().getSimpleName(), 
+			if (!antiflapper.get() || sentCounter ==0) {
+				logger.warn("{}: ({}) UNABLE to send SocketChannel Not Ready (enqueuing: {}), {}", classname, 
 					loggingName, queueSize, msg);
 			}
 			antiflapper.set(true);
 		}
 		if (alive.get() && antiflapper.get()) {
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: ({}) Back to normal", getClass().getSimpleName(), loggingName);
-			}
+			logger.info("{}: ({}) Back to normal", classname, loggingName);
 			antiflapper.set(false);
 		}
-		if (logger.isInfoEnabled()) {
-		    logger.info("{}: ({}) Sending: {}", getClass().getSimpleName(), loggingName, msg.getPayloadType());
+		sentCounter++;
+		if (logger.isDebugEnabled()) {
+		    logger.debug("{}: ({}) Sending: {}", classname, loggingName, msg.getPayloadType());
+		} else if (logger.isInfoEnabled() && (sentCounter%500==0)) {
+			logger.info("{}: ({}) Sent {} # {}", classname, loggingName, msg.getPayloadType(), sentCounter);
 		}
-		count.incrementAndGet();
+		
 		if (queueSize>maxQueueThreshold) {
 			logger.error("{}: ({}) LAG of {}, threshold {}, increase broker's connection handler threads (enqueuing: {})", 
-					getClass().getSimpleName(), loggingName, queueSize, maxQueueThreshold, msg);
+					classname, loggingName, queueSize, maxQueueThreshold, msg);
 		}
 	}
 
@@ -186,12 +187,12 @@ public class SocketClient {
 		if (retry.incrementAndGet() > 0) {
 			try {
 				if (logger.isInfoEnabled()) {
-					logger.info("{}: ({}) Sleeping {} ms before next retry...", getClass().getSimpleName(), loggingName, retryDelay);
+					logger.info("{}: ({}) Sleeping {} ms before next retry...", classname, loggingName, retryDelay);
 				}
 				Thread.sleep(retryDelay);
 			} catch (InterruptedException e) {
 				logger.error("{}: ({}) Unexpected while waiting for next client connection retry",
-						getClass().getSimpleName(), loggingName, e);
+						classname, loggingName, e);
 			}
 		}
 	}
@@ -205,7 +206,7 @@ public class SocketClient {
 			final int port = addr.getPort();
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: ({}) Building client (retry:{}) for outbound messages to: {}", 
-					getClass().getSimpleName(), loggingName, retry, addr);
+					classname, loggingName, retry, addr);
 			}
 			final Bootstrap bootstrap = new Bootstrap();
 			
@@ -223,7 +224,7 @@ public class SocketClient {
 			});
 			this.alive.set(true);
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: ({}) Binding to broker: {}:{} at channel: {}", getClass().getSimpleName(), loggingName,
+				logger.info("{}: ({}) Binding to broker: {}:{} at channel: {}", classname, loggingName,
 					address, port, channel.getChannel().name());
 			}
 			bootstrap.connect(addr.getAddress().getHostAddress(), addr.getPort())
@@ -235,10 +236,10 @@ public class SocketClient {
 		} catch (Exception e) {
 			this.alive.set(false);
 			wrongDisconnection = true;
-			logger.error("{}: ({}) Unexpected while contacting shard's broker", getClass().getSimpleName(), loggingName, e);
+			logger.error("{}: ({}) Unexpected while contacting shard's broker", classname, loggingName, e);
 		} finally {
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: ({}) Exiting client writing scope", getClass().getSimpleName(), loggingName);
+				logger.info("{}: ({}) Exiting client writing scope", classname, loggingName);
 			}
 		}
 		return wrongDisconnection;
@@ -284,12 +285,12 @@ public class SocketClient {
 		}
 		@Override
 		public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-			logger.warn("{}: ({}) channel inactivated", getClass().getSimpleName(), loggingName);
+			logger.warn("{}: ({}) channel inactivated", classname, loggingName);
 			super.channelInactive(ctx);
 		}
 		@Override
 		public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-			logger.warn("{}: ({}) channel unregistered", getClass().getSimpleName(), loggingName);
+			logger.warn("{}: ({}) channel unregistered", classname, loggingName);
 			super.channelUnregistered(ctx);
 		}
 		@Override
@@ -300,17 +301,17 @@ public class SocketClient {
 					msg = queue.take();
 					if (msg != null) {
 						if (logger.isDebugEnabled()) {
-							logger.debug("{}: ({}) Writing: {}", getClass().getSimpleName(), loggingName, msg.getPayloadType());
+							logger.debug("{}: ({}) Writing: {}", classname, loggingName, msg.getPayloadType());
 						}
 						ctx.writeAndFlush(msg);
 					} else {
-						logger.error("{}: ({}) Waiting for messages to be enqueued: {}", getClass().getSimpleName(),
+						logger.error("{}: ({}) Waiting for messages to be enqueued: {}", classname,
 								loggingName);
 					}
 				}
 			} catch (InterruptedException e) {
 				logger.error("{}: ({}) interrupted while waiting for Socketclient blocking queue gets offered",
-						getClass().getSimpleName(), loggingName, e);
+						classname, loggingName, e);
 			}
 		}
 
@@ -327,7 +328,7 @@ public class SocketClient {
 		@Override
 		public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
 			logger.error("{}: ({}) ChannelInboundHandlerAdapter: Unexpected ", 
-					getClass().getSimpleName(), loggingName, cause);
+					classname, loggingName, cause);
 			ctx.close();
 		}
 
@@ -337,12 +338,12 @@ public class SocketClient {
 		if (clientGroup != null && !clientGroup.isShuttingDown()) {
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: ({}) Closing connection to server (total sent: {}, unsent msgs: {})", 
-					getClass().getSimpleName(), loggingName, count.get(), clientHandler.size());
+					classname, loggingName, sentCounter, clientHandler.size());
 			}
 			this.alive.set(false);
 			clientGroup.shutdownGracefully();
 		} else {
-			logger.error("{}: ({}) Invalid state to close client: {}", getClass().getSimpleName(), loggingName,
+			logger.error("{}: ({}) Invalid state to close client: {}", classname, loggingName,
 					clientGroup == null ? "not started" : "already shut-down");
 		}
 	}

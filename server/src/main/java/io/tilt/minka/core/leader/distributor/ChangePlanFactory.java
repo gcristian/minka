@@ -15,7 +15,6 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -43,9 +42,9 @@ import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.utils.LogUtils;
 
 /**
- * Organizes common fixed actions for every plan building.
- * Calls the appropriate {@linkplain Balancer} for each group of duties of the same pallet. 
- * Balancers use a {@linkplain Migrator} to plan its shippings, which after are written to the plan.
+ * Factory for {@linkplain Plan} instances when neccesary.
+ * Calls the configred {@linkplain Balancer} for each group of duties of the same {@linkplain Pallet} 
+ * Balancers use a {@linkplain Migrator} to plan its shippings, which are later written to the plan.
  * 
  * @author Cristian Gonzalez
  * @since Ene 4, 2015
@@ -255,7 +254,7 @@ class ChangePlanFactory {
 			clusterCapacity[0] += currTotal;
 		});
 		logger.info("{}: Total cluster capacity: {}", getClass().getSimpleName(), clusterCapacity);
-		logger.info("{}: counting #{};+{};-{} duties: {}", getClass().getSimpleName(),
+		logger.info("{}: RECKONING #{}; +{}; -{} duties: {}", getClass().getSimpleName(),
 			new PartitionTable.Scheme.SchemeExtractor(table.getScheme())
 				.getAccountConfirmed(pallet), 
 			dutyCreations.stream()

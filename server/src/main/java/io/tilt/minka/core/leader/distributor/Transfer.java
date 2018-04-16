@@ -32,7 +32,7 @@ class Transfer {
 	private final Shard target;
 	private final ShardEntity entity;
 	
-	protected Transfer(final Shard source, final Shard target, final ShardEntity entity) {
+	Transfer(final Shard source, final Shard target, final ShardEntity entity) {
 		super();
 		this.source = source;
 		this.target = target;
@@ -53,43 +53,39 @@ class Transfer {
 	
 	/* dettach in prev. source, attach to next target */
 	boolean apply(final ChangePlan changePlan, final PartitionTable table) {
-		final ShardEntity entity = getEntity();
 		final Shard location = table.getScheme().getDutyLocation(entity);
 		if (location != null && location.equals(target)) {
 			Migrator.log.info("{}: Transfers mean no change for Duty: {}", getClass().getSimpleName(), toString());
 			return false;
 		}
-		if (source != null) {
-			getEntity().getJournal().addEvent(EntityEvent.DETACH,
-					EntityState.PREPARED,
-					location.getShardID(),
-					changePlan.getId());
-			changePlan.ship(source, entity);
+
+		for (Shard shard: new Shard[] {source, target}) {
+			if (shard!=null) {
+				entity.getJournal().addEvent(
+						shard==source ? EntityEvent.DETACH : EntityEvent.ATTACH,
+						EntityState.PREPARED,
+						shard.getShardID(),
+						changePlan.getId());
+				changePlan.ship(shard, entity);				
+			}
 		}
-
-		// TODO this's not longer neccesary: previously there was not a LogList object
-
-		final ShardEntity assign = ShardEntity.Builder.builderFrom(entity).build();
-		assign.getJournal().addEvent(EntityEvent.ATTACH,
-				EntityState.PREPARED,
-				target.getShardID(),
-				changePlan.getId());
-		changePlan.ship(target, assign);
-
-		Migrator.log.info("{}: Shipping transfer from: {} to: {}, Duty: {}",
+		
+		if (Migrator.log.isInfoEnabled()) {
+			Migrator.log.info("{}: Shipping transfer from: {} to: {}, Duty: {}",
 				getClass().getSimpleName(),
 				source != null ? source.getShardID() : "[new]",
 				target.getShardID(),
-				assign.toString());
+				entity.toString());
+		}
 		return true;
 	}
 
 	public int hashCode() {
 		final int prime = 31;
 		int res = 1;
-		for (final Object o: new Object[] {source, target, entity}) {
-			res *= prime + ((o == null ) ? 0 : o.hashCode());
-		}
+		res *= prime + ((entity == null ) ? 0 : entity.hashCode());
+		res *= prime + ((source == null ) ? 0 : source.hashCode());
+		res *= prime + ((target == null ) ? 0 : target.hashCode());
 		return res;
 	}
 

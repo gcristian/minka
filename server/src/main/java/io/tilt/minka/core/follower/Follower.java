@@ -47,7 +47,8 @@ import io.tilt.minka.domain.Shard.ShardState;
 public class Follower implements Service {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
-
+	private final String classname = getClass().getSimpleName();
+	
 	private boolean alive;
 
 	private final DateTime creation;
@@ -95,19 +96,19 @@ public class Follower implements Service {
 	@Override
 	public void start() {
 		if (logger.isInfoEnabled()) {
-			logger.info("{}: ({}) Starting services", getClass().getSimpleName(), config.getLoggingShardId());
+			logger.info("{}: ({}) Starting services", classname, config.getLoggingShardId());
 		}
 		this.leaderEventsHandler.start();
 		alive = true;
 		// after partition manager initialized: set emergency shutdown
-		eventBroker.setBrokerShutdownCallback(() -> stop());
+		//eventBroker.setBrokerShutdownCallback(() -> stop());
 		scheduler.schedule(follow);
 	}
 
 	@Override
 	public void stop() {
 		if (logger.isInfoEnabled()) {
-			logger.info("{}: ({}) Stopping services, on duty since: {}", getClass().getSimpleName(),
+			logger.info("{}: ({}) Stopping services, on duty since: {}", classname,
 				config.getLoggingShardId(), creation);
 		}
 			
@@ -116,14 +117,14 @@ public class Follower implements Service {
 			bye.setStateChange(ShardState.QUITTED);
 			heartpump.emit(bye);
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: ({}) Stopping timer", getClass().getSimpleName(), config.getLoggingShardId());
+				logger.info("{}: ({}) Stopping timer", classname, config.getLoggingShardId());
 			}
 			scheduler.stop(follow);
 			alive = false;
 			this.leaderEventsHandler.stop();
 		} else {
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: ({}) Follower was not longer in service", getClass().getSimpleName(),
+				logger.info("{}: ({}) Follower was not longer in service", classname,
 					config.getLoggingShardId());
 			}
 		}
@@ -163,7 +164,7 @@ public class Follower implements Service {
 					clear != null ? clear.getCreation() : "null", maxAbsenceMs, delta);
 				leaderEventsHandler.getPartitionManager().releaseAllOnPolicies();
 			} else if (!lost) {
-				logger.debug("{}: ({}) Clearence certified #{} from Leader: {}", getClass().getSimpleName(),
+				logger.debug("{}: ({}) Clearence certified #{} from Leader: {}", classname,
 						config.getLoggingShardId(), clear.getSequenceId(), clear.getLeaderShardId());
 			}
 		}

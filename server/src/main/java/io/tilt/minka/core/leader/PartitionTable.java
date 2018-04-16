@@ -67,8 +67,8 @@ public class PartitionTable {
 	private static final Logger logger = LoggerFactory.getLogger(PartitionTable.class);
 	
 	/**
-	 * Sharding scheme of entities as a result of a {@linkplain Distributor} phase run. 
-	 * state of continuously checked truth on duties attached to shards.
+	 * Sharding registry of {@linkplain Shard} and {@linkplain Duty} objects and their relations.
+	 * State of continuously checked truth on duties attached to shards.
 	 * any modifications and problem detection goes to {@linkplain Backstage}
 	 * Only maintainer: {@linkplain SchemeSentry}
 	 */

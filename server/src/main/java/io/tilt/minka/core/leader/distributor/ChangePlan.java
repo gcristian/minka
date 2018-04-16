@@ -24,7 +24,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -56,15 +55,19 @@ import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.LogUtils;
 
 /**
- * Distribution changes require a consistent plan. 
- * Distribution in progress, created thru {@linkplain Migrator} 
- * indirectly by the {@linkplain Balancer} analyzing the {@linkplain Scheme}.
- * Composed of deliveries, migrations, deletions, creations, etc.
- *  
- * Such operations takes coordination to avoid parallelism and inconsistencies 
- * while they're yet to confirm, and needs to stay still while shards react, they also may fall.
+ * Plan of changes as a consequence of {@linkplain Balancer} recalculation, caused 
+ * by addition, modification or removal of the {@linkplain Scheme} (Shards, Entities) 
+ * Composed of many {@linkplain Delivery} objects sent to different {@linkplain Shard},
+ * representing changes in progress of confirmation, which in turn forward to more deliveries. 
+ * The plan is driven by the {@linkplain Distributor}, and takes at most 4 steps in a consistent order.
  * 
- * No new distributions are made while this isn't finished
+ * Built by the @{@linkplain ChangePlanFactory} and written by the {@linkplain Migrator}. 
+ * The idea is to move duties from a place to another, the move is representdd as an {@linkplain EntityEvent}
+ * removes are first, dettaches are before attaches, and attaches at last, 
+ * same events on different shards are sent in parrallel.
+ * 
+ * In case of fall of a shard, the plan gets obsolete and rebuilt according the new scheme, after a rebalance.
+ * A change plan only occurs when all the Shards in the cluster get {@linkplain ShardState} Online.  
  * 
  * @author Cristian Gonzalez
  * @since Dec 11, 2015

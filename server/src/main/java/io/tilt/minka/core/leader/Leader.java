@@ -96,10 +96,10 @@ public class Leader implements Service {
 			scheduler.run(scheduler.getFactory().build(Action.LEADERSHIP, PriorityLock.LOW_ON_PERMISSION, () -> {
 				try {
 					served = true;
-					logger.info("{}: Registering as Leader at well after waiting {} msecs", getClass().getSimpleName(),
+					logger.info("{}: Registering as Leader at well after waiting {} msecs", getName(),
 							System.currentTimeMillis() - start.getTime());
 					leaderShardContainer.setNewLeader(shardId);
-					logger.info("{}: {} msec since load till leader election", getClass().getSimpleName(),
+					logger.info("{}: {} msec since load till leader election", getName(),
 							(DateTime.now().getMillis() - config.loadTime.getMillis()));
 					proctor.start();
 					distributor.start();
@@ -124,7 +124,7 @@ public class Leader implements Service {
 	@Override
 	public void stop() {
 		this.start = null;
-		logger.info("{}: Stopping ({})", getClass().getSimpleName(), !served ? "never served" : "paid my duty");
+		logger.info("{}: Stopping ({})", getName(), !served ? "never served" : "paid my duty");
 		proctor.stop();
 		distributor.stop();
 		followerEventsHandler.stop();

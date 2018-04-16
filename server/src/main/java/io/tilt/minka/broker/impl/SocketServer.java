@@ -75,10 +75,12 @@ public class SocketServer {
 	private int retry;
 	private final AtomicLong count;
 	private final String loggingName;
-
+	private final String classname = getClass().getSimpleName();
+	
 	private Runnable shutdownCallback;
 
 	private ChannelFuture channelFuture;
+	
 
 	protected SocketServer(
 			final Consumer<MessageMetadata> consumer, 
@@ -122,28 +124,33 @@ public class SocketServer {
 	 * follower or leader
 	 */
 	private void listenWithRetries(final int maxRetries, final int retryDelay) {
-		if (this.channelFuture==null || channelFuture.cause()!=null) {
-			this.serverWorkerGroup = new NioEventLoopGroup(
-					this.connectionHandlerThreads,
-					new ThreadFactoryBuilder()
-						.setNameFormat(Config.SchedulerConf.THREAD_NAME_BROKER_SERVER_WORKER)
-						.build());
-	
-			boolean disconnected = true;
-			while (retry < maxRetries && disconnected) {
-				if (retry++ > 0) {
-					try {
-						Thread.sleep(retryDelay);
-					} catch (InterruptedException e) {
-						logger.error("{}: ({}) Unexpected while waiting for next server bootup retry",
-								getClass().getSimpleName(), loggingName, e);
-					}
+		final boolean alreadyInitiated = this.channelFuture!=null;
+		final boolean withoutErrors = alreadyInitiated && channelFuture.cause()==null;
+		final boolean shuttingDown = alreadyInitiated && serverWorkerGroup.isShuttingDown();
+		if ((alreadyInitiated && withoutErrors) || shuttingDown) {
+			return;
+		}
+		
+		this.serverWorkerGroup = new NioEventLoopGroup(
+				this.connectionHandlerThreads,
+				new ThreadFactoryBuilder()
+					.setNameFormat(Config.SchedulerConf.THREAD_NAME_BROKER_SERVER_WORKER)
+					.build());
+
+		boolean disconnected = true;
+		while (retry < maxRetries && disconnected &&!serverWorkerGroup.isShuttingDown()) {
+			if (retry++ > 0) {
+				try {
+					Thread.sleep(retryDelay);
+				} catch (InterruptedException e) {
+					logger.error("{}: ({}) Unexpected while waiting for next server bootup retry",
+							classname, loggingName, e);
 				}
-				disconnected = keepListening();
 			}
-			if (disconnected) {
-				scheduler.schedule(agent);
-			}
+			disconnected = keepListening();
+		}
+		if (disconnected) {
+			scheduler.schedule(agent);
 		}
 	}
 
@@ -154,7 +161,7 @@ public class SocketServer {
 		boolean disconnected;
 		if (logger.isInfoEnabled()) {
 		    logger.info("{}: ({}) Building server (using i: {}) with up to {} concurrent requests",
-				getClass().getSimpleName(), loggingName, networkInterfase, this.connectionHandlerThreads);
+				classname, loggingName, networkInterfase, this.connectionHandlerThreads);
 		}
 
 		try {
@@ -180,7 +187,7 @@ public class SocketServer {
 			
 			if (logger.isInfoEnabled()) {
 			    logger.info("{}: ({}) Listening to client connections (using i:{}) with up to {} concurrent requests",
-					getClass().getSimpleName(), loggingName, networkInterfase, this.connectionHandlerThreads);
+					classname, loggingName, networkInterfase, this.connectionHandlerThreads);
 			}
 
 			this.channelFuture = server.bind(this.serverAddress, this.serverPort);
@@ -188,7 +195,7 @@ public class SocketServer {
 		} catch (Exception e) {
 			disconnected = true;
 			logger.error("{}: ({}) Unexpected interruption while listening incoming connections",
-					getClass().getSimpleName(), loggingName, e);
+					classname, loggingName, e);
 		}
 		return disconnected;
 	}
@@ -197,20 +204,20 @@ public class SocketServer {
 		if (this.shutdownCallback != null) {
 			try {
 				if (logger.isInfoEnabled()) {
-					logger.info("{}: ({}) Executing shutdown callback: {}", getClass().getSimpleName(),
+					logger.info("{}: ({}) Executing shutdown callback: {}", classname,
 						shutdownCallback.getClass().getSimpleName(), loggingName);
 				}
 				shutdownCallback.run();
 			} catch (Exception e) {
 				logger.error("{}: ({}) Unexpected while executing shutdown callback", 
-						getClass().getSimpleName(), loggingName, e);
+						classname, loggingName, e);
 			}
 		}
 		close();
 	}
 
 	public void close() {
-		logger.warn("{}: ({}) Closing connections to client (total received: {})", getClass().getSimpleName(), loggingName, count.get());
+		logger.warn("{}: ({}) Closing connections to client (total received: {})", classname, loggingName, count.get());
 		if (serverWorkerGroup != null) {
 			serverWorkerGroup.shutdownGracefully();
 		}
@@ -236,7 +243,7 @@ public class SocketServer {
 				}
 				MessageMetadata meta = (MessageMetadata) msg;
 				if (logger.isDebugEnabled()) {
-				    logger.debug("{}: ({}) Reading: {}", getClass().getSimpleName(), loggingName, meta.getPayloadType());
+				    logger.debug("{}: ({}) Reading: {}", classname, loggingName, meta.getPayloadType());
 				}
 				scheduler.schedule(scheduler.getAgentFactory()
 						.create(

@@ -48,6 +48,9 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 	/* save (consumer) -> (many channeles) */
 	private Multimap<Consumer<Serializable>, String> channelsPerConsumer;
 	private final NetworkShardIdentifier shardId;
+	private final String classname = getClass().getSimpleName();
+
+	private long receivedCount;
 
 	public AbstractBroker(final NetworkShardIdentifier shardId) {
 		this.shardId = shardId;
@@ -59,21 +62,24 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 		return this.shardId;
 	}
 
+	
 	@Override
 	public void accept(final MessageMetadata meta) {
-		if (logger.isInfoEnabled()) {
-			logger.info("{}: ({}) Receiving {}", getClass().getSimpleName(), shardId, meta.getPayloadType());
+		if (logger.isDebugEnabled()) {
+			logger.debug("{}: ({}) Receiving {}", classname, shardId, meta.getPayloadType());
+		} else if (logger.isInfoEnabled() && (++receivedCount%500==0)) {
+			logger.info("{}: ({}) Received {} # {}", classname, shardId, meta.getPayloadType(), receivedCount);
 		}
 		String key = meta.getInbox() + meta.getPayloadType().getSimpleName();
 		if (logger.isDebugEnabled()) {
-		    logger.debug("{}: ({}) Looking subscribed consumer to Key: {}", getClass().getSimpleName(), shardId, key);
+		    logger.debug("{}: ({}) Looking subscribed consumer to Key: {}", classname, shardId, key);
 		}
 
 		Collection<Consumer<Serializable>> consumers = consumerPerChannelEventType.get(key);
 		if (!consumers.isEmpty()) {
 			consumers.forEach(i -> i.accept((Serializable) meta.getPayload()));
 		} else {
-			logger.error("{}: ({}) No Subscriber for incoming event: {} at channel: {}", getClass().getSimpleName(), shardId,
+			logger.error("{}: ({}) No Subscriber for incoming event: {} at channel: {}", classname, shardId,
 					meta.getPayloadType(), meta.getInbox());
 		}
 	}
@@ -107,13 +113,13 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 			final String key = channel.getChannel().name() + eventType.getSimpleName();
 			final Collection<Consumer<Serializable>> drivers = consumerPerChannelEventType.get(key);
 			if (drivers != null && drivers.contains(consumer)) {
-				logger.warn("{}: ({}) Already subscribed to channel-eventType: {}", getClass().getSimpleName(), shardId,
+				logger.warn("{}: ({}) Already subscribed to channel-eventType: {}", classname, shardId,
 						key);
 				return true;
 			} else {
 				if (logger.isInfoEnabled()) {
 					logger.info("{}: ({}) {} Subscribing channel: {} with Type: {} ",
-						getClass().getSimpleName(), shardId, consumer.getClass().getSimpleName(), channel.getChannel().name(), 
+						classname, shardId, consumer.getClass().getSimpleName(), channel.getChannel().name(), 
 						eventType.getSimpleName());
 			    }
 			}
@@ -125,7 +131,7 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 			}
 
 			if (logger.isInfoEnabled()) {
-				logger.debug("{}: ({}) Saving handler: {} on Key: {}", getClass().getSimpleName(),
+				logger.debug("{}: ({}) Saving handler: {} on Key: {}", classname,
 					channel.getAddress().toString(), consumer.getClass().getSimpleName(), key);
 			}
 

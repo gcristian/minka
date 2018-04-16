@@ -87,7 +87,7 @@ public class Distributor implements Service {
 	private boolean initialAdding;
 	private int counterForReloads;
 	private int counterForDistro;
-	private ChangePlanFactory planner;
+	private ChangePlanFactory factory;
 
 
 	Distributor(
@@ -129,7 +129,7 @@ public class Distributor implements Service {
 				.every(config.beatToMs(config.getDistributor().getDelayBeats()))
 				.build();
 
-		this.planner = new ChangePlanFactory(config);
+		this.factory = new ChangePlanFactory(config);
 	}
 
 	@java.lang.Override
@@ -220,7 +220,7 @@ public class Distributor implements Service {
 
 	/** @return a plan to drive built at balancer's request */
 	private ChangePlan buildPlan(final ChangePlan previous) {
-		final ChangePlan changePlan = planner.create(partitionTable, previous);
+		final ChangePlan changePlan = factory.create(partitionTable, previous);
 		partitionTable.getBackstage().cleanAllocatedDanglings();
 		if (null!=changePlan) {
 			partitionTable.addPlan(changePlan);

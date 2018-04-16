@@ -71,7 +71,6 @@ public class PartitionManagerImpl implements PartitionManager {
 	}
 
 	public Void releaseAllOnPolicies() {
-		//scheduler.tryBlocking(Semaphore.Action.INSTRUCT_DELEGATE, ()-> {
 		scheduler.run(releaser);
 		return null;
 	}
@@ -80,7 +79,7 @@ public class PartitionManagerImpl implements PartitionManager {
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE ALL", getClass().getSimpleName(), partition.getId());
 		}
-		dettach(partition.getDuties());
+		dettach_(partition.getDuties(), ()->partition.removeAll(ShardEntity.Type.DUTY));
 		partition.clean();
 		return null;
 	}
@@ -145,9 +144,14 @@ public class PartitionManagerImpl implements PartitionManager {
 		}
 		return null;
 	}
-
-	@SuppressWarnings("unchecked")
+	
+	
 	public Void dettach(final Collection<ShardEntity> duties) {
+		return dettach_(duties, null);
+	}
+	
+	@SuppressWarnings("unchecked")
+	private Void dettach_(final Collection<ShardEntity> duties, final Runnable cleanPartitionCallback) {
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE : {}", getClass().getSimpleName(),
 				partition.getId(), ShardEntity.toStringBrief(duties));
@@ -163,7 +167,12 @@ public class PartitionManagerImpl implements PartitionManager {
 					return true;
 				}
 			}));
-			duties.forEach(d->partition.remove(d));
+			if (cleanPartitionCallback!=null) {
+				// hattrick to avoid creating a collection
+				cleanPartitionCallback.run();
+			} else {
+				duties.forEach(d->partition.remove(d));
+			}
 			// remove pallets absent in duties
 			final Set<ShardEntity> removing = partition.getPallets().stream()
 				.filter(p->!partition.contains(p.getRelatedEntity()))

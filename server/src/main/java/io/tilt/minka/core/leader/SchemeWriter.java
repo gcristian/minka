@@ -51,6 +51,7 @@ public class SchemeWriter {
 	private static final int MAX_EVENT_DATE_FOR_DIRTY = 10000;
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private final String classname = getClass().getSimpleName();
 	
 	private final PartitionTable partitionTable;
 	
@@ -112,13 +113,13 @@ public class SchemeWriter {
 		}
 		if (!changePlan.getResult().isClosed() && changePlan.hasUnlatched()) {
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: ChangePlan unlatched, fwd >> distributor agent ", getClass().getSimpleName());
+				logger.info("{}: ChangePlan unlatched, fwd >> distributor agent ", classname);
 			}
 			// scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
 		}
 		
 		if (changePlan.getResult().isClosed() && logger.isInfoEnabled()) {
-			logger.info("{}: ChangePlan finished ! (all changes in scheme)", getClass().getSimpleName());
+			logger.info("{}: ChangePlan finished ! (all changes in scheme)", classname);
 		}
 	}
 
@@ -173,11 +174,11 @@ public class SchemeWriter {
 			}
 		}
 		if (sortedLogConfirmed!=null) {
-			logger.info("{}: ShardID: {}, Confirming partition event for Duties: {}", getClass().getSimpleName(),
+			logger.info("{}: ShardID: {}, Confirming partition event for Duties: {}", classname,
 					shard.getShardID(), ShardEntity.toStringIds(sortedLogConfirmed));
 		}
 		if (sortedLogDirty!=null) {
-			logger.warn("{}: ShardID: {}, Reporting DIRTY partition event for Duties: {}", getClass().getSimpleName(),
+			logger.warn("{}: ShardID: {}, Reporting DIRTY partition event for Duties: {}", classname,
 					shard.getShardID(), ShardEntity.toStringIds(sortedLogDirty));
 		}
 	}
@@ -212,7 +213,7 @@ public class SchemeWriter {
 					}
 				}
 			} else {
-				logger.error("{}: Reporting state: {} on Duty: {}", getClass().getSimpleName(), beatedState);
+				logger.error("{}: Reporting state: {} on Duty: {}", classname, beatedState);
 			}
 		}
 		return ret;
@@ -252,7 +253,7 @@ public class SchemeWriter {
 
 	public void shardStateChange(final Shard shard, final ShardState prior, final ShardState newState) {
 		shard.setState(newState);
-		logger.info("{}: ShardID: {} changes to: {}", getClass().getSimpleName(), shard, newState);
+		logger.info("{}: ShardID: {} changes to: {}", classname, shard, newState);
 		switch (newState) {
 		case GONE:
 		case QUITTED:

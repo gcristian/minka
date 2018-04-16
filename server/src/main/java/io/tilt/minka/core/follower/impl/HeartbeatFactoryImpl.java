@@ -57,6 +57,7 @@ import io.tilt.minka.utils.LogUtils;
 public class HeartbeatFactoryImpl implements HeartbeatFactory {
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
+	private final String classname = getClass().getSimpleName();
 
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final ShardedPartition partition;
@@ -151,7 +152,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 						EntityState.MISTAKEN, 
 						this.partition.getId(), 
 						ChangePlan.PLAN_WITHOUT);
-				log.error("{}: ({}) Reporting a Dangling Duty (by Addition): {}", getClass().getSimpleName(),
+				log.error("{}: ({}) Reporting a Dangling Duty (by Addition): {}", classname,
 						partition.getId(), shardedDuty);
 				builder.withWarning();
 			}
@@ -167,7 +168,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		final EntityState stamp = EntityState.CONFIRMED;
 		if (found.getLastState()!=stamp) {
 			if (log.isInfoEnabled()) {
-				log.info("{}: ({}) Changing {} to {} duty: {}", getClass().getSimpleName(), partition.getId(),
+				log.info("{}: ({}) Changing {} to {} duty: {}", classname, partition.getId(),
 					found.getLastState(), stamp, duty.getId());
 			}
 			shardedDuty.getJournal().addEvent(
@@ -193,7 +194,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		try {
 			reportedDuties = dependencyPlaceholder.getDelegate().reportCapture();
 		} catch (Exception e) {
-			log.error("{}: ({}) PartitionDelegate failure", getClass().getSimpleName(), config.getLoggingShardId(), e);
+			log.error("{}: ({}) PartitionDelegate failure", classname, config.getLoggingShardId(), e);
 			reportedDuties = Collections.emptySet();
 		}
 		return reportedDuties;
@@ -207,7 +208,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 				try {
 					capacity = dependencyPlaceholder.getDelegate().getTotalCapacity(pallet.getPallet());
 				} catch (Exception e) {
-					log.error("{}: ({}) Error ocurred while asking for total capacity on Pallet: {}", getClass().getSimpleName(),
+					log.error("{}: ({}) Error ocurred while asking for total capacity on Pallet: {}", classname,
 							partition.getId(), pallet.getPallet(), e);
 				} finally {
 					builder.addCapacity(pallet.getPallet(), new Capacity(pallet.getPallet(), capacity));
@@ -234,8 +235,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 							this.partition.getId(), 
 							existing.getJournal().getLast().getPlanId());
 				}
-				log.error("{}: ({}) Reporting a Dangling Duty (by Erasure): {}", getClass().getSimpleName(),
-						partition.getId(), existing);
+				log.error("{}: ({}) Reporting a Dangling Duty (by Erasure): {}", classname, partition.getId(), existing);
 				c.accept(existing);
 			}
 		}
@@ -259,7 +259,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			totalWeight += i.getDuty().getWeight();
 		}
 
-		log.debug("{}: ({}) {} SeqID: {}, Duties: {}, Weight: {} = [ {}] {}", getClass().getSimpleName(),
+		log.debug("{}: ({}) {} SeqID: {}, Duties: {}, Weight: {} = [ {}] {}", classname,
 				hb.getShardId(), 
 				LogUtils.HB_CHAR, 
 				hb.getSequenceId(), 

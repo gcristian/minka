@@ -142,6 +142,10 @@ public class ShardedPartition {
 		updateLastChange();
 		return byType(entity).remove(entity);
 	}
+	public void removeAll(final ShardEntity.Type type) {
+		updateLastChange();
+		(type==ShardEntity.Type.DUTY ? duties : pallets).clear();
+	}
 	public boolean contains(final ShardEntity entity) {
 		return byType(entity).contains(entity);
 	}
