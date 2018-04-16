@@ -25,11 +25,6 @@ public class AwaitingDelegate implements PartitionMaster<String, String> {
 	}
 
 	@Override
-	public Set<Duty<String>> reportCapture() {
-		throw new IllegalStateException(MESSAGE);
-	}
-
-	@Override
 	public Set<Duty<String>> loadDuties() {
 		throw new IllegalStateException(MESSAGE);
 	}

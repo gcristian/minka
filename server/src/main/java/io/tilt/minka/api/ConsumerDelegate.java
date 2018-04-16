@@ -8,7 +8,6 @@ import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.loadduties;
 import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.loadpallets;
 import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.release;
 import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.releasePallet;
-import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.report;
 import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.transfer;
 import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.transferPallet;
 import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.update;
@@ -51,8 +50,6 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		// runnables
 		activation(false, "on minka loading context"),
 		deactivation(false, "on minka unloading context"), 
-		// suppliers
-		report(true, "report taken duties"), 
 		loadduties(true, "first even before distribution: load duties from a source"), 
 		loadpallets(true, "first even before distribution: load pallets from a source"),
 		;
@@ -163,7 +160,6 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 	protected boolean areRequiredEventsMapped() {
 		final boolean ready = readyIf(consumers, release) &&
 			readyIf(consumers, capture) &&
-			readyIf(suppliers, report) &&
 			readyIf(suppliers, loadduties) &&
 			palletSupplier!=null;
 		if (palletSupplier==null) {
@@ -316,16 +312,6 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 			r.run();;
 		} else {
 			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), deactivation);
-		}
-	}
-	@Override
-	public Set<Duty<D>> reportCapture() {
-		Supplier<Set<Duty<D>>> s = this.suppliers.get(report);
-		if (s!=null) {
-			return s.get();
-		} else {
-			log.error("{}: Unmapped event: {}", getClass().getSimpleName(), report);
-			return Collections.emptySet();
 		}
 	}
 	@Override

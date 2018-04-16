@@ -83,15 +83,6 @@ public interface PartitionDelegate<D extends Serializable, P extends Serializabl
 		return -1;
 	}
 	
-	/*
-	* Report the effectively sharded duties being handled.
-	* The Leader cannot trust that a delegated duty is really held by a shard,
-	* So the shard has the last word and must reports so at any given time.
-	* 
-	* @return	a list of handled duties
-	*/
-	Set<Duty<D>> reportCapture();
-
 	/**
 	* Continue performing actions on already taken duties.
 	* No special calls to take() will be done

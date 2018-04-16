@@ -84,6 +84,7 @@ public class BasicAppEmulator {
 		server.onDutyLoad(()-> duties);
 		
 		server.onDutyCapture((final Set<Duty<String>> t) -> {
+			// start tasks
 			logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "taking"));
 			logger.info("{} # {}+ ({})", shardId, t.size(), toStringIds(t));
 			runningDuties.addAll(t);
@@ -91,32 +92,13 @@ public class BasicAppEmulator {
 		server.onPalletCapture((p)->logger.info("Taking pallet: {}", p.toString()));
 		
 		server.onDutyRelease((final Set<Duty<String>> entities)-> {
+			// stop tasks previously started
 			logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "releasing"));
 			logger.info("{} # -{} ({})", shardId, entities.size(), toStringIds(entities));
 			runningDuties.removeAll(entities);
 		});
 		server.onPalletRelease((p)->logger.info("Releasing pallet: {}", p.toString()));
-		
-		server.onDutyReport(()-> {
-			final long now = System.currentTimeMillis();
-			if (timeToLog(now)) {
-				final MinkaClient<String, String> client = server.getClient();
-				lastPrint = now;
-				lastSize = runningDuties.size();
-				logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "running"));
-				if (logger.isDebugEnabled()) {
-					logger.debug("{}: {} {{}} # {} ({})", getClass().getSimpleName(), shardId, 
-							client != null ? client.isCurrentLeader() ?  "leader" : "follower" : "?", 
-							this.runningDuties.size(), toStringGroupByPallet(runningDuties));
-				} else {
-					logger.info("{}: {} {{}} # {} ", getClass().getSimpleName(), shardId, 
-							client != null ? client.isCurrentLeader() ? "leader" : "follower" : "?", 
-							this.runningDuties.size());
-				}
-			}
-			return this.runningDuties;
-		});
-		
+				
 		for (final Pallet<String> pallet: pallets) {
 			server.setCapacity(pallet, loader.loadShardCapacity(pallet, duties, server.getClient().getShardIdentity()));			
 		}

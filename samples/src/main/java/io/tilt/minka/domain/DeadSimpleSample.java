@@ -54,8 +54,6 @@ public class DeadSimpleSample {
 		minka.onDutyCapture(duties->myDuties.addAll(duties));
 		// map the releasing duties from this shard (hardly as there's no rebalance we can hope here)
 		minka.onDutyRelease(duties->myDuties.removeAll(duties));
-		// minka will continuously ask for those running duties to ensure we havent lost them
-		minka.onDutyReport(()->myDuties);
 		// release the bootstrap process so minka can start
 		minka.load();
 		

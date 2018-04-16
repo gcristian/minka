@@ -13,7 +13,6 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import org.apache.commons.lang.Validate;
-import org.glassfish.grizzly.http.server.BackendConfiguration;
 import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.grizzly.http.server.NetworkListener;
 import org.glassfish.grizzly.threadpool.GrizzlyExecutorService;
@@ -378,17 +377,6 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	public Minka<D, P> onPalletRelease(final Consumer<Set<Pallet<P>>> consumer) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerPallet(consumer, MappingEvent.releasePallet);
-		return this;
-	}
-	/**
-	 * Mandatory. Map report contract to a consumer 
-	 * @see PartitionDelegate
-	 * @param supplier	to be called profusely by the follower process at the current shard
-	 * @return	the server builder
-	 */
-	public Minka<D, P> onDutyReport(final Supplier<Set<Duty<D>>> supplier) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addSupplier(MappingEvent.report, supplier);
 		return this;
 	}
 	/**

@@ -20,9 +20,7 @@ package io.tilt.minka.core.follower.impl;
 import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -33,11 +31,8 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.follower.HeartbeatFactory;
-import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.DomainInfo;
-import io.tilt.minka.domain.DutyDiff;
-import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Heartbeat;
@@ -90,11 +85,9 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		final Heartbeat.Builder builder = Heartbeat.builder(sequence.getAndIncrement(), partition.getId());
 		// update the tag
 		partition.getId().getTag();
-		final Set<Duty<?>> reportedDuties = askCurrentCapture();
 		// add reported: as confirmed if previously assigned, dangling otherwise.
-		final List<ShardEntity> tmp = new ArrayList<>(Math.max(reportedDuties.size(), partition.getDuties().size())); 
-		boolean issues = detectChangesOnReport(builder, reportedDuties, tmp::add);
-		issues |= detectAbsentsFromPartition(reportedDuties, tmp::add);
+		final List<ShardEntity> tmp = new ArrayList<>(partition.getDuties().size()); 
+		boolean issues = detectChangesOnReport(builder, tmp::add);
 		
 		final boolean exclusionExpired = includeTimestamp == 0 || (now - includeTimestamp) > includeFrequency;
 				
@@ -127,35 +120,11 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	/* analyze reported duties and return if there're issues */
 	private boolean detectChangesOnReport(
 	        final Heartbeat.Builder builder,
-			final Set<Duty<?>> reportedDuties, 
 			final Consumer<ShardEntity> c) {
 	    
 		boolean includeDuties = false;
-		for (final Duty<?> duty : reportedDuties) {
-			ShardEntity shardedDuty = partition.getFromRawDuty(duty);
-			if (shardedDuty != null) {
-				if (!config.getFollower().getHeartbeatDutyDiffTolerant()) {
-					final DutyDiff ddiff = new DutyDiff(duty, shardedDuty.getDuty());
-					if (ddiff.hasDiffs()) {
-						log.error("{}: ({}) Delegate reports a different duty than originally attached ! {}", 
-							getClass().getSimpleName(), partition.getId(), ddiff.getDiff());
-						builder.addDifference(ddiff);
-						builder.withWarning();
-						includeDuties = true;
-					}
-				}
-				includeDuties |= detectReception(duty, shardedDuty);
-			} else {
-				includeDuties = true;
-				shardedDuty = ShardEntity.Builder.builder(duty).build();
-				shardedDuty.getJournal().addEvent(EntityEvent.ATTACH, 
-						EntityState.MISTAKEN, 
-						this.partition.getId(), 
-						ChangePlan.PLAN_WITHOUT);
-				log.error("{}: ({}) Reporting a Dangling Duty (by Addition): {}", classname,
-						partition.getId(), shardedDuty);
-				builder.withWarning();
-			}
+		for (ShardEntity shardedDuty: partition.getDuties()) {
+			includeDuties |= detectReception(shardedDuty.getDuty(), shardedDuty);
 			c.accept(shardedDuty);
 		}
 		return includeDuties;
@@ -187,18 +156,6 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		CLEARANCE_EXPIRED,
 		REBEL_SHARD,
 	}
-
-	@SuppressWarnings("unchecked")
-	private Set<Duty<?>> askCurrentCapture() {
-		Set<Duty<?>> reportedDuties;
-		try {
-			reportedDuties = dependencyPlaceholder.getDelegate().reportCapture();
-		} catch (Exception e) {
-			log.error("{}: ({}) PartitionDelegate failure", classname, config.getLoggingShardId(), e);
-			reportedDuties = Collections.emptySet();
-		}
-		return reportedDuties;
-	}
 	
 	@SuppressWarnings("unchecked")	
 	private void addReportedCapacities(final Heartbeat.Builder builder) {
@@ -216,32 +173,6 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			}
 		}
 	}
-
-	/* if there were absent o not */
-	private boolean detectAbsentsFromPartition(final Set<Duty<?>> reportedDuties, final Consumer<ShardEntity> c) {
-		boolean ret = false;
-		// add non-reported: as dangling
-		for (final ShardEntity existing : partition.getDuties()) {
-			if (ret = !reportedDuties.contains(existing.getEntity())) {
-				if (existing.getDuty().isLazyFinalized()) {
-					// it's an ES: finalized that will later end in a EV: remove 
-					existing.getJournal().addEvent(existing.getLastEvent(), 
-							EntityState.FINALIZED, 
-							this.partition.getId(),
-							existing.getJournal().getLast().getPlanId());
-				} else {
-					existing.getJournal().addEvent(existing.getLastEvent(), 
-							EntityState.DANGLING, 
-							this.partition.getId(), 
-							existing.getJournal().getLast().getPlanId());
-				}
-				log.error("{}: ({}) Reporting a Dangling Duty (by Erasure): {}", classname, partition.getId(), existing);
-				c.accept(existing);
-			}
-		}
-		return ret;
-	}
-
 
 	private void logDebugNicely(final Heartbeat hb) {
 	    if (!log.isDebugEnabled()) {
