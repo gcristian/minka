@@ -34,9 +34,9 @@ import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
+import io.tilt.minka.api.config.BalancerConfiguration;
 import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
@@ -69,7 +69,7 @@ public class EvenWeightBalancer implements Balancer {
 		}
 		public Metadata() {
 			super();
-			this.presort = Config.BalancerConf.EVEN_WEIGHT_PRESORT;
+			this.presort = BalancerConfiguration.EVEN_WEIGHT_PRESORT;
 		}
 		protected Balancer.PreSort getPresort() {
 			return this.presort;

@@ -16,7 +16,7 @@
     <!-- si no hay properties: la configuracion se llena de valores predeterminados -->
     <bean id="config" class="io.tilt.minka.api.Config"/>
         
-    <bean id="clientHolder" class="io.tilt.minka.api.DependencyPlaceholder"/>
+    <bean id="clientHolder" class="io.tilt.minka.domain.DependencyPlaceholder"/>
     
     <!-- ID del shard: entregado A Leader/Follower solo informativamente  -->
     <bean id="shardId" class="io.tilt.minka.domain.TCPShardIdentifier">

@@ -37,9 +37,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.ConsumerDelegate;
-import io.tilt.minka.api.DependencyPlaceholder;
-import io.tilt.minka.api.PartitionDelegate;
 import io.tilt.minka.core.follower.Follower;
 
 /**

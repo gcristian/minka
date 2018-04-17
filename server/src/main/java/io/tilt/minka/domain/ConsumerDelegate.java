@@ -1,17 +1,17 @@
-package io.tilt.minka.api;
+package io.tilt.minka.domain;
 
-import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.activation;
-import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.capture;
-import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.capturePallet;
-import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.deactivation;
-import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.loadduties;
-import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.loadpallets;
-import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.release;
-import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.releasePallet;
-import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.transfer;
-import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.transferPallet;
-import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.update;
-import static io.tilt.minka.api.ConsumerDelegate.MappingEvent.updatePallet;
+import static io.tilt.minka.domain.ConsumerDelegate.MappingEvent.activation;
+import static io.tilt.minka.domain.ConsumerDelegate.MappingEvent.capture;
+import static io.tilt.minka.domain.ConsumerDelegate.MappingEvent.capturePallet;
+import static io.tilt.minka.domain.ConsumerDelegate.MappingEvent.deactivation;
+import static io.tilt.minka.domain.ConsumerDelegate.MappingEvent.loadduties;
+import static io.tilt.minka.domain.ConsumerDelegate.MappingEvent.loadpallets;
+import static io.tilt.minka.domain.ConsumerDelegate.MappingEvent.release;
+import static io.tilt.minka.domain.ConsumerDelegate.MappingEvent.releasePallet;
+import static io.tilt.minka.domain.ConsumerDelegate.MappingEvent.transfer;
+import static io.tilt.minka.domain.ConsumerDelegate.MappingEvent.transferPallet;
+import static io.tilt.minka.domain.ConsumerDelegate.MappingEvent.update;
+import static io.tilt.minka.domain.ConsumerDelegate.MappingEvent.updatePallet;
 
 import java.io.Serializable;
 import java.util.Collections;
@@ -25,6 +25,10 @@ import java.util.function.Supplier;
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.MinkaClient;
+import io.tilt.minka.api.Pallet;
 
 /**
  * Contract bridge to encapsulate delegate implementation at Minka  
@@ -85,7 +89,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 	private String locationTag;
 	private boolean explicitlyReady;
     
-	protected ConsumerDelegate() {
+	public ConsumerDelegate() {
 		super();
 		this.consumers = new HashMap<>();
 		this.consumersPallets = new HashMap<>();
@@ -94,41 +98,41 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		this.capacities = new HashMap<>();
 	}
 	
-	protected void addConsumer(final Consumer<Set<Duty<D>>> consumer, final MappingEvent event) {
+	public void addConsumer(final Consumer<Set<Duty<D>>> consumer, final MappingEvent event) {
 		Validate.notNull(consumer);
 		this.consumers.put(event, consumer);
 	}
-	protected void addConsumerPallet(final Consumer<Set<Pallet<P>>> consumer, final MappingEvent event) {
+	public void addConsumerPallet(final Consumer<Set<Pallet<P>>> consumer, final MappingEvent event) {
 		Validate.notNull(consumer);
 		this.consumersPallets.put(event, consumer);
 	}
-	protected void addRunnable(final MappingEvent event, final Runnable runnable) {
+	public void addRunnable(final MappingEvent event, final Runnable runnable) {
 		Validate.notNull(runnable);
 		this.runnables.put(event, runnable);
 	}
-	protected void addPalletSupplier(final Supplier<Set<Pallet<P>>> supplier) {
+	public  void addPalletSupplier(final Supplier<Set<Pallet<P>>> supplier) {
 		Validate.notNull(supplier);
 		this.palletSupplier = supplier;
 	}
-	protected void addSupplier(final MappingEvent event, final Supplier<Set<Duty<D>>> supplier) {
+	public void addSupplier(final MappingEvent event, final Supplier<Set<Duty<D>>> supplier) {
 		Validate.notNull(supplier);
 		this.suppliers.put(event, supplier);
 	}
-	protected void addCapacity(final Pallet<P> pallet, final Double weight) {
+	public void addCapacity(final Pallet<P> pallet, final Double weight) {
 		Validate.notNull(pallet);
 		Validate.notNull(weight);
 		this.capacities.put(pallet, weight);
 	}
-	protected void addBiConsumerTransfer(final BiConsumer<Duty<D>, Serializable> biconsumerTransfer) {
+	public void addBiConsumerTransfer(final BiConsumer<Duty<D>, Serializable> biconsumerTransfer) {
 		this.biconsumerTransfer = biconsumerTransfer;
 	}
-	protected void addBiConsumerTransferPallet(final BiConsumer<Pallet<P>, Serializable> biconsumerTransferPallet) {
+	public void addBiConsumerTransferPallet(final BiConsumer<Pallet<P>, Serializable> biconsumerTransferPallet) {
 		this.biconsumerPalletTransfer = biconsumerTransferPallet;
 	}
-	protected void addConsumerUpdate(final Consumer<Duty<D>> consumerUpdate) {
+	public void addConsumerUpdate(final Consumer<Duty<D>> consumerUpdate) {
 		this.consumerUpdate = consumerUpdate;
 	}	
-	protected void addConsumerUpdatePallet(final Consumer<Pallet<P>> consumerUpdate) {
+	public void addConsumerUpdatePallet(final Consumer<Pallet<P>> consumerUpdate) {
 		this.consumerPalletUpdate = consumerUpdate;
 	}	
 
@@ -146,10 +150,10 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		return false;
 	}
 	
-	protected boolean isExplicitlyReady() {
+	public boolean isExplicitlyReady() {
 		return this.explicitlyReady;
 	}
-	protected void setExplicitlyReady() {
+	public void setExplicitlyReady() {
 		if (areRequiredEventsMapped()) {
 			this.explicitlyReady = true;
 		} else {

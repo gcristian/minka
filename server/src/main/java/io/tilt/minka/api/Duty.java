@@ -21,6 +21,8 @@ import java.io.Serializable;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import io.tilt.minka.domain.PartitionDelegate;
+
 /**
  * An abstract entity that the host application uses to represent anything able to balance and distribute.  
  * the user MUST guarantee to TAKE and RELEASE responsibilities when the user's {@link PartitionDelegate} 
@@ -69,6 +71,10 @@ public interface Duty<T extends Serializable> extends Entity<T> {
 
 	/** @return whether of not this Duty cannot be balanced and it must cohabitat all Minka shards */
 	boolean isSynthetic();
+
+	static <T extends Serializable> DutyBuilder<T> builder(final String id, final String palletId) {
+		return DutyBuilder.builder(id, palletId);
+	}
 
 
 }

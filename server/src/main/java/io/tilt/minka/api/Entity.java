@@ -23,6 +23,8 @@ import java.util.Date;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import io.tilt.minka.domain.PartitionDelegate;
+
 /**
  * An abstract entity that the host application uses to represent anything able to balance and distribute.  
  * the user MUST guarantee to TAKE and RELEASE responsibilities when the user's {@link PartitionDelegate} 
@@ -59,6 +61,7 @@ public abstract interface Entity<T extends Serializable> extends Comparable<Enti
 
 	/**
 	* Type erasure bans the chance to call a useful equals() on the impl.
+	* 128 characters limited string length. 
 	* @return	the id
 	*/
 	@JsonProperty("id") String getId();

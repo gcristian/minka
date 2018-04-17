@@ -9,16 +9,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import org.junit.Test;
 
 import io.tilt.minka.ShardTest;
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.DutyBuilder;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.core.leader.PartitionTable;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.FairWeightBalancer;
@@ -43,7 +40,7 @@ public class FairWeightBalancerTest {
 	}
 	
 	public static Duty<String> buildDutyWithWeight(long weight, String idi) {
-		return DutyBuilder.<String>
+		return Duty.<String>
 			builder(idi, "1")
 				.with(weight)
 				.build();
@@ -95,7 +92,7 @@ public class FairWeightBalancerTest {
 		// some basic domain
 		final Set<ShardEntity> ents = someEntitiesWithGrowingOrder();
 		final Set<Duty<?>> duties = dutiesFromEntities(ents);		
-		final Pallet p1 = PalletBuilder.builder("1")
+		final Pallet p1 = Pallet.builder("1")
 				.with(new FairWeightBalancer.Metadata())
 				.build();
 		
@@ -134,7 +131,7 @@ public class FairWeightBalancerTest {
 		// some basic domain
 		final Set<ShardEntity> ents = someEntitiesWithSameOrder(12);
 		final Set<Duty<?>> duties = dutiesFromEntities(ents);		
-		final Pallet p1 = PalletBuilder.builder("1")
+		final Pallet p1 = Pallet.builder("1")
 				.with(new FairWeightBalancer.Metadata())
 				.build();
 		
@@ -170,7 +167,7 @@ public class FairWeightBalancerTest {
 		
 		final Set<ShardEntity> ents = someEntitiesWithOddOrder();
 		final Set<Duty<?>> duties = dutiesFromEntities(ents);		
-		final Pallet p1 = PalletBuilder.builder("1")
+		final Pallet p1 = Pallet.builder("1")
 				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, Balancer.PreSort.WEIGHT))
 				.build();
 		
@@ -224,7 +221,7 @@ public class FairWeightBalancerTest {
 		// some basic domain
 		final Set<ShardEntity> ents = someEntitiesWithOddOrder();
 		final Set<Duty<?>> duties = dutiesFromEntities(ents);		
-		final Pallet p1 = PalletBuilder.builder("1")
+		final Pallet p1 = Pallet.builder("1")
 				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, Balancer.PreSort.WEIGHT))
 				.build();
 		
@@ -298,7 +295,7 @@ public class FairWeightBalancerTest {
 		// some basic domain
 		final Set<ShardEntity> ents = dutiesWithWeights(2, 2, 2, 2);
 		final Set<Duty<?>> duties = dutiesFromEntities(ents);		
-		final Pallet p1 = PalletBuilder.builder("1")
+		final Pallet p1 = Pallet.builder("1")
 				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, Balancer.PreSort.DATE))
 				.build();
 		

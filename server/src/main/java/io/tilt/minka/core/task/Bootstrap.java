@@ -27,7 +27,6 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.ConfigValidator;
-import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
@@ -36,13 +35,14 @@ import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.impl.SpectatorSupplier;
+import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.spectator.Locks;
 import io.tilt.minka.spectator.ServerCandidate;
 import io.tilt.minka.utils.LogUtils;
 
 /**
- * Bootup class  for the master-slave node
+ * Last singleton loaded by the spring context, starter of all instances of {@linkplain Service}
  * 
  * @author Cristian Gonzalez
  * @since Nov 5, 2015

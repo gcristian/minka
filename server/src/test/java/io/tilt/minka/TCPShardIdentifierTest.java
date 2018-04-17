@@ -15,7 +15,7 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.DependencyPlaceholder;
+import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.TCPShardIdentifier;
 
 public class TCPShardIdentifierTest {

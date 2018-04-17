@@ -65,5 +65,10 @@ public interface Pallet<P extends Serializable> extends Entity<P> {
 	default Comparator<Duty<P>> getPreSortComparator() {
 		return null;
 	}
+	
+	public static <P extends Serializable> PalletBuilder<P> builder(final String palletId) {
+		return PalletBuilder.builder(palletId);
+	}
+
 
 }

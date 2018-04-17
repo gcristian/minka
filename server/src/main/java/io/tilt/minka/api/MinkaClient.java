@@ -39,6 +39,8 @@ import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.EntityState;
+import io.tilt.minka.domain.PartitionDelegate;
+import io.tilt.minka.domain.PartitionMaster;
 
 /**
  * Facility to run CRUD operations over {@linkplain Duty} 
@@ -152,7 +154,7 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	
 	private boolean push(final Entity<?> raw, final EntityEvent event, final EntityPayload userPayload) {
 		Validate.notNull(raw, "an entity is required");
-		boolean sent = true;
+		boolean sent = false;
 		final ShardEntity.Builder builder = ShardEntity.Builder.builder(raw);
 		if (userPayload != null) {
 			builder.withPayload(userPayload);

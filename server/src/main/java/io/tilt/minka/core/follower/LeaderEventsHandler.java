@@ -28,7 +28,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Lists;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.EntityPayload;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
@@ -39,6 +38,7 @@ import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.Clearance;
+import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.ShardCommand;

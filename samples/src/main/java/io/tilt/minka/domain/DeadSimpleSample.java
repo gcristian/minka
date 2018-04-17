@@ -22,9 +22,8 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.DutyBuilder;
 import io.tilt.minka.api.Minka;
-import io.tilt.minka.api.PalletBuilder;
+import io.tilt.minka.api.Pallet;
 
 public class DeadSimpleSample {
 
@@ -36,8 +35,10 @@ public class DeadSimpleSample {
 		 */
 
 		// create a dummy duty to check at last for it's reception
-		final Duty<String> helloWorld = DutyBuilder.<String>builder("helloworld", "group").build();
+		final Duty<String> helloWorld = Duty.<String>builder("helloworld", "group").build();
 
+		Duty.builder("123", "123").asStationary().build();
+		
 		// to save those duties assigned by minka to this shard 
 		final Set<Duty<String>> myDuties = new TreeSet<>();
 		
@@ -45,10 +46,12 @@ public class DeadSimpleSample {
 		final Minka<String, String> minka = new Minka<>();		
 		// create a dummy pallet to group the helloWorld duty
 		// on production environtment we should build duties loding source data from a database
-		minka.onPalletLoad(()-> newHashSet(PalletBuilder.<String>builder("group").build()));		
+		Pallet<String> pallet = Pallet.<String>builder("group").build();
+		minka.onPalletLoad(()-> newHashSet(pallet));		
 		// holds the duties to be reported in case this shard becomes the leader  
 		// on production environtment we should build duties loding source data from a database
 		minka.onDutyLoad(()-> newHashSet(helloWorld));
+		minka.setCapacity(pallet, 132);
 
 		// map the taking duties action
 		minka.onDutyCapture(duties->myDuties.addAll(duties));
@@ -59,10 +62,10 @@ public class DeadSimpleSample {
 		
 		Thread.sleep(5000);
 		// after a while, given this's the only shard, minka will give us the initially loaded duty
-		assert myDuties.contains(helloWorld);
+		System.out.print(myDuties.contains(helloWorld));
 		
 		// create another one
-		final Duty<String> another = DutyBuilder.<String>builder("another", "group").build();
+		final Duty<String> another = Duty.<String>builder("another", "group").build();
 		minka.getClient().add(another);
 		
 		Thread.sleep(5000);

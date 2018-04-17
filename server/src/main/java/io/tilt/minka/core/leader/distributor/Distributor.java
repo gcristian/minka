@@ -33,7 +33,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.DutyBuilder.Task;
 import io.tilt.minka.api.Pallet;
@@ -52,6 +51,7 @@ import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
+import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.EntityJournal.Log;
@@ -211,7 +211,7 @@ public class Distributor implements Service {
 			if (r == CLOSED_EXPIRED || r == CLOSED_OBSOLETE) {
 				rebuild = true;
 			} else if (p != null) {
-				p.computeState();
+				p.calculateState();
 			}
 			firstTime = false;
 		}
@@ -299,7 +299,7 @@ public class Distributor implements Service {
 						delivery.getShard().getShardID(), deliCount,
 						ShardEntity.toStringIds(payload));
 			}
-			delivery.checkState();
+			delivery.calculateState();
 			if (eventBroker.send(delivery.getShard().getBrokerChannel(), (List)payload)) {
 				// dont mark to wait for those already confirmed (from fallen shards)
 				logs.forEach(l->l.addState(EntityState.PENDING));

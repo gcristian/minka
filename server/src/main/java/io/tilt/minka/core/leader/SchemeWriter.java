@@ -39,7 +39,7 @@ import io.tilt.minka.domain.ShardIdentifier;
 
 /**
  * Single-point of write access to the {@linkplain Scheme}.
- * Contains the rules of allocation and migration consistency to determine changes. 
+ * Contains the rules for determining reallocation success. 
  * Inspects {@linkplain Heartbeat}'s looking for expected 
  * changes according the current distribution {@linkplain ChangePlan}
  *  
@@ -105,7 +105,7 @@ public class SchemeWriter {
 				}
 			});
 		if (changed[0]) {
-			delivery.checkState();
+			delivery.calculateState();
 		} else if (lattestPlanId==changePlan.getId()) {
 			// delivery found, no change but expected ? 
 			logger.warn("{}: Ignoring shard's ({}) heartbeats with a previous Journal: {} (current: {})", 

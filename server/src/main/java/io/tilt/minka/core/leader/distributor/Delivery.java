@@ -123,7 +123,8 @@ public class Delivery {
 		return this.step;
 	}
 	
-	public void checkState() {
+	/* recalculates state: DONE when all duties CONFIRMED */
+	public void calculateState() {
 		if (step == Step.ENQUEUED) {
 			if (duties.isEmpty()) {
 				throw new IllegalStateException("delivery without duties cannot go to pending !");

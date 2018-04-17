@@ -142,7 +142,7 @@ public class DatasetEmulator implements ClusterEmulatorProvider {
 		for (int i = 0; i < size; i++) {
 			// this's biased as it's most probably to get the min value when given range is smaller than 0~min
 			final long dweight = rangePos > 0 ? Math.max(range[0],rnd.nextInt(range[1])) : weight;
-			callback.accept(DutyBuilder.<String>builder(
+			callback.accept(Duty.<String>builder(
 			            String.valueOf(numerator.incrementAndGet()), 
 			            String.valueOf(palletName))
 			        .with(dweight)
@@ -162,7 +162,7 @@ public class DatasetEmulator implements ClusterEmulatorProvider {
 					String pbal = tok.nextToken();
 					final Strategy strat = Strategy.valueOf(pbal.trim().split(FIELD_DELIM)[2].trim());
 					final String palletName = key.toString().substring(DUTIES_PALLETS.length() + 1).trim();
-					pallets.add(PalletBuilder.<String>builder(palletName)
+					pallets.add(Pallet.<String>builder(palletName)
 							.with(strat.getBalancerMetadata())
 							.build());
 				}

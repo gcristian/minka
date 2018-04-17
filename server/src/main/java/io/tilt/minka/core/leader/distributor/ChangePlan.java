@@ -56,7 +56,9 @@ import io.tilt.minka.utils.LogUtils;
 
 /**
  * Plan of changes as a consequence of {@linkplain Balancer} recalculation, caused 
- * by addition, modification or removal of the {@linkplain Scheme} (Shards, Entities) 
+ * by CRUD operations to the {@linkplain Scheme} (Shards, Entities)
+ * Contains a matrix of actions with minimum behaviour scoped to the pace of scheme change.
+ *  
  * Composed of many {@linkplain Delivery} objects sent to different {@linkplain Shard},
  * representing changes in progress of confirmation, which in turn forward to more deliveries. 
  * The plan is driven by the {@linkplain Distributor}, and takes at most 4 steps in a consistent order.
@@ -317,7 +319,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 			throw new IllegalStateException("ChangePlan not prepared yet !");
 		}
 		// set done if none pending
-		deliveries.forEach(d -> d.checkState());
+		deliveries.forEach(d -> d.calculateState());
 		if (!iterator.hasNext()) {
 			return false;
 		}
@@ -343,8 +345,8 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		return true;
 	}
 
-	/** @return if all deliveries are fully confirmed */
-	public void computeState() {
+	/** recalculates state according its deliveries states */
+	public void calculateState() {
 		if (this.result.isClosed()) {
 			return;
 		} else if (deliveries.isEmpty()) {

@@ -42,6 +42,7 @@ import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.config.SchedulerConfiguration;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -168,7 +169,7 @@ public class SocketClient {
 	private void keepConnecting(final BrokerChannel channel, final int maxRetries, final int retryDelay) {
 		clientGroup = new NioEventLoopGroup(1,
 				new ThreadFactoryBuilder()
-					.setNameFormat(Config.SchedulerConf.THREAD_NANE_TCP_BROKER_CLIENT)
+					.setNameFormat(SchedulerConfiguration.THREAD_NANE_TCP_BROKER_CLIENT)
 					.build());
 
 		boolean wronglyDisconnected = true;

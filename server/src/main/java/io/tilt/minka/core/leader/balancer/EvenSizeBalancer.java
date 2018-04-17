@@ -26,9 +26,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
+import io.tilt.minka.api.config.BalancerConfiguration;
 import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.utils.CollectionUtils;
@@ -58,7 +58,7 @@ public class EvenSizeBalancer implements Balancer {
 		}
 		public Metadata() {
 			super();
-			this.maxDutiesDeltaBetweenShards = Config.BalancerConf.EVEN_SIZE_MAX_DUTIES_DELTA_BETWEEN_SHARDS;
+			this.maxDutiesDeltaBetweenShards = BalancerConfiguration.EVEN_SIZE_MAX_DUTIES_DELTA_BETWEEN_SHARDS;
 		}
 		protected int getMaxDutiesDeltaBetweenShards() {
 			return this.maxDutiesDeltaBetweenShards;

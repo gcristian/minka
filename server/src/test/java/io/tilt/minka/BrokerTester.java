@@ -20,7 +20,6 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.DependencyPlaceholder;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.broker.impl.SocketBroker;
@@ -30,6 +29,7 @@ import io.tilt.minka.core.task.impl.SpectatorSupplier;
 import io.tilt.minka.core.task.impl.SynchronizedAgentFactoryImpl;
 import io.tilt.minka.core.task.impl.SynchronizedFactoryImpl;
 import io.tilt.minka.core.task.impl.TransportlessLeaderShardContainer;
+import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.TCPShardIdentifier;
 import junit.framework.Assert;

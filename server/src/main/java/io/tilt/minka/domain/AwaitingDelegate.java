@@ -1,6 +1,9 @@
-package io.tilt.minka.api;
+package io.tilt.minka.domain;
 
 import java.util.Set;
+
+import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.Pallet;
 
 /** 
  * an always awaiting never ready delegate

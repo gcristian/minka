@@ -22,7 +22,7 @@ import io.tilt.minka.domain.ShardEntity;
 public class WeightBasedClusterizerTest {
 
 	public static Duty<String> buildDutyWithWeight(long weight, String idi) {
-		return DutyBuilder.<String>
+		return Duty.<String>
 			builder(idi,  "1")
 				.with(weight)
 				.build();

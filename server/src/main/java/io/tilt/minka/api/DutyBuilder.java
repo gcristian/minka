@@ -39,7 +39,7 @@ public class DutyBuilder<T extends Serializable> {
 	 * @param <T> the payload type 
 	 * @return a builder for first class citizen duty
 	 */
-	public static <T extends Serializable> DutyBuilder<T> builder(final String palletId) {
+	protected static <T extends Serializable> DutyBuilder<T> builder(final String palletId) {
 		final Instant now = Instant.now();
 		return new DutyBuilder<>(
 				new StringBuilder()
@@ -55,7 +55,7 @@ public class DutyBuilder<T extends Serializable> {
 	 * @param <T> the payload type 
 	 * @return a builder for first class citizen duty
 	 */
-	public static <T extends Serializable> DutyBuilder<T> builder(final String id, final String palletId) {
+	protected static <T extends Serializable> DutyBuilder<T> builder(final String id, final String palletId) {
 		return new DutyBuilder<>(id, palletId);
 	}
 	/**

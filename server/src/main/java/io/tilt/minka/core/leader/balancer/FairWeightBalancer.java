@@ -25,9 +25,9 @@ import java.util.TreeSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
+import io.tilt.minka.api.config.BalancerConfiguration;
 import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard.CapacityComparer;
@@ -64,8 +64,8 @@ public class FairWeightBalancer implements Balancer {
 			return FairWeightBalancer.class;
 		}
 		public Metadata() {
-			this.dispersion = Config.BalancerConf.FAIR_WEIGHT_DISPERSION;
-			this.presort = Config.BalancerConf.FAIR_WEIGHT_PRESORT;
+			this.dispersion = BalancerConfiguration.FAIR_WEIGHT_DISPERSION;
+			this.presort = BalancerConfiguration.FAIR_WEIGHT_PRESORT;
 		}
 		public Metadata(final Dispersion dispersion, final PreSort presort) {
 			super();

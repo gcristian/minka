@@ -30,7 +30,7 @@ import io.tilt.minka.domain.ShardCapacity.Capacity;
 
 public class ShardTest {
 
-	private Pallet<String> p = PalletBuilder.<String>builder("1").build();;
+	private Pallet<String> p = Pallet.<String>builder("1").build();;
 
 	@Test
 	public void test_shard_comparers() throws Exception {

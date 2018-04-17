@@ -14,19 +14,20 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.api;
+package io.tilt.minka.domain;
 
 import java.io.Serializable;
 import java.util.Set;
 
+import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.MinkaClient;
+import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
 import io.tilt.minka.core.task.Bootstrap;
-import io.tilt.minka.domain.ShardEntity;
 
 /**
- * Client's point of integration with Minka.
- * 
  * Starting the {@linkplain Bootstrap} with this delegate will avoid Minka from 
  * maintaining storage for {@linkplain ShardEntity}
  * 
@@ -34,10 +35,8 @@ import io.tilt.minka.domain.ShardEntity;
  * 
  * Adds and Removes from {@linkplain MinkaClient} are yet properly functional.
  * Adds and Removes should be ONLY used to enter new Duties to Minka after bootstrap.
- * In case of Leader reelection/termination: Minka recalls reportTotal 
+ * In case of Leader reelection/termination: Minka recalls this implementation 
  * and forgets previously added duties thru add/remove from {@linkplain MinkaClient}
- * 
- * If overall Duties control from Minka is required: {@linkplain PartitionDelegate} must be used 
  *    
  * @author Cristian Gonzalez
  * @since Nov 7, 2015

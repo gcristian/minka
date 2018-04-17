@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.api;
+package io.tilt.minka.domain;
 
 import java.io.Serializable;
 import java.util.Set;
@@ -22,17 +22,13 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.core.task.Bootstrap;
-import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.Pallet;
 
 /**
- * Client's point of integration with Minka.
- * Minka will be heavily calling this methods to control shards.
- * 
- * Starting the {@linkplain Bootstrap} with this delegate will make Minka to maintain its own 
- * storage for {@linkplain ShardEntity}
- * 
- * Client is compelled to call MinkaClient.add/remove to enter and remove duties to the shards
+ * Traditional repr. of the client implementation model's contract. 
+ * May be used instead of using {@linkplain Minka} class more functional approach 
+ * which saves suppliers and consumers at {@linkplain ConsumerDelegate}
  *    
  * @author Cristian Gonzalez
  * @since Nov 7, 2015

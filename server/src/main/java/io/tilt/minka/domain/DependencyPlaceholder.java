@@ -1,13 +1,14 @@
-package io.tilt.minka.api;
+package io.tilt.minka.domain;
 
 import java.io.Serializable;
 
 import org.apache.commons.lang.Validate;
 
-@SuppressWarnings("rawtypes")
 /**
- * Value object for information that is loaded after the spring context started
+ * Value object for information that is held or provided by the client,
+ * buy required after the spring context has started.
  */
+@SuppressWarnings("rawtypes")
 public class DependencyPlaceholder {
 
 	// default fallback until client is ready to deliver

@@ -31,15 +31,15 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.AtomicDouble;
 
-import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.api.PartitionDelegate;
+import io.tilt.minka.api.config.BalancerConfiguration;
 import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.domain.Shard.CapacityComparer;
 import io.tilt.minka.domain.Shard.DateComparer;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.PartitionDelegate;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
@@ -81,8 +81,8 @@ public class SpillOverBalancer implements Balancer {
 		}
 		public Metadata() {
 			super();
-			this.maxUnit = Config.BalancerConf.SPILL_OVER_MAX_UNIT;
-			this.maxValue = Config.BalancerConf.SPILL_OVER_MAX_VALUE;
+			this.maxUnit = BalancerConfiguration.SPILL_OVER_MAX_UNIT;
+			this.maxValue = BalancerConfiguration.SPILL_OVER_MAX_VALUE;
 			this.shardPresort = ShardPresort.BY_CREATION_DATE;
 			this.ascending = true;
 		}

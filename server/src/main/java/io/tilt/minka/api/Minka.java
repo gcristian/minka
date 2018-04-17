@@ -24,24 +24,31 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-import io.tilt.minka.api.Config.BootstrapConf;
-import io.tilt.minka.api.ConsumerDelegate.MappingEvent;
+import io.tilt.minka.api.config.BootstrapConfiguration;
+import io.tilt.minka.api.config.BrokerConfiguration;
+import io.tilt.minka.api.config.SchedulerConfiguration;
 import io.tilt.minka.core.leader.balancer.Balancer;
+import io.tilt.minka.domain.AwaitingDelegate;
+import io.tilt.minka.domain.ConsumerDelegate;
+import io.tilt.minka.domain.DependencyPlaceholder;
+import io.tilt.minka.domain.PartitionDelegate;
+import io.tilt.minka.domain.PartitionMaster;
+import io.tilt.minka.domain.ConsumerDelegate.MappingEvent;
 
 /**
- * An alternative way of programatically loading Minka  <br>
- * The service remains alive while this class stays loaded and non-stopped. <br>
- * Each application instance hosting a Minka shard must create this loader. <br> <br>
+ * System initiator and context holder. 
+ * Each application instance hosting a Minka shard willing to distribute duties must use.<br> <br>
  *  
  * Minka requires some events to be mapped and others are optional depending client's needs,
  * strictly related to the usage of {@linkplain MinkaClient}. <br>
- * Once the context is created, Minka boots-up and waits for all events to be mapped,
+ * Once this class is created: the context is created, Minka boots-up and waits for all events to be mapped,
  * unless load() is called which validates for mapped mandatory events. <br>
  * Client may or not need some pallet events, all duties hold its pallet information as well. <br>
+ * 
  * Shard capacities are required if client uses a balancer that depends on duty weights. <br> <br>
  * 
- * Usually client will map events duty::load(),take(),release(),report() and pallet::load(),
- * and specify current shard's capacities for pallets thru setCapacity(...)
+ * Usually client will map events capture and release for duties, and will use setCapacities to report
+ * its specific node capacities for each pallet.
  * 
  * @author Cristian Gonzalez
  * @since Sept 20, 2016
@@ -51,6 +58,8 @@ import io.tilt.minka.core.leader.balancer.Balancer;
 @SuppressWarnings("unchecked")
 public class Minka<D extends Serializable, P extends Serializable> {
 
+	private static final String CONTEXT_PATH = "classpath:io/tilt/minka/config/context-minka-spring.xml";
+	
 	private static final Logger logger = LoggerFactory.getLogger(Minka.class);
 	private final String logname = getClass().getSimpleName();
 
@@ -121,8 +130,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 		logger.info("{}: Initializing context for service: {}", getClass().getSimpleName(), serviceName);
 		tenants.put(config.getBootstrap().getServiceName(), tenant = new Tenant());
 		tenant.setConfig(config);
-		final String configPath = "classpath:io/tilt/minka/config/context-minka-spring.xml";
-		final ClassPathXmlApplicationContext ctx = new ClassPathXmlApplicationContext(new String[] { configPath }, false);
+		final ClassPathXmlApplicationContext ctx = new ClassPathXmlApplicationContext(new String[] { CONTEXT_PATH }, false);
 		tenant.setContext(ctx);
 		ctx.addBeanFactoryPostProcessor(beanFactory-> beanFactory.registerSingleton("config", config));
 		ctx.setDisplayName("minka-" + serviceName + "-ts:" + System.currentTimeMillis());
@@ -165,9 +173,9 @@ public class Minka<D extends Serializable, P extends Serializable> {
 			logger.info("{}: Reconfiguring webserver listener {}", getClass().getSimpleName(), listener);
 			listener.getTransport().setSelectorRunnersCount(1);
 			((GrizzlyExecutorService)listener.getTransport().getWorkerThreadPool()).reconfigure(
-					config.copy().setPoolName(Config.SchedulerConf.THREAD_NAME_WEBSERVER_WORKER));
+					config.copy().setPoolName(SchedulerConfiguration.THREAD_NAME_WEBSERVER_WORKER));
 			((GrizzlyExecutorService)listener.getTransport().getKernelThreadPool()).reconfigure(
-					config.copy().setPoolName(Config.SchedulerConf.THREAD_NAME_WEBSERVER_KERNEL));
+					config.copy().setPoolName(SchedulerConfiguration.THREAD_NAME_WEBSERVER_KERNEL));
 		}
 		
 		/*
@@ -214,14 +222,14 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	public URI resolveWebServerBindAddress(final Config config) {
 		final String[] brokerHostPort = config.getBroker().getHostPort().split(":");
     	final JerseyUriBuilder builder = new JerseyUriBuilder();
-    	final BootstrapConf bs = config.getBootstrap();
+    	final BootstrapConfiguration bs = config.getBootstrap();
 		final String[] webHostPort = bs.getWebServerHostPort().split(":");
 		int webPort = Integer.parseInt(webHostPort[1]);
-		final boolean webHostPortUntouched = bs.getWebServerHostPort().equals(Config.BootstrapConf.WEB_SERVER_HOST_PORT);
+		final boolean webHostPortUntouched = bs.getWebServerHostPort().equals(BootstrapConfiguration.WEB_SERVER_HOST_PORT);
 		String webhostport;
 		if (webHostPortUntouched) {
 			int brokerPort = Integer.parseInt(brokerHostPort[1]);
-			webPort = brokerPort == Config.BrokerConf.PORT ? webPort: brokerPort + 100;
+			webPort = brokerPort == BrokerConfiguration.PORT ? webPort: brokerPort + 100;
 			final String host = config.getResolvedShardId().getId().split(":")[0];
 			builder.host(host).port(webPort);
 			webhostport = host + ":" + webPort;

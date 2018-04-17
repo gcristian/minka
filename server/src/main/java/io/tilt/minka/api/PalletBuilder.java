@@ -54,7 +54,7 @@ public class PalletBuilder<P extends Serializable> {
 	 * @param palletId	must be unique across the user's domain
 	 * @return		Builder to enter duties to Minka
 	 */
-	public static <P extends Serializable> PalletBuilder<P> builder(final String palletId) {
+	protected static <P extends Serializable> PalletBuilder<P> builder(final String palletId) {
 		return new PalletBuilder<>(palletId);
 	}
 
