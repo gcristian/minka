@@ -298,8 +298,7 @@ public class Distributor implements Service {
 				logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), delivery.getEvent().toVerb(),
 						delivery.getShard().getShardID(), deliCount,
 						ShardEntity.toStringIds(payload));
-			}
-			delivery.calculateState();
+			}			
 			if (eventBroker.send(delivery.getShard().getBrokerChannel(), (List)payload)) {
 				// dont mark to wait for those already confirmed (from fallen shards)
 				logs.forEach(l->l.addState(EntityState.PENDING));

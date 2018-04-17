@@ -18,6 +18,7 @@ package io.tilt.minka.core.leader;
 
 import static io.tilt.minka.domain.EntityEvent.CREATE;
 
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -38,11 +39,12 @@ import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.EntityState;
 /**
- * Watches follower's heartbeats taking action on any difference.
- * 
- * Expected changes are delegated to {@linkplain SchemeWriter} 
+ * Single-point of write access to the {@linkplain Scheme}
+ * Watches follower's heartbeats taking action on any update
+ * Beats with changes are delegated to a {@linkplain ChangeDetector} 
  * Anomalies and CRUD ops. are recorded into {@linkplain Backstage}
  * 
  * @author Cristian Gonzalez
@@ -54,11 +56,11 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	private final String classname = getClass().getSimpleName();
 	
 	private final PartitionTable partitionTable;
-	private final SchemeWriter schemeWriter;
+	private final ChangeDetector changeDetector;
 	
 	public SchemeSentry(final PartitionTable partitionTable, final Scheduler scheduler) {
 		this.partitionTable = partitionTable;
-		this.schemeWriter = new SchemeWriter(partitionTable);
+		this.changeDetector = new ChangeDetector(partitionTable);
 	}
 
 	/**
@@ -82,7 +84,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		if (changePlan!=null && !changePlan.getResult().isClosed()) {
 			final Delivery delivery = changePlan.getDelivery(shard);
 			if (delivery!=null) {
-				schemeWriter.detectChanges(delivery, changePlan, beat, shard);
+				detectAndWriteChanges(shard, changePlan, delivery, beat);
 			} else if (logger.isInfoEnabled()){
 				logger.info("{}: no pending Delivery for heartbeat's shard: {}", 
 						getClass().getSimpleName(), shard.getShardID().toString());
@@ -103,6 +105,59 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			    // TODO
 			}
 		}
+	}
+	
+	public void detectAndWriteChanges(
+			final Shard source, 
+			final ChangePlan changePlan, 
+			final Delivery delivery, 
+			final Heartbeat beat) {
+
+		if (changeDetector.findChanges(delivery, changePlan, beat, source, 
+			(changelog, entity) -> {
+				if (updateScheme(entity, changelog, source, changePlan.getId())) {
+					updateBackstage(changelog, entity);
+				}
+			})) {
+			delivery.calculateState();
+		}
+		
+		if (!changePlan.getResult().isClosed() && changePlan.hasUnlatched()) {
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: ChangePlan unlatched, fwd >> distributor agent ", classname);
+			}
+			//scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
+		}
+		
+		if (changePlan.getResult().isClosed() && logger.isInfoEnabled()) {
+			logger.info("{}: ChangePlan finished ! (all changes in scheme)", classname);
+		}
+
+	}
+
+	private void updateBackstage(final Log changelog, final ShardEntity entity) {
+		if (changelog.getEvent().isCrud()) {
+			// remove it from the backstage
+			for (ShardEntity duty : partitionTable.getBackstage().getDutiesCrud()) {
+				if (duty.equals(entity)) {
+					final Instant lastEventOnCrud = duty.getJournal().getLast().getHead().toInstant();
+					if (changelog.getHead().toInstant().isAfter(lastEventOnCrud)) {
+						partitionTable.getBackstage().removeCrud(entity);
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	/** @return true if the scheme wrote the change */
+	private boolean updateScheme(final ShardEntity entity, final Log log, final Shard source, final long planId) {
+		return partitionTable.getScheme().writeDuty(entity, source, log.getEvent(), ()-> {
+				entity.getJournal().addEvent(log.getEvent(),
+						EntityState.CONFIRMED,
+						source.getShardID(),
+						planId);
+				});
 	}
 	
 	/*this checks partition table looking for missing duties (not declared dangling, that's diff) */
