@@ -40,8 +40,8 @@ import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.SchemeSentry;
 import io.tilt.minka.core.leader.EntityDao;
-import io.tilt.minka.core.leader.PartitionTable;
-import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
+import io.tilt.minka.core.leader.PartitionScheme;
+import io.tilt.minka.core.leader.PartitionScheme.ClusterHealth;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.distributor.ChangePlan.Result;
 import io.tilt.minka.core.task.LeaderShardContainer;
@@ -75,7 +75,7 @@ public class Distributor implements Service {
 	private final Config config;
 	private final Scheduler scheduler;
 	private final EventBroker eventBroker;
-	private final PartitionTable partitionTable;
+	private final PartitionScheme partitionScheme;
 	private final SchemeSentry schemeSentry;
 	private final ShardIdentifier shardId;
 	private final EntityDao entityDao;
@@ -94,7 +94,7 @@ public class Distributor implements Service {
 			final Config config, 
 			final Scheduler scheduler, 
 			final EventBroker eventBroker,
-			final PartitionTable partitionTable, 
+			final PartitionScheme partitionScheme, 
 			final SchemeSentry schemeSentry, 
 			final ShardIdentifier shardId,
 			final EntityDao dutyDao, 
@@ -104,7 +104,7 @@ public class Distributor implements Service {
 		this.config = config;
 		this.scheduler = scheduler;
 		this.eventBroker = eventBroker;
-		this.partitionTable = partitionTable;
+		this.partitionScheme = partitionScheme;
 		this.schemeSentry = schemeSentry;
 		this.shardId = shardId;
 		this.entityDao = dutyDao;
@@ -156,14 +156,14 @@ public class Distributor implements Service {
 				return;
 			}
 			// skip if unstable unless a plan in progress or expirations will occurr and dismiss
-			final ChangePlan currPlan = partitionTable.getCurrentPlan();
+			final ChangePlan currPlan = partitionScheme.getCurrentPlan();
 			if ((currPlan==null || currPlan.getResult().isClosed()) && 
-			        partitionTable.getVisibilityHealth() == ClusterHealth.UNSTABLE) {
+			        partitionScheme.getVisibilityHealth() == ClusterHealth.UNSTABLE) {
 				logger.warn("{}: ({}) Posponing distribution until reaching cluster stability (", getName(), shardId);
 				return;
 			}
 			logStatus();
-			final int online = partitionTable.getScheme().shardsSize(ShardState.ONLINE.filter());
+			final int online = partitionScheme.getScheme().shardsSize(ShardState.ONLINE.filter());
 			final int min = config.getProctor().getMinShardsOnlineBeforeSharding();
 			if (online < min) {
 				logger.warn("{}: balancing posponed: not enough online shards (min:{}, now:{})", getName(), min, online);
@@ -220,18 +220,18 @@ public class Distributor implements Service {
 
 	/** @return a plan to drive built at balancer's request */
 	private ChangePlan buildPlan(final ChangePlan previous) {
-		final ChangePlan changePlan = factory.create(partitionTable, previous);
-		partitionTable.getBackstage().cleanAllocatedDanglings();
+		final ChangePlan changePlan = factory.create(partitionScheme, previous);
+		partitionScheme.getBackstage().cleanAllocatedDanglings();
 		if (null!=changePlan) {
-			partitionTable.addPlan(changePlan);
-			this.partitionTable.setWorkingHealth(ClusterHealth.UNSTABLE);
+			partitionScheme.addPlan(changePlan);
+			this.partitionScheme.setWorkingHealth(ClusterHealth.UNSTABLE);
 			changePlan.prepare();
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Balancer generated issues on ChangePlan: {}", getName(), changePlan.getId());
 			}
 			return changePlan;
 		} else {
-			this.partitionTable.setWorkingHealth(ClusterHealth.STABLE);
+			this.partitionScheme.setWorkingHealth(ClusterHealth.STABLE);
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Distribution in Balance ", getName(), LogUtils.BALANCED_CHAR);
 			}
@@ -275,7 +275,7 @@ public class Distributor implements Service {
 	}
 
 	private boolean deliveryShardValid(final Delivery d) {
-		return partitionTable.getScheme().filterShards(
+		return partitionScheme.getScheme().filterShards(
 				sh->sh.equals(d.getShard()) && sh.getState()==ShardState.ONLINE);							
 	}
 
@@ -283,7 +283,7 @@ public class Distributor implements Service {
 	private boolean push(final ChangePlan changePlan, final Delivery delivery, final boolean retrying) {
 		// check it's still in ptable
 		if (!deliveryShardValid(delivery)) {
-			logger.error("{}: PartitionTable lost transport's target shard: {}", getName(), delivery.getShard());
+			logger.error("{}: PartitionScheme lost transport's target shard: {}", getName(), delivery.getShard());
 			changePlan.obsolete();
 			return false;
 		} else {
@@ -339,7 +339,7 @@ public class Distributor implements Service {
 				schemeSentry.enterDutiesFromSource(new ArrayList<>(duties));
 				initialAdding = false;
 			}
-			if (partitionTable.getBackstage().getDutiesCrud().isEmpty()) {
+			if (partitionScheme.getBackstage().getDutiesCrud().isEmpty()) {
 				logger.warn("{}: Aborting first distribution cause of no duties !", getName());
 				return false;
 			}
@@ -351,19 +351,19 @@ public class Distributor implements Service {
 
 	/** feed missing duties with storage/scheme diff. */
 	private void checkUnexistingDutiesFromStorage() {
-		if (config.getDistributor().isRunConsistencyCheck() && partitionTable.getCurrentPlan().areShippingsEmpty()) {
+		if (config.getDistributor().isRunConsistencyCheck() && partitionScheme.getCurrentPlan().areShippingsEmpty()) {
 			// only warn in case there's no reallocation ahead
 			final Set<ShardEntity> sorted = new TreeSet<>();
 			for (Duty<?> duty: reloadDutiesFromStorage()) {
 				final ShardEntity entity = ShardEntity.Builder.builder(duty).build();
-				if (!partitionTable.getScheme().dutyExists(entity)) {
+				if (!partitionScheme.getScheme().dutyExists(entity)) {
 					sorted.add(entity);
 				}
 			}
 			if (!sorted.isEmpty()) {
 				logger.error("{}: Consistency check: Absent duties going as Missing [ {}]", getName(),
 						ShardEntity.toStringIds(sorted));
-				partitionTable.getBackstage().addMissing(sorted);
+				partitionScheme.getBackstage().addMissing(sorted);
 			}
 		}
 	}
@@ -401,13 +401,13 @@ public class Distributor implements Service {
 	}
 
 	private void communicateUpdates() {
-		final Set<ShardEntity> updates = partitionTable.getBackstage().getDutiesCrud().stream()
+		final Set<ShardEntity> updates = partitionScheme.getBackstage().getDutiesCrud().stream()
 				.filter(i -> i.getJournal().getLast().getEvent() == EntityEvent.UPDATE 
 					&& i.getJournal().getLast().getLastState() == EntityState.PREPARED)
 				.collect(Collectors.toCollection(HashSet::new));
 		if (!updates.isEmpty()) {
 			for (ShardEntity updatedDuty : updates) {
-				Shard location = partitionTable.getScheme().getDutyLocation(updatedDuty);
+				Shard location = partitionScheme.getScheme().getDutyLocation(updatedDuty);
 				logger.info("{}: Transporting (update) Duty: {} to Shard: {}", getName(), updatedDuty.toString(), 
 						location.getShardID());
 				if (eventBroker.send(location.getBrokerChannel(), updatedDuty)) {
@@ -424,6 +424,6 @@ public class Distributor implements Service {
 					.append(" by Leader: ").append(shardId.toString());
 			logger.info(LogUtils.titleLine(title.toString()));
 		}
-		partitionTable.logStatus();
+		partitionScheme.logStatus();
 	}
 }

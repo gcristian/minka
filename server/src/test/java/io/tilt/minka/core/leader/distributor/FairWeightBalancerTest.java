@@ -16,7 +16,7 @@ import org.junit.Test;
 import io.tilt.minka.ShardTest;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.PartitionScheme;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.FairWeightBalancer;
 import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
@@ -101,7 +101,7 @@ public class FairWeightBalancerTest {
 		backstage.put(EntityEvent.CREATE, duties);
 		backstage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
-		final PartitionTable table = emptyTableWithShards(p1, 5000, 5000);
+		final PartitionScheme table = emptyTableWithShards(p1, 5000, 5000);
 		
 		final Set<Shard> shards = new HashSet<>();
 		table.getScheme().onShards(null, shards::add);
@@ -141,7 +141,7 @@ public class FairWeightBalancerTest {
 		backstage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
 		// only empty shards at scheme
-		final PartitionTable table = emptyTableWithShards(p1, 5000, 5000, 5000);
+		final PartitionScheme table = emptyTableWithShards(p1, 5000, 5000, 5000);
 		final Set<Shard> shards = new HashSet<>();
 		table.getScheme().onShards(null, shards::add);
 		final Migrator migra1 = MigratorTest.migrator(shards, ents, p1);
@@ -176,7 +176,7 @@ public class FairWeightBalancerTest {
 		backstage.put(EntityEvent.CREATE, duties);
 		backstage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
-		final PartitionTable table = emptyTableWithShards(p1, 4000, 500, 10);
+		final PartitionScheme table = emptyTableWithShards(p1, 4000, 500, 10);
 		final Set<Shard> shards = new HashSet<>();
 		table.getScheme().onShards(null, shards::add);
 		final Migrator migra = MigratorTest.migrator(shards, ents, p1);
@@ -230,7 +230,7 @@ public class FairWeightBalancerTest {
 		backstage.put(EntityEvent.CREATE, duties);
 		backstage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
-		final PartitionTable table = emptyTableWithShards(p1, 2900, 500, 12);
+		final PartitionScheme table = emptyTableWithShards(p1, 2900, 500, 12);
 		
 		final Set<Shard> shards = new HashSet<>();
 		table.getScheme().onShards(null, shards::add);
@@ -268,11 +268,11 @@ public class FairWeightBalancerTest {
 	
 	
 	/** @return shards id 1...N */
-	public PartitionTable emptyTableWithShards(
+	public PartitionScheme emptyTableWithShards(
 			final Pallet capacityPallet, 
 			final double...shardCapacities) throws Exception {
 		
-		final PartitionTable ret = new PartitionTable();
+		final PartitionScheme ret = new PartitionScheme();
 		int id = 1;
 		for (final double cap: shardCapacities) {
 			final Shard shard = ShardTest.buildShard(capacityPallet, cap, id++);
@@ -281,7 +281,7 @@ public class FairWeightBalancerTest {
 		return ret;
 	}
 	
-	public Map<NetworkLocation, Set<Duty<?>>> stageFromTable(final PartitionTable table) {
+	public Map<NetworkLocation, Set<Duty<?>>> stageFromTable(final PartitionScheme table) {
 		final Map<NetworkLocation, Set<Duty<?>>> ret = new HashMap<>();
 		table.getScheme().onShards(null, shard-> {
 			ret.put(new NetworkLocation(shard), Collections.emptySet());
@@ -304,7 +304,7 @@ public class FairWeightBalancerTest {
 		backstage.put(EntityEvent.CREATE, duties);
 		backstage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
-		final PartitionTable table = emptyTableWithShards(p1, 10, 10, 10, 10);
+		final PartitionScheme table = emptyTableWithShards(p1, 10, 10, 10, 10);
 		
 		final Set<Shard> shards = new HashSet<>();
 		table.getScheme().onShards(null, shards::add);

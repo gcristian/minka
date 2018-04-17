@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.leader;
+package io.tilt.minka.core.leader.distributor;
 
 import java.util.Date;
 import java.util.List;
@@ -25,8 +25,7 @@ import org.apache.logging.log4j.util.BiConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.core.leader.distributor.ChangePlan;
-import io.tilt.minka.core.leader.distributor.Delivery;
+import io.tilt.minka.core.leader.PartitionScheme;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.EntityState;
@@ -51,11 +50,11 @@ public class ChangeDetector {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
 	
-	private final PartitionTable partitionTable;
+	private final PartitionScheme partitionScheme;
 	
 	/** solely instance */
-	public ChangeDetector(final PartitionTable partitionTable) {
-		this.partitionTable = partitionTable;
+	public ChangeDetector(final PartitionScheme partitionScheme) {
+		this.partitionScheme = partitionScheme;
 	}
 
 	/** Finds sharding changes by matching entity journals for planned reallocations, and updating the scheme */
@@ -153,7 +152,7 @@ public class ChangeDetector {
 			final ShardIdentifier shardid) {
 		Log ret = null;
 		// beated duty must belong to current non-expired plan
-		final long pid = partitionTable.getCurrentPlan().getId();
+		final long pid = partitionScheme.getCurrentPlan().getId();
 		final Log beatedLog = beated.getJournal().find(pid, shardid, EntityEvent.ATTACH);
 		if (beatedLog != null) {
 			final EntityState beatedState = beatedLog.getLastState();
@@ -166,7 +165,7 @@ public class ChangeDetector {
 						ret = deliLog;
 					} else if (deliState == EntityState.CONFIRMED) {
 						// when cluster unstable: bad state but possible 
-						final Shard location = partitionTable.getScheme().getDutyLocation(delivered.getDuty());
+						final Shard location = partitionScheme.getScheme().getDutyLocation(delivered.getDuty());
 						if (location==null || !location.getShardID().equals(shardid)) {
 							ret = deliLog;	
 						}
@@ -191,7 +190,7 @@ public class ChangeDetector {
 			final Delivery delivery,
 			final BiConsumer<Log, ShardEntity> c) {
 		Set<ShardEntity> sortedLog = null;
-		final long pid = partitionTable.getCurrentPlan().getId();
+		final long pid = partitionScheme.getCurrentPlan().getId();
 		boolean found = false;
 		for (ShardEntity prescripted : delivery.getDuties()) {
 			if (!beatedDuties.contains(prescripted)) {
@@ -242,13 +241,13 @@ public class ChangeDetector {
 	 * to be confirmed
 	 */
 	private void recoverAndRetire(final Shard shard) {
-		final Set<ShardEntity> dangling = partitionTable.getScheme().getDutiesByShard(shard);
+		final Set<ShardEntity> dangling = partitionScheme.getScheme().getDutiesByShard(shard);
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: Removing fallen Shard: {} from ptable. Saving: #{} duties: {}", 
 				getClass().getSimpleName(), shard, dangling.size(), ShardEntity.toStringIds(dangling));
 		}
-		partitionTable.getScheme().removeShard(shard);
-		partitionTable.getBackstage().addDangling(dangling);
+		partitionScheme.getScheme().removeShard(shard);
+		partitionScheme.getBackstage().addDangling(dangling);
 	}
 
 }

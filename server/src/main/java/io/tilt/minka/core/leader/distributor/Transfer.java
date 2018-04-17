@@ -17,7 +17,7 @@
 package io.tilt.minka.core.leader.distributor;
 
 
-import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.PartitionScheme;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Shard;
@@ -52,8 +52,8 @@ class Transfer {
 	}
 	
 	/* dettach in prev. source, attach to next target */
-	boolean apply(final ChangePlan changePlan, final PartitionTable table) {
-		final Shard location = table.getScheme().getDutyLocation(entity);
+	boolean apply(final ChangePlan changePlan, final PartitionScheme partition) {
+		final Shard location = partition.getScheme().getDutyLocation(entity);
 		if (location != null && location.equals(target)) {
 			Migrator.log.info("{}: Transfers mean no change for Duty: {}", getClass().getSimpleName(), toString());
 			return false;

@@ -35,7 +35,7 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.wordnik.swagger.annotations.Api;
 
-import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.PartitionScheme;
 import io.tilt.minka.core.leader.SchemeViews;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 
@@ -47,7 +47,7 @@ import io.tilt.minka.core.leader.distributor.ChangePlan;
 public class AdminEndpoint {
 
 	@Autowired
-	private  PartitionTable table;
+	private  PartitionScheme table;
 	@Autowired
 	private  SchemeViews views;
 
@@ -55,7 +55,7 @@ public class AdminEndpoint {
 	private  Config config;
 
 	@Inject
-	public AdminEndpoint(@Named("partitionTable") PartitionTable table) {
+	public AdminEndpoint(@Named("partitionTable") PartitionScheme table) {
 		this.table = table;
 	}
 	/*

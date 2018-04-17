@@ -20,7 +20,7 @@ package io.tilt.minka.core.leader.distributor;
 import java.util.Set;
 
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.PartitionScheme;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
@@ -54,7 +54,7 @@ public class Override {
 		return this.remainingCap;
 	}
 
-	boolean apply(final ChangePlan changePlan, final PartitionTable table) {
+	boolean apply(final ChangePlan changePlan, final PartitionScheme table) {
 		boolean anyChange = false;
 		
 		if (Migrator.log.isDebugEnabled()) {
@@ -75,11 +75,11 @@ public class Override {
 	    * null or empty cluster translates to: dettach all existing */
 	private final boolean dettachDelta(
 			final ChangePlan changePlan, 
-			final PartitionTable table) {
+			final PartitionScheme partition) {
 
 		final StringBuilder logg = new StringBuilder(16*10);
 		final int[] detaching = new int[1];
-		table.getScheme().onDuties(getShard(), pallet, detach-> {
+		partition.getScheme().onDuties(getShard(), pallet, detach-> {
 			if (entities == null || !entities.contains(detach)) {
 				detach.getJournal().addEvent(EntityEvent.DETACH,
 						EntityState.PREPARED,
@@ -102,7 +102,7 @@ public class Override {
 	/* attach what's not already living in that shard */
 	private final boolean attachDelta(
 			final ChangePlan changePlan, 
-			final PartitionTable table) {
+			final PartitionScheme table) {
 
 		final StringBuilder logg = new StringBuilder(10 * 16); 
 		int attaching = 0;

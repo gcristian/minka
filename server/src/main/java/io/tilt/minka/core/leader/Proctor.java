@@ -17,8 +17,8 @@
 package io.tilt.minka.core.leader;
 
 import static io.tilt.minka.broker.EventBroker.ChannelHint.EVENT_SET;
-import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.STABLE;
-import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.UNSTABLE;
+import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.STABLE;
+import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.UNSTABLE;
 import static io.tilt.minka.utils.LogUtils.HEALTH_DOWN;
 import static io.tilt.minka.utils.LogUtils.HEALTH_UP;
 import static java.util.Objects.requireNonNull;
@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.leader.PartitionTable.ClusterHealth;
+import io.tilt.minka.core.leader.PartitionScheme.ClusterHealth;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -57,7 +57,7 @@ import io.tilt.minka.utils.LogUtils;
 /**
  * Basically observes shards behaviour and classifies in States that enables distribution
  * 
- * Analyze the {@linkplain PartitionTable} defining a shard's {@linkplain ShardState}
+ * Analyze the {@linkplain PartitionScheme} defining a shard's {@linkplain ShardState}
  * which in turn feeds from the {@linkplain SchemeSentry} receiving {@linkplain Heartbeat}s
  * Also sends {@linkplain Clearance} messages to authorized {@linkplain Shard}s
  * and sends {@linkplain DomainInfo} messages to all shards.
@@ -72,7 +72,7 @@ public class Proctor implements Service {
 	public static final String LEADER_SHARD_PATH = "leader-shard";
 
 	private final Config config;
-	private final PartitionTable partitionTable;
+	private final PartitionScheme partitionScheme;
 	private final SchemeSentry schemeSentry;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
@@ -87,7 +87,7 @@ public class Proctor implements Service {
 
 	public Proctor(
 			final Config config, 
-			final PartitionTable partitionTable, 
+			final PartitionScheme partitionScheme, 
 			final SchemeSentry bookkeeper, 
 			final EventBroker eventBroker, 
 			final Scheduler scheduler, 
@@ -95,7 +95,7 @@ public class Proctor implements Service {
 			final LeaderShardContainer leaderShardContainer) {
 
 		this.config = requireNonNull(config);
-		this.partitionTable = requireNonNull(partitionTable);
+		this.partitionScheme = requireNonNull(partitionScheme);
 		this.schemeSentry = requireNonNull(bookkeeper);
 		this.eventBroker = requireNonNull(eventBroker);
 		this.scheduler = requireNonNull(scheduler);
@@ -127,9 +127,9 @@ public class Proctor implements Service {
 	private void blessShards() {
 		try {
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: Blessing {} shards", getName(), partitionTable.getScheme().shardsSize(null));
+				logger.info("{}: Blessing {} shards", getName(), partitionScheme.getScheme().shardsSize(null));
 			}
-			partitionTable.getScheme().onShards(null, 
+			partitionScheme.getScheme().onShards(null, 
 					shard->eventBroker.send(shard.getBrokerChannel(), EVENT_SET, Clearance.create(shardId)));
 		} catch (Exception e) {
 			logger.error("{}: Unexpected while blessing", getName(), e);
@@ -142,8 +142,8 @@ public class Proctor implements Service {
 	
 	private void sendDomainInfo() {
 		final Set<ShardEntity> allPallets = new HashSet<>();
-		partitionTable.getScheme().onPallets(allPallets::add);
-		partitionTable.getScheme().onShards(ShardState.GONE.negative(), shard-> {
+		partitionScheme.getScheme().onPallets(allPallets::add);
+		partitionScheme.getScheme().onShards(ShardState.GONE.negative(), shard-> {
 			final DomainInfo dom = new DomainInfo();
 			dom.setDomainPallets(allPallets);
 			eventBroker.send(shard.getBrokerChannel(), EVENT_SET, dom);
@@ -163,7 +163,7 @@ public class Proctor implements Service {
 							.append(shardId.toString())
 							.toString()));
 			}
-			final int size = partitionTable.getScheme().shardsSize();
+			final int size = partitionScheme.getScheme().shardsSize();
 			if (size==0) {
 				logger.warn("{}: Partition queue empty: no shards emiting heartbeats ?", getName());
 				return;
@@ -173,7 +173,7 @@ public class Proctor implements Service {
 			
 			final int[] sizeOnline = new int[1];
 			final List<Runnable> actions = new ArrayList<>(size);
-			partitionTable.getScheme().onShards(null, shard-> {
+			partitionScheme.getScheme().onShards(null, shard-> {
 				final ShardState newState = evaluateStateThruHeartbeats(shard);
 				final ShardState priorState = shard.getState();
 				if (newState != priorState) {
@@ -190,10 +190,10 @@ public class Proctor implements Service {
 			if (sizeOnline[0] == size && analysisCounter - lastUnstableAnalysisId >= threshold) {
 				health = STABLE;
 			}
-			if (health != partitionTable.getVisibilityHealth()) {
-				partitionTable.setVisibilityHealth(health);
+			if (health != partitionScheme.getVisibilityHealth()) {
+				partitionScheme.setVisibilityHealth(health);
 				logger.warn("{}: Cluster back to: {} ({}, min unchanged analyses: {})", getName(),
-						partitionTable.getVisibilityHealth(), lastUnstableAnalysisId,
+						partitionScheme.getVisibilityHealth(), lastUnstableAnalysisId,
 						threshold);
 			}
 			sendDomainInfo();
@@ -215,9 +215,9 @@ public class Proctor implements Service {
 	private void logState(final int size) {
 		if (logger.isInfoEnabled()) {
 			final StringBuilder sb = new StringBuilder();
-			partitionTable.getScheme().onShards(null, shard->sb.append(shard).append(','));
+			partitionScheme.getScheme().onShards(null, shard->sb.append(shard).append(','));
 			logger.info("{}: Health: {}, {} shard(s) going to be analyzed: {}", getName(),
-				partitionTable.getVisibilityHealth(), size, sb.toString());
+				partitionScheme.getVisibilityHealth(), size, sb.toString());
 		}
 	}
 	

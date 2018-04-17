@@ -39,7 +39,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.common.util.concurrent.AtomicDouble;
 
-import io.tilt.minka.core.leader.PartitionTable.Scheme.SchemeExtractor;
+import io.tilt.minka.core.leader.PartitionScheme.Scheme.SchemeExtractor;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
@@ -81,12 +81,12 @@ public class SchemeViews {
 		return mapper.writeValueAsString(o);
 	}
 
-	public String shardsToJson(final PartitionTable table) throws JsonProcessingException {
+	public String shardsToJson(final PartitionScheme table) throws JsonProcessingException {
 		Validate.notNull(table);
 		return mapper.writeValueAsString(buildShards(table));
 	}
 
-	public Map<String, Object> buildShards(final PartitionTable table) {
+	public Map<String, Object> buildShards(final PartitionScheme table) {
 		Validate.notNull(table);
 		final Map<String, Object> map = new LinkedHashMap<>();
 		map.put("leaderShardId", leaderShardContainer.getLeaderShardId());
@@ -96,12 +96,12 @@ public class SchemeViews {
 		return map;
 	}
 
-	public String distributionToJson(final PartitionTable table) throws JsonProcessingException {
+	public String distributionToJson(final PartitionScheme table) throws JsonProcessingException {
 		Validate.notNull(table);
 		return mapper.writeValueAsString(buildDistribution(table));
 	}
 	
-	public Map<String, Object> buildDistribution(final PartitionTable table) {
+	public Map<String, Object> buildDistribution(final PartitionScheme table) {
 		Validate.notNull(table);
 		final Map<String, Object> map = new LinkedHashMap<>();
 		map.put("global", buildGlobal(table));
@@ -109,26 +109,26 @@ public class SchemeViews {
 		return map;
 	}
 
-	public String dutiesToJson(final PartitionTable table) throws JsonProcessingException {
+	public String dutiesToJson(final PartitionScheme table) throws JsonProcessingException {
 		return elementToJson(buildDuties(table, false));
 	}
 
-	public String entitiesToJson(final PartitionTable table) throws JsonProcessingException {
+	public String entitiesToJson(final PartitionScheme table) throws JsonProcessingException {
 		return elementToJson(buildDuties(table, true));
 	}
-	private List<Object> buildDuties(final PartitionTable table, boolean entities) {
+	private List<Object> buildDuties(final PartitionScheme table, boolean entities) {
 		Validate.notNull(table);
 		final List<Object> ret = new ArrayList<>();
 		table.getScheme().onDuties(e->ret.add(entities ? e: e.getDuty()));
 		return ret;
 	}
 
-	public String palletsToJson(PartitionTable table) throws JsonProcessingException {
+	public String palletsToJson(PartitionScheme table) throws JsonProcessingException {
 		Validate.notNull(table);
 		return elementToJson(buildPallets(table));
 	}
 		
-	private static List<Map<String, Object>> buildPallets(final PartitionTable table) {
+	private static List<Map<String, Object>> buildPallets(final PartitionScheme table) {
 		final List<Map<String, Object>> ret = new ArrayList<>();
 		
 		final SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
@@ -167,7 +167,7 @@ public class SchemeViews {
 		return ret;
 	}
 
-	private static List<Map<String, Object>> buildShardRep(final PartitionTable table) {	    
+	private static List<Map<String, Object>> buildShardRep(final PartitionScheme table) {	    
 		final List<Map<String, Object>> ret = new LinkedList<>();
 		final SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
 		for (final Shard shard : extractor.getShards()) {
@@ -200,7 +200,7 @@ public class SchemeViews {
 		return ret;
 	}
 
-	private static Map<String, Object> buildGlobal(final PartitionTable table) {
+	private static Map<String, Object> buildGlobal(final PartitionScheme table) {
 		SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
 		final int unstaged = table.getBackstage().sizeDutiesCrud(EntityEvent.CREATE, null);
 		final int staged = extractor.getSizeTotal();		

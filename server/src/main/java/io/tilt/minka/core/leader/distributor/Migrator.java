@@ -34,7 +34,7 @@ import com.google.common.util.concurrent.AtomicDouble;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.PartitionTable;
+import io.tilt.minka.core.leader.PartitionScheme;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.BalancingException;
 import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
@@ -65,7 +65,7 @@ public class Migrator {
 
 	protected static final Logger log = LoggerFactory.getLogger(Migrator.class);
 	
-	private final PartitionTable table;
+	private final PartitionScheme partition;
 	private final Pallet<?> pallet;
 	private Boolean isWeightedPallet;
 	private List<Override> overrides;
@@ -74,9 +74,9 @@ public class Migrator {
 	private Map<Duty<?>, ShardEntity> sourceRefs;
 	
 	
-	protected Migrator(final PartitionTable table, final Pallet<?> pallet, final Set<ShardEntity> duties) {
+	protected Migrator(final PartitionScheme table, final Pallet<?> pallet, final Set<ShardEntity> duties) {
 		super();
-		this.table = requireNonNull(table);
+		this.partition = requireNonNull(table);
 		this.pallet = requireNonNull(pallet);
 		this.sourceRefs = new HashMap<>(duties.size());
 		duties.forEach(d-> sourceRefs.put(d.getDuty(), d));
@@ -96,7 +96,7 @@ public class Migrator {
 	}
 	private final void transfer_(final NetworkLocation source, final NetworkLocation target, final Duty<?> duty) throws BalancingException {
 		if (this.transfers == null ) {
-			this.transfers = new ArrayList<>(table.getScheme().shardsSize());
+			this.transfers = new ArrayList<>(partition.getScheme().shardsSize());
 		}
 		final Shard source_ = source!=null ? deref(source) : null;
 		final Shard target_ = deref(target);
@@ -133,7 +133,7 @@ public class Migrator {
 		requireNonNull(shard);
 		requireNonNull(cluster);
 		if (this.overrides == null) {
-			this.overrides = new ArrayList<>(table.getScheme().shardsSize());
+			this.overrides = new ArrayList<>(partition.getScheme().shardsSize());
 		}
 		
 		cluster.forEach(derefd->checkDuplicate(sourceRefs.get(derefd)));
@@ -149,7 +149,7 @@ public class Migrator {
 	}
 	
 	private Shard deref(final NetworkLocation location) {
-		return table.getScheme().findShard(shard->shard.getShardID().equals(location.getId())); 
+		return partition.getScheme().findShard(shard->shard.getShardID().equals(location.getId())); 
 	}
 	
 	private double validateOverride(final Shard target, final Set<Duty<?>> cluster) {
@@ -196,11 +196,11 @@ public class Migrator {
 		if (!pallet.getId().equals(entity.getDuty().getPalletId())) {
 			throw new BalancingException("bad transfer: duty %s doesnt belong to pallet: %s", entity, pallet);
 		}
-		if (table.getScheme().getDutiesByShard(target).contains(entity)) {
+		if (partition.getScheme().getDutiesByShard(target).contains(entity)) {
 			throw new BalancingException("bad transfer: duty %s already exist in target shard: %s", entity, target);
 		}
 		if (source==null) {
-			final Shard location = table.getScheme().getDutyLocation(entity);
+			final Shard location = partition.getScheme().getDutyLocation(entity);
 			if (location !=null && !(location.getState()==ShardState.GONE || location.getState()==ShardState.QUITTED)) {
 				throw new BalancingException("bad transfer: duty %s has a source, must be transferred from "
 						+ "its current location: %s", entity, location);
@@ -211,7 +211,7 @@ public class Migrator {
 		if (entity.getLastEvent()==EntityEvent.REMOVE) {
 			throw new BalancingException("bad transfer: duty: %s is marked for deletion, cannot be balanced", entity);
 		}
-		table.getBackstage().onDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED, duty-> {
+		partition.getBackstage().onDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED, duty-> {
 			if (duty.equals(entity)) {
 				throw new BalancingException("bad transfer: duty: %s is just marked for deletion, cannot be balanced", entity);
 			}
@@ -243,7 +243,7 @@ public class Migrator {
 		if (overrides!=null) {
 			if (!anyExclusions()) {
 				for (final Override ov : overrides) {
-					anyChange |= ov.apply(changePlan, table);
+					anyChange |= ov.apply(changePlan, partition);
 				}
 			}
 		}
@@ -251,7 +251,7 @@ public class Migrator {
 			// by now transfers dont use weights and capacities but SpillOver which is almost deprecated
 			// balancers using transfers only make delta changes, without reassigning
 			for (Transfer tr: transfers) {
-				anyChange|=tr.apply(changePlan, table);
+				anyChange|=tr.apply(changePlan, partition);
 			}
 		}
 		return anyChange;
@@ -259,7 +259,7 @@ public class Migrator {
 
 	private boolean anyExclusions() {
 	    boolean[] ret = new boolean[1];
-		table.getBackstage().onDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED, duty-> {
+		partition.getBackstage().onDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED, duty-> {
 			if (duty.getDuty().getPalletId().equals(pallet.getId()) && 
 					!inTransfers(duty) && 
 					!inOverrides(duty) && 
@@ -269,8 +269,8 @@ public class Migrator {
 			}
 		});
 		final Set<ShardEntity> deletions = new HashSet<>();
-		table.getBackstage().onDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED, deletions::add);
-		table.getScheme().onDuties(curr-> {
+		partition.getBackstage().onDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED, deletions::add);
+		partition.getScheme().onDuties(curr-> {
 			if (curr.getDuty().getPalletId().equals(pallet.getId()) && 
 			        !deletions.contains(curr) && 
 					!inTransfers(curr) && 

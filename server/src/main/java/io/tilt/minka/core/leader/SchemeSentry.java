@@ -32,6 +32,7 @@ import io.tilt.minka.api.ConsistencyException;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Delivery;
+import io.tilt.minka.core.leader.distributor.ChangeDetector;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.EntityEvent;
@@ -55,12 +56,12 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
 	
-	private final PartitionTable partitionTable;
+	private final PartitionScheme partitionScheme;
 	private final ChangeDetector changeDetector;
 	
-	public SchemeSentry(final PartitionTable partitionTable, final Scheduler scheduler) {
-		this.partitionTable = partitionTable;
-		this.changeDetector = new ChangeDetector(partitionTable);
+	public SchemeSentry(final PartitionScheme partitionScheme, final Scheduler scheduler) {
+		this.partitionScheme = partitionScheme;
+		this.changeDetector = new ChangeDetector(partitionScheme);
 	}
 
 	/**
@@ -80,7 +81,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			shard.setCapacities(beat.getCapacities());
 		}
 		
-		final ChangePlan changePlan = partitionTable.getCurrentPlan();
+		final ChangePlan changePlan = partitionScheme.getCurrentPlan();
 		if (changePlan!=null && !changePlan.getResult().isClosed()) {
 			final Delivery delivery = changePlan.getDelivery(shard);
 			if (delivery!=null) {
@@ -94,7 +95,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			// TODO use DomainInfo to send a planid so the next leader can validate 
 			// beated's plan is at least some range in between and so leader learns from beats 
 			for (ShardEntity e: beat.getReportedCapturedDuties()) {
-				partitionTable.getScheme().writeDuty(e, shard, EntityEvent.ATTACH, null);
+				partitionScheme.getScheme().writeDuty(e, shard, EntityEvent.ATTACH, null);
 			}
 		}
 
@@ -138,11 +139,11 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	private void updateBackstage(final Log changelog, final ShardEntity entity) {
 		if (changelog.getEvent().isCrud()) {
 			// remove it from the backstage
-			for (ShardEntity duty : partitionTable.getBackstage().getDutiesCrud()) {
+			for (ShardEntity duty : partitionScheme.getBackstage().getDutiesCrud()) {
 				if (duty.equals(entity)) {
 					final Instant lastEventOnCrud = duty.getJournal().getLast().getHead().toInstant();
 					if (changelog.getHead().toInstant().isAfter(lastEventOnCrud)) {
-						partitionTable.getBackstage().removeCrud(entity);
+						partitionScheme.getBackstage().removeCrud(entity);
 						break;
 					}
 				}
@@ -152,7 +153,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 
 	/** @return true if the scheme wrote the change */
 	private boolean updateScheme(final ShardEntity entity, final Log log, final Shard source, final long planId) {
-		return partitionTable.getScheme().writeDuty(entity, source, log.getEvent(), ()-> {
+		return partitionScheme.getScheme().writeDuty(entity, source, log.getEvent(), ()-> {
 				entity.getJournal().addEvent(log.getEvent(),
 						EntityState.CONFIRMED,
 						source.getShardID(),
@@ -163,7 +164,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	/*this checks partition table looking for missing duties (not declared dangling, that's diff) */
 	private void detectAndSaveAbsents(final Shard shard, final List<ShardEntity> reportedDuties) {
 		Set<ShardEntity> sortedLog = null;
-		for (final ShardEntity duty : partitionTable.getScheme().getDutiesByShard(shard)) {
+		for (final ShardEntity duty : partitionScheme.getScheme().getDutiesByShard(shard)) {
 			boolean found = false;
 			boolean foundAsDangling = false;
 			for (ShardEntity reportedDuty : reportedDuties) {
@@ -190,9 +191,9 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			if (!found) {
 				boolean done = false;
 				if (foundAsDangling) {
-					done = partitionTable.getBackstage().addDangling(duty);
+					done = partitionScheme.getBackstage().addDangling(duty);
 				} else {
-					done = partitionTable.getBackstage().addMissing(duty);
+					done = partitionScheme.getBackstage().addMissing(duty);
 				}
 				// copy the event so it's marked for later consideration
 				if (done) {
@@ -217,7 +218,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 
 	private void detectInvalidShards(final Shard sourceShard, final List<ShardEntity> reportedCapturedDuties) {
 		for (final ShardEntity e : reportedCapturedDuties) {
-			final Shard should = partitionTable.getScheme().getDutyLocation(e);
+			final Shard should = partitionScheme.getScheme().getDutyLocation(e);
 			if (should==null) {
 				throw new ConsistencyException("unexisting duty: " + e.toBrief() + " reported by shard: " + sourceShard);
 			} else if (!should.equals(sourceShard)) {
@@ -252,22 +253,22 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	 * to be confirmed
 	 */
 	private void recoverAndRetire(final Shard shard) {
-		final Set<ShardEntity> dangling = partitionTable.getScheme().getDutiesByShard(shard);
+		final Set<ShardEntity> dangling = partitionScheme.getScheme().getDutiesByShard(shard);
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: Removing fallen Shard: {} from ptable. Saving: #{} duties: {}", classname, shard,
 				dangling.size(), ShardEntity.toStringIds(dangling));
 		}
-		partitionTable.getScheme().removeShard(shard);
-		partitionTable.getBackstage().addDangling(dangling);
+		partitionScheme.getScheme().removeShard(shard);
+		partitionScheme.getBackstage().addDangling(dangling);
 	}
 
 	private boolean presentInPartition(final ShardEntity duty) {
-		final Shard shardLocation = partitionTable.getScheme().getDutyLocation(duty.getDuty());
+		final Shard shardLocation = partitionScheme.getScheme().getDutyLocation(duty.getDuty());
 		return shardLocation != null && shardLocation.getState().isAlive();
 	}
 
 	private boolean presentInPartition(final Duty<?> duty) {
-		final Shard shardLocation = partitionTable.getScheme().getDutyLocation(duty);
+		final Shard shardLocation = partitionScheme.getScheme().getDutyLocation(duty);
 		return shardLocation != null && shardLocation.getState().isAlive();
 	}
 
@@ -276,7 +277,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		final Iterator<Duty<?>> it = dutiesFromSource.iterator();
 		while (it.hasNext()) {
 			final Duty<?> duty = it.next();
-			final ShardEntity pallet = partitionTable.getScheme().getPalletById(duty.getPalletId());
+			final ShardEntity pallet = partitionScheme.getScheme().getPalletById(duty.getPalletId());
 			if (presentInPartition(duty)) {
 				if (sortedLog == null) {
 					sortedLog = new TreeSet<>();
@@ -289,7 +290,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 							.builder(duty)
 							.withRelatedEntity(pallet)
 							.build();
-					if (partitionTable.getBackstage().addCrudDuty(newone)) {
+					if (partitionScheme.getBackstage().addCrudDuty(newone)) {
 						if (logger.isInfoEnabled()) {
 							logger.info("{}: Adding New Duty: {}", classname, newone);
 						}
@@ -310,7 +311,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		final Iterator<Pallet<?>> it = palletsFromSource.iterator();
 		while (it.hasNext()) {
 			final ShardEntity she = ShardEntity.Builder.builder(it.next()).build();
-			if (partitionTable.getScheme().filterPallets(she::equals)) {
+			if (partitionScheme.getScheme().filterPallets(she::equals)) {
 				sortedLog.add(she);
 				it.remove();
 			} else {
@@ -318,7 +319,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 					logger.info("{}: Adding New Pallet: {} with Balancer: {}", classname, she, 
 						she.getPallet().getMetadata());
 				}
-				partitionTable.addCrudPallet(she);
+				partitionScheme.addCrudPallet(she);
 			}
 		}
 		if (!sortedLog.isEmpty() && logger.isInfoEnabled()) {
@@ -336,7 +337,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		for (final ShardEntity entity : dutiesFromAction) {
 			final boolean typeDuty = entity.getType()==ShardEntity.Type.DUTY;
 			final boolean found = (typeDuty && presentInPartition(entity)) || 
-					(!typeDuty && partitionTable.getScheme().filterPallets(entity::equals));
+					(!typeDuty && partitionScheme.getScheme().filterPallets(entity::equals));
 			final EntityEvent event = entity.getLastEvent();
 			if (!event.isCrud()) {
 				throw new RuntimeException("Bad call");
@@ -347,9 +348,9 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 				}
 				if (typeDuty) {
 					if (event == CREATE) {
-						final ShardEntity pallet = partitionTable.getScheme().getPalletById(entity.getDuty().getPalletId());
+						final ShardEntity pallet = partitionScheme.getScheme().getPalletById(entity.getDuty().getPalletId());
 						if (pallet!=null) {
-							partitionTable.getBackstage().addCrudDuty(
+							partitionScheme.getBackstage().addCrudDuty(
 									ShardEntity.Builder.builder(entity.getEntity())
 										.withRelatedEntity(pallet)
 										.build());
@@ -358,10 +359,10 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 									event, entity, entity.getDuty().getPalletId());
 						}
 					} else {
-						partitionTable.getBackstage().addCrudDuty(entity);
+						partitionScheme.getBackstage().addCrudDuty(entity);
 					}
 				} else {
-					partitionTable.addCrudPallet(entity);
+					partitionScheme.addCrudPallet(entity);
 				}
 			} else {
 				logger.warn("{}: Skipping Crud Event {} {} in Partition Table: {}", 

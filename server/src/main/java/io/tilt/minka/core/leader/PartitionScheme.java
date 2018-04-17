@@ -16,8 +16,8 @@
  */
 package io.tilt.minka.core.leader;
 
-import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.STABLE;
-import static io.tilt.minka.core.leader.PartitionTable.ClusterHealth.UNSTABLE;
+import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.STABLE;
+import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.UNSTABLE;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -62,9 +62,9 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
  * @author Cristian Gonzalez
  * @since Dec 2, 2015	
  */
-public class PartitionTable {
+public class PartitionScheme {
 
-	private static final Logger logger = LoggerFactory.getLogger(PartitionTable.class);
+	private static final Logger logger = LoggerFactory.getLogger(PartitionScheme.class);
 	
 	/**
 	 * Sharding registry of {@linkplain Shard} and {@linkplain Duty} objects and their relations.
@@ -497,7 +497,7 @@ public class PartitionTable {
 		INSUFFICIENT,
 	}
 
-	public PartitionTable() {
+	public PartitionScheme() {
 		this.visibilityHealth = ClusterHealth.STABLE;
 		this.workingHealth = ClusterHealth.STABLE;
 		this.capacity = ClusterCapacity.IDLE;
