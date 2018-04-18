@@ -18,6 +18,8 @@ package io.tilt.minka.core.leader;
 
 import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.STABLE;
 import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.UNSTABLE;
+
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -83,6 +85,15 @@ public class PartitionScheme {
 			this.partitionsByShard = new HashMap<>();
 			this.palletsById = new HashMap<>();
 		}
+		
+		private boolean stealthChange;
+		public void stealthChange(final boolean value) {
+			this.stealthChange = value;
+		}
+		public boolean isStealthChange() {
+			return this.stealthChange;
+		}
+		
 		public void onShards(final Predicate<Shard> test, final Consumer<Shard> consumer) {
 			for (Shard sh: shardsByID.values()) {
 				if (test == null || test.test(sh) || test == null) {
@@ -134,7 +145,7 @@ public class PartitionScheme {
 			if (rem == null || part == null) {
 				logger.error("{}: trying to delete unexisting Shard: {}", getClass().getSimpleName(), shard);
 			}
-			return rem!=null && part!=null;
+			return stealthChange |= rem!=null && part!=null;
 		}
 		/**
 		 * @param shard	to add to the table
@@ -148,6 +159,7 @@ public class PartitionScheme {
 			} else {
 				logger.info("{}: Adding new Shard {}", getClass().getSimpleName(), shard);
 				this.shardsByID.put(shard.getShardID(), shard);
+				stealthChange = true;
 				return true;
 			}
 		}
@@ -166,7 +178,7 @@ public class PartitionScheme {
 			if (add) {
 				checkDuplicationFailure(duty, where);
 			} 
-			if ((add && part.add(duty)) || del && part.remove(duty)) {
+			if (stealthChange |= (add && part.add(duty)) || del && part.remove(duty)) {
 				if (callback!=null) {
 					callback.run();
 				}
@@ -378,15 +390,29 @@ public class PartitionScheme {
 			this.dutyMissings = new HashSet<>();
 			this.dutyDangling = new HashSet<>();
 		}
+
+		private boolean stealthChange;
+		public void stealthChange(final boolean value) {
+			this.stealthChange = value;
+		}
+		public boolean isStealthChange() {
+			return this.stealthChange;
+		}
+		
 		/** @return read only set */
 		public Set<ShardEntity> getDutiesDangling() {
 			return Collections.unmodifiableSet(this.dutyDangling);
 		}
 		public boolean addDangling(final Set<ShardEntity> dangling) {
-			return this.dutyDangling.addAll(dangling);
+			final boolean added = this.dutyDangling.addAll(dangling);
+			stealthChange |= added;
+			return added;
 		}
 		public boolean addDangling(final ShardEntity dangling) {
-			return this.dutyDangling.add(dangling);
+			final boolean added =this.dutyDangling.add(dangling);
+			stealthChange |= added;
+			return added;
+
 		}
 		public void cleanAllocatedDanglings() {
 			removeNonStuck(dutyDangling);
@@ -396,6 +422,7 @@ public class PartitionScheme {
 			while (it.hasNext()) {
 				final ShardEntity e = it.next();
 				if (e.getLastState() != EntityState.STUCK) {
+					stealthChange |=true;
 					it.remove();
 				}
 			}
@@ -407,14 +434,20 @@ public class PartitionScheme {
 
 		/* add it for the next Distribution cycle consideration */
 		public boolean addCrudDuty(final ShardEntity duty) {
+			// the uniqueness of it's wrapped object doesnt define the uniqueness of the wrapper 
 			dutyCrud.remove(duty);
-			return dutyCrud.add(duty);
+			final boolean added =dutyCrud.add(duty);
+			stealthChange |= added;
+			return added;
+
 		}
 		public Set<ShardEntity> getDutiesCrud() {
 			return Collections.unmodifiableSet(this.dutyCrud);
 		}
 		public boolean removeCrud(final ShardEntity entity) {
-			return this.dutyCrud.remove(entity);
+			final boolean removed =this.dutyCrud.remove(entity);
+			stealthChange |= removed;
+			return removed;
 		}
 
 		/** @return read only set */
@@ -426,16 +459,22 @@ public class PartitionScheme {
 		}
 		
 		public boolean addMissing(final Set<ShardEntity> duties) {
-			return this.dutyMissings.addAll(duties);
+			final boolean added =this.dutyMissings.addAll(duties);
+			stealthChange |= added;
+			return added;
+
 		}
 
 		public boolean addMissing(final ShardEntity duty) {
-			return this.dutyMissings.add(duty);
+			final boolean added =this.dutyMissings.add(duty);
+			stealthChange |= added;
+			return added;
 		}
 
 		public void removeCrudDuties() {
 			this.dutyCrud.clear();
 			this.dutyCrud = new HashSet<>();
+			stealthChange = true;
 		}
 		public int sizeDutiesCrud(final EntityEvent event, final EntityState state) {
 			final int[] size = new int[1];
@@ -463,7 +502,7 @@ public class PartitionScheme {
 	}
 	
 	private ClusterHealth visibilityHealth;
-	private ClusterHealth workingHealth;
+	private ClusterHealth distributionHealth;
 	private ClusterCapacity capacity;
 	private final Scheme scheme;
 	private final Backstage backstage;
@@ -499,7 +538,7 @@ public class PartitionScheme {
 
 	public PartitionScheme() {
 		this.visibilityHealth = ClusterHealth.STABLE;
-		this.workingHealth = ClusterHealth.STABLE;
+		this.distributionHealth = ClusterHealth.STABLE;
 		this.capacity = ClusterCapacity.IDLE;
 		this.scheme = new Scheme();
 		this.backstage = new Backstage();
@@ -529,23 +568,23 @@ public class PartitionScheme {
 	}
 
 	public ClusterHealth getHealth() {
-		return this.workingHealth == visibilityHealth 
-				&& workingHealth == STABLE ? STABLE : UNSTABLE;
+		return this.distributionHealth == visibilityHealth 
+				&& distributionHealth == STABLE ? STABLE : UNSTABLE;
 	}
 
-	public ClusterHealth getWorkingHealth() {
-		return this.workingHealth;
+	public ClusterHealth getDistributionHealth() {
+		return this.distributionHealth;
 	}
 
-	public void setWorkingHealth(ClusterHealth distributingHealth) {
-		this.workingHealth = distributingHealth;
+	public void setDistributionHealth(ClusterHealth distributingHealth) {
+		this.distributionHealth = distributingHealth;
 	}
 
-	public ClusterHealth getVisibilityHealth() {
+	public ClusterHealth getShardsHealth() {
 		return this.visibilityHealth;
 	}
 
-	public void setVisibilityHealth(ClusterHealth health) {
+	public void setShardsHealth(ClusterHealth health) {
 		this.visibilityHealth = health;
 	}
 
@@ -630,7 +669,7 @@ public class PartitionScheme {
 			logger.info("{}: with {} CRUD duties: [ {}]", getClass().getSimpleName(), getBackstage().dutyCrud.size(),
 					buildLogForDuties(Lists.newArrayList(getBackstage().getDutiesCrud())));
 		}
-		logger.info("{}: Health: {}", getClass().getSimpleName(), getWorkingHealth());
+		logger.info("{}: Health: {}", getClass().getSimpleName(), getDistributionHealth());
 	}
 
 }

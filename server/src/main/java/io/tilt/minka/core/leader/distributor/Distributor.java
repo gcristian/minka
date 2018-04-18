@@ -83,7 +83,6 @@ public class Distributor implements Service {
 	private final LeaderShardContainer leaderShardContainer;
     private final Agent distributor;
 
-	
 	private boolean initialAdding;
 	private int counterForReloads;
 	private int counterForDistro;
@@ -158,9 +157,15 @@ public class Distributor implements Service {
 			// skip if unstable unless a plan in progress or expirations will occurr and dismiss
 			final ChangePlan currPlan = partitionScheme.getCurrentPlan();
 			if ((currPlan==null || currPlan.getResult().isClosed()) && 
-			        partitionScheme.getVisibilityHealth() == ClusterHealth.UNSTABLE) {
+			        partitionScheme.getShardsHealth() == ClusterHealth.UNSTABLE) {
 				logger.warn("{}: ({}) Posponing distribution until reaching cluster stability (", getName(), shardId);
 				return;
+			} else if (currPlan!=null && currPlan.getResult().isClosed()) {
+				if (config.getDistributor().isRunOnStealthMode() &&
+						(!partitionScheme.getScheme().isStealthChange() 
+						&& !partitionScheme.getBackstage().isStealthChange())) {
+					return;
+				}
 			}
 			logStatus();
 			final int online = partitionScheme.getScheme().shardsSize(ShardState.ONLINE.filter());
@@ -176,12 +181,9 @@ public class Distributor implements Service {
 			// distribution
 			drive(currPlan);
 			communicateUpdates();
+			logger.info(LogUtils.END_LINE);
 		} catch (Exception e) {
 			logger.error("{}: Unexpected ", getName(), e);
-		} finally {
-			if (logger.isInfoEnabled()) {
-				logger.info(LogUtils.END_LINE);
-			}
 		}
 	}
 
@@ -224,17 +226,19 @@ public class Distributor implements Service {
 		partitionScheme.getBackstage().cleanAllocatedDanglings();
 		if (null!=changePlan) {
 			partitionScheme.addPlan(changePlan);
-			this.partitionScheme.setWorkingHealth(ClusterHealth.UNSTABLE);
+			this.partitionScheme.setDistributionHealth(ClusterHealth.UNSTABLE);
 			changePlan.prepare();
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Balancer generated issues on ChangePlan: {}", getName(), changePlan.getId());
 			}
 			return changePlan;
 		} else {
-			this.partitionScheme.setWorkingHealth(ClusterHealth.STABLE);
+			this.partitionScheme.setDistributionHealth(ClusterHealth.STABLE);
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Distribution in Balance ", getName(), LogUtils.BALANCED_CHAR);
-			}
+			}			
+			partitionScheme.getScheme().stealthChange(false);
+			partitionScheme.getBackstage().stealthChange(false);
 			return null;
 		}
 	}

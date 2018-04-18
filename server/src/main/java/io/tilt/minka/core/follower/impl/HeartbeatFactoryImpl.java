@@ -98,7 +98,8 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			newLeader = true;
 		}
 		
-		if (forceFullReport || issues || exclusionExpired || partition.wasRecentlyUpdated() || newLeader) {
+		final boolean doFullReport = forceFullReport || issues || exclusionExpired || partition.wasRecentlyUpdated() || newLeader;
+		if (doFullReport) {
 			tmp.forEach(builder::addReportedCapturedDuty);
 			builder.reportsDuties();
 			includeTimestamp = now;
@@ -107,7 +108,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		final Heartbeat hb = builder.build();
 		if (log.isDebugEnabled()) {
 			logDebugNicely(hb);
-		} else if (log.isInfoEnabled()) {
+		} else if (log.isInfoEnabled() && (doFullReport || hb.getSequenceId()%500==0)) {
 			log.info("{}: ({}) {} SeqID: {}, {}", 
 				getClass().getSimpleName(), hb.getShardId(),LogUtils.HB_CHAR, hb.getSequenceId(), 
 				hb.reportsDuties() ? new StringBuilder("Duties: (")

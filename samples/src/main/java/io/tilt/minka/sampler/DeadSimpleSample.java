@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.domain;
+package io.tilt.minka.sampler;
 
 import static jersey.repackaged.com.google.common.collect.Sets.newHashSet;
 

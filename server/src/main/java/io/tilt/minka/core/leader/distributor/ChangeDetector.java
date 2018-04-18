@@ -31,7 +31,6 @@ import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
 
@@ -214,40 +213,4 @@ public class ChangeDetector {
 		}
 		return found;
 	}
-
-	public void shardStateChange(final Shard shard, final ShardState prior, final ShardState newState) {
-		shard.setState(newState);
-		logger.info("{}: ShardID: {} changes to: {}", classname, shard, newState);
-		switch (newState) {
-		case GONE:
-		case QUITTED:
-			recoverAndRetire(shard);
-			// distributor will decide plan obsolecy if it must
-			break;
-		case ONLINE:
-			// TODO get ready
-			break;
-		case QUARANTINE:
-			// TODO lot of consistency checks here on duties
-			// to avoid chain of shit from heartbeats reporting doubtful stuff
-			break;
-		default:
-			break;
-		}
-	}
-
-	/*
-	 * dangling duties are set as already confirmed, change wont wait for this
-	 * to be confirmed
-	 */
-	private void recoverAndRetire(final Shard shard) {
-		final Set<ShardEntity> dangling = partitionScheme.getScheme().getDutiesByShard(shard);
-		if (logger.isInfoEnabled()) {
-			logger.info("{}: Removing fallen Shard: {} from ptable. Saving: #{} duties: {}", 
-				getClass().getSimpleName(), shard, dangling.size(), ShardEntity.toStringIds(dangling));
-		}
-		partitionScheme.getScheme().removeShard(shard);
-		partitionScheme.getBackstage().addDangling(dangling);
-	}
-
 }

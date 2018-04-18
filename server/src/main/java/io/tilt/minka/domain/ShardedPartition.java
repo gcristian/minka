@@ -134,7 +134,6 @@ public class ShardedPartition {
 		updateLastChange();
 	}
 	public boolean add(final ShardEntity entity) {
-		logger.info("{}: Adding entity: {}", id, entity.toBrief());
 		updateLastChange();
 		return byType(entity).add(entity);
 	}

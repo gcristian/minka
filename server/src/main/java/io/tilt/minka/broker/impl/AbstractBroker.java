@@ -65,9 +65,10 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 	
 	@Override
 	public void accept(final MessageMetadata meta) {
+		receivedCount++;
 		if (logger.isDebugEnabled()) {
 			logger.debug("{}: ({}) Receiving {}", classname, shardId, meta.getPayloadType());
-		} else if (logger.isInfoEnabled() && (++receivedCount%500==0)) {
+		} else if (logger.isInfoEnabled() && (receivedCount%500==0)) {
 			logger.info("{}: ({}) Received {} # {}", classname, shardId, meta.getPayloadType(), receivedCount);
 		}
 		String key = meta.getInbox() + meta.getPayloadType().getSimpleName();

@@ -28,6 +28,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
@@ -126,17 +127,13 @@ public class Proctor implements Service {
 
 	private void blessShards() {
 		try {
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: Blessing {} shards", getName(), partitionScheme.getScheme().shardsSize(null));
+			if (logger.isDebugEnabled()) {
+				logger.debug("{}: Blessing {} shards", getName(), partitionScheme.getScheme().shardsSize(null));
 			}
 			partitionScheme.getScheme().onShards(null, 
 					shard->eventBroker.send(shard.getBrokerChannel(), EVENT_SET, Clearance.create(shardId)));
 		} catch (Exception e) {
 			logger.error("{}: Unexpected while blessing", getName(), e);
-		} finally {
-			if (logger.isInfoEnabled()) {
-				logger.info(LogUtils.END_LINE);
-			}
 		}
 	}
 	
@@ -155,28 +152,22 @@ public class Proctor implements Service {
 			if (!leaderShardContainer.imLeader()) {
 				return;
 			}
-			if (logger.isInfoEnabled()) {
-				logger.info(LogUtils.titleLine(
-						new StringBuilder("Analyzing Shards (i")
-							.append(analysisCounter++)
-							.append(") by Leader: ")
-							.append(shardId.toString())
-							.toString()));
-			}
 			final int size = partitionScheme.getScheme().shardsSize();
 			if (size==0) {
 				logger.warn("{}: Partition queue empty: no shards emiting heartbeats ?", getName());
 				return;
 			}
+			analysisCounter++;
 			lastUnstableAnalysisId = analysisCounter == 1 ? 1 : lastUnstableAnalysisId;
-			logState(size);
 			
 			final int[] sizeOnline = new int[1];
 			final List<Runnable> actions = new ArrayList<>(size);
 			partitionScheme.getScheme().onShards(null, shard-> {
-				final ShardState newState = evaluateStateThruHeartbeats(shard);
+				final String[] ressume = new String[1];
+				final ShardState newState = evaluateStateThruHeartbeats(shard, s->ressume[0]=s);
 				final ShardState priorState = shard.getState();
 				if (newState != priorState) {
+					logChangeAndTitle(ressume, actions.isEmpty(), size);
 					lastUnstableAnalysisId = analysisCounter;
 					actions.add(()->schemeSentry.shardStateChange(shard, priorState, newState));
 				}
@@ -190,10 +181,10 @@ public class Proctor implements Service {
 			if (sizeOnline[0] == size && analysisCounter - lastUnstableAnalysisId >= threshold) {
 				health = STABLE;
 			}
-			if (health != partitionScheme.getVisibilityHealth()) {
-				partitionScheme.setVisibilityHealth(health);
+			if (health != partitionScheme.getShardsHealth()) {
+				partitionScheme.setShardsHealth(health);
 				logger.warn("{}: Cluster back to: {} ({}, min unchanged analyses: {})", getName(),
-						partitionScheme.getVisibilityHealth(), lastUnstableAnalysisId,
+						partitionScheme.getShardsHealth(), lastUnstableAnalysisId,
 						threshold);
 			}
 			sendDomainInfo();
@@ -205,23 +196,10 @@ public class Proctor implements Service {
 			// 
 		} catch (Exception e) {
 			logger.error("{}: Unexpected while shepherdizing", getName(), e);
-		} finally {
-			if (logger.isInfoEnabled()) {
-				logger.info(LogUtils.END_LINE);
-			}
-		}
-	}
-
-	private void logState(final int size) {
-		if (logger.isInfoEnabled()) {
-			final StringBuilder sb = new StringBuilder();
-			partitionScheme.getScheme().onShards(null, shard->sb.append(shard).append(','));
-			logger.info("{}: Health: {}, {} shard(s) going to be analyzed: {}", getName(),
-				partitionScheme.getVisibilityHealth(), size, sb.toString());
 		}
 	}
 	
-	private ShardState evaluateStateThruHeartbeats(final Shard shard) {
+	private ShardState evaluateStateThruHeartbeats(final Shard shard, final Consumer<String> cons) {
 		final long now = System.currentTimeMillis();
 		final long normalDelay = config.beatToMs(config.getFollower().getHeartbeatDelayBeats());
 		final long configuredLapse = config.beatToMs(config.getProctor().getHeartbeatLapseBeats());
@@ -283,18 +261,16 @@ public class Proctor implements Service {
 				}
 			}
 		}
-
-		if (logger.isInfoEnabled()) {
-			logger.info("{}: {} {} {}, {}, ({}/{}), Seq [{}..{}] {}", getName(), shard,
-				newState == currentState ? "staying" : "going", 
-				newState, 
-				msg, 
-				shard.getHeartbeats().size(),
-				pastLapse != null ? pastLapse.size() : 0, 
-				shard.getHeartbeats().last().getSequenceId(),
-				shard.getHeartbeats().first().getSequenceId(), 
-				shardId.equals(shard.getShardID()) ? LogUtils.SPECIAL : "");
-		}
+		
+		cons.accept(String.format("%s: %s %s %s, %s, (%s/%s), Seq [%s..%s] %s", getName(), shard,
+			newState == currentState ? "staying" : "going", 
+			newState, 
+			msg, 
+			shard.getHeartbeats().size(),
+			pastLapse != null ? pastLapse.size() : 0, 
+			shard.getHeartbeats().last().getSequenceId(),
+			shard.getHeartbeats().first().getSequenceId(), 
+			shardId.equals(shard.getShardID()) ? LogUtils.SPECIAL : ""));
 
 		return newState;
 	}
@@ -334,4 +310,25 @@ public class Proctor implements Service {
 		return healthly;
 	}
 
+	private void logChangeAndTitle(final String[] ressume, final boolean atFirstChange, final int sizeShards) {
+		try {
+			if (ressume[0] != null && logger.isInfoEnabled()) {
+				if (atFirstChange) {
+					logger.info(LogUtils.titleLine(new StringBuilder("Analyzing Shards (i")
+							.append(analysisCounter)
+							.append(") by Leader: ")
+							.append(shardId.toString())
+							.toString()));
+					final StringBuilder sb = new StringBuilder();
+					partitionScheme.getScheme().onShards(null, shard -> sb.append(shard).append(','));
+					logger.info("{}: Health: {}, {} shard(s) going to be analyzed: {}", getName(), partitionScheme
+							.getShardsHealth(), sizeShards, sb.toString());
+				}
+				logger.info(ressume[0]);
+				ressume[0] = null;
+			}
+		} catch (Exception e) {
+			logger.error("", e);
+		}
+	}
 }

@@ -115,7 +115,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			final Heartbeat beat) {
 
 		if (changeDetector.findChanges(delivery, changePlan, beat, source, 
-			(changelog, entity) -> {
+			(Log changelog, ShardEntity entity) -> {
 				if (updateScheme(entity, changelog, source, changePlan.getId())) {
 					updateBackstage(changelog, entity);
 				}
@@ -229,6 +229,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 
 	public void shardStateChange(final Shard shard, final ShardState prior, final ShardState newState) {
 		shard.setState(newState);
+		partitionScheme.getScheme().stealthChange(true);
 		logger.info("{}: ShardID: {} changes to: {}", classname, shard, newState);
 		switch (newState) {
 		case GONE:

@@ -3,6 +3,8 @@ package io.tilt.minka.api.config;
 public class DistributorConfiguration {
 	protected static final boolean RUN_CONSISTENCY_CHECK = false;
 	private boolean runConsistencyCheck;
+	protected static final boolean RUN_ON_STEALTH_MODE = true;
+	private boolean runOnStealthMode;
 	protected static final boolean RELOAD_DUTIES_FROM_STORAGE = false;
 	private boolean reloadDutiesFromStorage;
 	protected static final int RELOAD_DUTIES_FROM_STORAGE_EACH_PERIODS = 10;
@@ -23,6 +25,12 @@ public class DistributorConfiguration {
 	}
 	public void setRunConsistencyCheck(boolean runConsistencyCheck) {
 		this.runConsistencyCheck = runConsistencyCheck;
+	}
+	public boolean isRunOnStealthMode() {
+		return runOnStealthMode;
+	}
+	public void setRunOnStealthMode(boolean runOnStealthMode) {
+		this.runOnStealthMode = runOnStealthMode;
 	}
 	public boolean isReloadDutiesFromStorage() {
 		return this.reloadDutiesFromStorage;

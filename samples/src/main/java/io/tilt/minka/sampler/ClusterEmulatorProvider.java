@@ -15,7 +15,7 @@
  * the License.
  */
 
-package io.tilt.minka.domain;
+package io.tilt.minka.sampler;
 
 import java.util.Set;
 
