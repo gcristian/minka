@@ -81,11 +81,43 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			shard.setCapacities(beat.getCapacities());
 		}
 		
+		detectAndWriteChanges(shard, beat);
+
+		if ((beat.reportsDuties()) && shard.getState().isAlive()) {
+			detectAndSaveAbsents(shard, beat.getReportedCapturedDuties());
+			detectInvalidShards(shard, beat.getReportedCapturedDuties());
+		}
+	}
+	
+	public void detectAndWriteChanges(
+			final Shard shard, 
+			final Heartbeat beat) {
+
 		final ChangePlan changePlan = partitionScheme.getCurrentPlan();
 		if (changePlan!=null && !changePlan.getResult().isClosed()) {
 			final Delivery delivery = changePlan.getDelivery(shard);
 			if (delivery!=null) {
-				detectAndWriteChanges(shard, changePlan, delivery, beat);
+				if (changeDetector.findPlannedChanges(delivery, changePlan, beat, shard, 
+					(Log changelog, ShardEntity entity) -> {
+						if (partitionScheme.getScheme().writeDuty(entity, shard, changelog.getEvent(), ()-> {
+							// copy the found situation to the instance we care
+							entity.getJournal().addEvent(changelog.getEvent(),
+									EntityState.CONFIRMED,
+									shard.getShardID(),
+									changePlan.getId());
+							})) {
+							updateBackstage(changelog, entity);
+						}
+					})) {
+					delivery.calculateState();
+				}
+				if (logger.isInfoEnabled() && changePlan.getResult().isClosed()) {
+					logger.info("{}: ChangePlan finished ! (all changes in scheme)", classname);
+					
+				} else if (logger.isInfoEnabled() && changePlan.hasUnlatched()) {
+					logger.info("{}: ChangePlan unlatched, fwd >> distributor agent ", classname);
+					//scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
+				}
 			} else if (logger.isInfoEnabled()){
 				logger.info("{}: no pending Delivery for heartbeat's shard: {}", 
 						getClass().getSimpleName(), shard.getShardID().toString());
@@ -98,42 +130,6 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 				partitionScheme.getScheme().writeDuty(e, shard, EntityEvent.ATTACH, null);
 			}
 		}
-
-		if ((beat.reportsDuties()) && shard.getState().isAlive()) {
-			detectAndSaveAbsents(shard, beat.getReportedCapturedDuties());
-			detectInvalidShards(shard, beat.getReportedCapturedDuties());
-			if (beat.hasDifferences()) {
-			    // TODO
-			}
-		}
-	}
-	
-	public void detectAndWriteChanges(
-			final Shard source, 
-			final ChangePlan changePlan, 
-			final Delivery delivery, 
-			final Heartbeat beat) {
-
-		if (changeDetector.findChanges(delivery, changePlan, beat, source, 
-			(Log changelog, ShardEntity entity) -> {
-				if (updateScheme(entity, changelog, source, changePlan.getId())) {
-					updateBackstage(changelog, entity);
-				}
-			})) {
-			delivery.calculateState();
-		}
-		
-		if (!changePlan.getResult().isClosed() && changePlan.hasUnlatched()) {
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: ChangePlan unlatched, fwd >> distributor agent ", classname);
-			}
-			//scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
-		}
-		
-		if (changePlan.getResult().isClosed() && logger.isInfoEnabled()) {
-			logger.info("{}: ChangePlan finished ! (all changes in scheme)", classname);
-		}
-
 	}
 
 	private void updateBackstage(final Log changelog, final ShardEntity entity) {
@@ -151,16 +147,6 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-	/** @return true if the scheme wrote the change */
-	private boolean updateScheme(final ShardEntity entity, final Log log, final Shard source, final long planId) {
-		return partitionScheme.getScheme().writeDuty(entity, source, log.getEvent(), ()-> {
-				entity.getJournal().addEvent(log.getEvent(),
-						EntityState.CONFIRMED,
-						source.getShardID(),
-						planId);
-				});
-	}
-	
 	/*this checks partition table looking for missing duties (not declared dangling, that's diff) */
 	private void detectAndSaveAbsents(final Shard shard, final List<ShardEntity> reportedDuties) {
 		Set<ShardEntity> sortedLog = null;

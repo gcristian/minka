@@ -56,8 +56,8 @@ public class ChangeDetector {
 		this.partitionScheme = partitionScheme;
 	}
 
-	/** Finds sharding changes by matching entity journals for planned reallocations, and updating the scheme */
-	public boolean findChanges(
+	/** Finds sharding changes by matching entity journals for planned reallocations */
+	public boolean findPlannedChanges(
 			final Delivery delivery, 
 			final ChangePlan changePlan, 
 			final Heartbeat beat, 

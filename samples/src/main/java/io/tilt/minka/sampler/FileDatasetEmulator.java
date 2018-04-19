@@ -28,7 +28,7 @@ public class FileDatasetEmulator {
 	
 	public static void main(String[] args) throws Exception {
 
-	    new BasicAppEmulator().start(FileDatasetEmulator.fromFile(System.getProperty("dataset.filepath")));
+	    new BasicAppEmulator().launch(FileDatasetEmulator.fromFile(System.getProperty("dataset.filepath")));
 		
 	    Thread.sleep(60000*10);
 		

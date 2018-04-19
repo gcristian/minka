@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Minka;
+import io.tilt.minka.api.Server;
 import io.tilt.minka.api.MinkaClient;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.utils.LogUtils;
@@ -34,7 +34,7 @@ import io.tilt.minka.utils.LogUtils;
 /**
  * Example of a very basic Application using Minka.
  * 
- * This will create a Minka server and load entities from a {@linkplain ClusterEmulatorProvider} 
+ * This will create a Minka server and load entities from a {@linkplain DummyDataProvider} 
  * 
  * @author Cristian Gonzalez
  * @since Nov 9, 2016
@@ -46,7 +46,7 @@ public class BasicAppEmulator {
 	// TreeSet() to enter them in the default minka order: comparator by id   
 	private final Set<Duty<String>> runningDuties = new TreeSet<>();
 
-	private Minka<String, String> server;
+	private Server<String, String> server;
 	private final Config config;
 	private String shardId = "{NN}";
 	
@@ -60,7 +60,7 @@ public class BasicAppEmulator {
 		this.config = new Config();
 	}
 	
-	public Minka<String, String> getServer() {
+	public Server<String, String> getServer() {
 		return this.server;
 	}
 
@@ -70,20 +70,24 @@ public class BasicAppEmulator {
 		}
 	}
 	
-	public void start(final ClusterEmulatorProvider loader) throws Exception {
+	public void launch(final DummyDataProvider loader) throws Exception {
 		java.util.Objects.requireNonNull(loader);
 
 		final Set<Duty<String>> duties = new TreeSet<>(loader.loadDuties());
 		final Set<Pallet<String>> pallets = new TreeSet<>(loader.loadPallets());
 
-		logger.info("{} Loading {} duties: {}", shardId, duties.size(), toStringGroupByPallet(duties));
+		server = new Server<>(config);
 
-		server = new Minka<>(config);
+		// data only needed for logging
+		this.shardId = config.getResolvedShardId().getId();
+		logger.info("{} Loading {} duties: {}", shardId, duties.size(), toStringGroupByPallet(duties));
+		// optional info
 		server.setLocationTag(server.getClient().getShardIdentity() +"-eltag");
-		server.onPalletLoad(() -> pallets);
-		server.onDutyLoad(()-> duties);
 		
-		server.onDutyCapture((final Set<Duty<String>> t) -> {
+		server.onPalletLoad(() -> pallets);
+		server.onLoad(()-> duties);
+		
+		server.onCapture((final Set<Duty<String>> t) -> {
 			// start tasks
 			logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "taking"));
 			logger.info("{} # {}+ ({})", shardId, t.size(), toStringIds(t));
@@ -91,7 +95,7 @@ public class BasicAppEmulator {
 		});
 		server.onPalletCapture((p)->logger.info("Taking pallet: {}", p.toString()));
 		
-		server.onDutyRelease((final Set<Duty<String>> entities)-> {
+		server.onRelease((final Set<Duty<String>> entities)-> {
 			// stop tasks previously started
 			logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "releasing"));
 			logger.info("{} # -{} ({})", shardId, entities.size(), toStringIds(entities));
@@ -103,14 +107,13 @@ public class BasicAppEmulator {
 			server.setCapacity(pallet, loader.loadShardCapacity(pallet, duties, server.getClient().getShardIdentity()));			
 		}
 		
-		server.onDutyUpdate(d->{});
 		server.onActivation(()-> {
 			this.shardId = server.getClient().getShardIdentity();
 			logger.info("{}: Activating", this.shardId);
 		});
 		server.onDeactivation(()->logger.info("de-activating"));
-		server.onDutyUpdate(d->logger.info("receiving update: {}", d));
-		server.onDutyTransfer((d, e)->logger.info("receiving transfer: {}", d));
+		server.onUpdate(d->logger.info("receiving update: {}", d));
+		server.onTransfer((d, e)->logger.info("receiving transfer: {}", d));
 		server.load();
 	}
 	
@@ -138,16 +141,25 @@ public class BasicAppEmulator {
 	
 	private String toStringGroupByPallet(Set<Duty<String>> entities) {
 		final StringBuilder sb = new StringBuilder();
-		entities.stream().collect(Collectors.groupingBy(t -> t.getPalletId())).forEach((palletId, duties) -> {
-			sb.append(" p").append(palletId).append("->").append(toStringIds(duties)).append(", ");
-		});
-		entities.forEach(e -> sb.append("p" + e.getPalletId() + "d" + e.getId() + ", "));
+		entities.stream()
+			.collect(Collectors.groupingBy(t -> t.getPalletId()))
+			.forEach((palletId, duties) -> sb
+					.append(" p").append(palletId)
+					.append("->").append(toStringIds(duties))
+					.append(", "));
+		entities.forEach(e -> sb
+				.append("p").append(e.getPalletId())
+				.append("d").append(e.getId()).append(", "));
 		return sb.toString();
 	}
 
 	private static String toStringIds(Collection<Duty<String>> entities) {
 		final StringBuilder sb = new StringBuilder();
-		entities.forEach(e -> sb.append("p" + e.getPalletId() + "d" + e.getId() + ", "));
+		for (Duty d: entities) {
+			sb.append("p").append(d.getPalletId())
+				.append("d").append(d.getId())
+				.append("(").append(d.get()).append(", ");
+		}
 		return sb.toString();
 	}
 

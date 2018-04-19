@@ -178,7 +178,8 @@ public class PartitionScheme {
 			if (add) {
 				checkDuplicationFailure(duty, where);
 			} 
-			if (stealthChange |= (add && part.add(duty)) || del && part.remove(duty)) {
+			if ((add && part.add(duty)) || (del && part.remove(duty))) {
+				stealthChange = true; 
 				if (callback!=null) {
 					callback.run();
 				}

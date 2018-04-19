@@ -24,13 +24,16 @@ import io.tilt.minka.api.Pallet;
 
 /** 
  * a basic cluster emulator that provides constant contents (the same entities in every shard)
- * every time a different shard takes leadership role, and reports specific capacities for every shard configured. 
+ * in order to report contents every time a different shard takes leadership role, and reports specific capacities for every shard configured. 
  */
-public interface ClusterEmulatorProvider {
+public interface DummyDataProvider {
 
+	/** @return constant contents in all shards */
 	Set<Duty<String>> loadDuties();
 
+	/** @return constant contents in all shards */
 	Set<Pallet<String>> loadPallets();
 
+	/** @return constant capacity for each shard */
 	double loadShardCapacity(Pallet<String> pallet, Set<Duty<String>> allDuties, String shardIdentifier);	    
 }

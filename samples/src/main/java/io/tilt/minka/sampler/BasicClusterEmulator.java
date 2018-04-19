@@ -67,7 +67,7 @@ public class BasicClusterEmulator {
 
 		final Config config = new Config("localhost:2181", "192.168.0.102:" + port);
 		final BasicAppEmulator app = new BasicAppEmulator(config);
-		app.start(FileDatasetEmulator.fromFile(filepath));
+		app.launch(FileDatasetEmulator.fromFile(filepath));
 		return app;
 	}
 

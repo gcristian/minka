@@ -36,9 +36,9 @@ import io.tilt.minka.domain.PartitionMaster;
 import io.tilt.minka.domain.ConsumerDelegate.MappingEvent;
 
 /**
- * System initiator and context holder. 
- * Each application instance hosting a Minka shard willing to distribute duties must use.<br> <br>
- *  
+ * System initiator and context holder.
+ * You should only create one instance per application willing to distribute duties .<br> <br>
+ * 
  * Minka requires some events to be mapped and others are optional depending client's needs,
  * strictly related to the usage of {@linkplain MinkaClient}. <br>
  * Once this class is created: the context is created, Minka boots-up and waits for all events to be mapped,
@@ -56,11 +56,11 @@ import io.tilt.minka.domain.ConsumerDelegate.MappingEvent;
  * @param <P>	the pallet payload type
  */
 @SuppressWarnings("unchecked")
-public class Minka<D extends Serializable, P extends Serializable> {
+public class Server<D extends Serializable, P extends Serializable> {
 
 	private static final String CONTEXT_PATH = "classpath:io/tilt/minka/config/context-minka-spring.xml";
 	
-	private static final Logger logger = LoggerFactory.getLogger(Minka.class);
+	private static final Logger logger = LoggerFactory.getLogger(Server.class);
 	private final String logname = getClass().getSimpleName();
 
 	/* to enable many minka shards on the same JVM */
@@ -75,7 +75,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * whose format must comply {@linkplain Config} class serialization 
 	 * @throws Exception when given file is invalid
 	 * */
-	public Minka(final File jsonFormatConfig) throws Exception {
+	public Server(final File jsonFormatConfig) throws Exception {
 		Validate.notNull(jsonFormatConfig);
 		Config config = Config.fromJsonFile(jsonFormatConfig);
 		init(config);
@@ -83,7 +83,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	/**
 	 * Create a Minka server. All mandatory events must be mapped to consumers/suppliers. 
 	 * @param config Create a Minka server with a specific configuration */
-	public Minka(final Config config) {
+	public Server(final Config config) {
 		Validate.notNull(config);
 		init(config);
 	}
@@ -93,7 +93,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param zookeeperConnectionString		in the form hostname:port/chroot 
 	 * @param minkaHostPort		in the form hostname:port
 	 */
-	public Minka(final String zookeeperConnectionString, final String minkaHostPort)  {
+	public Server(final String zookeeperConnectionString, final String minkaHostPort)  {
 		Validate.notNull(zookeeperConnectionString);
 		Validate.notNull(minkaHostPort);
 		final Config config = new Config(zookeeperConnectionString, minkaHostPort);
@@ -106,7 +106,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * Rest API will take port 57480
 	 * @param zookeeperConnectionString in the zookeeper form hostname:port/chroot
 	 */
-	public Minka(final String zookeeperConnectionString)  {
+	public Server(final String zookeeperConnectionString)  {
 		Validate.notNull(zookeeperConnectionString);
 		Config conf = new Config(zookeeperConnectionString);
 		init(conf);
@@ -116,7 +116,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * All mandatory events must be mapped to consumers/suppliers.
 	 * Shard will attempt to take a port over 5748, trying increased ports if busy.
 	 */
-	public Minka()  {
+	public Server()  {
 		init(new Config());
 	}
 
@@ -279,7 +279,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param delegate	a fully implementation class of a partition delegate
 	 * @return	the server builder
 	 */
-	public Minka<D, P> setDelegate(final PartitionDelegate<D, P> delegate) {
+	public Server<D, P> setDelegate(final PartitionDelegate<D, P> delegate) {
 		Validate.notNull(delegate);
 		checkInit();
 		logger.info("{}: Using new PartitionDelegate: {}", getClass().getSimpleName(),
@@ -295,7 +295,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param master a fully implementation class of a partition master
 	 * @return	the server builder
 	 */
-	public Minka<D, P> setMaster(final PartitionMaster<D, P> master) {
+	public Server<D, P> setMaster(final PartitionMaster<D, P> master) {
 		Validate.notNull(master);
 		checkInit();
 		logger.info("{}: Using new PartitionMaster: {}", getClass().getSimpleName(), master.getClass().getSimpleName());
@@ -327,7 +327,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param supplier	to be called only at shard's election as Leader  
 	 * @return	the server builder
 	 */
-	public Minka<D, P> onDutyLoad(final Supplier<Set<Duty<D>>> supplier) {
+	public Server<D, P> onLoad(final Supplier<Set<Duty<D>>> supplier) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getMaster()).addSupplier(MappingEvent.loadduties, supplier);
 		return this;
@@ -338,18 +338,18 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param supplier	to be called only at shard's election as Leader
 	 * @return	the server builder  
 	 */
-	public Minka<D, P> onPalletLoad(final Supplier<Set<Pallet<P>>> supplier) {
+	public Server<D, P> onPalletLoad(final Supplier<Set<Pallet<P>>> supplier) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getMaster()).addPalletSupplier(supplier);
 		return this;
 	}
 	/**
-	 * Mandatory. Map duty assignation responsibilities to a consumer 
+	 * Mandatory. Map duty distribution and delegation responsibilities to a consumer 
 	 * @see PartitionDelegate
 	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
 	 * @return	the server builder
 	 */
-	public Minka<D, P> onDutyCapture(final Consumer<Set<Duty<D>>> consumer) {
+	public Server<D, P> onCapture(final Consumer<Set<Duty<D>>> consumer) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumer(consumer, MappingEvent.capture);
 		return this;
@@ -360,7 +360,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
 	 * @return	the server builder
 	 */
-	public Minka<D, P> onPalletCapture(final Consumer<Set<Pallet<P>>> consumer) {
+	public Server<D, P> onPalletCapture(final Consumer<Set<Pallet<P>>> consumer) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerPallet(consumer, MappingEvent.capture);
 		return this;
@@ -371,7 +371,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
 	 * @return	the server builder
 	 */
-	public Minka<D, P> onDutyRelease(final Consumer<Set<Duty<D>>> consumer) {
+	public Server<D, P> onRelease(final Consumer<Set<Duty<D>>> consumer) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumer(consumer, MappingEvent.release);
 		return this;
@@ -382,7 +382,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
 	 * @return	the server builder
 	 */
-	public Minka<D, P> onPalletRelease(final Consumer<Set<Pallet<P>>> consumer) {
+	public Server<D, P> onPalletRelease(final Consumer<Set<Pallet<P>>> consumer) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerPallet(consumer, MappingEvent.releasePallet);
 		return this;
@@ -392,7 +392,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param consumer	to be called only on client's call thru MinkaClient.update(..)
 	 * @return	the server builder
 	 */
-	public Minka<D, P> onDutyUpdate(final Consumer<Duty<D>> consumer) {
+	public Server<D, P> onUpdate(final Consumer<Duty<D>> consumer) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerUpdate(consumer);
 		return this;
@@ -402,7 +402,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param consumer	to be called only on client's call thru MinkaClient.update(..)
 	 * @return	the server builder
 	 */
-	public Minka<D, P> onPalletUpdate(final Consumer<Pallet<P>> consumer) {
+	public Server<D, P> onPalletUpdate(final Consumer<Pallet<P>> consumer) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerUpdatePallet(consumer);
 		return this;
@@ -413,12 +413,12 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param biconsumer	to be called only on client's call thru MinkaClient.deliver(...)
 	 * @return	the server builder
 	 */
-	public Minka<D, P> onDutyTransfer(final BiConsumer<Duty<D>, Serializable> biconsumer) {
+	public Server<D, P> onTransfer(final BiConsumer<Duty<D>, Serializable> biconsumer) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addBiConsumerTransfer(biconsumer);
 		return this;
 	}
-	public Minka<D, P> onPalletTransfer(final BiConsumer<Pallet<P>, Serializable> biconsumer) {
+	public Server<D, P> onPalletTransfer(final BiConsumer<Pallet<P>, Serializable> biconsumer) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addBiConsumerTransferPallet(biconsumer);
 		return this;
@@ -428,7 +428,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param balancer	to use at balancing phase
 	 * @return	the server builder
 	 */
-	public Minka<D, P> onBalance(final Balancer balancer) {
+	public Server<D, P> onBalance(final Balancer balancer) {
 		Validate.notNull(balancer);
 		Balancer.Directory.addCustomBalancer(balancer);
 		return this;
@@ -438,7 +438,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param runnable callback to run at event dispatch
 	 * @return	the server builder
 	 */
-	public Minka<D, P> onActivation(final Runnable runnable) {
+	public Server<D, P> onActivation(final Runnable runnable) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addRunnable(MappingEvent.activation, runnable);
 		return this;
@@ -448,7 +448,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param runnable	callback to run at event dispatch
 	 * @return	the server builder
 	 */
-	public Minka<D, P> onDeactivation(final Runnable runnable) {
+	public Server<D, P> onDeactivation(final Runnable runnable) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addRunnable(MappingEvent.deactivation, runnable);
 		return this;
@@ -461,7 +461,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param pallet	the pallet to report capacity about
 	 * @return	the server builder
 	 */
-	public Minka<D, P> setCapacity(final Pallet<P> pallet, final double weight) {
+	public Server<D, P> setCapacity(final Pallet<P> pallet, final double weight) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addCapacity(pallet, weight);
 		return this;
@@ -472,7 +472,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * @param tag  any user's meaningful value to the current Minka's location 
 	 * @return  the server builder
 	 */
-	public Minka<D, P> setLocationTag(final String tag) {
+	public Server<D, P> setLocationTag(final String tag) {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).setLocationTag(tag);
 		return this;
@@ -485,7 +485,7 @@ public class Minka<D extends Serializable, P extends Serializable> {
 	 * The load will also occurr if all optional and mandatory events are mapped.
 	 * @return	the server builder
 	 */
-	public Minka<D, P> load() {
+	public Server<D, P> load() {
 		initConsumerDelegate();
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).setExplicitlyReady();
 		return this;

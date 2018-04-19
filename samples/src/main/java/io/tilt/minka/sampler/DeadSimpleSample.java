@@ -22,7 +22,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Minka;
+import io.tilt.minka.api.Server;
 import io.tilt.minka.api.Pallet;
 
 public class DeadSimpleSample {
@@ -43,20 +43,20 @@ public class DeadSimpleSample {
 		final Set<Duty<String>> myDuties = new TreeSet<>();
 		
 		// create a minka server with all default TCP/port values
-		final Minka<String, String> minka = new Minka<>();		
+		final Server<String, String> minka = new Server<>();		
 		// create a dummy pallet to group the helloWorld duty
 		// on production environtment we should build duties loding source data from a database
 		Pallet<String> pallet = Pallet.<String>builder("group").build();
 		minka.onPalletLoad(()-> newHashSet(pallet));		
 		// holds the duties to be reported in case this shard becomes the leader  
 		// on production environtment we should build duties loding source data from a database
-		minka.onDutyLoad(()-> newHashSet(helloWorld));
+		minka.onLoad(()-> newHashSet(helloWorld));
 		minka.setCapacity(pallet, 132);
 
 		// map the taking duties action
-		minka.onDutyCapture(duties->myDuties.addAll(duties));
+		minka.onCapture(duties->myDuties.addAll(duties));
 		// map the releasing duties from this shard (hardly as there's no rebalance we can hope here)
-		minka.onDutyRelease(duties->myDuties.removeAll(duties));
+		minka.onRelease(duties->myDuties.removeAll(duties));
 		// release the bootstrap process so minka can start
 		minka.load();
 		

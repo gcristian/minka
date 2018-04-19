@@ -40,6 +40,7 @@ import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
 
 /**
+ * Testing facility
  * A simulator that samples a content from a properties with certain keys and values.
 
   5 =============================================
@@ -69,7 +70,7 @@ import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
  29 shards.capacities.9003 = Finwe: 50;      Ewok: 10;      Manwe: 50;
 
  */
-public class DatasetEmulator implements ClusterEmulatorProvider {
+public class DatasetEmulator implements DummyDataProvider {
 
 	private static final String POWER = "*";
 
@@ -146,6 +147,7 @@ public class DatasetEmulator implements ClusterEmulatorProvider {
 			            String.valueOf(numerator.incrementAndGet()), 
 			            String.valueOf(palletName))
 			        .with(dweight)
+			        .with(String.valueOf(0x95+i))
 			        .build());
 		}
 	}
