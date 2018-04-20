@@ -16,6 +16,8 @@
  */
 package io.tilt.minka.core.task.impl;
 
+import static io.tilt.minka.api.config.BootstrapConfiguration.NAMESPACE_MASK_LEADER_SHARD_RECORD;
+
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -39,58 +41,49 @@ import io.tilt.minka.spectator.Wells;
  */
 public class ZookeeperLeaderShardContainer extends TransportlessLeaderShardContainer implements Service {
 
-	private final ZookeeperLeaderShardContainer instance;
-	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
-	private static final String LEADER_SHARD_RECORD_PATH = "leader-shard-record";
 
 	private Wells wells;
 	private final Supplier<Spectator> supplier;
 	private final Consumer<MessageMetadata> callbackConsumer;
+	private final String zookeeperPath;
 
-	public ZookeeperLeaderShardContainer(final Config config, final ShardIdentifier myShardId,
+	public ZookeeperLeaderShardContainer(
+	        final Config config, 
+	        final ShardIdentifier myShardId,
 			final Supplier<Spectator> supplier) {
 		super(myShardId);
 		Validate.notNull(config);
-		this.instance = this;
 		this.supplier = supplier;
-
+		this.zookeeperPath = String.format(NAMESPACE_MASK_LEADER_SHARD_RECORD, config.getBootstrap().getServiceName());
 		// define it once to avoid varying hashCode as inline argument
 		this.callbackConsumer = (meta) -> {
 			try {
-					super.setNewLeader((NetworkShardIdentifier) meta.getPayload());
+				super.setNewLeader((NetworkShardIdentifier) meta.getPayload());
 			} catch (Exception e) {
-					logger.error("{}: ({}) Failing to read leader's shard-container event's payload",
-								getClass().getSimpleName(), getMyShardId(), config.getLoggingShardId(), e);
+				logger.error("{}: ({}) Failing to read leader's shard-container event's payload",
+				        getName(), getMyShardId(), config.getLoggingShardId(), e);
 			}
 		};
-	}
-	
-	public ZookeeperLeaderShardContainer getInstance() {
-		return instance;
 	}
 
 	@Override
 	public void setNewLeader(NetworkShardIdentifier newLeader) {
-		wells.updateWell(getServiceZKPath(), newLeader);
+		wells.updateWell(zookeeperPath, newLeader);
 	}
 
 	@Override
 	public void start() {
 		this.wells = new Wells(supplier.get());
-		logger.info("{}: ({}) Listening Leader change", getClass().getSimpleName(), getMyShardId());
-		wells.runOnUpdate(getServiceZKPath(), callbackConsumer);
+		logger.info("{}: ({}) Listening Leader change", getName(), getMyShardId());
+		wells.runOnUpdate(zookeeperPath, callbackConsumer);
 	}
 
 	@Override
 	public void stop() {
-		logger.info("{}: ({}) Closing well on leader change awareness", getClass().getSimpleName(), getMyShardId());
-		wells.closeWell(getServiceZKPath());
+		logger.info("{}: ({}) Closing well on leader change awareness", getName(), getMyShardId());
+		wells.closeWell(zookeeperPath);
 		wells.close();
 	}
 	
-	private String getServiceZKPath() {
-		return  LEADER_SHARD_RECORD_PATH;
-	}
-
 }

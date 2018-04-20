@@ -23,7 +23,7 @@ package io.tilt.minka.domain;
  */
 public enum EntityEvent {
 
-	/* user creates a duty from MinkaClient */
+	/* user creates a duty from Client */
 	CREATE('c', true, "Creating"),
 	/* user prompts to delete as a kill state */
 	REMOVE('r', true, "Removing"),

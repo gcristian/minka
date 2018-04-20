@@ -21,7 +21,7 @@ import java.util.Set;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.MinkaClient;
+import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
@@ -33,10 +33,10 @@ import io.tilt.minka.core.task.Bootstrap;
  * 
  * Minka will depend entirely on this to obtain the initial duties to distribute  
  * 
- * Adds and Removes from {@linkplain MinkaClient} are yet properly functional.
+ * Adds and Removes from {@linkplain Client} are yet properly functional.
  * Adds and Removes should be ONLY used to enter new Duties to Minka after bootstrap.
  * In case of Leader reelection/termination: Minka recalls this implementation 
- * and forgets previously added duties thru add/remove from {@linkplain MinkaClient}
+ * and forgets previously added duties thru add/remove from {@linkplain Client}
  *    
  * @author Cristian Gonzalez
  * @since Nov 7, 2015

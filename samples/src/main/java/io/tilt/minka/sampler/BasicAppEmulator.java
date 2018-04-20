@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Server;
-import io.tilt.minka.api.MinkaClient;
+import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.utils.LogUtils;
 
@@ -117,7 +117,7 @@ public class BasicAppEmulator {
 		server.load();
 	}
 	
-	public MinkaClient<String, String> getClient() {
+	public Client<String, String> getClient() {
 		if (this.server != null) {
 			return this.server.getClient();
 		}

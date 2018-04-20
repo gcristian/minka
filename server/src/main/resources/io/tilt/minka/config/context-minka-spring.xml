@@ -195,7 +195,7 @@
     ===============================================================================================-->
     
     <!-- Integracion con el cliente  -->
-    <bean id="minkaClient" class="io.tilt.minka.api.MinkaClient">
+    <bean id="minkaClient" class="io.tilt.minka.api.Client">
         <constructor-arg ref="config" />
         <constructor-arg ref="leader" />
         <constructor-arg ref="eventBroker" />

@@ -49,7 +49,7 @@ public abstract interface Entity<T extends Serializable> extends Comparable<Enti
 	 * 
 	 * Pallets may have their own payload, to be accesible and shared by their conforming duties.  
 	 * They will be carried to shards only the first time they appear in the shard's life-cycle. 
-	 * Unless they change thru {@linkplain MinkaClient}, ending up {@linkplain PartitionDelegate} being called.
+	 * Unless they change thru {@linkplain Client}, ending up {@linkplain PartitionDelegate} being called.
 	 * 
 	 * In case of large objects, you should only build the return object when the method is call.
 	 * It will be kept useless in memory until you use it again, 

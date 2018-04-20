@@ -36,17 +36,20 @@ import io.tilt.minka.domain.PartitionMaster;
 import io.tilt.minka.domain.ConsumerDelegate.MappingEvent;
 
 /**
- * System initiator and context holder.
+ * System initiator and context holder.<br>
  * You should only create one instance per application willing to distribute duties .<br> <br>
- * 
- * Minka requires some events to be mapped and others are optional depending client's needs,
- * strictly related to the usage of {@linkplain MinkaClient}. <br>
- * Once this class is created: the context is created, Minka boots-up and waits for all events to be mapped,
+ * Although many instances can coexist within the same JVM under different namespace, is not recommended.<br>
+ * Each server instance will spawn the underlying context registering at Zookkeeper and starting TCP broker services.<br>   
+ * By default all Minka services excluding broker service, run several tasks within a one-thread-only ThreadPoolExecutor.<br>
+ * <br> <br>
+ * Some events are mandatory and others are optional depending client's needs,
+ * strictly related to the usage of {@linkplain Client}. <br>
+ * Once this class is created: the context gets created and started, Minka boots-up and waits for all events to be mapped,
  * unless load() is called which validates for mapped mandatory events. <br>
  * Client may or not need some pallet events, all duties hold its pallet information as well. <br>
- * 
+ * <br> <br>
  * Shard capacities are required if client uses a balancer that depends on duty weights. <br> <br>
- * 
+ * <br> <br>
  * Usually client will map events capture and release for duties, and will use setCapacities to report
  * its specific node capacities for each pallet.
  * 
@@ -266,9 +269,9 @@ public class Server<D extends Serializable, P extends Serializable> {
 	 * Minka service must be fully initialized before being able to obtain an operative client
 	 * @return	an instance of a client   
 	 */
-	public MinkaClient<D, P> getClient() {
+	public Client<D, P> getClient() {
 		checkInit();
-		return tenant.getContext().getBean(MinkaClient.class);
+		return tenant.getContext().getBean(Client.class);
 	}
 	
 	private DependencyPlaceholder getDepPlaceholder() {
@@ -322,8 +325,10 @@ public class Server<D extends Serializable, P extends Serializable> {
 	}
 	/**
 	 * Mandatory. In case the current shard's elected as Leader.
+	 * Remember the supplier's source of duties must be ACID with the Client methods used to CRUD duties.
+	 * As long as Minka lacks of a CAP storage facility.
 	 * Note duty instances should be created only once and then references returned. 
-	 * To avoid inconsistency their return must always include any additions made thru {@linkplain MinkaClient}
+	 * To avoid inconsistency their return must always include any additions made thru {@linkplain Client}
 	 * @param supplier	to be called only at shard's election as Leader  
 	 * @return	the server builder
 	 */
@@ -334,7 +339,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 	}
 	/**
 	 * Mandatory. In case the current shard's elected as Leader.
-	 * To avoid inconsistency their return must always include any additions made thru {@linkplain MinkaClient}
+	 * To avoid inconsistency their return must always include any additions made thru {@linkplain Client}
 	 * @param supplier	to be called only at shard's election as Leader
 	 * @return	the server builder  
 	 */
@@ -389,7 +394,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 	}
 	/**
 	 * Optional. Map an update on the duty's payload to a consumer
-	 * @param consumer	to be called only on client's call thru MinkaClient.update(..)
+	 * @param consumer	to be called only on client's call thru Client.update(..)
 	 * @return	the server builder
 	 */
 	public Server<D, P> onUpdate(final Consumer<Duty<D>> consumer) {

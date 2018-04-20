@@ -13,7 +13,7 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
  * @since Nov 24, 2016
  * 
  * @param <T>	A bytes serializable payload to carry along the wire from the intake point 
- * at <code> MinkaClient.getInstance().add(...) </code> to the Shard where the host app will process it 
+ * at <code> Client.getInstance().add(...) </code> to the Shard where the host app will process it 
  */
 public class DutyBuilder<T extends Serializable> {
 	private final String id;

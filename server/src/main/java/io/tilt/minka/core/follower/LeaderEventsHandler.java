@@ -110,7 +110,11 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		logger.info("{}: ({}) Stopping", getName(), config.getLoggingShardId());
 		partitionManager.releaseAll();
 		this.dependencyPlaceholder.getDelegate().deactivate();
-		eventBroker.unsubscribe(eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, partition.getId()),
+		eventBroker.unsubscribe(
+		        eventBroker.buildToTarget(
+    		        config, 
+    		        Channel.INSTRUCTIONS, 
+    		        partition.getId()),
 				EntityPayload.class, this);
 	}
 
@@ -124,9 +128,12 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 			//partitionManager.handleClusterOperation((ShardCommand) event);
 		} else if (event instanceof ShardEntity) {
 			logger.info("{}: ({}) Receiving 1: {}", getName(), config.getLoggingShardId(), event);
-			scheduler.run(scheduler.getFactory()
-			        .build(Action.INSTRUCT_DELEGATE, PriorityLock.MEDIUM_BLOCKING,
-					() -> handleDuty((ShardEntity) event)));
+			scheduler.run(
+			        scheduler.getFactory().build(
+			                Action.INSTRUCT_DELEGATE, 
+			                PriorityLock.MEDIUM_BLOCKING,
+			                () -> handleDuty((ShardEntity) event))
+			        );
 		} else if (event instanceof ArrayList) {
 			logger.info("{}: ({}) Receiving {}: {}", getName(), config.getLoggingShardId(), ((ArrayList<ShardEntity>) event).size(), event);
 			final List<ShardEntity> list = (ArrayList<ShardEntity>) event;

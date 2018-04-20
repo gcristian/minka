@@ -25,7 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.MinkaClient;
+import io.tilt.minka.api.Client;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.task.Scheduler;
@@ -39,7 +39,7 @@ import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
- * Drives events generated thru the {@linkplain MinkaClient} by the client
+ * Drives events generated thru the {@linkplain Client} by the client
  * when the {@linkplain Leader} is not activated in that Shard
  *  
  * @author Cristian Gonzalez

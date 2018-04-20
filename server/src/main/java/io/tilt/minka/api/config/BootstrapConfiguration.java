@@ -1,6 +1,10 @@
 package io.tilt.minka.api.config;
 
 public class BootstrapConfiguration {
+    
+    public static final String NAMESPACE_MASK_LEADER_LATCH = "minka/%s/leader-latch";
+    public static final String NAMESPACE_MASK_LEADER_SHARD_RECORD = "minka/%s/leader-shard-record";
+
 	protected static final String SERVICE_NAME = ("default-name");
 	private static String serviceName;
 	

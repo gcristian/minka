@@ -95,27 +95,23 @@ public interface Scheduler extends Semaphore {
 
 	/* for agents only */
 	public enum Frequency {
-		ONCE, ONCE_DELAYED, PERIODIC,
+		ONCE, 
+		ONCE_DELAYED, 
+		PERIODIC,
 	}
 
 	/* a repetitive timed task */
 	public interface Agent extends Synchronized {
 		Frequency getFrequency();
-
 		long getDelay();
-
 		TimeUnit getTimeUnit();
-
 		long getPeriodicDelay();
 	}
 
 	public interface AgentFactory {
 		AgentFactory create(Action action, PriorityLock priority, Frequency frequency, Runnable task);
-
 		AgentFactory every(long periodicDelay);
-
 		AgentFactory delayed(long firstDelayMs);
-
 		Agent build();
 	}
 

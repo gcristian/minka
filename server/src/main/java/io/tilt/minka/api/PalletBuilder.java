@@ -31,7 +31,7 @@ import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
  * @since Nov 5, 2015
  * 
  * @param <P>	A bytes serializable payload to carry along the wire from the intake point 
- * at <code> MinkaClient.getInstance().add(...) </code> to the Shard where the host app will process it 
+ * at <code> Client.getInstance().add(...) </code> to the Shard where the host app will process it 
  */
 public class PalletBuilder<P extends Serializable> {
 

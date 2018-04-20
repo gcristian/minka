@@ -43,21 +43,21 @@ import io.tilt.minka.domain.PartitionDelegate;
 import io.tilt.minka.domain.PartitionMaster;
 
 /**
- * Facility to run CRUD operations over {@linkplain Duty} 
- * 
- * So a {@link Leader} service whoever it is, will receive the event and distribute it
- * to a selected {@link Follower} according their {@link ShardState}
- * 
- * From any {@linkplain Shard} (leader or follower) the client can use this class.
- * Coordination operations are driven thru {@linkplain EventBroker} to reach the leader shard
- * or locally executed in case the current shard is the leader
- * 
+ * Facility to execute CRUD ops. to {@linkplain Duty} on the cluster.<br> 
+ * All ops. are forwarded thru the network broker to the leader, and then routed to its final target shard.<br>  
+ * Updates and Transfers are executed without a distributor's balance calculation.<br>
+ * In case the leader runs within the same follower's shard, no network communication is needed.<br>
+ *<br><br>
+ * Remember no CRUD survives leader-reelection (by now), and all ops must be ACID with the<br> 
+ * client's supplier callback of duties. (see  {@linkplain Server.onLoad(..))}  <br>
+ * As long as Minka lacks of a CAP storage facility.<br>
+ * <br><br>
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
  */
-public class MinkaClient<D extends Serializable, P extends Serializable> {
+public class Client<D extends Serializable, P extends Serializable> {
 
-	private static final Logger logger = LoggerFactory.getLogger(MinkaClient.class);
+	private static final Logger logger = LoggerFactory.getLogger(Client.class);
 
 	private final Leader leader;
 	private final EventBroker eventBroker;
@@ -68,7 +68,7 @@ public class MinkaClient<D extends Serializable, P extends Serializable> {
 	private final PartitionScheme table;
 	private final SchemeViews views;
 
-	protected MinkaClient(
+	protected Client(
 			final Config config, 
 			final Leader leader, 
 			final EventBroker eventBroker,

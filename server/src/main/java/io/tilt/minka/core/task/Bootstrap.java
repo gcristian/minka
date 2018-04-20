@@ -16,6 +16,7 @@
  */
 package io.tilt.minka.core.task;
 
+import static io.tilt.minka.api.config.BootstrapConfiguration.NAMESPACE_MASK_LEADER_LATCH;
 import static java.util.Objects.requireNonNull;
 
 import java.time.Instant;
@@ -50,7 +51,7 @@ import io.tilt.minka.utils.LogUtils;
 public class Bootstrap implements Service {
 
 	private static final long REPUBLISH_LEADER_CANDIDATE_AFTER_LOST_MS = 1000l;
-
+	
 	private static final Logger logger = LoggerFactory.getLogger(Bootstrap.class);
 
 	private final Config config;
@@ -65,10 +66,15 @@ public class Bootstrap implements Service {
 	private final SpectatorSupplier spectatorSupplier;
 	private final Agent bootLeadershipCandidate;
 	private final Agent readyAwareBooting;
+	private final Agent unconfidentLeader;
+	private final String leaderLatchPath;
 	
 	private Date start;
 	private Locks locks;
 	private int repostulationCounter;
+
+	private ServerCandidate serverCallbacks;
+
 
 	/* starts a new shard */
 	public Bootstrap(
@@ -116,20 +122,21 @@ public class Bootstrap implements Service {
 				.delayed(config.beatToMs(config.getBootstrap().getReadynessRetryDelayBeats()))
 				.build();
 
+		this.unconfidentLeader = scheduler
+				.getAgentFactory().create(
+						Action.ANY, 
+						PriorityLock.HIGH_ISOLATED,
+						Frequency.PERIODIC, 
+						() -> checkReceivingBeats())
+				.every(config.beatToMs(5))
+				.delayed(config.beatToMs(config.getBootstrap().getReadynessRetryDelayBeats()))
+				.build();
+
 		if (autoStart) {
 			start();
 		}
+		this.leaderLatchPath = String.format(NAMESPACE_MASK_LEADER_LATCH, config.getBootstrap().getServiceName());
 	}
-
-
-	private Runnable iHaveFollowers() {
-		return ()-> {
-		final Instant now = Instant.now();
-		if (now.minusMillis(config.beatToMs(5)).isAfter(leader.getFollowerEventsHandler().getLastBeat())) {
-			// TODO release le
-		}};
-	}
-
 	
 	@Override
 	public void start() {
@@ -204,7 +211,7 @@ public class Bootstrap implements Service {
 			scheduler.schedule(readyAwareBooting);
 		}
 	}
-
+	
 	/**
 	 * if config allows leadership candidate: 
 	 * postulate and keep retrying until postulation is accepted 
@@ -213,25 +220,18 @@ public class Bootstrap implements Service {
 	private void bootLeadershipCandidate() {
 		if (config.getBootstrap().isPublishLeaderCandidature()) {
 			logger.info("{}: ({}) Candidating Leader (lap: {})", getName(), shardId, repostulationCounter);
-			if (!locks.runWhenLeader(getElectionName(), new ServerCandidate() {
+			this.serverCallbacks = new ServerCandidate() {
 				@Override
 				public void start() {
 					Bootstrap.logger.info("Bootstrap: {} Elected as Leader", leader.getShardId());
 					leader.start();
-					// let's getting hoppin
-					/*
-					 * scheduler.run(SynchronizedAgentFactory.build(Action.
-					 * DISTRIBUTE_ENTITY, PriorityLock.HIGH_ISOLATED,
-					 * Frequency.ONCE_DELAYED, ()-> { logger.info(
-					 * "---->TESTING THE HOP HOP !");
-					 * locks.stopCandidateOrLeader(getElectionName(), true);
-					 * }).delayed(30000));
-					 */
+					scheduler.schedule(unconfidentLeader);
+					//for testing only: oppingLeader(latchName);
 				}
-
 				@Override
 				public void stop() {
 					leader.stop();
+					scheduler.stop(unconfidentLeader);
 					if (inService()) {
 						Bootstrap.logger.info("Bootstrap: {} Stopping Leader: now Candidate", leader.getShardId());
 						scheduler.schedule(bootLeadershipCandidate);
@@ -239,7 +239,9 @@ public class Bootstrap implements Service {
 						Bootstrap.logger.info("Bootstrap: {} Stopping Leader at shutdown", leader.getShardId());
 					}
 				}
-			})) {
+			};
+			final boolean promoted = locks.runWhenLeader(leaderLatchPath, serverCallbacks); 
+			if (!promoted) {
 				// may be ZK's down: so retry
 				logger.error("{}: ({}) Leader membership rejected, retrying", getName(), shardId);
 				scheduler.schedule(bootLeadershipCandidate);
@@ -251,9 +253,33 @@ public class Bootstrap implements Service {
 		}
 	}
 
-	private String getElectionName() {
-		final String electionName = "minka/" + config.getBootstrap().getServiceName() + "/leader-latch";
-		return electionName;
+	/** programatically make the leader serve among short lapses before hopping again */
+	private void hoppingLeader() {
+		scheduler.schedule(
+			scheduler.getAgentFactory().create(
+				Action.DISTRIBUTE_ENTITY, 
+				PriorityLock.HIGH_ISOLATED,
+				Frequency.ONCE_DELAYED, 
+				()-> locks.stopCandidateOrLeader(leaderLatchPath, true))
+			.delayed(30000)
+			.build());
+	}
+
+	/* if no beats received then no true leader: stop candidate  **/ 
+	private void checkReceivingBeats() {
+		if (!leader.inService()) {
+			return;
+		}
+		final Instant now = Instant.now();
+		final Instant last = leader.getFollowerEventsHandler().getLastBeat();
+		if (last!=null && serverCallbacks!=null) {
+			if (now.minusMillis(config.beatToMs(5)).isAfter(last)) {
+				logger.error("{}: ({}) No beats received recently. Cancelling leadership and candidate. (last: {})", getName(), shardId, last);
+				locks.stopCandidateOrLeader(leaderLatchPath, true);
+				// if ZK lost us we may be in a network partitioning: dont expect to be stopped thru callback
+				serverCallbacks.stop();
+			}
+		}
 	}
 
 	@Override

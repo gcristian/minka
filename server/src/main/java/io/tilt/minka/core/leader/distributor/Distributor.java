@@ -284,6 +284,7 @@ public class Distributor implements Service {
 	}
 
 	/** @return if plan is still valid */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private boolean push(final ChangePlan changePlan, final Delivery delivery, final boolean retrying) {
 		// check it's still in ptable
 		if (!deliveryShardValid(delivery)) {

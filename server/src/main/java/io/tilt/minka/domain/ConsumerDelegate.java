@@ -27,7 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.MinkaClient;
+import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Pallet;
 
 /**
@@ -38,7 +38,7 @@ import io.tilt.minka.api.Pallet;
 public class ConsumerDelegate<D extends Serializable, P extends Serializable> implements PartitionMaster<D, P> {
 
 	private static final String UNMAPPED_EVENT = "{}: Unmapped event: {}";
-	private static final Logger log = LoggerFactory.getLogger(MinkaClient.class);
+	private static final Logger log = LoggerFactory.getLogger(Client.class);
 
 	public enum MappingEvent {
 		// consumers
