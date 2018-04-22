@@ -57,12 +57,12 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final ShardedPartition partition;
 	private final AtomicLong sequence;
-	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
+	private final long includeFrequency;
 	
 	private DomainInfo domain; 
 	private long includeTimestamp;
-	private long includeFrequency = 10 * 1000l;
+	
 	private ShardIdentifier lastLeader;
 	
 	public HeartbeatFactoryImpl(
@@ -71,11 +71,11 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			final ShardedPartition partition, 
 			final LeaderShardContainer leaderShardContainer) {
 		super();
-		this.config = requireNonNull(config);
 		this.dependencyPlaceholder = requireNonNull(holder);
 		this.partition = requireNonNull(partition);
 		this.sequence = new AtomicLong();
 		this.leaderShardContainer = leaderShardContainer;
+		this.includeFrequency = config.beatToMs(50);
 	}
 
 	@Override
