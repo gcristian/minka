@@ -21,8 +21,10 @@ import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.STABLE;
 import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.UNSTABLE;
 import static io.tilt.minka.utils.LogUtils.HEALTH_DOWN;
 import static io.tilt.minka.utils.LogUtils.HEALTH_UP;
+import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -72,12 +74,12 @@ public class Proctor implements Service {
 	private final Scheduler scheduler;
 	private final NetworkShardIdentifier shardId;
 	private final LeaderShardContainer leaderShardContainer;
+	private final Agent analyzer;
 
 	private int analysisCounter;
-	private int blessCounter;
-	private int lastUnstableAnalysisId;
-
-	private final Agent analyzer;
+	private int lastUnstableAnalysisId = 1;
+	private Instant lastAnalysys;
+	
 
 	public Proctor(
 			final Config config, 
@@ -100,10 +102,11 @@ public class Proctor implements Service {
 				.create(Action.PROCTOR, 
 						PriorityLock.MEDIUM_BLOCKING, 
 						Frequency.PERIODIC, 
-						() -> analyzeShards())
+						() -> shepherShards())
 				.delayed(config.beatToMs(config.getProctor().getStartDelayBeats()))
 				.every(config.beatToMs(config.getProctor().getDelayBeats()))
 				.build();
+		this.lastAnalysys = now();
 	}
 
 	@Override
@@ -118,29 +121,27 @@ public class Proctor implements Service {
 		this.scheduler.stop(analyzer);
 	}
 
-	private void blessShards() {
+	private void clearShards() {
 		try {
 			if (logger.isDebugEnabled()) {
 				logger.debug("{}: Blessing {} shards", getName(), partitionScheme.getScheme().shardsSize(null));
 			}
-			partitionScheme.getScheme().onShards(null, 
-					shard->eventBroker.send(shard.getBrokerChannel(), EVENT_SET, Clearance.create(shardId)));
+			final DomainInfo dom = new DomainInfo();
+			final Set<ShardEntity> allPallets = new HashSet<>();
+			partitionScheme.getScheme().onPallets(allPallets::add);
+			dom.setDomainPallets(allPallets);
+			
+			partitionScheme.getScheme().onShards(ShardState.GONE.negative(), 
+					shard-> eventBroker.send(
+							shard.getBrokerChannel(), 
+							EVENT_SET, 
+							Clearance.create(shardId, dom)));
 		} catch (Exception e) {
 			logger.error("{}: Unexpected while blessing", getName(), e);
 		}
 	}
 	
-	private void sendDomainInfo() {
-		final Set<ShardEntity> allPallets = new HashSet<>();
-		partitionScheme.getScheme().onPallets(allPallets::add);
-		partitionScheme.getScheme().onShards(ShardState.GONE.negative(), shard-> {
-			final DomainInfo dom = new DomainInfo();
-			dom.setDomainPallets(allPallets);
-			eventBroker.send(shard.getBrokerChannel(), EVENT_SET, dom);
-		});
-	}
-
-	private void analyzeShards() {
+	private void shepherShards() {
 		try {
 			if (!leaderShardContainer.imLeader()) {
 				return;
@@ -151,44 +152,51 @@ public class Proctor implements Service {
 				return;
 			}
 			analysisCounter++;
-			lastUnstableAnalysisId = analysisCounter == 1 ? 1 : lastUnstableAnalysisId;
 			
-			final int[] sizeOnline = new int[1];
-			final List<Runnable> actions = new ArrayList<>(size);
-			partitionScheme.getScheme().onShards(null, shard-> {
-				final String[] ressume = new String[1];
-				final ShardState newState = evaluateStateThruHeartbeats(shard, s->ressume[0]=s);
-				final ShardState priorState = shard.getState();
-				if (newState != priorState) {
-					logChangeAndTitle(ressume, actions.isEmpty(), size);
-					lastUnstableAnalysisId = analysisCounter;
-					actions.add(()->schemeSentry.shardStateChange(shard, priorState, newState));
-				}
-				sizeOnline[0] += priorState == ShardState.ONLINE || newState == ShardState.ONLINE ? 1 : 0;
-			});
-			if (!actions.isEmpty()) {
-				actions.forEach(Runnable::run);
-			}
-			final int threshold = config.getProctor().getClusterHealthStabilityDelayPeriods();
-			ClusterHealth health = UNSTABLE;
-			if (sizeOnline[0] == size && analysisCounter - lastUnstableAnalysisId >= threshold) {
-				health = STABLE;
-			}
-			if (health != partitionScheme.getShardsHealth()) {
-				partitionScheme.setShardsHealth(health);
-				logger.warn("{}: Cluster back to: {} ({}, min unchanged analyses: {})", getName(),
-						partitionScheme.getShardsHealth(), lastUnstableAnalysisId,
-						threshold);
-			}
-			sendDomainInfo();
-			//if (blessCounter++ > 1) {
-				blessCounter = 0;
-				blessShards();
-			//}
-			
-			// 
+			final int online = rankShards(size);
+			calculateHealth(size, online);
+			clearShards();
+			lastAnalysys= now();
 		} catch (Exception e) {
 			logger.error("{}: Unexpected while shepherdizing", getName(), e);
+		}
+	}
+
+	private int rankShards(final int size) {
+		final int[] sizeOnline = new int[1];
+		final List<Runnable> actions = new ArrayList<>(size);
+		partitionScheme.getScheme().onShards(null, shard-> {
+			final String[] ressume = new String[1];
+			final ShardState newState = evaluateStateThruHeartbeats(shard, s->ressume[0]=s);
+			final ShardState priorState = shard.getState();
+			if (newState != priorState) {
+				logChangeAndTitle(ressume, actions.isEmpty(), size);
+				lastUnstableAnalysisId = analysisCounter;
+				actions.add(()->schemeSentry.shardStateChange(shard, priorState, newState));
+			} else if (lastAnalysys.isBefore(shard.getFirstTimeSeen())) {
+				logChangeAndTitle(ressume, actions.isEmpty(), size);
+			}
+
+			sizeOnline[0] += priorState == ShardState.ONLINE || newState == ShardState.ONLINE ? 1 : 0;
+		});
+		// avoid failfast iterator
+		if (!actions.isEmpty()) {
+			actions.forEach(Runnable::run);
+		}
+		return sizeOnline[0];
+	}
+
+	private void calculateHealth(final int size, final int sizeOnline) {
+		final int threshold = config.getProctor().getClusterHealthStabilityDelayPeriods();
+		ClusterHealth health = UNSTABLE;
+		if (sizeOnline == size && analysisCounter - lastUnstableAnalysisId >= threshold) {
+			health = STABLE;
+		}
+		if (health != partitionScheme.getShardsHealth()) {
+			partitionScheme.setShardsHealth(health);
+			logger.warn("{}: Cluster back to: {} ({}, min unchanged analyses: {})", getName(),
+					partitionScheme.getShardsHealth(), lastUnstableAnalysisId,
+					threshold);
 		}
 	}
 	
