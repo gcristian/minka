@@ -64,7 +64,7 @@ public class HeartpumpImpl implements Heartpump {
 			if (leaderShardContainer.getLeaderShardId() == null) {
 				logger.warn("{}: Still without an acknowledged Leader shard !", classname,
 						config.getLoggingShardId());
-				//return false;
+				return false;
 			}
 			if (eventBroker.send(
 					eventBroker.buildToTarget(
