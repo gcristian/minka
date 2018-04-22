@@ -16,6 +16,8 @@
  */
 package io.tilt.minka.domain;
 
+import static java.util.Objects.requireNonNull;
+
 import java.io.Serializable;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -28,8 +30,7 @@ import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
 
 /**
- * A blessing from the Leader to Follower for it to know God exists 
- * built by {@link Leader} allowing the {@link Follower} to keep working hard for the Holy Church  
+ * A signal of clearance from the leader to the followers to keep having authority on the delegated duties  
  *  
  * @author Cristian Gonzalez
  * @since Nov 5, 2015
@@ -41,56 +42,64 @@ public class Clearance implements Serializable, Comparable<Clearance> {
 
 	private final NetworkShardIdentifier leaderShardId;
 	private final DateTime creation;
+	private final DomainInfo info;
 	private final long sequenceId;
 
-	public static Clearance create(final NetworkShardIdentifier leaderShardId) {
-		return new Clearance(leaderShardId);
+	public static Clearance create(
+			final NetworkShardIdentifier leaderShardId,
+			final DomainInfo info) {
+		return new Clearance(leaderShardId, info);
 	}
 
-	private Clearance(final NetworkShardIdentifier leaderShardId) {
+	private Clearance(final NetworkShardIdentifier leaderShardId, final DomainInfo info) {
 		this.creation = new DateTime(DateTimeZone.UTC);
 		this.sequenceId = sequencer.incrementAndGet();
-		this.leaderShardId = leaderShardId;
+		this.leaderShardId = requireNonNull(leaderShardId);
+		this.info = requireNonNull(info);
 	}
 
 	public DateTime getCreation() {
 		return this.creation;
 	}
-
 	public long getSequenceId() {
 		return this.sequenceId;
 	}
-
+	public DomainInfo getInfo() {
+		return info;
+	}
+	public NetworkShardIdentifier getLeaderShardId() {
+		return this.leaderShardId;
+	}
+	
 	@Override
 	public int hashCode() {
-		return new HashCodeBuilder()
-				.append(getLeaderShardId())
-				.append(getCreation())
-				.append(getSequenceId())
-				.toHashCode();
+		final int prime = 31;
+		int res = 0;
+		res *= prime + (leaderShardId.hashCode());
+		res *= prime + (sequenceId);
+		return res;
 	}
 
 	@Override
 	public boolean equals(Object obj) {
-		if (obj instanceof Clearance) {
-			Clearance other = (Clearance) obj;
-			return new EqualsBuilder()
-					.append(getSequenceId(), other.getSequenceId())
-					.append(getLeaderShardId(), other.getLeaderShardId())
-					.isEquals();
-		} else {
+		if (obj== null || !(obj instanceof Clearance) ) {
 			return false;
+		} else if (obj==this) {
+			return true;
+		} else {
+			final Clearance o = (Clearance)obj;
+			return o.getLeaderShardId().equals(leaderShardId)
+					&& o.getSequenceId()==sequenceId;
 		}
-	}
-
-	public NetworkShardIdentifier getLeaderShardId() {
-		return this.leaderShardId;
 	}
 
 	@Override
 	public String toString() {
-		return new StringBuilder().append(" Clearance Sequence ID: ").append(sequenceId).append(" - ShardID: ")
-				.append(getLeaderShardId()).append(" - Created: ").append(getCreation()).toString();
+		return new StringBuilder()
+				.append(" Clearance Sequence ID: ").append(sequenceId)
+				.append(" - ShardID: ").append(getLeaderShardId())
+				.append(" - Created: ").append(getCreation())
+				.toString();
 	}
 
 	@Override

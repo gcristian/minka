@@ -66,12 +66,6 @@ public class HeartpumpImpl implements Heartpump {
 						config.getLoggingShardId());
 				//return false;
 			}
-			/* final Heartbeat thisHb = arg;
-			 * 
-			 * Heartbeat hbTraveling = thisHb; if (lastHeartbeat!=null &&
-			 * thisHb.equalsInContent(lastHeartbeat)) { hbTraveling =
-			 * Heartbeat.copy(thisHb); hbTraveling.cleanDuties(); } */
-
 			if (eventBroker.send(
 					eventBroker.buildToTarget(
 							config, 

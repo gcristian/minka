@@ -70,8 +70,9 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	@Override
 	public void accept(final Heartbeat beat, final Shard shard) {
 		if (beat.getStateChange() != null) {
+			logger.info("{}: ShardID: {} changes to: {}", classname, shard, beat.getStateChange());
 			shardStateChange(shard, shard.getState(), beat.getStateChange());
-			if (beat.getStateChange() == ShardState.QUITTED) {
+			if (beat.getStateChange() == QUITTED) {
 				return;
 			}
 		}
@@ -102,7 +103,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 						if (partitionScheme.getScheme().writeDuty(entity, shard, changelog.getEvent(), ()-> {
 							// copy the found situation to the instance we care
 							entity.getJournal().addEvent(changelog.getEvent(),
-									EntityState.CONFIRMED,
+									CONFIRMED,
 									shard.getShardID(),
 									changePlan.getId());
 							})) {
@@ -118,8 +119,8 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 					logger.info("{}: ChangePlan unlatched, fwd >> distributor agent ", classname);
 					//scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
 				}
-			} else if (logger.isInfoEnabled()){
-				logger.info("{}: no pending Delivery for heartbeat's shard: {}", 
+			} else if (logger.isDebugEnabled()){
+				logger.debug("{}: no pending Delivery for heartbeat's shard: {}", 
 						getClass().getSimpleName(), shard.getShardID().toString());
 			}			
 		} else if (changePlan == null && beat.reportsDuties()) {
@@ -127,7 +128,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			// TODO use DomainInfo to send a planid so the next leader can validate 
 			// beated's plan is at least some range in between and so leader learns from beats 
 			for (ShardEntity e: beat.getReportedCapturedDuties()) {
-				partitionScheme.getScheme().writeDuty(e, shard, EntityEvent.ATTACH, null);
+				partitionScheme.getScheme().writeDuty(e, shard, ATTACH, null);
 			}
 		}
 	}
@@ -215,8 +216,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 
 	public void shardStateChange(final Shard shard, final ShardState prior, final ShardState newState) {
 		shard.setState(newState);
-		partitionScheme.getScheme().stealthChange(true);
-		logger.info("{}: ShardID: {} changes to: {}", classname, shard, newState);
+		partitionScheme.getScheme().stealthChange(true);		
 		switch (newState) {
 		case GONE:
 		case QUITTED:
@@ -329,7 +329,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			if (!event.isCrud()) {
 				throw new RuntimeException("Bad call");
 			}
-			if ((!found && event == CREATE) || (found && event == EntityEvent.REMOVE)) {
+			if ((!found && event == CREATE) || (found && event == REMOVE)) {
 				if (logger.isInfoEnabled()) {
 					logger.info("{}: Registering Crud {}: {}", classname, entity.getType(), entity);
 				}

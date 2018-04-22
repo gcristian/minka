@@ -151,13 +151,6 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		return false;
 	}
 	
-	public enum Issue {
-		DIFFERENCES,
-		DANGLING,
-		CLEARANCE_EXPIRED,
-		REBEL_SHARD,
-	}
-	
 	@SuppressWarnings("unchecked")	
 	private void addReportedCapacities(final Heartbeat.Builder builder) {
 		if (domain!=null && domain.getDomainPallets()!=null) {

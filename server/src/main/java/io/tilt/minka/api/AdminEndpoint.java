@@ -38,6 +38,7 @@ import com.wordnik.swagger.annotations.Api;
 import io.tilt.minka.core.leader.PartitionScheme;
 import io.tilt.minka.core.leader.SchemeViews;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
+import io.tilt.minka.core.task.Scheduler;
 
 @Api("Minka Endpoint API")
 @Path("admin")
@@ -47,12 +48,13 @@ import io.tilt.minka.core.leader.distributor.ChangePlan;
 public class AdminEndpoint {
 
 	@Autowired
-	private  PartitionScheme table;
+	private PartitionScheme table;
 	@Autowired
-	private  SchemeViews views;
-
+	private SchemeViews views;
 	@Autowired
-	private  Config config;
+	private Scheduler scheduler;
+	@Autowired
+	private Config config;
 
 	@Inject
 	public AdminEndpoint(@Named("partitionTable") PartitionScheme table) {
@@ -109,6 +111,13 @@ public class AdminEndpoint {
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response entities() throws JsonProcessingException {
 		return Response.accepted(views.entitiesToJson(table)).build();
+	}
+
+	@GET
+	@Path("/schedule")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response schedule() throws JsonProcessingException {
+		return Response.accepted(views.scheduleToJson(scheduler)).build();
 	}
 
 	@GET

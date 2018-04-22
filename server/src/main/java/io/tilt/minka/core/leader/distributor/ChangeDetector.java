@@ -134,8 +134,9 @@ public class ChangeDetector {
 			}
 		}
 		if (sortedLogConfirmed!=null) {
-			logger.info("{}: ShardID: {}, Confirming partition event for Duties: {}", classname,
-					shard.getShardID(), ShardEntity.toStringIds(sortedLogConfirmed));
+			logger.info("{}: ShardID: {}, {} {} for Duties: {}", classname,
+					shard.getShardID(), EntityEvent.ATTACH, EntityState.CONFIRMED, 
+					ShardEntity.toStringIds(sortedLogConfirmed));
 		}
 		if (sortedLogDirty!=null) {
 			logger.warn("{}: ShardID: {}, Reporting DIRTY partition event for Duties: {}", classname,
@@ -180,9 +181,7 @@ public class ChangeDetector {
 		return ret;
 	}
 	
-	/** treat un-coming as detaches
-	/** @return whether or not there was an absence confirmed 
-	 * @param c */
+	/** @return TRUE if there was a planned absence confirmed */
 	private boolean onFoundDetachments(
 			final Shard shard,
 			final List<ShardEntity> beatedDuties,
@@ -208,8 +207,9 @@ public class ChangeDetector {
 		}
 		
 		if (sortedLog!=null) {
-			logger.info("{}: ShardID: {}, Confirming (by absence) partioning event for Duties: {}",
-					getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(sortedLog));
+			logger.info("{}: ShardID: {}, (by absence) {} {} for Duties: {}",
+					getClass().getSimpleName(), shard.getShardID(), EntityEvent.DETACH, EntityState.CONFIRMED, 
+					ShardEntity.toStringIds(sortedLog));
 		}
 		return found;
 	}

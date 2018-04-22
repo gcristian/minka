@@ -43,7 +43,7 @@ import io.tilt.minka.domain.NetworkShardIdentifier;
  */
 public class Leader implements Service {
 
-	private final Logger logger = LoggerFactory.getLogger(getClass());
+	public final static Logger logger = LoggerFactory.getLogger(Leader.class);
 
 	private final Config config;
 	private final Proctor proctor;

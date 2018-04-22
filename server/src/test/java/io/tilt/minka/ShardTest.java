@@ -56,7 +56,7 @@ public class ShardTest {
 			NetworkLocation next = it.next();
 			if (last!=null) {
 				Assert.assertTrue("date comparer returned a different order", 
-						next.getCreation().getMillis() > last.getCreation().getMillis());
+						next.getCreation().isAfter(last.getCreation()));
 			}
 			last = next;
 		}

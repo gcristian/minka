@@ -18,12 +18,19 @@ package io.tilt.minka.core.leader;
 
 import static java.util.Objects.requireNonNull;
 
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Map.Entry;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.Validate;
@@ -42,6 +49,8 @@ import com.google.common.util.concurrent.AtomicDouble;
 import io.tilt.minka.core.leader.PartitionScheme.Scheme.SchemeExtractor;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
@@ -86,7 +95,7 @@ public class SchemeViews {
 		return mapper.writeValueAsString(buildShards(table));
 	}
 
-	public Map<String, Object> buildShards(final PartitionScheme table) {
+	private Map<String, Object> buildShards(final PartitionScheme table) {
 		Validate.notNull(table);
 		final Map<String, Object> map = new LinkedHashMap<>();
 		map.put("leaderShardId", leaderShardContainer.getLeaderShardId());
@@ -137,7 +146,7 @@ public class SchemeViews {
 			
 			AtomicDouble dettachedWeight = new AtomicDouble();
 			final int[] crudSize = new int[1];
-			table.getBackstage().onDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED, e-> {
+			table.getBackstage().onDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, e-> {
 				if (e.getDuty().getPalletId().equals(pallet.getPallet().getId())) {
 					crudSize[0]++;
 					dettachedWeight.addAndGet(e.getDuty().getWeight());
@@ -216,7 +225,7 @@ public class SchemeViews {
 	
 	private static Map<String, Object> shardView(
 			final String shardId, 
-			final DateTime creation, 
+			final Instant creation, 
 			final List<Map<String, Object>> pallets, 
 			final String status) {
 			
@@ -273,11 +282,49 @@ public class SchemeViews {
 		}
 		map.put("allocation", str + "%");
 		map.put("creation", creation.toString());
-		map.put("balancer-metadata", meta);
+		map.put("balancer-metadata", meta); 
 		map.put("balancer", balancer);
 		StringBuilder sb = new StringBuilder();
 		duties.forEach(d->sb.append(d.id).append(":").append(d.weight).append(","));
 		map.put("duties", sb.toString());
 		return map;
 	}
+	
+	public String scheduleToJson(final Scheduler schedule) throws JsonProcessingException {
+		return elementToJson(getDetail(schedule.getExecutor(), schedule.getFutures()));
+				
+	}
+	
+	
+	public Map<String, Object> getDetail(
+			final ScheduledThreadPoolExecutor executor, 
+			final Map<Synchronized, ScheduledFuture<?>> futures) {
+		final Map<String, Object> ret = new HashMap<>();
+		try {
+			final long now = System.currentTimeMillis();
+			ret.put("queue-size", executor.getQueue().size());
+			ret.put("queue-threads", executor.getMaximumPoolSize());
+			ret.put("tasks-count", executor.getTaskCount());
+			ret.put("tasks-completed", executor.getCompletedTaskCount());
+			
+			for (final Runnable run : executor.getQueue()) {
+				for (final Entry<Synchronized, ScheduledFuture<?>> e : futures.entrySet()) {
+					if (e.getValue().equals(((ScheduledFuture<?>) run))) {
+						final Synchronized sync = e.getKey();
+						final Map<String, String> t = new LinkedHashMap<>();
+						//t.put("task", sync.getTask().getClass().getSimpleName());
+						t.put("exception", sync.getLastException() == null ? "" : sync.getLastException().toString());
+						t.put("last", String.valueOf(now - sync.getLastExecutionTimestamp()));
+						t.put("success-lapse", String.valueOf(sync.getLastSuccessfulExecutionLapse()));
+						t.put("success-last", String.valueOf(now - sync.getLastSuccessfulExecutionTimestamp()));
+						ret.put(sync.getTask().getClass().getSimpleName(), t);
+					}
+				}
+			}
+		} catch (Throwable t) {
+		}
+		return ret;
+	}
+
+	
 }

@@ -151,9 +151,9 @@ public class SocketClient {
 		}
 		sentCounter++;
 		if (logger.isDebugEnabled()) {
-		    logger.debug("{}: ({}) Sending: {}", classname, loggingName, msg.getPayloadType());
+		    logger.debug("{}: ({}) Sending: {}", classname, loggingName, msg.getPayloadType().getSimpleName());
 		} else if (logger.isInfoEnabled() && (sentCounter%500==0)) {
-			logger.info("{}: ({}) Sent {} # {}", classname, loggingName, msg.getPayloadType(), sentCounter);
+			logger.info("{}: ({}) Sent {} # {}", classname, loggingName, msg.getPayloadType().getSimpleName(), sentCounter);
 		}
 		
 		if (queueSize>maxQueueThreshold) {

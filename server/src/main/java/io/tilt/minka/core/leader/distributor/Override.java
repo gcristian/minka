@@ -17,6 +17,8 @@
 
 package io.tilt.minka.core.leader.distributor;
 
+import static io.tilt.minka.core.leader.distributor.Migrator.log;
+
 import java.util.Set;
 
 import io.tilt.minka.api.Pallet;
@@ -57,16 +59,16 @@ public class Override {
 	boolean apply(final ChangePlan changePlan, final PartitionScheme table) {
 		boolean anyChange = false;
 		
-		if (Migrator.log.isDebugEnabled()) {
-			Migrator.log.debug("{}: cluster built {}", getClass().getSimpleName(), entities);
+		if (log.isDebugEnabled()) {
+			log.debug("{}: cluster built {}", getClass().getSimpleName(), entities);
 			final StringBuilder tmp = new StringBuilder();
 			table.getScheme().onDuties(getShard(), pallet, d->tmp.append(d).append(", "));
-			Migrator.log.debug("{}: currents at shard {} ", getClass().getSimpleName(), tmp);
+			log.debug("{}: currents at shard {} ", getClass().getSimpleName(), tmp);
 		}
 		anyChange |= dettachDelta(changePlan, table);
 		anyChange |= attachDelta(changePlan, table);
-		if (!anyChange) {
-			Migrator.log.info("{}: Shard: {}, unchanged", getClass().getSimpleName(), shard);
+		if (!anyChange && log.isInfoEnabled()) {
+			log.info("{}: Shard: {}, unchanged", getClass().getSimpleName(), shard);
 		}
 		return anyChange;
 	}
@@ -78,7 +80,7 @@ public class Override {
 			final PartitionScheme partition) {
 
 		final StringBuilder logg = new StringBuilder(16*10);
-		final int[] detaching = new int[1];
+		final int[] count = new int[1];
 		partition.getScheme().onDuties(getShard(), pallet, detach-> {
 			if (entities == null || !entities.contains(detach)) {
 				detach.getJournal().addEvent(EntityEvent.DETACH,
@@ -87,16 +89,15 @@ public class Override {
 						changePlan.getId());
 				changePlan.ship(shard, detach);
 				logg.append(detach.getEntity().getId()).append(", ");
-				detaching[0]++;
+				count[0]++;
 			}
 		});
 		
-		if (detaching[0]>0) {
-			Migrator.log.info("{}: Shipping dettaches from: {}, duties: (#{}) {}",
-					getClass().getSimpleName(), shard.getShardID(), detaching[0], logg.toString());
-			return true;
+		if (count[0]>0 && log.isInfoEnabled()) {
+			log.info("{}: Shard: {} shipping {} (#{}) duties: {}",
+				getClass().getSimpleName(), shard.getShardID(), EntityEvent.DETACH, count[0], logg.toString());
 		}
-		return false;
+		return count[0]>0;
 	}
 
 	/* attach what's not already living in that shard */
@@ -105,11 +106,11 @@ public class Override {
 			final PartitionScheme table) {
 
 		final StringBuilder logg = new StringBuilder(10 * 16); 
-		int attaching = 0;
+		int count = 0;
 		if (entities != null) {
 			for (final ShardEntity attach: entities) {
 				if (!table.getScheme().dutyExistsAt(attach, getShard())) {
-					attaching++;
+					count++;
 					attach.getJournal().addEvent(EntityEvent.ATTACH,
 							EntityState.PREPARED,
 							shard.getShardID(),
@@ -119,12 +120,11 @@ public class Override {
 				}
 			}
 		}
-		if (attaching>0) {
-			Migrator.log.info("{}: Shipping attaches shard: {}, duty: (#{}) {}",
-				getClass().getSimpleName(), shard.getShardID(), attaching, logg.toString());
-			return true;
+		if (count>0 && log.isInfoEnabled()) {
+			Migrator.log.info("{}: Shard: {} shipping {} (#{}) duties: {}",
+				getClass().getSimpleName(), shard.getShardID(), EntityEvent.ATTACH, count, logg.toString());
 		}
-		return false;
+		return count>0;
 	}
 
 	public int hashCode() {

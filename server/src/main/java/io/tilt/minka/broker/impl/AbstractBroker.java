@@ -67,9 +67,9 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 	public void accept(final MessageMetadata meta) {
 		receivedCount++;
 		if (logger.isDebugEnabled()) {
-			logger.debug("{}: ({}) Receiving {}", classname, shardId, meta.getPayloadType());
+			logger.debug("{}: ({}) Receiving {}", classname, shardId, meta.getPayloadType().getSimpleName());
 		} else if (logger.isInfoEnabled() && (receivedCount%500==0)) {
-			logger.info("{}: ({}) Received {} # {}", classname, shardId, meta.getPayloadType(), receivedCount);
+			logger.info("{}: ({}) Received {} # {}", classname, shardId, meta.getPayloadType().getSimpleName(), receivedCount);
 		}
 		String key = meta.getInbox() + meta.getPayloadType().getSimpleName();
 		if (logger.isDebugEnabled()) {
@@ -131,7 +131,7 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 						.collect(Collectors.toCollection(ArrayList::new));
 			}
 
-			if (logger.isInfoEnabled()) {
+			if (logger.isDebugEnabled()) {
 				logger.debug("{}: ({}) Saving handler: {} on Key: {}", classname,
 					channel.getAddress().toString(), consumer.getClass().getSimpleName(), key);
 			}

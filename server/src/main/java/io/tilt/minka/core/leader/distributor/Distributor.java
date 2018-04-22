@@ -158,7 +158,7 @@ public class Distributor implements Service {
 			final ChangePlan currPlan = partitionScheme.getCurrentPlan();
 			if ((currPlan==null || currPlan.getResult().isClosed()) && 
 			        partitionScheme.getShardsHealth() == ClusterHealth.UNSTABLE) {
-				logger.warn("{}: ({}) Posponing distribution until reaching cluster stability (", getName(), shardId);
+				logger.warn("{}: ({}) Posponing distribution until reaching cluster stability", getName(), shardId);
 				return;
 			} else if (currPlan!=null && currPlan.getResult().isClosed()) {
 				if (config.getDistributor().isRunOnStealthMode() &&

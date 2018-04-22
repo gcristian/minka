@@ -19,6 +19,7 @@ package io.tilt.minka.domain;
 import static java.util.Objects.requireNonNull;
 
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
@@ -52,7 +53,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 
 	private final BrokerChannel brokerChannel;
 	private final NetworkShardIdentifier shardId;
-	private final DateTime firstTimeSeen;
+	private final Instant firstTimeSeen;
 	private final SlidingSortedSet<Heartbeat> beats;
 	
 	private DateTime lastStatusChange;
@@ -67,7 +68,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		this.shardId = requireNonNull(memberId);
 		this.serviceState = ShardState.JOINING;
 		this.beats = CollectionUtils.sliding(MAX_HEARBEATS_TO_EVALUATE);
-		this.firstTimeSeen = new DateTime(DateTimeZone.UTC);
+		this.firstTimeSeen = Instant.now();
 		this.lastStatusChange = new DateTime(DateTimeZone.UTC);
 		this.capacities = new HashMap<>();
 	}
@@ -80,7 +81,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		return this.lastStatusChange.toString();
 	}
 	@JsonIgnore
-	public DateTime getFirstTimeSeen() {
+	public Instant getFirstTimeSeen() {
 		return this.firstTimeSeen;
 	}
 	@JsonProperty(index=1, value="first-seen")

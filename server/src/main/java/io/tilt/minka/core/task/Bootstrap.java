@@ -51,9 +51,9 @@ import io.tilt.minka.utils.LogUtils;
 public class Bootstrap implements Service {
 
 	private static final long REPUBLISH_LEADER_CANDIDATE_AFTER_LOST_MS = 1000l;
-	
-	private static final Logger logger = LoggerFactory.getLogger(Bootstrap.class);
 
+	public Logger logger = Leader.logger;
+	
 	private final Config config;
 	private final ConfigValidator validator;
 	private final Leader leader;
@@ -223,7 +223,7 @@ public class Bootstrap implements Service {
 			this.serverCallbacks = new ServerCandidate() {
 				@Override
 				public void start() {
-					Bootstrap.logger.info("Bootstrap: {} Elected as Leader", leader.getShardId());
+					logger.info("Bootstrap: {} Elected as Leader", leader.getShardId());
 					leader.start();
 					scheduler.schedule(unconfidentLeader);
 					//for testing only: oppingLeader(latchName);
@@ -233,10 +233,10 @@ public class Bootstrap implements Service {
 					leader.stop();
 					scheduler.stop(unconfidentLeader);
 					if (inService()) {
-						Bootstrap.logger.info("Bootstrap: {} Stopping Leader: now Candidate", leader.getShardId());
+						logger.info("Bootstrap: {} Stopping Leader: now Candidate", leader.getShardId());
 						scheduler.schedule(bootLeadershipCandidate);
 					} else {
-						Bootstrap.logger.info("Bootstrap: {} Stopping Leader at shutdown", leader.getShardId());
+						logger.info("Bootstrap: {} Stopping Leader at shutdown", leader.getShardId());
 					}
 				}
 			};

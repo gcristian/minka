@@ -21,6 +21,7 @@ import static io.tilt.minka.core.task.Semaphore.Permission.RETRY;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
@@ -47,18 +48,17 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	/* for scheduling and stopping tasks */
-	private Map<Synchronized, ScheduledFuture<?>> futuresBySynchro;
-	private Map<Synchronized, Runnable> runnablesBySynchro;
-	private Map<Synchronized, Callable<?>> callablesBySynchro;
-	private Map<Action, Agent> agentsByAction;
-
+	private final Map<Synchronized, ScheduledFuture<?>> futuresBySynchro;
+	private final Map<Synchronized, Runnable> runnablesBySynchro;
+	private final Map<Synchronized, Callable<?>> callablesBySynchro;
+	private final Map<Action, Agent> agentsByAction;
 	private final AgentFactory agentFactory;
 	private final SynchronizedFactory syncFactory;
-	
-	/* for local scope actions */
-	private long lastCheck;
 	private final String logName;
 
+	private long counter;
+	/* for local scope actions */
+	private long lastCheck;
 	/* for global scope actions */
 	private ScheduledThreadPoolExecutor executor;
 
@@ -85,6 +85,11 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		this.runnablesBySynchro = new HashMap<>();
 		this.callablesBySynchro = new HashMap<>();
 		this.agentsByAction = new HashMap<>();
+	}
+	
+	@Override
+	public Map<Synchronized, ScheduledFuture<?>> getFutures() {
+		return futuresBySynchro;
 	}
 
 	@Override
@@ -113,7 +118,6 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 
 	private boolean stop(final Synchronized synchro, final boolean withFire) {
 		Validate.notNull(synchro);
-		checkQueue();
 		final Callable<?> callable = this.callablesBySynchro.get(synchro);
 		final Runnable runnable = this.runnablesBySynchro.get(synchro);
 		ScheduledFuture<?> future = this.futuresBySynchro.get(synchro);
@@ -171,6 +175,8 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		runnablesBySynchro.put(agent, runnable);
 		agentsByAction.put(agent.getAction(), agent);
 	}
+	
+	
 
 	/**
 	 * Executes a lambda before acquiring a service permission, then it releases it.
@@ -179,6 +185,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	@SuppressWarnings("unchecked")
 	private <R> R runSynchronized(final Synchronized sync) {
 		try {
+			counter++;
 			Validate.notNull(sync);
 			if (sync.getPriority() == PriorityLock.HIGH_ISOLATED) {
 				call(sync, false);
@@ -196,7 +203,6 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 				if (p == GRANTED) {
 					return call(sync, true);
 				} else if (p == RETRY && untilGrant) {
-					checkQueue();
 					if (retries++ < getConfig().getScheduler().getSemaphoreUnlockMaxRetries()) {
 						if (logger.isDebugEnabled()) {
 							logger.warn("{}: ({}) Sleeping while waiting to acquire lock: {}", getName(), logName, sync.getAction());
@@ -215,13 +221,11 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 						break;
 					}
 				} else {
-					checkQueue();
 					logger.error("{}: Unexpected situation !", getName());
 					break;
 				}
 			}
 		} catch (Exception e) {
-			checkQueue();
 			logger.error("{}: Unexpected ", getName(), e);
 		}
 		return null;
@@ -281,35 +285,13 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	}
 
 	@Override
+	public ScheduledThreadPoolExecutor getExecutor() {
+		return executor;
+	} 
+	
+	@Override
 	public AgentFactory getAgentFactory() {
 		return this.agentFactory;
-	}
-
-	private void checkQueue() {
-		if (!logger.isDebugEnabled()) {
-			return;
-		}
-		try {
-			final long now = System.currentTimeMillis();
-			if (now - this.lastCheck < 5 * 1000) {
-				return;
-			}
-			for (final Runnable run : this.executor.getQueue()) {
-				for (final Entry<Synchronized, ScheduledFuture<?>> e : this.futuresBySynchro.entrySet()) {
-					if (e.getValue().equals(((ScheduledFuture<?>) run))) {
-						final Synchronized sync = e.getKey();
-						logger.debug("{}: ({}) Queue check: {} ({}, {}, {}, {}", getName(), logName,
-							sync.getTask().getClass().getSimpleName(),
-							"E: " + sync.getLastException() == null ? "" : sync.getLastException(),
-							"TS:" + (now - sync.getLastExecutionTimestamp()),
-							"Success Lapse: " + (sync.getLastSuccessfulExecutionLapse()),
-							"Success TS:" + (now - sync.getLastSuccessfulExecutionTimestamp()));
-					}
-				}
-			}
-			this.lastCheck = now;
-		} catch (Throwable t) {
-		}
 	}
 
 }

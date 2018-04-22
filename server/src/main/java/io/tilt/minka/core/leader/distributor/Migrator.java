@@ -103,8 +103,8 @@ public class Migrator {
 		final ShardEntity entity = sourceRefs.get(duty);
 		validateTransfer(source_, target_, entity);
 		checkDuplicate(entity);
-		if (log.isInfoEnabled()) {
-			log.info("{}: Requesting Transfer: {} from: {} to: {}", getClass().getSimpleName(), entity.toBrief(), 
+		if (log.isDebugEnabled()) {
+			log.debug("{}: Requesting Transfer: {} from: {} to: {}", getClass().getSimpleName(), entity.toBrief(), 
 				source==null ? "[new]":source, target);
 		}
 		
@@ -140,9 +140,9 @@ public class Migrator {
 		final Shard shard_ = deref(shard);
 		final double remainingCap = validateOverride(shard_, cluster);
 		final LinkedHashSet<ShardEntity> derefed = cluster.stream().map(d->sourceRefs.get(d)).collect(toCollection(LinkedHashSet::new));
-		if (!cluster.isEmpty() && log.isInfoEnabled()) {
-			log.info("{}: Requesting Override: {}, remain cap: {}, with {}", getClass().getSimpleName(), shard_, remainingCap, 
-				ShardEntity.toStringIds(derefed));
+		if (!cluster.isEmpty() && log.isDebugEnabled()) {
+			log.debug("{}: Requesting Override: {}, remain cap: {}, with {}", getClass().getSimpleName(), shard_, 
+					remainingCap, ShardEntity.toStringIds(derefed));
 		}
 		
 		overrides.add(new Override(pallet, shard_, derefed, remainingCap));
@@ -211,7 +211,7 @@ public class Migrator {
 		if (entity.getLastEvent()==EntityEvent.REMOVE) {
 			throw new BalancingException("bad transfer: duty: %s is marked for deletion, cannot be balanced", entity);
 		}
-		partition.getBackstage().onDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED, duty-> {
+		partition.getBackstage().onDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, duty-> {
 			if (duty.equals(entity)) {
 				throw new BalancingException("bad transfer: duty: %s is just marked for deletion, cannot be balanced", entity);
 			}
@@ -238,8 +238,10 @@ public class Migrator {
 		if (isEmpty()) {
 			return false;
 		}
-		log.info("{}: Evaluating changes: {} transfers / {} overrides", getClass().getSimpleName(), 
+		if (log.isInfoEnabled()) {
+			log.info("{}: Evaluating changes: {} transfers / {} overrides", getClass().getSimpleName(), 
 				transfers!=null ? transfers.size() : 0, overrides!=null ? overrides.size() : 0);
+		}
 		if (overrides!=null) {
 			if (!anyExclusions()) {
 				for (final Override ov : overrides) {
@@ -259,7 +261,7 @@ public class Migrator {
 
 	private boolean anyExclusions() {
 	    boolean[] ret = new boolean[1];
-		partition.getBackstage().onDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED, duty-> {
+		partition.getBackstage().onDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, duty-> {
 			if (duty.getDuty().getPalletId().equals(pallet.getId()) && 
 					!inTransfers(duty) && 
 					!inOverrides(duty) && 
@@ -269,7 +271,7 @@ public class Migrator {
 			}
 		});
 		final Set<ShardEntity> deletions = new HashSet<>();
-		partition.getBackstage().onDutiesCrud(EntityEvent.REMOVE, EntityState.PREPARED, deletions::add);
+		partition.getBackstage().onDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, deletions::add);
 		partition.getScheme().onDuties(curr-> {
 			if (curr.getDuty().getPalletId().equals(pallet.getId()) && 
 			        !deletions.contains(curr) && 

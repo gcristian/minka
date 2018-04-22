@@ -97,8 +97,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 				sinceNow, 
 				ShardEntity.class, 
 				Clearance.class, 
-				ArrayList.class, 
-				DomainInfo.class);
+				ArrayList.class);
 	}
 
 	public Clearance getLastClearance() {
@@ -121,9 +120,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 	@Override
 	@SuppressWarnings("unchecked")
 	public void accept(final Serializable event) {
-		if (event instanceof DomainInfo) {
-			partitionManager.acknowledge((DomainInfo)event);
-		} else if (event instanceof ShardCommand) {
+		if (event instanceof ShardCommand) {
 			logger.info("{}: ({}) Receiving: {}", getName(), config.getLoggingShardId(), event);
 			//partitionManager.handleClusterOperation((ShardCommand) event);
 		} else if (event instanceof ShardEntity) {
@@ -159,9 +156,10 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 					logger.debug("{}: ({}) Accepting clearance from: {} (id:{})", getName(), config.getLoggingShardId(),
 							clear.getLeaderShardId(), clear.getSequenceId());
 				}
-				this.lastClearance = (Clearance) event;
+				this.lastClearance = clear;
+				partitionManager.acknowledge(clear.getInfo());
 			} else if (clear.getLeaderShardId().equals(leaderContainer.getPreviousLeaderShardId())) {
-				logger.info("{}: ({}) Ignoring remaining clearance from previous leader: {} (current is: {})",
+				logger.warn("{}: ({}) Ignoring remaining clearance from previous leader: {} (current is: {})",
 						getName(), config.getLoggingShardId(), clear.getLeaderShardId(),
 						leaderContainer.getLeaderShardId());
 			} else {

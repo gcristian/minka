@@ -16,6 +16,9 @@
  */
 package io.tilt.minka.core.task;
 
+import java.util.Map;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -114,5 +117,10 @@ public interface Scheduler extends Semaphore {
 		AgentFactory delayed(long firstDelayMs);
 		Agent build();
 	}
+
+	Map<Synchronized, ScheduledFuture<?>> getFutures();
+
+	ScheduledThreadPoolExecutor getExecutor();
+	
 
 }

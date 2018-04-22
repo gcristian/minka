@@ -16,6 +16,7 @@
  */
 package io.tilt.minka.core.leader.balancer;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -84,7 +85,7 @@ public interface Balancer {
 		public NetworkShardIdentifier getId() {
 			return this.shard.getShardID();
 		}
-		public DateTime getCreation() {
+		public Instant getCreation() {
 			return this.shard.getFirstTimeSeen();
 		}
 		@java.lang.Override

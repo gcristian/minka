@@ -69,7 +69,7 @@ class ChangePlanFactory {
 		// recently fallen shards
 		addMissingAsCrud(partition, changePlan);
 		final Set<ShardEntity> dutyCreations = new HashSet<>();
-		partition.getBackstage().onDutiesCrud(EntityEvent.CREATE, null, dutyCreations::add);
+		partition.getBackstage().onDutiesCrud(EntityEvent.CREATE::equals, null, dutyCreations::add);
 		// add danglings as creations prior to migrations
 		for (ShardEntity d: partition.getBackstage().getDutiesDangling()) {
 			dutyCreations.add(ShardEntity.Builder.builderFrom(d).build());
@@ -78,9 +78,9 @@ class ChangePlanFactory {
 		restorePendings(previousChange, dutyCreations::add);
 		
 		final Set<ShardEntity> dutyDeletions = new HashSet<>();
-		partition.getBackstage().onDutiesCrud(EntityEvent.REMOVE, null, dutyDeletions::add);
+		partition.getBackstage().onDutiesCrud(EntityEvent.REMOVE::equals, null, dutyDeletions::add);
 		// lets add those duties of a certain deleting pallet
-		partition.getBackstage().onPalletsCrud(EntityEvent.REMOVE, EntityState.PREPARED, p-> {
+		partition.getBackstage().onPalletsCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, p-> {
 			partition.getScheme().onDutiesByPallet(p.getPallet(), dutyDeletions::add);
 		});
 		registerDeletions(partition, changePlan, dutyDeletions);

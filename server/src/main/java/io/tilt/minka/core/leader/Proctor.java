@@ -56,12 +56,7 @@ import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.utils.LogUtils;
 
 /**
- * Basically observes shards behaviour and classifies in States that enables distribution
- * 
- * Analyze the {@linkplain PartitionScheme} defining a shard's {@linkplain ShardState}
- * which in turn feeds from the {@linkplain SchemeSentry} receiving {@linkplain Heartbeat}s
- * Also sends {@linkplain Clearance} messages to authorized {@linkplain Shard}s
- * and sends {@linkplain DomainInfo} messages to all shards.
+ * Observes shard's heartbeats lapses and ranks them in states.
  * 
  * @author Cristian Gonzalez
  * @since Dec 2, 2015
@@ -69,8 +64,6 @@ import io.tilt.minka.utils.LogUtils;
 public class Proctor implements Service {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
-
-	public static final String LEADER_SHARD_PATH = "leader-shard";
 
 	private final Config config;
 	private final PartitionScheme partitionScheme;

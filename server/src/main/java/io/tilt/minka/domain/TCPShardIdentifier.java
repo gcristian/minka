@@ -55,6 +55,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	private static final long serialVersionUID = 3233785408081305735L;
 	private static final Random random = new Random();
 	private static final int PORT_SEARCHES_MAX = 100;
+	private final String logName = getClass().getSimpleName();
 	// this doesnt go to leader
 	private transient final DependencyPlaceholder dependencyPlaceholder;
 
@@ -112,13 +113,13 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		Exception cause = null;
 		for (int search = 0; search < (findAnyPort ? PORT_SEARCHES_MAX : 1); this.port++, search++) {
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: {} port {}:{} (search no.{}/{}) ", getClass().getSimpleName(),
+				logger.info("{}: {} port {}:{} (search no.{}/{}) ", logName,
 					search == 0 ? "Validating" : "Falling back", sourceHost, this.port, search, PORT_SEARCHES_MAX);
 			}
 			
 			try {
 				if (logger.isInfoEnabled()) {
-					logger.info("{}: Booking port {}", getClass().getSimpleName(), this.port);
+					logger.info("{}: Booking port {}", logName, this.port);
 				}
 				bookedSocket = bookAPort(this.port);
 				if (bookedSocket != null) {
@@ -134,7 +135,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		String fallbackFailed = "Fallbacks failed - try configuring a valid open port";
 		String configFailed = "To avoid boot-up failure enable configuration parameter: brokerServerPortFallback = true";
 		final Exception excp = new IllegalArgumentException(findAnyPort ? fallbackFailed : configFailed, cause);
-		logger.error("{}: No open port Available ! {}", getClass().getSimpleName(), excp);
+		logger.error("{}: No open port Available ! {}", logName, excp);
 		throw excp;
 	}
 
@@ -145,7 +146,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 			if (!socket.isBound()) {
 				return null;
 			}
-			logger.debug("{}: Testing host {} port {} OK", getClass().getSimpleName(), sourceHost, testPort);
+			logger.debug("{}: Testing host {} port {} OK", logName, sourceHost, testPort);
 			return socket;
 		} catch (IOException e) {
 			throw new IllegalArgumentException("Testing port cannot be opened: " + testPort, e);
@@ -169,8 +170,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 			if (!sourceHost.getHostName().isEmpty() && config.getBroker().isUseMachineHostname()) {
 				id = sourceHost.getHostName();
 				if (logger.isInfoEnabled()) {
-					logger.info("{}: Using system's hostname enabled by config: {}", 
-							getClass().getSimpleName(), id);	
+					logger.info("{}: Using system's hostname enabled by config: {}", logName, id);	
 				}
 				final String suffix = config.getBroker().getShardIdSuffix();
 				if (suffix != null && !suffix.isEmpty()) {
@@ -180,7 +180,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 				id = sourceHost.getHostAddress();
 			}
 		} else {
-			logger.warn("{}: Falling back with just a random shard ID", getClass().getSimpleName());
+			logger.warn("{}: Falling back with just a random shard ID", logName);
 			id = "-" + random.nextInt(9999);
 		}
 		this.id = id + ":" + port;
@@ -193,7 +193,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		boolean specified;
 		try {
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: Looking for configured network interfase/address: {}/{}", getClass().getSimpleName(),
+				logger.info("{}: Looking for configured network interfase/address: {}/{}", logName,
 					specifiedInterfase, specifiedAddress);
 			}
 			final Enumeration<NetworkInterface> nis = NetworkInterface.getNetworkInterfaces();
@@ -201,10 +201,10 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 				final NetworkInterface ni = nis.nextElement();
 				if (specified = specifiedInterfase.contains(ni.getName())) {
 					if (ni.isLoopback()) {
-						logger.warn("{}: Loopback address not recomended !!", getClass().getSimpleName());
+						logger.warn("{}: Loopback address not recomended !!", logName);
 					}
 					if (logger.isInfoEnabled()) {
-						logger.info("{}: Specified Interfase found: {}", getClass().getSimpleName(), ni.getName());
+						logger.info("{}: Specified Interfase found: {}", logName, ni.getName());
 					}
 				}
 				final Enumeration<InetAddress> ias = ni.getInetAddresses();
@@ -214,7 +214,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 						specified &= true;
 						if (logger.isInfoEnabled()) {
 							logger.info("{}: Specified Host address found: {}:{} with Hostname {}",
-								getClass().getSimpleName(), ia.getHostAddress(), ia.getHostName());
+								logName, ia.getHostAddress(), ia.getHostName());
 						}
 					}
 					if (ia.isSiteLocalAddress()) {
@@ -223,18 +223,17 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 							return ia;
 						}
 					} else if (specified) {
-						logger.warn("{}: Specified Address: {} is not LAN candidate, "
-										+ "you should specify a non local-only valid interfase and address.",
-								getClass().getSimpleName(), ia.getHostAddress());
+						logger.warn("{}: Specified Address: {} is not LAN candidate (local)",
+								logName, ia.getHostAddress());
 					}
 				}
 			}
 		} catch (Exception e) {
 			//journal.commit(compose(getClass(), Fact.shard_finding_address).with(Result.FAILURE).with(e).build());
-			logger.error("{}: Cannot build shard id value with hostname", getClass().getSimpleName(), e);
+			logger.error("{}: Cannot build shard id value with hostname", logName, e);
 		}
 		if (fallback != null) {
-			logger.warn("{}: Using found fallback: {}!", getClass().getSimpleName(), fallback);
+			logger.warn("{}: Using found fallback: {}!", logName, fallback);
 			return fallback;
 		} else {
 			throw new IllegalArgumentException("None valid Inet address found (Specified: " + specifiedAddress + ")");

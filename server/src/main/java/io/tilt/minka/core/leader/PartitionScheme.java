@@ -19,7 +19,6 @@ package io.tilt.minka.core.leader;
 import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.STABLE;
 import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.UNSTABLE;
 
-import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -404,7 +403,7 @@ public class PartitionScheme {
 		public Set<ShardEntity> getDutiesDangling() {
 			return Collections.unmodifiableSet(this.dutyDangling);
 		}
-		public boolean addDangling(final Set<ShardEntity> dangling) {
+		public boolean addDangling(final Collection<ShardEntity> dangling) {
 			final boolean added = this.dutyDangling.addAll(dangling);
 			stealthChange |= added;
 			return added;
@@ -459,7 +458,7 @@ public class PartitionScheme {
 			removeNonStuck(dutyMissings);
 		}
 		
-		public boolean addMissing(final Set<ShardEntity> duties) {
+		public boolean addMissing(final Collection<ShardEntity> duties) {
 			final boolean added =this.dutyMissings.addAll(duties);
 			stealthChange |= added;
 			return added;
@@ -477,26 +476,32 @@ public class PartitionScheme {
 			this.dutyCrud = new HashSet<>();
 			stealthChange = true;
 		}
-		public int sizeDutiesCrud(final EntityEvent event, final EntityState state) {
+		public int sizeDutiesCrud(final Predicate<EntityEvent> event, final Predicate<EntityState> state) {
 			final int[] size = new int[1];
 			onEntitiesCrud(ShardEntity.Type.DUTY, event, state, e->size[0]++);
 			return size[0];
 		}
-		public void onDutiesCrud(final EntityEvent event, final EntityState state, final Consumer<ShardEntity> consumer) {
+		public void onDutiesCrud(
+				final Predicate<EntityEvent> event, 
+				final Predicate<EntityState> state, 
+				final Consumer<ShardEntity> consumer) {
 			onEntitiesCrud(ShardEntity.Type.DUTY, event, state, consumer);
 		}
-		public void onPalletsCrud(final EntityEvent event, final EntityState state, final Consumer<ShardEntity> consumer) {
+		public void onPalletsCrud(
+				final Predicate<EntityEvent> event, 
+				final Predicate<EntityState> state, 
+				final Consumer<ShardEntity> consumer) {
 			onEntitiesCrud(ShardEntity.Type.PALLET, event, state, consumer);
 		}
 		private void onEntitiesCrud(
 				final ShardEntity.Type type, 
-				final EntityEvent event, 
-				final EntityState state, 
+				final Predicate<EntityEvent> eventPredicate, 
+				final Predicate<EntityState> statePredicate, 
 				final Consumer<ShardEntity> consumer) {
 			
 			(type == ShardEntity.Type.DUTY ? getDutiesCrud() : palletCrud).stream()
-				.filter(e -> (event == null || e.getJournal().getLast().getEvent() == event) 
-					&& (state == null || e.getJournal().getLast().getLastState() == state))
+				.filter(e -> (eventPredicate == null || eventPredicate.test(e.getJournal().getLast().getEvent())) 
+					&& (statePredicate == null || (statePredicate.test(e.getJournal().getLast().getLastState()))))
 				.forEach(consumer);
 		}
 
