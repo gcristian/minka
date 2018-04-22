@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -51,9 +50,11 @@ public class Delivery {
 	private final EntityEvent event;
 	private final int order;
 	private final long planId;
-
+	
 	private Step step;
-
+	@JsonIgnore
+	private boolean sent;
+	
 	protected Delivery(
 			final List<ShardEntity> duties,
 			final Shard shard,
@@ -68,8 +69,13 @@ public class Delivery {
 		this.planId = planId;
 		this.step = Step.ENQUEUED;
 	}
+	@JsonIgnore
 	public int getOrder() {
 		return this.order;
+	}
+	
+	public void markSent() {
+		this.sent = true;
 	}
 
 	@JsonIgnore
@@ -83,6 +89,7 @@ public class Delivery {
 	public EntityEvent getEvent() {
 		return event;
 	}
+	@JsonIgnore
 	public long getPlanId() {
 		return this.planId;
 	}
@@ -128,7 +135,7 @@ public class Delivery {
 		if (step == Step.ENQUEUED) {
 			if (duties.isEmpty()) {
 				throw new IllegalStateException("delivery without duties cannot go to pending !");
-			} else {
+			} else if (sent) {
 				step = Step.PENDING;
 			}
 		} else if (step == Step.PENDING) {

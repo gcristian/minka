@@ -306,6 +306,7 @@ public class Distributor implements Service {
 			}			
 			if (eventBroker.send(delivery.getShard().getBrokerChannel(), (List)payload)) {
 				// dont mark to wait for those already confirmed (from fallen shards)
+				delivery.markSent();
 				logs.forEach(l->l.addState(EntityState.PENDING));
 			} else {
 				logger.error("{}: Couldnt transport current issues !!!", getName());
