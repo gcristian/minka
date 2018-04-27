@@ -26,11 +26,11 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Server;
-import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Pallet;
+import io.tilt.minka.api.Server;
 import io.tilt.minka.utils.LogUtils;
 
 /**
@@ -65,12 +65,6 @@ public class BasicAppEmulator {
 	public Server<String, String> getServer() {
 		return this.server;
 	}
-
-	public void close() {
-		if (this.server != null) {
-			this.server.destroy();
-		}
-	}
 	
 	public void launch(final DummyDataProvider loader) throws Exception {
 		java.util.Objects.requireNonNull(loader);
@@ -78,45 +72,47 @@ public class BasicAppEmulator {
 		final Set<Duty<String>> duties = new TreeSet<>(loader.loadDuties());
 		final Set<Pallet<String>> pallets = new TreeSet<>(loader.loadPallets());
 
+		config.getBootstrap().setServiceName("basic-app-emulator");
 		server = new Server<>(config);
 
 		// data only needed for logging
 		this.shardId = config.getResolvedShardId().getId();
 		logger.info("{} Loading {} duties: {}", shardId, duties.size(), toStringGroupByPallet(duties));
 		// optional info
-		server.setLocationTag(server.getClient().getShardIdentity() +"-eltag");
-		
-		server.onPalletLoad(() -> pallets);
-		server.onLoad(()-> duties);
-		
-		server.onCapture((final Set<Duty<String>> t) -> {
-			// start tasks
-			logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "taking"));
-			logger.info("{} # {}+ ({})", shardId, t.size(), toStringIds(t));
-			runningDuties.addAll(t);
-		});
-		server.onPalletCapture((p)->logger.info("Taking pallet: {}", p.toString()));
-		
-		server.onRelease((final Set<Duty<String>> entities)-> {
-			// stop tasks previously started
-			logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "releasing"));
-			logger.info("{} # -{} ({})", shardId, entities.size(), toStringIds(entities));
-			runningDuties.removeAll(entities);
-		});
-		server.onPalletRelease((p)->logger.info("Releasing pallet: {}", p.toString()));
-				
+		server.getEventMapper()
+			.setLocationTag(server.getClient().getShardIdentity() +"-eltag")
+			.onPalletLoad(() -> pallets)
+			.onLoad(()-> duties)
+			.onCapture((final Set<Duty<String>> t) -> {
+				// start tasks
+				logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "taking"));
+				logger.info("{} # {}+ ({})", shardId, t.size(), toStringIds(t));
+				runningDuties.addAll(t);
+			})
+			.onPalletCapture((p)->logger.info("Taking pallet: {}", p.toString()))
+			.onRelease((final Set<Duty<String>> entities)-> {
+				// stop tasks previously started
+				logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "releasing"));
+				logger.info("{} # -{} ({})", shardId, entities.size(), toStringIds(entities));
+				runningDuties.removeAll(entities);
+			})
+			.onPalletRelease((p)->logger.info("Releasing pallet: {}", p.toString()))
+			.onActivation(()-> {
+				this.shardId = server.getClient().getShardIdentity();
+				logger.info("{}: Activating", this.shardId);
+			})
+			.onDeactivation(()->logger.info("de-activating"))
+			.onUpdate(d->logger.info("receiving update for: {}", d))
+			.onTransfer((d, e)->logger.info("receiving transfer to: {}", d))
+			.done()
+			;
+			
 		for (final Pallet<String> pallet: pallets) {
-			server.setCapacity(pallet, loader.loadShardCapacity(pallet, duties, server.getClient().getShardIdentity()));			
+			server.getEventMapper().setCapacity(pallet, loader.loadShardCapacity(pallet, duties, server.getClient().getShardIdentity()));			
 		}
 		
-		server.onActivation(()-> {
-			this.shardId = server.getClient().getShardIdentity();
-			logger.info("{}: Activating", this.shardId);
-		});
-		server.onDeactivation(()->logger.info("de-activating"));
-		server.onUpdate(d->logger.info("receiving update: {}", d));
-		server.onTransfer((d, e)->logger.info("receiving transfer: {}", d));
-		server.load();
+		
+		
 		
 		//afterLoad(pallets);
 		

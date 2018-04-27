@@ -6,11 +6,11 @@ import java.io.Serializable;
 import java.net.URI;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.lang.Validate;
 import org.glassfish.grizzly.http.server.HttpServer;
@@ -27,50 +27,43 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 import io.tilt.minka.api.config.BootstrapConfiguration;
 import io.tilt.minka.api.config.BrokerConfiguration;
 import io.tilt.minka.api.config.SchedulerConfiguration;
-import io.tilt.minka.core.leader.balancer.Balancer;
+import io.tilt.minka.api.inspect.AdminEndpoint;
 import io.tilt.minka.domain.AwaitingDelegate;
-import io.tilt.minka.domain.ConsumerDelegate;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.PartitionDelegate;
 import io.tilt.minka.domain.PartitionMaster;
-import io.tilt.minka.domain.ConsumerDelegate.MappingEvent;
 
 /**
- * System initiator and context holder.<br>
- * You should only create one instance per application willing to distribute duties .<br> <br>
- * Although many instances can coexist within the same JVM under different namespace, is not recommended.<br>
- * Each server instance will spawn the underlying context registering at Zookkeeper and starting TCP broker services.<br>   
+ * System initiator and holder.<br>
+ * Use an {@linkplain EventMapper} to map required and optional sharding events, or use your own implementation
+ * of {@linkplain PartitionMaster} and {@linkplain PartitionDelegate} <br>
+ * <br>
+ * Each server instance will spawn the underlying context which connects to Zookkeeper and starts network broker services.<br>   
+ * Although many instances can coexist within the same JVM under different service names, is not recommended.
+ * You should only create one instance per application willing to distribute duties .<br>
+ * <br>
  * By default all Minka services excluding broker service, run several tasks within a one-thread-only ThreadPoolExecutor.<br>
- * <br> <br>
- * Some events are mandatory and others are optional depending client's needs,
- * strictly related to the usage of {@linkplain Client}. <br>
- * Once this class is created: the context gets created and started, Minka boots-up and waits for all events to be mapped,
- * unless load() is called which validates for mapped mandatory events. <br>
- * Client may or not need some pallet events, all duties hold its pallet information as well. <br>
- * <br> <br>
- * Shard capacities are required if client uses a balancer that depends on duty weights. <br> <br>
- * <br> <br>
- * Usually client will map events capture and release for duties, and will use setCapacities to report
- * its specific node capacities for each pallet.
+ * After an instance is created: the context gets initialized and waits for {@linkplain Server.load()}. <br>  
  * 
  * @author Cristian Gonzalez
  * @since Sept 20, 2016
  * @param <D>	the duty payload type
  * @param <P>	the pallet payload type
  */
-@SuppressWarnings("unchecked")
 public class Server<D extends Serializable, P extends Serializable> {
 
 	private static final String CONTEXT_PATH = "classpath:io/tilt/minka/config/context-minka-spring.xml";
 	
-	private static final Logger logger = LoggerFactory.getLogger(Server.class);
-	private final String logname = getClass().getSimpleName();
-
+	protected static final Logger logger = LoggerFactory.getLogger(Server.class);
+	private final String name = getClass().getSimpleName();
+	
 	/* to enable many minka shards on the same JVM */
 	private static final Map<String, Tenant> tenants = new ConcurrentHashMap<>();
+	private static Lock lock = new ReentrantLock();
 	
 	/* current holder's tenant, and one for each instance held by applications */
 	private Tenant tenant;
+	private EventMapper<D, P> mapper;
 	
 	/** 
 	 * Create a Minka server. All mandatory events must be mapped to consumers/suppliers.
@@ -96,10 +89,12 @@ public class Server<D extends Serializable, P extends Serializable> {
 	 * @param zookeeperConnectionString		in the form hostname:port/chroot 
 	 * @param minkaHostPort		in the form hostname:port
 	 */
-	public Server(final String zookeeperConnectionString, final String minkaHostPort)  {
+	public Server(final String zookeeperConnectionString, final String minkaHostPort, final String serviceName)  {
 		Validate.notNull(zookeeperConnectionString);
 		Validate.notNull(minkaHostPort);
+		Validate.notNull(serviceName);
 		final Config config = new Config(zookeeperConnectionString, minkaHostPort);
+		config.getBootstrap().setServiceName(serviceName);
 		init(config);
 	}
 	/**
@@ -107,12 +102,16 @@ public class Server<D extends Serializable, P extends Serializable> {
 	 * All mandatory events must be mapped to consumers/suppliers.
 	 * Shard will attempt to take a port over 5748, trying increased ports if busy.
 	 * Rest API will take port 57480
+	 * 
+	 * @param zookeeperConnectionString in the zookeeper form hostname:port/chroot
 	 * @param zookeeperConnectionString in the zookeeper form hostname:port/chroot
 	 */
-	public Server(final String zookeeperConnectionString)  {
+	public Server(final String zookeeperConnectionString, final String serviceName)  {
 		Validate.notNull(zookeeperConnectionString);
-		Config conf = new Config(zookeeperConnectionString);
-		init(conf);
+		Validate.notNull(serviceName);
+		Config config = new Config(zookeeperConnectionString);
+		config.getBootstrap().setServiceName(serviceName);
+		init(config);
 	}
 	/**
 	 * Create a Minka server with default configuration. 
@@ -127,38 +126,100 @@ public class Server<D extends Serializable, P extends Serializable> {
 		return tenant.getConfig();
 	}
 	
-	private void init(final Config config) {
-		// TODO fix im ignoring config arg.
-		final String serviceName = config.getBootstrap().getServiceName();
-		logger.info("{}: Initializing context for service: {}", getClass().getSimpleName(), serviceName);
-		tenants.put(config.getBootstrap().getServiceName(), tenant = new Tenant());
+	/**
+	 * Used when avoiding a client implementation of {@linkplain PartitionMaster}. 
+	 * @return the event mapper instance associated with this server
+	 */
+	public EventMapper<D, P> getEventMapper() {
+		return this.mapper;
+	}
+	
+	private void init(final Config config) {		
+		createTenant(config);
 		tenant.setConfig(config);
+		// TODO fix im ignoring config arg.
 		final ClassPathXmlApplicationContext ctx = new ClassPathXmlApplicationContext(new String[] { CONTEXT_PATH }, false);
 		tenant.setContext(ctx);
 		ctx.addBeanFactoryPostProcessor(beanFactory-> beanFactory.registerSingleton("config", config));
-		ctx.setDisplayName("minka-" + serviceName + "-ts:" + System.currentTimeMillis());
-		logger.info("{}: Using configuration", getClass().getSimpleName(), config);
+		final String serviceName = config.getBootstrap().getServiceName();
+		ctx.setDisplayName(new StringBuilder("minka-")
+				.append(serviceName)
+				.append("-ts:")
+				.append(System.currentTimeMillis())
+				.toString());
+		logger.info("{}: Using configuration", name, config);
 		ctx.setId(serviceName);
-		logger.info("{}: Naming context: {}", getClass().getSimpleName(), ctx.getId());
+		logger.info("{}: Naming context: {}", name, ctx.getId());
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> destroy()));
-		start();
+		mapper = new EventMapper<D, P>(tenant);
+		startContext();
+	}
+	
+	private void createTenant(final Config config) {
+		final String serviceName = config.getBootstrap().getServiceName();
+		RuntimeException runtime = null;
+		boolean locked = false;
+		try {
+			locked = lock.tryLock(500l, TimeUnit.MILLISECONDS);
+		} catch (InterruptedException e) {
+			throw new IllegalStateException("Other minka instances are being run concurrently (max 10 lock tries exhausted)");
+		}
+		if (locked) {
+			try {
+				// service cannot be default or preexistent if ZK's chroot is not set
+				final boolean chrootUsed = config.getBootstrap().getZookeeperHostPort().indexOf('/') > 0;
+				final boolean duplicateName = tenants.containsKey(serviceName);
+				if (!chrootUsed && duplicateName) {
+					runtime = new IllegalArgumentException("a service with the name: " + serviceName + " already exists!");
+				} else {
+					if (!duplicateName) {
+						final long maxTenants = config.getBootstrap().getMaxServicesPerMachine();
+						if (tenants.size()>maxTenants) {
+							runtime = new IllegalStateException("There's been created " + tenants.size() 
+								+ " server/s already in this VM. If you indeed want that many: "
+								+ " increase bootstrap's MAX_SERVICES_PER_MACHINE default value");
+						}
+					} else {
+						runtime = new IllegalArgumentException("There're " + tenants.size() + " server/s already" 
+								+ "in this VM with the same service-name: set a different one");
+					}
+				}
+				for (Tenant t: tenants.values()) {
+					logger.warn("Tenant: service name: {} on broker hostport: {}", 
+							t.getConfig().getBootstrap().getServiceName(), t.getConfig().getBroker().getHostPort());
+				}
+				logger.info("{}: Initializing context for service: {}", name, serviceName);
+				if (duplicateName) {
+					// client should not depend on it anyway
+					final String newName = serviceName + "_" + new Random(System.currentTimeMillis()).nextInt(999999);
+					logger.warn("{}: Overwritting service name: {} to avoid colission with other servers within the same JVM", 
+							name, newName);
+					config.getBootstrap().setServiceName(newName);
+				}
+				tenants.put(config.getBootstrap().getServiceName(), tenant = new Tenant());
+			} finally {
+				lock.unlock();
+			}
+		}
+		if (runtime != null) {
+			throw runtime;
+		}
 	}
 	   
-	private void start() {
+	private void startContext() {
 		if (!tenant.getContext().isActive()) {
 			tenant.getContext().refresh();
 			if (tenant.getConfig().getBootstrap().isEnableWebserver()) {
 				startWebserver();
 			} else {
-				logger.info("{}: Webserver disabled by configuration. Enable for a fully functional shard", 
-						getClass().getSimpleName());
+				logger.info("{}: Webserver disabled by configuration. Enable for a fully functional shard", name);
 			}
 		} else {
-			logger.error("{}: Can only load Minka once !", getClass().getSimpleName());
+			logger.error("{}: Can only load Minka once !", name);
 		}
 	}
 
-	public void startWebserver() {
+	private void startWebserver() {
 		final ResourceConfig res = new ResourceConfig(AdminEndpoint.class);
 		
 		res.property("contextConfig", tenant.getContext());
@@ -173,7 +234,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 		final Iterator<NetworkListener> it = webServer.getListeners().iterator();
 		while (it.hasNext()) {
 			final NetworkListener listener = it.next();
-			logger.info("{}: Reconfiguring webserver listener {}", getClass().getSimpleName(), listener);
+			logger.info("{}: Reconfiguring webserver listener {}", name, listener);
 			listener.getTransport().setSelectorRunnersCount(1);
 			((GrizzlyExecutorService)listener.getTransport().getWorkerThreadPool()).reconfigure(
 					config.copy().setPoolName(SchedulerConfiguration.THREAD_NAME_WEBSERVER_WORKER));
@@ -181,48 +242,17 @@ public class Server<D extends Serializable, P extends Serializable> {
 					config.copy().setPoolName(SchedulerConfiguration.THREAD_NAME_WEBSERVER_KERNEL));
 		}
 		
-		/*
-		
-		org.glassfish.grizzly.http.server.servlet.WebappContext context = new WebappContext("WebappContext", JERSEY_SERVLET_CONTEXT_PATH);
-        
-        // Initialize and register Jersey Servlet
-        FilterRegistration registration = context.addFilter("ServletContainer", ServletContainer.class);
-        registration.setInitParameter(ServletContainer.RESOURCE_CONFIG_CLASS, 
-                ClassNamesResourceConfig.class.getName());
-        registration.setInitParameter(ClassNamesResourceConfig.PROPERTY_CLASSNAMES, IndexModel.class.getName());
-        registration.setInitParameter("com.sun.jersey.config.property.JSPTemplatesBasePath",
-                "/WEB-INF/jsp");
-        // configure Jersey to bypass non-Jersey requests (static resources and jsps)
-        registration.setInitParameter("com.sun.jersey.config.property.WebPageContentRegex",
-                "(/(image|js|css)/?.*)|(/.*\\.jsp)|(/WEB-INF/.*\\.jsp)|"
-                + "(/WEB-INF/.*\\.jspf)|(/.*\\.html)|(/favicon\\.ico)|"
-                + "(/robots\\.txt)");
-        
-        registration.addMappingForUrlPatterns(EnumSet.allOf(DispatcherType.class), "/*");
-
-        // Initialize and register JSP Servlet        
-        ServletRegistration jspRegistration = context.addServlet(
-                "JSPContainer", JspServlet.class.getName());
-        jspRegistration.addMapping("/*");
-        
-        // Set classpath for Jasper compiler based on the current classpath
-        context.setAttribute(JSP_CLASSPATH_ATTRIBUTE,
-                System.getProperty("java.class.path"));
-        
-        context.deploy(httpServer);
-*/
-		
         // TODO disable ssl etc
 		tenants.get(tenant.getConfig().getBootstrap().getServiceName()).setWebServer(webServer);
 		try {
 			webServer.start();
 		} catch (IOException e) {
-			logger.info("{}: Unable to start web server", getClass().getSimpleName(), e);
+			logger.info("{}: Unable to start web server", name, e);
 		}
     }
 
 	/* by default bind to the same broker's host interfase and if changed use broker's port plus 100 */
-	public URI resolveWebServerBindAddress(final Config config) {
+	private URI resolveWebServerBindAddress(final Config config) {
 		final String[] brokerHostPort = config.getBroker().getHostPort().split(":");
     	final JerseyUriBuilder builder = new JerseyUriBuilder();
     	final BootstrapConfiguration bs = config.getBootstrap();
@@ -242,7 +272,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 		}
 		config.getResolvedShardId().setWebHostPort(webhostport);
 		config.getBootstrap().setWebServerHostPort(webhostport);
-		logger.info("{}: Web host:port = {}", webhostport);
+		logger.info("{}: Web host:port = {}", name, webhostport);
 		builder.path(config.getBootstrap().getWebServerContextPath());
 		return builder.build();
 	}
@@ -253,7 +283,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 		}
 	}
 	
-	public synchronized void destroy() {
+	protected synchronized void destroy() {
 		if (tenant != null && tenant.getContext().isActive()) {
 			tenant.getContext().close();
 			if (tenant.getConfig().getBootstrap().isEnableWebserver() && tenant.getWebServer()!=null) {
@@ -261,9 +291,44 @@ public class Server<D extends Serializable, P extends Serializable> {
 			}
 			tenant = null;
 		} else {
-			logger.error("{}: Can only destroy service's context once !", getClass().getSimpleName());
+			logger.error("{}: Can only destroy service's context once !", name);
 		}
 	}
+	
+	private DependencyPlaceholder getDepPlaceholder() {
+		return tenant.getContext().getBean(DependencyPlaceholder.class);
+	}
+
+	
+	/**
+	 * An alternative way of mapping duty and pallet events, thru an implementation class.
+	 * @param delegate	a fully implementation class of a partition delegate
+	 * @return	the server builder
+	 */
+	public void setDelegate(final PartitionDelegate<?, ?> delegate) {
+		Validate.notNull(delegate);
+		checkInit();		
+		final DependencyPlaceholder holder = getDepPlaceholder();
+		Validate.isTrue(holder==null || (holder.getDelegate() instanceof AwaitingDelegate), 
+				"You're overwriting previous delegate or event's consumer: " + delegate.getClass().getSimpleName());
+		logger.info("{}: Using new PartitionDelegate: {}", name, delegate.getClass().getSimpleName());
+		holder.setDelegate(delegate);
+	}
+	/**
+	 * An alternative way of mapping duty and pallet events, thru an implementation class.
+	 * @param master a fully implementation class of a partition master
+	 * @return	the server builder
+	 */
+	public void setMaster(final PartitionMaster<?, ?> master) {
+		Validate.notNull(master);
+		checkInit();		
+		final DependencyPlaceholder holder = getDepPlaceholder();
+		Validate.isTrue(holder==null || (holder.getMaster() instanceof AwaitingDelegate), 
+				"You're overwriting previous delegate or event's consumer: " + master.getClass().getSimpleName());
+		logger.info("{}: Using new PartitionMaster: {}", name, master.getClass().getSimpleName());
+		getDepPlaceholder().setMaster(master);
+	}
+
 	
 	/**
 	 * Minka service must be fully initialized before being able to obtain an operative client
@@ -274,232 +339,15 @@ public class Server<D extends Serializable, P extends Serializable> {
 		return tenant.getContext().getBean(Client.class);
 	}
 	
-	private DependencyPlaceholder getDepPlaceholder() {
-		return tenant.getContext().getBean(DependencyPlaceholder.class);
-	}
-	/**
-	 * An alternative way of mapping duty and pallet events, thru an implementation class.
-	 * @param delegate	a fully implementation class of a partition delegate
-	 * @return	the server builder
-	 */
-	public Server<D, P> setDelegate(final PartitionDelegate<D, P> delegate) {
-		Validate.notNull(delegate);
-		checkInit();
-		logger.info("{}: Using new PartitionDelegate: {}", getClass().getSimpleName(),
-				delegate.getClass().getSimpleName());
-		final DependencyPlaceholder holder = getDepPlaceholder();
-		Validate.isTrue(holder==null || (holder.getDelegate() instanceof AwaitingDelegate), 
-				"You're overwriting previous delegate or event's consumer");
-		holder.setDelegate(delegate);
-		return this;
-	}
-	/**
-	 * An alternative way of mapping duty and pallet events, thru an implementation class.
-	 * @param master a fully implementation class of a partition master
-	 * @return	the server builder
-	 */
-	public Server<D, P> setMaster(final PartitionMaster<D, P> master) {
-		Validate.notNull(master);
-		checkInit();
-		logger.info("{}: Using new PartitionMaster: {}", getClass().getSimpleName(), master.getClass().getSimpleName());
-		final DependencyPlaceholder holder = getDepPlaceholder();
-		Validate.isTrue(holder==null || (holder.getMaster() instanceof AwaitingDelegate), 
-				"You're overwriting previous delegate or event's consumer");
-		getDepPlaceholder().setMaster(master);
-		return this;
-	}
-	
-	// ---------- consumer delegate usage 
-	
-	private synchronized void initConsumerDelegate() {
-		checkInit();
-		DependencyPlaceholder holder = getDepPlaceholder();
-		if (holder.getMaster() == null || holder.getMaster() instanceof AwaitingDelegate) {
-			final ConsumerDelegate<Serializable, Serializable> delegate = new ConsumerDelegate<>();
-			holder.setDelegate(delegate);
-			holder.setMaster(delegate);
-		} else {
-			Validate.isTrue(holder.getDelegate() instanceof ConsumerDelegate, 
-					"You're trying event's consumer with an already implementation set");				
-		}
-	}
-	/**
-	 * Mandatory. In case the current shard's elected as Leader.
-	 * Remember the supplier's source of duties must be ACID with the Client methods used to CRUD duties.
-	 * As long as Minka lacks of a CAP storage facility.
-	 * Note duty instances should be created only once and then references returned. 
-	 * To avoid inconsistency their return must always include any additions made thru {@linkplain Client}
-	 * @param supplier	to be called only at shard's election as Leader  
-	 * @return	the server builder
-	 */
-	public Server<D, P> onLoad(final Supplier<Set<Duty<D>>> supplier) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getMaster()).addSupplier(MappingEvent.loadduties, supplier);
-		return this;
-	}
-	/**
-	 * Mandatory. In case the current shard's elected as Leader.
-	 * To avoid inconsistency their return must always include any additions made thru {@linkplain Client}
-	 * @param supplier	to be called only at shard's election as Leader
-	 * @return	the server builder  
-	 */
-	public Server<D, P> onPalletLoad(final Supplier<Set<Pallet<P>>> supplier) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getMaster()).addPalletSupplier(supplier);
-		return this;
-	}
-	/**
-	 * Mandatory. Map duty distribution and delegation responsibilities to a consumer 
-	 * @see PartitionDelegate
-	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
-	 * @return	the server builder
-	 */
-	public Server<D, P> onCapture(final Consumer<Set<Duty<D>>> consumer) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumer(consumer, MappingEvent.capture);
-		return this;
-	}
-	/**
-	 * Required optional. Map pallet assignation responsibilities to a consumer 
-	 * @see PartitionDelegate
-	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
-	 * @return	the server builder
-	 */
-	public Server<D, P> onPalletCapture(final Consumer<Set<Pallet<P>>> consumer) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerPallet(consumer, MappingEvent.capture);
-		return this;
-	}	
-	/**
-	 * Mandatory. Map duty release contract to a consumer 
-	 * @see PartitionDelegate
-	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
-	 * @return	the server builder
-	 */
-	public Server<D, P> onRelease(final Consumer<Set<Duty<D>>> consumer) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumer(consumer, MappingEvent.release);
-		return this;
-	}
-	/**
-	 * Required optional. Map pallet release contract to a consumer 
-	 * @see PartitionDelegate
-	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
-	 * @return	the server builder
-	 */
-	public Server<D, P> onPalletRelease(final Consumer<Set<Pallet<P>>> consumer) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerPallet(consumer, MappingEvent.releasePallet);
-		return this;
-	}
-	/**
-	 * Optional. Map an update on the duty's payload to a consumer
-	 * @param consumer	to be called only on client's call thru Client.update(..)
-	 * @return	the server builder
-	 */
-	public Server<D, P> onUpdate(final Consumer<Duty<D>> consumer) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerUpdate(consumer);
-		return this;
-	}
-	/**
-	 * Optional. Map an update on the pallet's payload to a consumer
-	 * @param consumer	to be called only on client's call thru MinkaClient.update(..)
-	 * @return	the server builder
-	 */
-	public Server<D, P> onPalletUpdate(final Consumer<Pallet<P>> consumer) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addConsumerUpdatePallet(consumer);
-		return this;
-	}
-	/**
-	 * Optional. Map duty object's transfer responsibilities to a receptionist consumer 
-	 * @see PartitionDelegate
-	 * @param biconsumer	to be called only on client's call thru MinkaClient.deliver(...)
-	 * @return	the server builder
-	 */
-	public Server<D, P> onTransfer(final BiConsumer<Duty<D>, Serializable> biconsumer) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addBiConsumerTransfer(biconsumer);
-		return this;
-	}
-	public Server<D, P> onPalletTransfer(final BiConsumer<Pallet<P>, Serializable> biconsumer) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addBiConsumerTransferPallet(biconsumer);
-		return this;
-	}
-	/**
-	 * Optional. Adds a custom balancer
-	 * @param balancer	to use at balancing phase
-	 * @return	the server builder
-	 */
-	public Server<D, P> onBalance(final Balancer balancer) {
-		Validate.notNull(balancer);
-		Balancer.Directory.addCustomBalancer(balancer);
-		return this;
-	}
-	/**
-	 * Optional. Map minka's service start to a consumer
-	 * @param runnable callback to run at event dispatch
-	 * @return	the server builder
-	 */
-	public Server<D, P> onActivation(final Runnable runnable) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addRunnable(MappingEvent.activation, runnable);
-		return this;
-	}
-	/**
-	 * Optional. Map minka's service shutdown to a consumer. 
-	 * @param runnable	callback to run at event dispatch
-	 * @return	the server builder
-	 */
-	public Server<D, P> onDeactivation(final Runnable runnable) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addRunnable(MappingEvent.deactivation, runnable);
-		return this;
-	}
-	/**
-	 * Mandatory for pallets using a weighted-balancer to be actually distributed. <br> 
-	 * Explicitly set current shard's capacity for a given Pallet.
-	 * Weight value's measure is not validated by Minka against duty weight measure.  
-	 * @param weight 	must be in the same measure than duty weights grouped by this pallet
-	 * @param pallet	the pallet to report capacity about
-	 * @return	the server builder
-	 */
-	public Server<D, P> setCapacity(final Pallet<P> pallet, final double weight) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).addCapacity(pallet, weight);
-		return this;
-	}
-	
-	/**
-	 * Optional. To be used by custom balancers as a server reference.
-	 * @param tag  any user's meaningful value to the current Minka's location 
-	 * @return  the server builder
-	 */
-	public Server<D, P> setLocationTag(final String tag) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).setLocationTag(tag);
-		return this;
-	}
-	
-	/**
-	 * Mandatory. After creating this loader the context is created and the Minka's bootstrap process waits
-	 * for all mandatory and optional events to be mapped: before calling load()
-	 * This explicitly releases the bootstrap wait, but not without event's mapping validation.
-	 * The load will also occurr if all optional and mandatory events are mapped.
-	 * @return	the server builder
-	 */
-	public Server<D, P> load() {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).setExplicitlyReady();
-		return this;
-	}
 
-	private static class Tenant {
+	/**
+	 * A way to permit several Server instances running within the same VM
+	 */
+	protected static class Tenant {
 		private HttpServer webServer;
 		private ClassPathXmlApplicationContext context;
 		private Config config;
+		private Tenant() {}
 		public HttpServer getWebServer() {
 			return this.webServer;
 		}

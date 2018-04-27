@@ -98,41 +98,41 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		this.capacities = new HashMap<>();
 	}
 	
-	public void addConsumer(final Consumer<Set<Duty<D>>> consumer, final MappingEvent event) {
+	public void putConsumer(final Consumer<Set<Duty<D>>> consumer, final MappingEvent event) {
 		Validate.notNull(consumer);
 		this.consumers.put(event, consumer);
 	}
-	public void addConsumerPallet(final Consumer<Set<Pallet<P>>> consumer, final MappingEvent event) {
+	public void putConsumerPallet(final Consumer<Set<Pallet<P>>> consumer, final MappingEvent event) {
 		Validate.notNull(consumer);
 		this.consumersPallets.put(event, consumer);
 	}
-	public void addRunnable(final MappingEvent event, final Runnable runnable) {
+	public void putRunnable(final MappingEvent event, final Runnable runnable) {
 		Validate.notNull(runnable);
 		this.runnables.put(event, runnable);
 	}
-	public  void addPalletSupplier(final Supplier<Set<Pallet<P>>> supplier) {
+	public  void setPalletSupplier(final Supplier<Set<Pallet<P>>> supplier) {
 		Validate.notNull(supplier);
 		this.palletSupplier = supplier;
 	}
-	public void addSupplier(final MappingEvent event, final Supplier<Set<Duty<D>>> supplier) {
+	public void putSupplier(final MappingEvent event, final Supplier<Set<Duty<D>>> supplier) {
 		Validate.notNull(supplier);
 		this.suppliers.put(event, supplier);
 	}
-	public void addCapacity(final Pallet<P> pallet, final Double weight) {
+	public void putCapacity(final Pallet<P> pallet, final Double weight) {
 		Validate.notNull(pallet);
 		Validate.notNull(weight);
 		this.capacities.put(pallet, weight);
 	}
-	public void addBiConsumerTransfer(final BiConsumer<Duty<D>, Serializable> biconsumerTransfer) {
+	public void setBiConsumerTransfer(final BiConsumer<Duty<D>, Serializable> biconsumerTransfer) {
 		this.biconsumerTransfer = biconsumerTransfer;
 	}
-	public void addBiConsumerTransferPallet(final BiConsumer<Pallet<P>, Serializable> biconsumerTransferPallet) {
+	public void setBiConsumerTransferPallet(final BiConsumer<Pallet<P>, Serializable> biconsumerTransferPallet) {
 		this.biconsumerPalletTransfer = biconsumerTransferPallet;
 	}
-	public void addConsumerUpdate(final Consumer<Duty<D>> consumerUpdate) {
+	public void setConsumerUpdate(final Consumer<Duty<D>> consumerUpdate) {
 		this.consumerUpdate = consumerUpdate;
 	}	
-	public void addConsumerUpdatePallet(final Consumer<Pallet<P>> consumerUpdate) {
+	public void setConsumerUpdatePallet(final Consumer<Pallet<P>> consumerUpdate) {
 		this.consumerPalletUpdate = consumerUpdate;
 	}	
 

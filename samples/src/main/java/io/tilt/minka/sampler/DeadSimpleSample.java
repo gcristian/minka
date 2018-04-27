@@ -22,8 +22,8 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Server;
 import io.tilt.minka.api.Pallet;
+import io.tilt.minka.api.Server;
 
 public class DeadSimpleSample {
 
@@ -43,22 +43,20 @@ public class DeadSimpleSample {
 		final Set<Duty<String>> myDuties = new TreeSet<>();
 		
 		// create a minka server with all default TCP/port values
-		final Server<String, String> minka = new Server<>();		
+		final Server<String, String> server = new Server<>();		
 		// create a dummy pallet to group the helloWorld duty
 		// on production environtment we should build duties loding source data from a database
-		Pallet<String> pallet = Pallet.<String>builder("group").build();
-		minka.onPalletLoad(()-> newHashSet(pallet));		
-		// holds the duties to be reported in case this shard becomes the leader  
-		// on production environtment we should build duties loding source data from a database
-		minka.onLoad(()-> newHashSet(helloWorld));
-		minka.setCapacity(pallet, 132);
-
-		// map the taking duties action
-		minka.onCapture(duties->myDuties.addAll(duties));
-		// map the releasing duties from this shard (hardly as there's no rebalance we can hope here)
-		minka.onRelease(duties->myDuties.removeAll(duties));
-		// release the bootstrap process so minka can start
-		minka.load();
+		final Pallet<String> pallet = Pallet.<String>builder("group").build();
+		
+		server.getEventMapper()
+			.onPalletLoad(()-> newHashSet(pallet))		
+			// holds the duties to be reported in case this shard becomes the leader  
+			// on production environtment we should build duties loding source data from a database
+			.onLoad(()-> newHashSet(helloWorld))
+			.setCapacity(pallet, 132) // report the capacity of this shard
+			.onCapture(duties->myDuties.addAll(duties)) // map the releasing duties from this shard			
+			.onRelease(duties->myDuties.removeAll(duties)) // map the releasing duties from this shard			
+			.done(); // release the bootstrap process so minka can start
 		
 		Thread.sleep(5000);
 		// after a while, given this's the only shard, minka will give us the initially loaded duty
@@ -66,13 +64,12 @@ public class DeadSimpleSample {
 		
 		// create another one
 		final Duty<String> another = Duty.<String>builder("another", "group").build();
-		minka.getClient().add(another);
+		server.getClient().add(another);
 		
 		Thread.sleep(5000);
 		// after a while the distribution process, will deliver it to us
 		assert myDuties.contains(another);
 		
-		minka.destroy();
 		assert myDuties.isEmpty();
 
 	}

@@ -7,7 +7,10 @@ public class BootstrapConfiguration {
 
 	protected static final String SERVICE_NAME = ("default-name");
 	private static String serviceName;
-	
+
+	protected static final long MAX_SERVICES_PER_MACHINE = 1;
+	private long maxServicesPerMachine;
+
 	// this sets the pace of all time-synchronized processes
 	protected static final long BEAT_UNIT_MS = 500;
 	private long beatUnitMs;		
@@ -40,6 +43,12 @@ public class BootstrapConfiguration {
 	}
 	public void setServiceName(String serviceName) {
 		BootstrapConfiguration.serviceName = serviceName;
+	}
+	public long getMaxServicesPerMachine() {
+		return maxServicesPerMachine;
+	}
+	public void setMaxServicesPerMachine(long maxServicesPerMachine) {
+		this.maxServicesPerMachine = maxServicesPerMachine;
 	}
 	public long getBeatUnitMs() {
 		return beatUnitMs;
