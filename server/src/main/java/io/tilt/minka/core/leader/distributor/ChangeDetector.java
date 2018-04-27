@@ -16,6 +16,14 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
+import static io.tilt.minka.domain.EntityEvent.ATTACH;
+import static io.tilt.minka.domain.EntityEvent.DETACH;
+import static io.tilt.minka.domain.EntityEvent.REMOVE;
+import static io.tilt.minka.domain.EntityState.CONFIRMED;
+import static io.tilt.minka.domain.EntityState.MISSING;
+import static io.tilt.minka.domain.EntityState.PENDING;
+import static io.tilt.minka.domain.EntityState.RECEIVED;
+
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
@@ -26,7 +34,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.PartitionScheme;
-import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
@@ -135,7 +142,7 @@ public class ChangeDetector {
 		}
 		if (sortedLogConfirmed!=null) {
 			logger.info("{}: ShardID: {}, {} {} for Duties: {}", classname,
-					shard.getShardID(), EntityEvent.ATTACH, EntityState.CONFIRMED, 
+					shard.getShardID(), ATTACH, CONFIRMED, 
 					ShardEntity.toStringIds(sortedLogConfirmed));
 		}
 		if (sortedLogDirty!=null) {
@@ -153,17 +160,17 @@ public class ChangeDetector {
 		Log ret = null;
 		// beated duty must belong to current non-expired plan
 		final long pid = partitionScheme.getCurrentPlan().getId();
-		final Log beatedLog = beated.getJournal().find(pid, shardid, EntityEvent.ATTACH);
+		final Log beatedLog = beated.getJournal().find(pid, shardid, ATTACH);
 		if (beatedLog != null) {
 			final EntityState beatedState = beatedLog.getLastState();
-			if (beatedState == EntityState.CONFIRMED || beatedState == EntityState.RECEIVED) {
-				final Log deliLog = delivered.getJournal().find(pid, shardid, EntityEvent.ATTACH);
+			if (beatedState == CONFIRMED || beatedState == RECEIVED) {
+				final Log deliLog = delivered.getJournal().find(pid, shardid, ATTACH);
 				if (deliLog != null) {
 					final EntityState deliState = deliLog.getLastState();
-					if (deliState == EntityState.PENDING || deliState !=EntityState.CONFIRMED) {
+					if (deliState == PENDING || deliState !=CONFIRMED) {
 						// expected normal situation
 						ret = deliLog;
-					} else if (deliState == EntityState.CONFIRMED) {
+					} else if (deliState == CONFIRMED) {
 						// when cluster unstable: bad state but possible 
 						final Shard location = partitionScheme.getScheme().getDutyLocation(delivered.getDuty());
 						if (location==null || !location.getShardID().equals(shardid)) {
@@ -192,8 +199,8 @@ public class ChangeDetector {
 		boolean found = false;
 		for (ShardEntity prescripted : delivery.getDuties()) {
 			if (!beatedDuties.contains(prescripted)) {
-				final Log changelog = prescripted.getJournal().find(pid, shard.getShardID(), EntityEvent.DETACH, EntityEvent.REMOVE);
-				if (changelog!=null && (changelog.getLastState()==EntityState.PENDING || changelog.getLastState()==EntityState.MISSING)) {
+				final Log changelog = prescripted.getJournal().find(pid, shard.getShardID(), DETACH, REMOVE);
+				if (changelog!=null && (changelog.getLastState()==PENDING || changelog.getLastState()==MISSING)) {
 					found = true;
 					if (logger.isInfoEnabled()) {
 						if (sortedLog==null) {
@@ -207,8 +214,8 @@ public class ChangeDetector {
 		}
 		
 		if (sortedLog!=null) {
-			logger.info("{}: ShardID: {}, (by absence) {} {} for Duties: {}",
-					getClass().getSimpleName(), shard.getShardID(), EntityEvent.DETACH, EntityState.CONFIRMED, 
+			logger.info("{}: ShardID: {}, {} {} for Duties: {}",
+					getClass().getSimpleName(), shard.getShardID(), DETACH, CONFIRMED, 
 					ShardEntity.toStringIds(sortedLog));
 		}
 		return found;
