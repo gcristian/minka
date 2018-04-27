@@ -89,14 +89,16 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		final List<ShardEntity> tmp = new ArrayList<>(partition.getDuties().size()); 
 		boolean issues = detectChangesOnReport(builder, tmp::add);
 		
-		final boolean exclusionExpired = includeTimestamp == 0 || (now - includeTimestamp) > includeFrequency;
-				
 		boolean newLeader = false; 
 		final NetworkShardIdentifier leader = leaderShardContainer.getLeaderShardId();
 		if (leader!=null && !leader.equals(lastLeader)) {
 			this.lastLeader = leader;
 			newLeader = true;
+			// put last inc. timestamp older so exclusion expires and full report beats follows 
+			includeTimestamp = (now - includeFrequency) + 1;
 		}
+
+		final boolean exclusionExpired = includeTimestamp == 0 || (now - includeTimestamp) > includeFrequency;
 		
 		final boolean doFullReport = forceFullReport || issues || exclusionExpired || partition.wasRecentlyUpdated() || newLeader;
 		if (doFullReport) {
