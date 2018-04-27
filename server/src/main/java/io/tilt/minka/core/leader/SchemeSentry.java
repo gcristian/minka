@@ -98,13 +98,13 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 
 		if ((beat.reportsDuties()) && shard.getState().isAlive()) {
 			detectAndSaveAbsents(shard, beat.getReportedCapturedDuties());
-			detectInvalidShards(shard, beat.getReportedCapturedDuties());
+			if (partitionScheme.getCurrentPlan()!=null) {
+				detectInvalidShards(shard, beat.getReportedCapturedDuties());
+			}
 		}
 	}
 	
-	public void detectAndWriteChanges(
-			final Shard shard, 
-			final Heartbeat beat) {
+	public void detectAndWriteChanges(final Shard shard, final Heartbeat beat) {
 
 		final ChangePlan changePlan = partitionScheme.getCurrentPlan();
 		if (changePlan!=null && !changePlan.getResult().isClosed()) {

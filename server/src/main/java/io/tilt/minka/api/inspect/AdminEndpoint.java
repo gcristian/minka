@@ -49,6 +49,7 @@ import com.wordnik.swagger.annotations.Api;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.leader.PartitionScheme;
 import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.domain.ShardedPartition;
 
 @Api("Minka Endpoint API")
 @Path("admin")
@@ -65,6 +66,8 @@ public class AdminEndpoint {
 	private Scheduler scheduler;
 	@Autowired
 	private Config config;
+	@Autowired
+	private ShardedPartition partition;
 
 	@Inject
 	public AdminEndpoint(@Named("partitionTable") PartitionScheme table) {
@@ -112,8 +115,17 @@ public class AdminEndpoint {
 	@GET
 	@Path("/duties")
 	@Produces(MediaType.APPLICATION_JSON)
+	/** @return the leader's PartitionScheme sharded partition entities */
 	public Response duties() throws JsonProcessingException {
 		return Response.accepted(views.dutiesToJson(table)).build();
+	}
+
+	@GET
+	@Path("/sharded")
+	@Produces(MediaType.APPLICATION_JSON)
+	/** @return the follower's sharded partition entities */
+	public Response shardedDuties() throws JsonProcessingException {
+		return Response.accepted(views.shardedEntitiesToJson(partition)).build();
 	}
 
 	@GET

@@ -20,6 +20,7 @@ import static java.util.Objects.requireNonNull;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -58,6 +59,7 @@ import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.domain.EntityState;
 
 /**
@@ -127,12 +129,42 @@ public class SchemeViews {
 	}
 
 	public String entitiesToJson(final PartitionScheme table) throws JsonProcessingException {
-		return elementToJson(buildDuties(table, true));
+		Map<String, Object> m = new HashMap<>();
+		m.put("scheme", buildDuties(table, true));
+		m.put("backstage", buildBackstage(table.getBackstage()));
+		return elementToJson(m);
+	}
+	public String shardedEntitiesToJson(final ShardedPartition partition) throws JsonProcessingException {
+		return elementToJson(buildDuties(partition, true));
 	}
 	private List<Object> buildDuties(final PartitionScheme table, boolean entities) {
 		Validate.notNull(table);
 		final List<Object> ret = new ArrayList<>();
 		table.getScheme().onDuties(e->ret.add(entities ? e: e.getDuty()));
+		return ret;
+	}
+
+	private Map<String, List<Object>> buildBackstage(final PartitionScheme.Backstage stage) {
+		Validate.notNull(stage);
+		List<Object> ret = new ArrayList<>();
+		final Map<String, List<Object>> m = new HashMap<>();
+		stage.getDutiesCrud().forEach(ret::add);
+		m.put("crud", ret);
+		ret = new ArrayList<>();
+		stage.getDutiesDangling().forEach(ret::add);
+		m.put("dangling", ret);
+		ret = new ArrayList<>();
+		stage.getDutiesMissing().forEach(ret::add);
+		m.put("missing", ret);
+		return m;
+	}
+
+	private List<Object> buildDuties(final ShardedPartition partition, boolean entities) {
+		Validate.notNull(partition);
+		final List<Object> ret = new ArrayList<>();
+		for (ShardEntity e: partition.getDuties()) {
+			ret.add(entities ? e: e.getDuty());
+		}
 		return ret;
 	}
 

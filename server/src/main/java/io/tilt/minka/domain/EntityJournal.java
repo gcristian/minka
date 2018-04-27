@@ -53,9 +53,8 @@ public class EntityJournal implements Serializable {
 	private static int MAX_JOURNAL_SIZE = 50;
 	
 	final static SimpleDateFormat sdf = new SimpleDateFormat("yyMMdd:hhmmss.SSS");
-
+	@JsonIgnore
 	private boolean sliding;
-	
 
 	@JsonIgnore
 	private final LinkedList<Log> logs = new LinkedList<>();
@@ -89,8 +88,6 @@ public class EntityJournal implements Serializable {
 		log.addState(state);
 	}
 	
-	
-	@JsonProperty("log-size")
 	public int eventSize() {
 		return this.logs == null ? 0 : this.logs.size();
 	}
