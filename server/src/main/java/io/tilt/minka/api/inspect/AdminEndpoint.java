@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -32,6 +33,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.CacheControl;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
@@ -47,7 +49,6 @@ import com.wordnik.swagger.annotations.Api;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.leader.PartitionScheme;
 import io.tilt.minka.core.task.Scheduler;
-import io.tilt.minka.domain.ShardedPartition;
 
 @Api("Minka Endpoint API")
 @Path("admin")
@@ -64,11 +65,9 @@ public class AdminEndpoint {
 	private Scheduler scheduler;
 	@Autowired
 	private Config config;
-	@Autowired
-	private ShardedPartition partition;
 
 	@Inject
-	public AdminEndpoint(@Named("partitionScheme") PartitionScheme table) {
+	public AdminEndpoint(@Named("partitionTable") PartitionScheme table) {
 		this.table = table;
 	}
 	/*
@@ -113,17 +112,8 @@ public class AdminEndpoint {
 	@GET
 	@Path("/duties")
 	@Produces(MediaType.APPLICATION_JSON)
-	/** @return the leader's PartitionScheme sharded partition entities */
 	public Response duties() throws JsonProcessingException {
 		return Response.accepted(views.dutiesToJson(table)).build();
-	}
-
-	@GET
-	@Path("/sharded")
-	@Produces(MediaType.APPLICATION_JSON)
-	/** @return the follower's sharded partition entities */
-	public Response shardedDuties() throws JsonProcessingException {
-		return Response.accepted(views.followerEntitiesToJson(partition)).build();
 	}
 
 	@GET

@@ -185,7 +185,7 @@
         <constructor-arg ref="eventBroker" />
     </bean>
     
-    <bean id="schemeViews" class="io.tilt.minka.core.leader.SchemeViews">
+    <bean id="schemeViews" class="io.tilt.minka.api.inspect.SchemeViews">
         <constructor-arg ref="leaderShardContainer"/>
     </bean>
     <!-- ============================================================================================

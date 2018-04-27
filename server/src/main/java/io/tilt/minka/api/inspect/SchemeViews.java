@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.leader;
+package io.tilt.minka.api.inspect;
 
 import static java.util.Objects.requireNonNull;
 
@@ -46,6 +46,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.common.util.concurrent.AtomicDouble;
 
+import io.tilt.minka.core.leader.PartitionScheme;
+import io.tilt.minka.core.leader.PartitionScheme.Scheme;
 import io.tilt.minka.core.leader.PartitionScheme.Scheme.SchemeExtractor;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 import io.tilt.minka.core.task.LeaderShardContainer;
