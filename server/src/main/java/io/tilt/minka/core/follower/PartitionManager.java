@@ -42,10 +42,10 @@ public interface PartitionManager {
 	Void update(Collection<ShardEntity> duty);
 
 	/** drop duties from follower, that is stopping them */
-	Void dettach(Collection<ShardEntity> duty);
+	boolean dettach(Collection<ShardEntity> duty);
 
 	/** make the follower responsible of duties */
-	Void attach(Collection<ShardEntity> duty);
+	boolean attach(Collection<ShardEntity> duty);
 
 	/** make the follower know leader's domain information */
 	Void acknowledge(DomainInfo info);

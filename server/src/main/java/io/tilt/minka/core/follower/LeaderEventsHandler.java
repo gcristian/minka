@@ -41,6 +41,8 @@ import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.EntityJournal;
+import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
@@ -133,8 +135,8 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 			                () -> handleDuty(Collections.singletonList((ShardEntity) event)))
 			        );
 		} else if (event instanceof ArrayList) {
-			if (logger.isDebugEnabled()) {
-				logger.debug("{}: ({}) Receiving {}: {}", getName(), config.getLoggingShardId(), ((ArrayList<ShardEntity>) event).size(), event);
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: ({}) Receiving {}: {}", getName(), config.getLoggingShardId(), ((ArrayList<ShardEntity>) event).size(), event);
 			}
 			final List<ShardEntity> list = (ArrayList<ShardEntity>) event;
 			if (list.isEmpty()) {
@@ -175,10 +177,14 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 					.collect(groupingBy(d -> d.getJournal().find(partition.getId()).getEvent())).entrySet()) {
 				switch (e.getKey()) {
 				case ATTACH:
-					partitionManager.attach(e.getValue());
+					if (partitionManager.attach(e.getValue())) {
+						received(e);
+					}
 					break;
 				case DETACH:
-					partitionManager.dettach(e.getValue());
+					if (partitionManager.dettach(e.getValue())) {
+						received(e);
+					}
 					break;
 				case TRANSFER:
 				case UPDATE:
@@ -194,6 +200,14 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		} catch (Exception e) {
 			logger.error("{}: ({}) Unexpected while handling Duty:{}", getName(), config.getLoggingShardId(), duties, e);
 		}
+	}
+
+	private void received(final Entry<EntityEvent, List<ShardEntity>> e) {
+		e.getValue().forEach(d->d.getJournal().addEvent(
+				e.getKey(), 
+				EntityState.RECEIVED, 
+				partition.getId(), 
+				d.getJournal().getLast().getPlanId()));
 	}
 	
 	public PartitionManager getPartitionManager() {

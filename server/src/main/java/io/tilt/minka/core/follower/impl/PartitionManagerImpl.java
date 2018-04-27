@@ -144,12 +144,12 @@ public class PartitionManagerImpl implements PartitionManager {
 	}
 	
 	
-	public Void dettach(final Collection<ShardEntity> duties) {
+	public boolean dettach(final Collection<ShardEntity> duties) {
 		return dettach_(duties, null);
 	}
 	
 	@SuppressWarnings("unchecked")
-	private Void dettach_(final Collection<ShardEntity> duties, final Runnable cleanPartitionCallback) {
+	private boolean dettach_(final Collection<ShardEntity> duties, final Runnable cleanPartitionCallback) {
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: ({}) # -{} RELEASE: {}", getClass().getSimpleName(),
 				partition.getId(), duties.size(), ShardEntity.toStringBrief(duties));
@@ -178,14 +178,15 @@ public class PartitionManagerImpl implements PartitionManager {
 			if (!removing.isEmpty()) {
 				dependencyPlaceholder.getDelegate().releasePallet(removing);
 			}
+			return true;
 		} catch (Exception e) {
 			logger.error("{}: ({}) Exception: {}", getClass().getSimpleName(), partition.getId(), e);
 		}
-		return null;
+		return false;
 	}
 
 	@SuppressWarnings("unchecked")
-	public Void attach(final Collection<ShardEntity> duties) {
+	public boolean attach(final Collection<ShardEntity> duties) {
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: ({}) # +{} TAKE: {}", getClass().getSimpleName(), partition.getId(),
 				duties.size(), ShardEntity.toStringBrief(duties));
@@ -199,11 +200,12 @@ public class PartitionManagerImpl implements PartitionManager {
 			}
 			dependencyPlaceholder.getDelegate().capture(toSet(duties, null));
 			partition.addAllDuties(duties);
+			return true;
 		} catch (Exception e) {
 			logger.error("{}: ({}) Delegate thrown an Exception while Taking", getClass().getSimpleName(), 
 					partition.getId(), e);
 		}
-		return null;
+		return false;
 	}
 
 	private Set<Duty<?>> toSet(final Collection<ShardEntity> duties, Predicate<ShardEntity> filter) {
