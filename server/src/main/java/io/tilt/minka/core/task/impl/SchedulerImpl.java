@@ -21,9 +21,7 @@ import static io.tilt.minka.core.task.Semaphore.Permission.RETRY;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -56,10 +54,6 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	private final SynchronizedFactory syncFactory;
 	private final String logName;
 
-	private long counter;
-	/* for local scope actions */
-	private long lastCheck;
-	/* for global scope actions */
 	private ScheduledThreadPoolExecutor executor;
 
 	public SchedulerImpl(
@@ -80,6 +74,8 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		executor.setRemoveOnCancelPolicy(true);
 		executor.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
 		executor.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
+		executor.allowCoreThreadTimeOut(false);
+		executor.prestartAllCoreThreads();
 
 		this.futuresBySynchro = new HashMap<>();
 		this.runnablesBySynchro = new HashMap<>();
@@ -105,7 +101,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
     			.create(
 					agent.getAction(), 
 					agent.getPriority(), 
-					Frequency.ONCE,
+					agent.getFrequency(), //Frequency.ONCE,
 					agent.getTask())
 				.build());
         }
@@ -185,7 +181,6 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	@SuppressWarnings("unchecked")
 	private <R> R runSynchronized(final Synchronized sync) {
 		try {
-			counter++;
 			Validate.notNull(sync);
 			if (sync.getPriority() == PriorityLock.HIGH_ISOLATED) {
 				call(sync, false);
@@ -274,6 +269,11 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		super.stop();
 	}
 
+	@Override
+	public Map<Action, Agent> getAgents() {
+		return agentsByAction;
+	}
+	
 	@Override
 	public boolean inService() {
 		return !this.executor.isShutdown();

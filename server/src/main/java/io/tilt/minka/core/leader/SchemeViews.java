@@ -50,7 +50,9 @@ import io.tilt.minka.core.leader.PartitionScheme.Scheme.SchemeExtractor;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Synchronized;
+import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
@@ -211,7 +213,9 @@ public class SchemeViews {
 
 	private static Map<String, Object> buildGlobal(final PartitionScheme table) {
 		SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
-		final int unstaged = table.getBackstage().sizeDutiesCrud(EntityEvent.CREATE, null);
+		final int unstaged = table.getBackstage().sizeDutiesCrud(ee->ee==EntityEvent.CREATE, null) 
+				+ table.getBackstage().getDutiesDangling().size() 
+				+ table.getBackstage().getDutiesMissing().size();
 		final int staged = extractor.getSizeTotal();		
 		final Map<String, Object> map = new LinkedHashMap<>();
 		map.put("size-duties", staged+unstaged);
@@ -291,36 +295,46 @@ public class SchemeViews {
 	}
 	
 	public String scheduleToJson(final Scheduler schedule) throws JsonProcessingException {
-		return elementToJson(getDetail(schedule.getExecutor(), schedule.getFutures()));
+		return elementToJson(getDetail(schedule));
 				
 	}
 	
 	
-	public Map<String, Object> getDetail(
-			final ScheduledThreadPoolExecutor executor, 
-			final Map<Synchronized, ScheduledFuture<?>> futures) {
-		final Map<String, Object> ret = new HashMap<>();
+	public Map<String, Object> getDetail(final Scheduler schedule) {
+		final Map<String, Object> ret = new LinkedHashMap<>();
 		try {
+			final ScheduledThreadPoolExecutor executor = schedule.getExecutor();
+			final Map<Synchronized, ScheduledFuture<?>> futures = schedule.getFutures();
 			final long now = System.currentTimeMillis();
 			ret.put("queue-size", executor.getQueue().size());
-			ret.put("queue-threads", executor.getMaximumPoolSize());
+			ret.put("corepool-size", executor.getCorePoolSize());
 			ret.put("tasks-count", executor.getTaskCount());
 			ret.put("tasks-completed", executor.getCompletedTaskCount());
 			
-			for (final Runnable run : executor.getQueue()) {
-				for (final Entry<Synchronized, ScheduledFuture<?>> e : futures.entrySet()) {
-					if (e.getValue().equals(((ScheduledFuture<?>) run))) {
-						final Synchronized sync = e.getKey();
-						final Map<String, String> t = new LinkedHashMap<>();
-						//t.put("task", sync.getTask().getClass().getSimpleName());
-						t.put("exception", sync.getLastException() == null ? "" : sync.getLastException().toString());
-						t.put("last", String.valueOf(now - sync.getLastExecutionTimestamp()));
-						t.put("success-lapse", String.valueOf(sync.getLastSuccessfulExecutionLapse()));
-						t.put("success-last", String.valueOf(now - sync.getLastSuccessfulExecutionTimestamp()));
-						ret.put(sync.getTask().getClass().getSimpleName(), t);
-					}
+			for (final Entry<Semaphore.Action, Scheduler.Agent> e: schedule.getAgents().entrySet()) {
+				final Agent sync = e.getValue();
+				
+				final Map<String, String> t = new LinkedHashMap<>();
+				t.put("enum", e.getKey().name());
+				t.put("action", sync.getAction().name());
+				t.put("frequency", sync.getFrequency().name());
+				t.put("periodic-delay", String.valueOf(sync.getPeriodicDelay()));
+				t.put("start-delay", String.valueOf(sync.getDelay()));
+				t.put("time-unit", String.valueOf(sync.getTimeUnit()));
+
+				final long timestamp = now - sync.getLastExecutionTimestamp();
+				t.put("timestamp", String.valueOf(timestamp));
+				final long stime = now - sync.getLastSuccessfulExecutionTimestamp();
+				if (stime!=timestamp) {
+					t.put("success-timestamp", String.valueOf(stime));
 				}
+				t.put("success-elapsed", String.valueOf(sync.getLastSuccessfulExecutionLapse()));
+				if (sync.getLastException() != null) { 
+					t.put("exception", sync.getLastException().toString());
+				}
+				ret.put(sync.getTask().getClass().getSimpleName(), t);
 			}
+			
 		} catch (Throwable t) {
 		}
 		return ret;

@@ -87,6 +87,12 @@ public interface Scheduler extends Semaphore {
 	/* query */
 	Agent get(Action action);
 
+	Map<Synchronized, ScheduledFuture<?>> getFutures();
+
+	ScheduledThreadPoolExecutor getExecutor();
+
+	Map<Action, Agent> getAgents();
+
 	/* a task that needs synchronization with other tasks */
 	public interface Synchronized extends TimedTask {
 		PriorityLock getPriority();
@@ -118,9 +124,6 @@ public interface Scheduler extends Semaphore {
 		Agent build();
 	}
 
-	Map<Synchronized, ScheduledFuture<?>> getFutures();
-
-	ScheduledThreadPoolExecutor getExecutor();
 	
 
 }
