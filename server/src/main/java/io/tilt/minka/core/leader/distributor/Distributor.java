@@ -302,12 +302,13 @@ public class Distributor implements Service {
 				logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), delivery.getEvent().toVerb(),
 						delivery.getShard().getShardID(), deliCount,
 						ShardEntity.toStringIds(payload));
-			}			
+			}	
+			logs.forEach(l->l.addState(EntityState.PENDING));
 			if (eventBroker.send(delivery.getShard().getBrokerChannel(), (List)payload)) {
 				// dont mark to wait for those already confirmed (from fallen shards)
 				delivery.markSent();
-				logs.forEach(l->l.addState(EntityState.PENDING));
 			} else {
+				logs.forEach(l->l.addState(EntityState.PREPARED));
 				logger.error("{}: Couldnt transport current issues !!!", getName());
 			}
 			
