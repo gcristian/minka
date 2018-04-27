@@ -24,7 +24,6 @@ import java.util.Date;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.ConfigValidator;
@@ -206,8 +205,8 @@ public class Bootstrap implements Service {
 			}
 			bootLeadershipCandidate();
 		} else {
-			logger.warn("{}: ({}) PartitionDelegate returned not ready!. Bootstrap will retry endlessly. Check: {}",
-					getName(), shardId, dependencyPlaceholder.getDelegate().getClass().getName());
+			logger.warn("{}: ({}) Not ready ? check method Server.load() (PartitionDelegate returned not ready!. Bootstrap will retry endlessly)",
+					getName(), shardId);
 			scheduler.schedule(readyAwareBooting);
 		}
 	}

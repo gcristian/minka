@@ -165,12 +165,13 @@ public class PartitionScheme {
 		
 		/**
 		 * Account the end of the duty movement operation.
+		 * Only access-point to adding and removing duties.
 		 * @param duty 		the entity to act on
 		 * @param where		the sard where it resides
 		 * @param callback	called when writting is possible
 		 * @return if there was a Scheme change after the action 
 		 */
-		public boolean writeDuty(final ShardEntity duty, final Shard where, final EntityEvent event, final Runnable callback) {
+		public boolean write(final ShardEntity duty, final Shard where, final EntityEvent event, final Runnable callback) {
 			final boolean add = event.is(EntityEvent.ATTACH) || event.is(EntityEvent.CREATE);
 			final boolean del = !add && (event.is(EntityEvent.DETACH) || event.is(EntityEvent.REMOVE));
 			final ShardedPartition part = getPartition(where);

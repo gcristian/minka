@@ -50,13 +50,13 @@ import io.tilt.minka.domain.EntityState;
 
 /** 
  * Balancer's Helper to request {@linkplain Transfer} and {@linkplain Override}
- * of {@linkplain Duty}'s and {@linkplain Pallet}s over {@linkplain Shard}s, 
- * so it can later write a {@linkplain ChangePlan}. 
- * Leveraging the balancer of the distribution process, consistency, validation.
- * 
- * A new plan will not be shipped when balancers do repeatable distributions and there're no 
- * CRUD ops from client, keeping the {@linkplain Scheme} stable and unchanged, 
- * as overrides and transfer only compute deltas according already distributed duties.
+ * of {@linkplain Duty}'s and {@linkplain Pallet}s over {@linkplain Shard}s, <br>
+ * so it can later be written to a driveable {@linkplain ChangePlan}. <br>
+ * Leveraging the balancer of the distribution process (order, validation, consistency, etc)<br>
+ * <br>
+ * A new plan will not be shipped when balancers do repeatable distributions and there're no<br> 
+ * CRUD ops from client, keeping the {@linkplain Scheme} stable and unchanged, <br>
+ * as overrides and transfer only compute deltas according the state of the scheme.<br>
  * 
  * @author Cristian Gonzalez
  * @since Oct 29, 2016
@@ -82,12 +82,33 @@ public class Migrator {
 		duties.forEach(d-> sourceRefs.put(d.getDuty(), d));
 	}
 
-	/* specifically transfer from a Source to a Target */
+	/**
+	 * Logical strategy of migration, when no source has the duty yet, and target shard is at hand.<br>
+	 * <br>
+	 * Transfer/Override: depending on the balancing algorithm, sometimes is easier to use one strategy over the other.<br>
+	 * They are both valid logical ways of detaching duties from a source shard <br>
+	 * and attaching duties to a target shard. <br>
+	 * 
+	 * @param target		where the duty is going to be attached
+	 * @param duty			the duty to be attached
+	 */
 	public final void transfer(final NetworkLocation target, final Duty<?> duty) {
 		requireNonNull(target);
 		requireNonNull(duty);
 		transfer_(null, target, duty);
 	}
+	/**
+	 * Logical strategy of migration, when source and target shards are at hand.<br>
+	 *  Useful when in need of moving individual duties for certain reasons.<br>
+	 * <br>
+	 * Transfer/Override: depending on the balancing algorithm, sometimes is easier to use one strategy over the other.<br>
+	 * They are both valid logical ways of detaching duties from a source shard <br>
+	 * and attaching duties to a target shard. <br>
+	 * 
+	 * @param target		where the duty is going to be attached
+	 * @param source		where the duty is going to be dettached first
+	 * @param duty			the duty to be attached
+	 */
 	public final void transfer(final NetworkLocation source, final NetworkLocation target, final Duty<?> duty) {
 		requireNonNull(source);
 		requireNonNull(target);
@@ -128,7 +149,17 @@ public class Migrator {
 				ChangePlan.PLAN_WITHOUT);
 	}
 	
-	/* explicitly override a shard's content, client must look after consistency ! */
+	/**
+	 * Logical strategy of migration, when the whole duty set and target shard are at hand, ignoring their source shards.<br>
+	 * Firstly the {@linkplain ChangePlan} will fire the detach event from the source shards, then they'll be attached to target.<br>   
+	 * <br>
+	 * Transfer/Override: depending on the balancing algorithm, sometimes is easier to use one strategy over the other.<br>
+	 * They are both valid logical ways of detaching duties from a source shard <br>
+	 * and attaching duties to a target shard. <br>
+	 * 
+	 * @param shard		the target destination where duties will be attached
+	 * @param cluster	the duties to be attached.
+	 */
 	public final void override(final NetworkLocation shard, final Set<Duty<?>> cluster) {
 		requireNonNull(shard);
 		requireNonNull(cluster);
@@ -279,7 +310,7 @@ public class Migrator {
 					!inOverrides(curr) && 
 					unfairlyIgnored(curr)) {
 				ret[0]= true;
-				log.warn("bad exclusion: duty: " + curr.toBrief() + " is in ptable and was excluded from balancing !");
+				log.warn("bad exclusion: duty: {} is in scheme and was excluded from balancing !", curr.toBrief());
 			}
 		});
 		return ret[0];

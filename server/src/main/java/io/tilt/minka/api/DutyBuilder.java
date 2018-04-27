@@ -164,7 +164,7 @@ public class DutyBuilder<T extends Serializable> {
 		public static void validateBuiltParams(final Duty<?> duty) {
 			Validate.notNull(duty.getId(), "A non null ID is required");
 			Validate.isTrue(duty.getId().length() < 128, "an entity Id maximum length of 128 chars is required");
-			final String id = "Duty:" + duty.getId() + " - ";
+			final String id = new StringBuilder("Duty:").append(duty.getId()).append(" - ").toString();
 			Validate.notNull(duty.getPalletId(), id + "a Pallet is mandatory");
 			Validate.isTrue(duty.getPalletId().length() < 128, "an entity Id maximum length of 128 chars is required");
 			Validate.notNull(duty.getClassType(), id + "You must specify param's class or use overload builder");

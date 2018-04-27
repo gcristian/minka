@@ -213,7 +213,8 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		checkAllEventsPaired(deliveries, (unpaired)-> {
 			this.result = Result.CLOSED_ERROR;
 			this.ended = Instant.now();
-			logger.error("{}: Invalid ChangePlan with an operation unpaired: " + unpaired.toBrief());
+			logger.error("{}: Invalid ChangePlan with an operation unpaired: {}", getClass().getSimpleName(), 
+					unpaired.toBrief());
 		});
 		this.shippings.clear();
 		iterator = deliveries.iterator();

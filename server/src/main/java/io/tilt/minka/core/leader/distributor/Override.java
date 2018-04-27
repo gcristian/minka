@@ -29,8 +29,8 @@ import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.EntityState;
 
 /**
+ * Strategy of Replacement.
  * A migration strategy in the override style which replaces a shard's content with given duties.
- * it computes to a delta change considering currently already assigned duties on the target shard.
  */
 public class Override {
 
@@ -143,7 +143,8 @@ public class Override {
 			return true;
 		} else {
 			final Override o = (Override) obj;
-			return o.getShard().equals(shard) && o.getEntities().equals(entities);
+			return o.getShard().equals(shard) 
+				&& o.getEntities().equals(entities);
 
 		}
 	}

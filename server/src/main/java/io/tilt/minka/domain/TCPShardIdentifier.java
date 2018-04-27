@@ -82,7 +82,10 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		this.dependencyPlaceholder = requireNonNull(dependencyPlaceholder);
 		final String hostStr = config.getBroker().getHostPort();
 		final String[] brokerStr = hostStr.split(":");
-		Validate.isTrue(brokerStr.length>1, "Bad broker host format: " + hostStr + "([hostname]:[port])");
+		Validate.isTrue(brokerStr.length>1, new StringBuilder("Bad broker host format: ")
+					.append(hostStr)
+					.append("([hostname]:[port])")
+					.toString());
 		this.creation = new DateTime(DateTimeZone.UTC);
 		this.configuredPort = Integer.parseInt(brokerStr[1]);
 		this.port = configuredPort;

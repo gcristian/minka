@@ -42,9 +42,9 @@ import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
 
 /**
- * Contains the mechanism and knowledge for determining reallocation changes  
+ * Contains the mechanism and knowledge for determining reallocation changes <br>
  * Inspects {@linkplain Heartbeat}'s looking for expected 
- * changes according the current distribution {@linkplain ChangePlan}
+ * changes according the current distribution {@linkplain ChangePlan}<br>
  *  
  * @author Cristian Gonzalez
  * @since Mar 7, 2018

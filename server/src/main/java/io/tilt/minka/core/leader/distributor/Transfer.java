@@ -24,7 +24,8 @@ import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
- * A specific duty movement considering localized source and target shards   
+ * Strategy of Movement.
+ * When source and target shards are at hand.
  */
 class Transfer {
     

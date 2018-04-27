@@ -172,8 +172,8 @@ public class FairWeightBalancer implements Balancer {
 			final Set<NetworkLocation> onlineShards, 
 			final Set<Duty<?>> duties) {
 
-		final Bascule<NetworkLocation, Duty<?>> whole = new Bascule<>();
-		duties.forEach(d->whole.lift(d.getWeight()));
+		final Bascule<NetworkLocation, Duty<?>> brute = new Bascule<>();
+		duties.forEach(d->brute.lift(d.getWeight()));
 		Set<Bascule<NetworkLocation, Duty<?>>> bascules = new LinkedHashSet<>();
 		final Set<NetworkLocation> sorted = new TreeSet<>(new CapacityComparer(pallet));
 		sorted.addAll(onlineShards);
@@ -188,14 +188,14 @@ public class FairWeightBalancer implements Balancer {
 			logger.error("{}: No available or reported capacity for Pallet: {}", getClass().getSimpleName(), pallet);
 			bascules = null;
 		} else {
-			if (whole.totalLift() >= clusterCap) {
+			if (brute.totalLift() >= clusterCap) {
 				logger.error("{}: Pallet: {} with Inssuficient/Almost cluster capacity (max: {}, required load: {})", 
-					getClass().getSimpleName(), pallet, clusterCap, whole.totalLift());
+					getClass().getSimpleName(), pallet, clusterCap, brute.totalLift());
 			}
 			for (final Bascule<NetworkLocation, Duty<?>> b: bascules) {
 				// fairness thru shard's capacities flattening according total weight
 				// so total bascule's fair value ends up close to equal the total weight
-				final double fair = Math.min(whole.totalLift() * (b.getMaxRealCapacity() / clusterCap), b.getMaxRealCapacity());
+				final double fair = Math.min(brute.totalLift() * (b.getMaxRealCapacity() / clusterCap), b.getMaxRealCapacity());
 				if (logger.isInfoEnabled()) {
 					logger.info("{}: Shard: {} Fair load: {}, capacity: {} (c.c. {}, d.w. {})", 
 						getClass().getSimpleName(), 
@@ -203,7 +203,7 @@ public class FairWeightBalancer implements Balancer {
 						fair, 
 						b.getMaxRealCapacity(), 
 						clusterCap, 
-						whole.totalLift());
+						brute.totalLift());
 				}
 				b.setMaxTestingCapacity(fair);
 			}

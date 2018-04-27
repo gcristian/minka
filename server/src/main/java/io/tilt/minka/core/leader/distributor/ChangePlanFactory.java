@@ -94,8 +94,7 @@ class ChangePlanFactory {
 		if (schemeByPallets.isEmpty()) {
 			logger.warn("{}: Scheme is empty. Nothing to balance", getClass().getSimpleName());
 		} else {
-			for (final Map.Entry<String, List<ShardEntity>> e : ents.stream()
-					.collect(Collectors.groupingBy(e -> e.getDuty().getPalletId())).entrySet()) {
+			for (final Map.Entry<String, List<ShardEntity>> e : schemeByPallets.entrySet()) {
 				final Pallet<?> pallet = partition.getScheme().getPalletById(e.getKey()).getPallet();
 				final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
 				logStatus(partition, dutyCreations, dutyDeletions, e.getValue(), pallet, balancer);
@@ -170,7 +169,7 @@ class ChangePlanFactory {
 					lazy == null ? "unattached" : "from falling Shard: " + lazy, missed);
 			}
 			if (lazy != null) {
-				partition.getScheme().writeDuty(missed, lazy, EntityEvent.REMOVE, ()-> {
+				partition.getScheme().write(missed, lazy, EntityEvent.REMOVE, ()-> {
 					// missing duties are a confirmation per-se from the very shards,
 					// so the ptable gets fixed right away without a realloc.
 					missed.getJournal().addEvent(EntityEvent.REMOVE, 

@@ -164,7 +164,8 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 						leaderContainer.getLeaderShardId());
 			}
 		} else {
-			logger.error("{}: ({}) Unknown event!: " + event.getClass().getSimpleName(), config.getLoggingShardId());
+			logger.error("{}: ({}) Unknown event!: {} ", getName(), config.getLoggingShardId(), 
+					event.getClass().getSimpleName());
 		}
 	}
 

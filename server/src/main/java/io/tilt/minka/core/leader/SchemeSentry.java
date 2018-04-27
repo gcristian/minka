@@ -16,7 +16,6 @@
  */
 package io.tilt.minka.core.leader;
 
-import static io.tilt.minka.domain.EntityEvent.ATTACH;
 import static io.tilt.minka.domain.EntityEvent.CREATE;
 import static io.tilt.minka.domain.EntityEvent.DETACH;
 import static io.tilt.minka.domain.EntityEvent.REMOVE;
@@ -113,7 +112,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			if (delivery!=null) {
 				if (changeDetector.findPlannedChanges(delivery, changePlan, beat, shard, 
 					(Log changelog, ShardEntity entity) -> {
-						if (partitionScheme.getScheme().writeDuty(entity, shard, changelog.getEvent(), ()-> {
+						if (partitionScheme.getScheme().write(entity, shard, changelog.getEvent(), ()-> {
 							// copy the found situation to the instance we care
 							entity.getJournal().addEvent(changelog.getEvent(),
 									CONFIRMED,
@@ -139,7 +138,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		} else if (changePlan == null && beat.reportsDuties()) {
 			// there's been a change of leader: i'm initiating with older followers
 			for (ShardEntity e: beat.getReportedCapturedDuties()) {
-				if (partitionScheme.getScheme().writeDuty(e, shard, e.getLastEvent(), null)) {
+				if (partitionScheme.getScheme().write(e, shard, e.getLastEvent(), null)) {
 					logger.info("{}: Scheme learning from Followers: {}", classname, e);
 				}
 			}
@@ -172,7 +171,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			}
 			// copy the event so it's marked for later consideration
 			if (done) {
-				e.getValue().forEach(d->partitionScheme.getScheme().writeDuty(d, shard, REMOVE, ()->{
+				e.getValue().forEach(d->partitionScheme.getScheme().write(d, shard, REMOVE, ()->{
 					d.getJournal().addEvent(
 							d.getLastEvent(),
 							e.getKey()==DANGLING ? DANGLING : MISSING, 

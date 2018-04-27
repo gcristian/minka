@@ -19,6 +19,10 @@ package io.tilt.minka.core.leader;
 import static io.tilt.minka.broker.EventBroker.ChannelHint.EVENT_SET;
 import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.STABLE;
 import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.UNSTABLE;
+import static io.tilt.minka.domain.Shard.ShardState.GONE;
+import static io.tilt.minka.domain.Shard.ShardState.JOINING;
+import static io.tilt.minka.domain.Shard.ShardState.ONLINE;
+import static io.tilt.minka.domain.Shard.ShardState.QUARANTINE;
 import static io.tilt.minka.utils.LogUtils.HEALTH_DOWN;
 import static io.tilt.minka.utils.LogUtils.HEALTH_UP;
 import static java.time.Instant.now;
@@ -177,7 +181,7 @@ public class Proctor implements Service {
 				logChangeAndTitle(ressume, actions.isEmpty(), size);
 			}
 
-			sizeOnline[0] += priorState == ShardState.ONLINE || newState == ShardState.ONLINE ? 1 : 0;
+			sizeOnline[0] += newState == ONLINE ? 1 : 0;
 		});
 		// avoid failfast iterator
 		if (!actions.isEmpty()) {
@@ -220,10 +224,10 @@ public class Proctor implements Service {
 			final long max = config.beatToMs(config.getProctor().getMaxShardJoiningStateBeats());
 			if (shard.getLastStatusChange().plus(max).isBeforeNow()) {
 				msg = "try joining expired";
-				newState = ShardState.GONE;
+				newState = GONE;
 			} else {
 				msg = "no enough heartbeats in lapse";
-				newState = ShardState.JOINING;
+				newState = JOINING;
 			}
 		} else {
 			pastLapse = shard.getHeartbeats().values().stream().filter(i -> i.getCreation().isAfter(lapseStart))
@@ -232,31 +236,31 @@ public class Proctor implements Service {
 			if (pastLapseSize > 0 && checkHealth(now, normalDelay, pastLapse)) {
 				if (pastLapseSize >= minHealthlyToGoOnline) {
 					msg = "healthy lapse > = min. healthly for online";
-					newState = ShardState.ONLINE;
+					newState = ONLINE;
 				} else {
 					msg = "healthly lapse < min. healthly for online";
-					newState = ShardState.QUARANTINE;
+					newState = QUARANTINE;
 					// how many times should we support flapping before killing it
 				}
 			} else {
 				if (pastLapseSize > maxSickToGoQuarantine) {
 					if (pastLapseSize <= minToBeGone || pastLapseSize == 0) {
 						msg = "sick lapse < min to gone";
-						newState = ShardState.GONE;
+						newState = GONE;
 					} else {
 						msg = "sick lapse > max. sick to stay online";
-						newState = ShardState.QUARANTINE;
+						newState = QUARANTINE;
 					}
-				} else if (pastLapseSize <= minToBeGone && currentState == ShardState.QUARANTINE) {
+				} else if (pastLapseSize <= minToBeGone && currentState == QUARANTINE) {
 					msg = "sick lapse < min to gone";
-					newState = ShardState.GONE;
-				} else if (pastLapseSize > 0 && currentState == ShardState.ONLINE) {
+					newState = GONE;
+				} else if (pastLapseSize > 0 && currentState == ONLINE) {
 					msg = "sick lapse > 0 (" + pastLapseSize + ")";
-					newState = ShardState.QUARANTINE;
+					newState = QUARANTINE;
 				} else if (pastLapseSize == 0 
-						&& (currentState == ShardState.QUARANTINE || currentState == ShardState.ONLINE)) {
+						&& (currentState == QUARANTINE || currentState == ONLINE)) {
 					msg = "sick lapse (0) became ancient";
-					newState = ShardState.GONE;
+					newState = GONE;
 				} else {
 					msg = "past lapse is " + pastLapseSize;
 				}
