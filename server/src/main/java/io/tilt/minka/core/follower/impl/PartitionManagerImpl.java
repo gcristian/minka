@@ -36,7 +36,6 @@ import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.DomainInfo;
-import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
 
@@ -84,7 +83,6 @@ public class PartitionManagerImpl implements PartitionManager {
 		return null;
 	}
 
-	// TODO refactory
 	public Void finalized(final Collection<ShardEntity> duties) {
 		for (ShardEntity duty : duties) {
 			if (partition.contains(duty)) {
@@ -109,13 +107,13 @@ public class PartitionManagerImpl implements PartitionManager {
 				if (partition.contains(entity)) {
 					if (entity.getUserPayload() == null) {
 						if (logger.isInfoEnabled()) {
-							logger.info("{}: ({}) Instructing PartitionDelegate to UPDATE : {}", getClass().getSimpleName(),
+							logger.info("{}: ({}) UPDATE : {}", getClass().getSimpleName(),
 								partition.getId(), entity.toBrief());
 						}
 						dependencyPlaceholder.getDelegate().update(entity.getDuty());
 					} else {
 						if (logger.isInfoEnabled()) {
-							logger.info("{}: ({}) Instructing PartitionDelegate to RECEIVE: {} with Payload type {}",
+							logger.info("{}: ({}) RECEIVE: {} with Payload type {}",
 								getClass().getSimpleName(), partition.getId(), entity.toBrief(),
 								entity.getUserPayload().getClass().getName());
 						}
@@ -128,13 +126,13 @@ public class PartitionManagerImpl implements PartitionManager {
 			} else if (entity.getType()==ShardEntity.Type.PALLET) {
 				if (entity.getUserPayload() == null) {
 					if (logger.isInfoEnabled()) {
-						logger.info("{}: ({}) Instructing PartitionDelegate to UPDATE : {}", getClass().getSimpleName(),
+						logger.info("{}: ({}) UPDATE : {}", getClass().getSimpleName(),
 							partition.getId(), entity.toBrief());
 					}
 					dependencyPlaceholder.getDelegate().update(entity.getPallet());
 				} else {
 					if (logger.isInfoEnabled()) {
-						logger.info("{}: ({}) Instructing PartitionDelegate to RECEIVE: {} with Payload type {}",
+						logger.info("{}: ({}) RECEIVE: {} with Payload type {}",
 							getClass().getSimpleName(), partition.getId(), entity.toBrief(),
 							entity.getUserPayload().getClass().getName());
 					}
@@ -153,8 +151,8 @@ public class PartitionManagerImpl implements PartitionManager {
 	@SuppressWarnings("unchecked")
 	private Void dettach_(final Collection<ShardEntity> duties, final Runnable cleanPartitionCallback) {
 		if (logger.isInfoEnabled()) {
-			logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE : {}", getClass().getSimpleName(),
-				partition.getId(), ShardEntity.toStringBrief(duties));
+			logger.info("{}: ({}) # -{} RELEASE: {}", getClass().getSimpleName(),
+				partition.getId(), duties.size(), ShardEntity.toStringBrief(duties));
 		}
 		
 		try {
@@ -188,13 +186,9 @@ public class PartitionManagerImpl implements PartitionManager {
 
 	@SuppressWarnings("unchecked")
 	public Void attach(final Collection<ShardEntity> duties) {
-		/*
-		 * if (scheduler.acquire(IdentifiedAction.build(RESERVE_DUTY,
-		 * duty.getDuty().getId())) == GRANTED) {
-		 */
 		if (logger.isInfoEnabled()) {
-			logger.info("{}: ({}) Instructing PartitionDelegate to TAKE: {}", getClass().getSimpleName(), partition.getId(),
-				ShardEntity.toStringBrief(duties));
+			logger.info("{}: ({}) # +{} TAKE: {}", getClass().getSimpleName(), partition.getId(),
+				duties.size(), ShardEntity.toStringBrief(duties));
 		}
 		try {
 			final Set<Pallet<?>> pallets = new HashSet<>();
@@ -209,13 +203,6 @@ public class PartitionManagerImpl implements PartitionManager {
 			logger.error("{}: ({}) Delegate thrown an Exception while Taking", getClass().getSimpleName(), 
 					partition.getId(), e);
 		}
-		/*
-		 * } else { logger.error(
-		 * "{}: ShardID: {}, Unable to TAKE an already Locked Duty !: {}",
-		 * getClass().getSimpleName(), partition.getId(), duty.toBrief()); //
-		 * TODO todo mal reportar que no se puede tomar xq alguien la tiene q
-		 * onda ??? }
-		 */
 		return null;
 	}
 
@@ -228,18 +215,6 @@ public class PartitionManagerImpl implements PartitionManager {
 		}
 		;
 		return set;
-	}
-
-	public Void command(final ShardCommand op) {
-		return null;
-		/*
-		 * if (op.getOperation() == Command.CLUSTER_CLEAN_SHUTDOWN) { stop();
-		 * final Heartbeat lastGoodbye = this.heartpump.buildHeartbeat();
-		 * lastGoodbye.setStateChange(ServiceState.OFFLINE);
-		 * eventBroker.postEvent(eventBroker.buildToTarget(config,
-		 * Channel.HEARTBEATS_TO_LEADER,
-		 * leaderShardContainer.getLeaderShardId()), lastGoodbye); }
-		 */
 	}
 
 	@Override

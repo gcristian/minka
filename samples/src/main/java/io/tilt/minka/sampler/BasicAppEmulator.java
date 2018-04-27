@@ -16,7 +16,9 @@
  */
 package io.tilt.minka.sampler;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -115,6 +117,35 @@ public class BasicAppEmulator {
 		server.onUpdate(d->logger.info("receiving update: {}", d));
 		server.onTransfer((d, e)->logger.info("receiving transfer: {}", d));
 		server.load();
+		
+		//afterLoad(pallets);
+		
+		
+	}
+
+	private void afterLoad(final Set<Pallet<String>> pallets) throws InterruptedException {
+		Thread.sleep(20000);
+		
+		int i = 0;
+		final List<Duty<String>> newones = new ArrayList<>();
+		for (final Pallet<?> p: pallets) {
+			final Duty<String> x = Duty.<String>builder("QK-" + i++, p.getId()).with("karajo-" + i).build();
+			newones.add(x);
+			server.getClient().add(x);
+		}
+		
+		Thread.sleep(5000);
+		for (Duty<String> d: newones) {
+			server.getClient().remove(d);
+		}
+		
+		Thread.sleep(30000);
+		final Pallet<String> p = pallets.iterator().next();
+		for (int k = 0 ; k < 10; k++) {
+			final Duty<String> x = Duty.<String>builder("BF-" + k, p.getId()).with("bigfaaaaaart-" + k).build();
+			newones.add(x);
+			server.getClient().add(x);
+		}
 	}
 	
 	public Client<String, String> getClient() {

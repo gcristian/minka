@@ -16,16 +16,17 @@
  */
 package io.tilt.minka.core.follower;
 
+import static java.util.stream.Collectors.groupingBy;
+
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.Lists;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.EntityPayload;
@@ -39,8 +40,7 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.DependencyPlaceholder;
-import io.tilt.minka.domain.DomainInfo;
-import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
@@ -121,33 +121,29 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 	@SuppressWarnings("unchecked")
 	public void accept(final Serializable event) {
 		if (event instanceof ShardCommand) {
-			logger.info("{}: ({}) Receiving: {}", getName(), config.getLoggingShardId(), event);
-			//partitionManager.handleClusterOperation((ShardCommand) event);
+			logger.debug("{}: ({}) Receiving: {}", getName(), config.getLoggingShardId(), event);
 		} else if (event instanceof ShardEntity) {
-			logger.info("{}: ({}) Receiving 1: {}", getName(), config.getLoggingShardId(), event);
+			if (logger.isDebugEnabled()) {
+				logger.debug("{}: ({}) Receiving # 1: {}", getName(), config.getLoggingShardId(), event);
+			}
 			scheduler.run(
 			        scheduler.getFactory().build(
 			                Action.INSTRUCT_DELEGATE, 
 			                PriorityLock.MEDIUM_BLOCKING,
-			                () -> handleDuty((ShardEntity) event))
+			                () -> handleDuty(Collections.singletonList((ShardEntity) event)))
 			        );
 		} else if (event instanceof ArrayList) {
-			logger.info("{}: ({}) Receiving {}: {}", getName(), config.getLoggingShardId(), ((ArrayList<ShardEntity>) event).size(), event);
+			if (logger.isDebugEnabled()) {
+				logger.debug("{}: ({}) Receiving {}: {}", getName(), config.getLoggingShardId(), ((ArrayList<ShardEntity>) event).size(), event);
+			}
 			final List<ShardEntity> list = (ArrayList<ShardEntity>) event;
 			if (list.isEmpty()) {
 				throw new IllegalStateException("leader is sending an empty duty list");
 			}
 			final Synchronized handler = scheduler.getFactory().build(
 					Action.INSTRUCT_DELEGATE,
-					PriorityLock.MEDIUM_BLOCKING, () -> {
-						if (list.stream()
-								.collect(Collectors.groupingBy(ShardEntity::getLastEvent))
-								.size() > 1) {
-							list.forEach(d -> handleDuty(d));
-						} else {
-							handleDuty(list.toArray(new ShardEntity[list.size()]));
-						}
-					});
+					PriorityLock.MEDIUM_BLOCKING, 
+					() -> handleDuty(list));
 			scheduler.run(handler);
 		} else if (event instanceof Clearance) {
 			final Clearance clear = ((Clearance) event);
@@ -172,34 +168,33 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		}
 	}
 
-	private void handleDuty(final ShardEntity... duties) {
+	private void handleDuty(final List<ShardEntity> duties) {
 		try {
-			for (ShardEntity duty: duties) {
-				final Log log = duty.getJournal().find(partition.getId());
-					switch (log.getEvent()) {
-					case ATTACH:
-						partitionManager.attach(Lists.newArrayList(duty));
-						break;
-					case DETACH:
-						partitionManager.dettach(Lists.newArrayList(duty));
-						break;
-					case TRANSFER:
-					case UPDATE:
-						partitionManager.update(Lists.newArrayList(duty));
-						break;
-					case REMOVE:
-						partitionManager.finalized(Lists.newArrayList(duty));
-						break;
-					default:
-						logger.error("{}: ({}) Not allowed: {}", log.getEvent(), config.getLoggingShardId());
-					}
+			for (final Entry<EntityEvent, List<ShardEntity>> e : duties.stream()
+					.collect(groupingBy(d -> d.getJournal().find(partition.getId()).getEvent())).entrySet()) {
+				switch (e.getKey()) {
+				case ATTACH:
+					partitionManager.attach(e.getValue());
+					break;
+				case DETACH:
+					partitionManager.dettach(e.getValue());
+					break;
+				case TRANSFER:
+				case UPDATE:
+					partitionManager.update(e.getValue());
+					break;
+				case REMOVE:
+					partitionManager.finalized(e.getValue());
+					break;
+				default:
+					logger.error("{}: ({}) Not allowed: {}", e.getKey(), config.getLoggingShardId());
+				}
 			}
 		} catch (Exception e) {
-			logger.error("{}: ({}) Unexpected while handling Duty:{}", getName(), config.getLoggingShardId(), duties,
-					e);
+			logger.error("{}: ({}) Unexpected while handling Duty:{}", getName(), config.getLoggingShardId(), duties, e);
 		}
 	}
-
+	
 	public PartitionManager getPartitionManager() {
 		return this.partitionManager;
 	}
