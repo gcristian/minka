@@ -296,7 +296,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 
 	private static boolean wasRecentlyUnifinishedlyAllocated(final EntityJournal j) {
 		boolean isLegitUnpair = false;
-		int maxHistory = 2; // max history back will find a VALID CREATION in some steps
+		int maxHistory = 1; // max history back will find a VALID CREATION in some steps
 		for (final Iterator<Log> it = j.descendingIterator(); it.hasNext() && maxHistory > 0;) {
 			final Log l = it.next();
 			if (isLegitUnpair = (l.getEvent()==EntityEvent.CREATE
