@@ -34,7 +34,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
-import com.google.common.util.concurrent.AtomicDouble;
 
 import io.tilt.minka.api.ConsistencyException;
 import io.tilt.minka.api.Duty;
@@ -89,6 +88,7 @@ public class PartitionScheme {
 		public void stealthChange(final boolean value) {
 			this.stealthChange = value;
 		}
+		/** @return true when changes happened that are worthy of distribution phase run  */
 		public boolean isStealthChange() {
 			return this.stealthChange;
 		}
@@ -144,7 +144,9 @@ public class PartitionScheme {
 			if (rem == null || part == null) {
 				logger.error("{}: trying to delete unexisting Shard: {}", getClass().getSimpleName(), shard);
 			}
-			return stealthChange |= rem!=null && part!=null;
+			final boolean changed = rem!=null && part!=null;
+			stealthChange |= changed;
+			return changed;
 		}
 		/**
 		 * @param shard	to add to the table
@@ -396,6 +398,7 @@ public class PartitionScheme {
 		public void stealthChange(final boolean value) {
 			this.stealthChange = value;
 		}
+		/** @return true when changes happened that are worthy of distribution phase run  */
 		public boolean isStealthChange() {
 			return this.stealthChange;
 		}
