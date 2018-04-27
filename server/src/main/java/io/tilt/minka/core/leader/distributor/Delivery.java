@@ -86,6 +86,7 @@ public class Delivery {
 	public Shard getShard() {
 		return this.shard;
 	}
+	@JsonIgnore
 	public EntityEvent getEvent() {
 		return event;
 	}
@@ -171,9 +172,9 @@ public class Delivery {
 		return event + "-" + shard + "-" + duties.size();
 	}
 	
-	@JsonProperty("shard")
-	private String getShard_() {
-		return shard.toString();
+	@JsonProperty("event")
+	private String getEventShard() {
+		return event + " " + shard.toString();
 	}
 
 	@JsonProperty("state")

@@ -167,7 +167,7 @@ public class Proctor implements Service {
 		final List<Runnable> actions = new ArrayList<>(size);
 		partitionScheme.getScheme().onShards(null, shard-> {
 			final String[] ressume = new String[1];
-			final ShardState newState = evaluateStateThruHeartbeats(shard, s->ressume[0]=s);
+			final ShardState newState = evaluateStateThruHeartbeats(shard, info->ressume[0]=info);
 			final ShardState priorState = shard.getState();
 			if (newState != priorState) {
 				logChangeAndTitle(ressume, actions.isEmpty(), size);

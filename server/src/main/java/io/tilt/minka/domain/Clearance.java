@@ -21,13 +21,8 @@ import static java.util.Objects.requireNonNull;
 import java.io.Serializable;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.commons.lang.builder.EqualsBuilder;
-import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-
-import io.tilt.minka.core.follower.Follower;
-import io.tilt.minka.core.leader.Leader;
 
 /**
  * A signal of clearance from the leader to the followers to keep having authority on the delegated duties  

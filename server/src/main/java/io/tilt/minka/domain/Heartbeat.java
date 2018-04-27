@@ -55,6 +55,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 	private final NetworkShardIdentifier shardId;
 	private final DateTime creation;
 	private DateTime reception;
+	@JsonIgnore
 	private final boolean warning;
 	private final long sequenceId;
 	private final boolean reportsDuties;
@@ -146,13 +147,13 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		this.differences = differences;
 	}
 
-	@JsonProperty(index=9, value="reports-duties")
+	@JsonProperty(index=7, value="reports-duties")
 	/** @return if reported duties content is able to be analyzed */
 	public boolean reportsDuties(){
 		return this.reportsDuties;
 	}
 	
-	@JsonProperty(index=2, value="has-differences")
+	@JsonProperty(index=6, value="has-differences")
 	/** @return is there were differences of integrity between reported and earliest duty version */
 	public boolean hasDifferences() {
 		return this.differences!=null;
@@ -171,12 +172,12 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		return this.creation;
 	}
 
-	@JsonProperty(index=3, value="creation")
+	@JsonProperty(index=1, value="creation")
 	private String getCreation_() {
 		return this.creation.toString();
 	}
 
-	@JsonProperty(index=4, value="reception-delay")
+	@JsonProperty(index=3, value="reception-delay")
 	public long getReceptionDelay() {
 		return reception.getMillis() - creation.getMillis();
 	}
@@ -186,11 +187,6 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		return this.reception;
 	}
 	
-	@JsonProperty(index=5, value="reception")
-	private String getReception_() {
-		return this.reception.toString();
-	}
-
 	public void setReception(DateTime reception) {
 		this.reception = reception;
 	}
@@ -200,7 +196,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		return this.shardId;
 	}
 
-	@JsonProperty(index=6, value="state-change")
+	@JsonProperty(index=8, value="state-change")
 	public ShardState getStateChange() {
 		return this.stateChange;
 	}
@@ -214,17 +210,17 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		return this.reportedCapturedDuties;
 	}
 
-	@JsonProperty(index=7, value="reported-duties")
+	@JsonProperty(index=5, value="reported-duties")
 	private int getDutySize() {
         return this.reportedCapturedDuties!=null ? this.reportedCapturedDuties.size() : 0;
     }
 
-	@JsonProperty(index=8, value="has-warning")
+	@JsonProperty(index=4, value="has-warning")
 	public boolean hasWarning() {
 		return warning;
 	}
 
-	@JsonProperty(index=1, value="sequence-id")
+	@JsonProperty(index=2, value="sequence-id")
 	public long getSequenceId() {
 		return this.sequenceId;
 	}
