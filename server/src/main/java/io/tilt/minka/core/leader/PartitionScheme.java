@@ -434,8 +434,9 @@ public class PartitionScheme {
 
 		/* add it for the next Distribution cycle consideration */
 		public boolean addCrudDuty(final ShardEntity duty) {
-			// the uniqueness of it's wrapped object doesnt define the uniqueness of the wrapper 
-			dutyCrud.remove(duty);
+			// the uniqueness of it's wrapped object doesnt define the uniqueness of the wrapper
+			// updates and transfer go in their own manner
+			//dutyCrud.remove(duty);
 			final boolean added =dutyCrud.add(duty);
 			stealthChange |= added;
 			return added;
