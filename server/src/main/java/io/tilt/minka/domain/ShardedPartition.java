@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
@@ -34,6 +33,8 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 
 /**
+ * At leader, the ChangeDetector read-writes to maintain the knowledge about where is what. 
+ * At follower, feeds the HeartbeatFactory agent. 
  * An effectively assigned, running and continuously confirmed 
  * set of {@linkplain ShardEntity} in a given {@linkplain Shard}
  *  
@@ -45,7 +46,9 @@ public class ShardedPartition {
 
 	private static final Logger logger = LoggerFactory.getLogger(ShardedPartition.class);
 	
+	// the where
 	private final NetworkShardIdentifier id;
+	// the what
 	private Set<ShardEntity> duties;
 	private Set<ShardEntity> pallets;
 	private long lastUpdateTimestamp;
@@ -120,10 +123,10 @@ public class ShardedPartition {
 	public Set<ShardEntity> getPallets() {
 		return unmodifiableSet(pallets);
 	}
-	public Set<ShardEntity> getDuties(final Pallet<?> pallet) {
+	public long getDutiesSize(final Pallet<?> pallet) {
 		return this.duties.stream()
 				.filter(d->d.getDuty().getPalletId().equals(pallet.getId()))
-				.collect(Collectors.toSet());
+				.count();
 	}
 	public void addAllPallets(final Collection<ShardEntity> all) {		
 		this.pallets.addAll(all);

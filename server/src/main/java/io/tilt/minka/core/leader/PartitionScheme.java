@@ -333,7 +333,7 @@ public class PartitionScheme {
 				int total = 0;
 				for (final ShardedPartition part : reference.partitionsByShard.values()) {
 					if (quest == null || part.getId().equals(quest.getShardID())) {
-						total += (pallet == null ? part.getDuties().size() : part.getDuties(pallet).size());
+						total += (pallet == null ? part.getDuties().size() : part.getDutiesSize(pallet));
 					}
 				}
 				return total;
@@ -365,7 +365,7 @@ public class PartitionScheme {
 				int total = 0;
 				for (Shard shard : reference.partitionsByShard.keySet()) {
 					if (shard.getState() == ShardState.ONLINE) {
-						total += reference.partitionsByShard.get(shard).getDuties(filter).size();
+						total += reference.partitionsByShard.get(shard).getDutiesSize(filter);
 					}
 				}
 				return total;
@@ -648,11 +648,13 @@ public class PartitionScheme {
 						final StringBuilder sb = new StringBuilder();
 						sb.append(shard).append(" Pallet: ").append(p.getPallet().getId());
 						final Capacity cap = capacities.get(p.getPallet());
-						sb.append(" Size: ").append(partition.getDuties(p.getPallet()).size());
+						sb.append(" Size: ").append(partition.getDutiesSize(p.getPallet()));
 						sb.append(" Weight/Capacity: ");
-						AtomicDouble weight = new AtomicDouble();
-						partition.getDuties(p.getPallet()).forEach(d->weight.addAndGet(d.getDuty().getWeight()));
-						sb.append(weight.get()).append("/");
+						final double[] weight = new double[1];
+						partition.getDuties().stream()
+							.filter(d->d.getDuty().getPalletId().equals(p.getPallet().getId()))
+							.forEach(d->weight[0]+=d.getDuty().getWeight());
+						sb.append(weight[0]).append("/");
 						sb.append(cap!=null ? cap.getTotal(): "Unreported");
 						if (logger.isDebugEnabled()) {
 							sb.append(" Duties: [").append(partition.toString()).append("]");
