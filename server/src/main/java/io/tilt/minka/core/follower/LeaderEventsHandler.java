@@ -136,7 +136,8 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 			        );
 		} else if (event instanceof ArrayList) {
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: ({}) Receiving {}: {}", getName(), config.getLoggingShardId(), ((ArrayList<ShardEntity>) event).size(), event);
+				logger.info("{}: ({}) Receiving {}: {}", getName(), config.getLoggingShardId(), 
+						((ArrayList<ShardEntity>) event).size(), event);
 			}
 			final List<ShardEntity> list = (ArrayList<ShardEntity>) event;
 			if (list.isEmpty()) {

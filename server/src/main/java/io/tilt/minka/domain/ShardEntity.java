@@ -174,7 +174,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		return getJournal().getLast().getEvent() == e;
 	}
 
-	@JsonProperty("event")
+	@JsonIgnore
 	public EntityEvent getLastEvent() {
 		return getJournal().getLast().getEvent();
 	}
@@ -272,16 +272,20 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		return this.getEntity().getId().compareTo(o.getEntity().getId());
 	}
 
-	@JsonProperty("state")
+	@JsonIgnore
 	public EntityState getLastState() {
 		return getJournal().getLast().getLastState();
 	}
 
-	
+	@JsonIgnore
 	public EntityJournal getJournal() {
         return this.journal;
     }
-		
+	@JsonProperty("journal")
+	private List<String> getJournal_() {
+        return this.journal.getStringHistory();
+    }
+	
 	private void setJournal(final EntityJournal track) {
 	    this.journal = track;
 	}

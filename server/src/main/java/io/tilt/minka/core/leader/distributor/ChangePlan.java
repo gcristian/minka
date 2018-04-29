@@ -55,21 +55,21 @@ import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.LogUtils;
 
 /**
- * Plan of changes as a consequence of {@linkplain Balancer} recalculation, caused 
- * by CRUD operations to the {@linkplain Scheme} (Shards, Entities)
+ * Plan of distribution changes, as a consequence of {@linkplain Balancer} recalculation, 
+ * caused by CRUD operations to the {@linkplain Scheme}. <br>
  * Contains a matrix of actions with minimum behaviour scoped to the pace of scheme change.
- *  
+ * <br>
  * Composed of many {@linkplain Delivery} objects sent to different {@linkplain Shard},
- * representing changes in progress of confirmation, which in turn forward to more deliveries. 
- * The plan is driven by the {@linkplain Distributor}, and takes at most 4 steps in a consistent order.
- * 
- * Built by the @{@linkplain ChangePlanFactory} and written by the {@linkplain Migrator}. 
+ * representing changes in progress of confirmation, which in turn forward to more deliveries. <br> 
+ * The plan is driven by the {@linkplain Distributor}, and takes at most 4 steps in a consistent order. <br>
+ * <br>
+ * Built by the @{@linkplain ChangePlanFactory} and written by the {@linkplain Migrator}. <br>
  * The idea is to move duties from a place to another, the move is representdd as an {@linkplain EntityEvent}
  * removes are first, dettaches are before attaches, and attaches at last, 
- * same events on different shards are sent in parrallel.
- * 
- * In case of fall of a shard, the plan gets obsolete and rebuilt according the new scheme, after a rebalance.
- * A change plan only occurs when all the Shards in the cluster get {@linkplain ShardState} Online.  
+ * same events on different shards are sent in parrallel. <br>
+ * <br>
+ * In case of fall of a shard, the plan gets obsolete and rebuilt according the new scheme, after a rebalance. <br>
+ * A change plan only occurs when all the Shards in the cluster get {@linkplain ShardState} Online.   <br>
  * 
  * @author Cristian Gonzalez
  * @since Dec 11, 2015
@@ -379,7 +379,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 				}
 			} else {
 				if (logger.isInfoEnabled()) {
-					logger.info("{}: Drive in progress waiting recent deliveries ({}'s to expire)",
+					logger.info("{}: id:{} in progress waiting confirmation ({}'s to expire)",
 							getClass().getSimpleName(),
 							getId(),
 							(expiration.toEpochMilli() - System.currentTimeMillis()) / 1000);

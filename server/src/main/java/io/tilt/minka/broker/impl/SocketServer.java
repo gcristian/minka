@@ -259,8 +259,10 @@ public class SocketServer {
 		
 		@Override
 		public void exceptionCaught(final ChannelHandlerContext ctx, final Throwable e) {
-			logger.error("({}) ChannelInboundHandlerAdapter: Unexpected while consuming (who else's using broker port ??)", 
+			if (logger.isDebugEnabled()) {
+				logger.debug("({}) ChannelInboundHandlerAdapter: Unexpected while consuming (who else's using broker port ??)", 
 					loggingName, e.getMessage());
+			}
 			ctx.close();
 		}
 	}

@@ -28,7 +28,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.follower.HeartbeatFactory;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.domain.DependencyPlaceholder;
@@ -62,7 +61,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	
 	private DomainInfo domain; 
 	private long includeTimestamp;
-	
+	private boolean logBeat;
 	private ShardIdentifier lastLeader;
 	
 	public HeartbeatFactoryImpl(
@@ -88,6 +87,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		// add reported: as confirmed if previously assigned, dangling otherwise.
 		final List<ShardEntity> tmp = new ArrayList<>(partition.getDuties().size()); 
 		boolean issues = detectChangesOnReport(builder, tmp::add);
+		logBeat |=issues;
 		
 		boolean newLeader = false; 
 		final NetworkShardIdentifier leader = leaderShardContainer.getLeaderShardId();
@@ -97,6 +97,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			// put last inc. timestamp older so exclusion expires and full report beats follows 
 			includeTimestamp = (now - includeFrequency) + 1;
 		}
+		logBeat |=newLeader;
 
 		final boolean exclusionExpired = includeTimestamp == 0 || (now - includeTimestamp) > includeFrequency;
 		
@@ -110,7 +111,8 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		final Heartbeat hb = builder.build();
 		if (log.isDebugEnabled()) {
 			logDebugNicely(hb);
-		} else if (log.isInfoEnabled() && (doFullReport || hb.getSequenceId()%500==0)) {
+		} else if (log.isInfoEnabled() && logBeat) {
+			logBeat = false;
 			log.info("{}: ({}) {} SeqID: {}, {}", 
 				getClass().getSimpleName(), hb.getShardId(),LogUtils.HB_CHAR, hb.getSequenceId(), 
 				hb.reportsDuties() ? new StringBuilder("Duties: (")

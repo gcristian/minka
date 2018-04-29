@@ -1,3 +1,2 @@
 #!/bin/bash
-cmd="/usr/bin/curl -s \$(./leader)/minka/admin/\$1 | tee ./last-\$1 | jq . "
-sh $cmd
+/usr/bin/curl -s $(./leader)/minka/admin/$1 | /usr/bin/jq .
