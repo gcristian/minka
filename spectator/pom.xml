@@ -4,7 +4,7 @@
   <parent>
     <artifactId>minka-parent</artifactId>
     <groupId>io.tilt.minka</groupId>
-    <version>0.2.1-SNAPSHOT</version>
+    <version>0.3-SNAPSHOT</version>
   </parent>
   <artifactId>minka-spectator</artifactId>
   <packaging>jar</packaging>
