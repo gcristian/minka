@@ -15,6 +15,7 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -161,7 +162,7 @@ class ChangePlanFactory {
 	}
 	
 	private static void addMissingAsCrud(final PartitionScheme partition, final ChangePlan changePlan) {
-	    final Set<ShardEntity> missing = partition.getBackstage().getDutiesMissing();
+	    final Collection<ShardEntity> missing = partition.getBackstage().getDutiesMissing();
 		for (final ShardEntity missed : missing) {
 			final Shard lazy = partition.getScheme().getDutyLocation(missed);
 			if (logger.isInfoEnabled()) {

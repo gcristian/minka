@@ -26,6 +26,7 @@ import static io.tilt.minka.domain.Shard.ShardState.QUITTED;
 import static java.util.Collections.emptyMap;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -265,7 +266,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	 * to be confirmed
 	 */
 	private void recoverAndRetire(final Shard shard) {
-		final Set<ShardEntity> dangling = partitionScheme.getScheme().getDutiesByShard(shard);
+		final Collection<ShardEntity> dangling = partitionScheme.getScheme().getDutiesByShard(shard);
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: Removing fallen Shard: {} from ptable. Saving: #{} duties: {}", classname, shard,
 				dangling.size(), ShardEntity.toStringIds(dangling));

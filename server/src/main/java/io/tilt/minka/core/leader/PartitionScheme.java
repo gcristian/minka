@@ -29,6 +29,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +39,7 @@ import com.google.common.collect.Lists;
 
 import io.tilt.minka.api.ConsistencyException;
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.domain.EntityEvent;
@@ -203,7 +206,7 @@ public class PartitionScheme {
 		/** 
 		 * @param shard	the shard to get duties from
 		 * @return a copy of duties by shard: dont change duties ! */
-		public Set<ShardEntity> getDutiesByShard(final Shard shard) {
+		public Collection<ShardEntity> getDutiesByShard(final Shard shard) {
 			return getPartition(shard).getDuties();
 		}
 
@@ -382,16 +385,16 @@ public class PartitionScheme {
 	 * including inconsistencies detected by the bookkeeper
 	 * */
 	public static class Backstage {
-		private Set<ShardEntity> palletCrud;
-		private Set<ShardEntity> dutyCrud;
-		private Set<ShardEntity> dutyMissings;
-		private Set<ShardEntity> dutyDangling;
+		private Map<Pallet<?>, ShardEntity> palletCrud;
+		private Map<Duty<?>, ShardEntity> dutyCrud;
+		private Map<Duty<?>, ShardEntity> dutyMissings;
+		private Map<Duty<?>, ShardEntity> dutyDangling;
 		
 		public Backstage() {
-			this.palletCrud = new HashSet<>();
-			this.dutyCrud = new HashSet<>();
-			this.dutyMissings = new HashSet<>();
-			this.dutyDangling = new HashSet<>();
+			this.palletCrud = new HashMap<>();
+			this.dutyCrud = new HashMap<>();
+			this.dutyMissings = new HashMap<>();
+			this.dutyDangling = new HashMap<>();
 		}
 
 		private boolean stealthChange;
@@ -404,16 +407,21 @@ public class PartitionScheme {
 		}
 		
 		/** @return read only set */
-		public Set<ShardEntity> getDutiesDangling() {
-			return Collections.unmodifiableSet(this.dutyDangling);
+		public Collection<ShardEntity> getDutiesDangling() {
+			return Collections.unmodifiableCollection(this.dutyDangling.values());
 		}
+		
+		/** @return true if added for the first time else is being replaced */
 		public boolean addDangling(final Collection<ShardEntity> dangling) {
-			final boolean added = this.dutyDangling.addAll(dangling);
+			boolean added = false; 
+			for (ShardEntity d: dangling) {
+				added |= this.dutyDangling.put(d.getDuty(), d) == null;
+			}
 			stealthChange |= added;
 			return added;
 		}
 		public boolean addDangling(final ShardEntity dangling) {
-			final boolean added =this.dutyDangling.add(dangling);
+			final boolean added = this.dutyDangling.put(dangling.getDuty(), dangling) == null;
 			stealthChange |= added;
 			return added;
 
@@ -421,10 +429,10 @@ public class PartitionScheme {
 		public void cleanAllocatedDanglings() {
 			removeNonStuck(dutyDangling);
 		}
-		private void removeNonStuck(final Set<ShardEntity> set) {
-			final Iterator<ShardEntity> it = set.iterator();
+		private void removeNonStuck(final Map<? extends Entity, ShardEntity> map) {
+			final Iterator<? extends Entity> it = map.keySet().iterator();
 			while (it.hasNext()) {
-				final ShardEntity e = it.next();
+				final ShardEntity e = map.get(it.next());
 				if (e.getLastState() != EntityState.STUCK) {
 					stealthChange |=true;
 					it.remove();
@@ -437,48 +445,52 @@ public class PartitionScheme {
 		}
 
 		/* add it for the next Distribution cycle consideration */
+		/** @return true if added for the first time else is being replaced */
 		public boolean addCrudDuty(final ShardEntity duty) {
 			// the uniqueness of it's wrapped object doesnt define the uniqueness of the wrapper
 			// updates and transfer go in their own manner
 			//dutyCrud.remove(duty);
-			final boolean added =dutyCrud.add(duty);
+			final boolean added = dutyCrud.put(duty.getDuty(), duty) == null;
 			stealthChange |= added;
 			return added;
 
 		}
-		public Set<ShardEntity> getDutiesCrud() {
-			return Collections.unmodifiableSet(this.dutyCrud);
+		public Collection<ShardEntity> getDutiesCrud() {
+			return Collections.unmodifiableCollection(this.dutyCrud.values());
 		}
 		public boolean removeCrud(final ShardEntity entity) {
-			final boolean removed =this.dutyCrud.remove(entity);
+			final boolean removed =this.dutyCrud.remove(entity.getDuty()) == null;
 			stealthChange |= removed;
 			return removed;
 		}
 
 		/** @return read only set */
-		public Set<ShardEntity> getDutiesMissing() {
-			return Collections.unmodifiableSet(this.dutyMissings);
+		public Collection<ShardEntity> getDutiesMissing() {
+			return Collections.unmodifiableCollection(this.dutyMissings.values());
 		}
 		public void clearAllocatedMissing() {
 			removeNonStuck(dutyMissings);
 		}
 		
 		public boolean addMissing(final Collection<ShardEntity> duties) {
-			final boolean added =this.dutyMissings.addAll(duties);
+			boolean added = false;
+			for (ShardEntity d: duties) {
+				added |= dutyMissings.put(d.getDuty(), d) == null;
+			}
 			stealthChange |= added;
-			return added;
+			return true;
 
 		}
 
 		public boolean addMissing(final ShardEntity duty) {
-			final boolean added =this.dutyMissings.add(duty);
-			stealthChange |= added;
-			return added;
+			final boolean replaced = this.dutyMissings.put(duty.getDuty(), duty) !=null;
+			stealthChange |= replaced;
+			return true;
 		}
 
 		public void removeCrudDuties() {
 			this.dutyCrud.clear();
-			this.dutyCrud = new HashSet<>();
+			this.dutyCrud = new HashMap<>();
 			stealthChange = true;
 		}
 		public int sizeDutiesCrud(final Predicate<EntityEvent> event, final Predicate<EntityState> state) {
@@ -504,7 +516,8 @@ public class PartitionScheme {
 				final Predicate<EntityState> statePredicate, 
 				final Consumer<ShardEntity> consumer) {
 			
-			(type == ShardEntity.Type.DUTY ? getDutiesCrud() : palletCrud).stream()
+			
+			(type == ShardEntity.Type.DUTY ? getDutiesCrud() : palletCrud.values()).stream()
 				.filter(e -> (eventPredicate == null || eventPredicate.test(e.getJournal().getLast().getEvent())) 
 					&& (statePredicate == null || (statePredicate.test(e.getJournal().getLast().getLastState()))))
 				.forEach(consumer);
@@ -632,7 +645,7 @@ public class PartitionScheme {
 	/* add without considerations (they're staged but not distributed per se) */
 	public void addCrudPallet(final ShardEntity pallet) {
 		getScheme().palletsById.put(pallet.getPallet().getId(), pallet);
-		getBackstage().palletCrud.add(pallet);
+		getBackstage().palletCrud.put(pallet.getPallet(), pallet);
 	}
 
 	public void logStatus() {
