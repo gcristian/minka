@@ -237,9 +237,9 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		for (final ShardEntity e : reportedCapturedDuties) {
 			final Shard should = partitionScheme.getScheme().getDutyLocation(e);
 			if (should==null) {
-				throw new ConsistencyException("unexisting duty: " + e.toBrief() + " reported by shard: " + sourceShard);
+				logger.error("unexisting duty: " + e.toBrief() + " reported by shard: " + sourceShard);
 			} else if (!should.equals(sourceShard)) {
-				throw new ConsistencyException("relocated duty: " + e.toBrief() + " being reported by shard: " + sourceShard);
+				logger.error("relocated duty: " + e.toBrief() + " being reported by shard: " + sourceShard);
 			}
 		}
 	}
