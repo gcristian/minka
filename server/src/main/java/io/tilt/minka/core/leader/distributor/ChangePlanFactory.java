@@ -113,7 +113,6 @@ class ChangePlanFactory {
 		if (changes) {
 			return changePlan;
 		} else {
-			changePlan.discard();
 			return null;
 		}
 	}

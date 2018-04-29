@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -83,8 +82,6 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	public static final int PLAN_UNKNOWN = -1;
 	public static final int PLAN_WITHOUT = 0;
 	
-	private static final AtomicLong sequence = new AtomicLong();
-	
 	private final long id;
 	private final Instant created;
     private final long maxMillis;
@@ -107,21 +104,14 @@ public class ChangePlan implements Comparable<ChangePlan> {
 			EntityEvent.CREATE,
 			EntityEvent.ATTACH);
 
-	protected ChangePlan(final long id, final long maxMillis, final int maxRetries) {
-		this.id = id;
+	protected ChangePlan(final long maxMillis, final int maxRetries) {
 		this.created = Instant.now();
 		this.shippings = new HashMap<>(consistentEventsOrder.size());
 		this.deliveries = Collections.emptyList();
 		this.maxMillis = maxMillis;
 		this.maxRetries = maxRetries;
-	}
-
-	public ChangePlan(final long maxMillis, final int maxRetries) {
-		this(sequence.incrementAndGet(), maxMillis, maxRetries);
-	}
-
-	public void discard() {
-		sequence.decrementAndGet();
+		// to avoid id retraction at leader reelection causing wrong journal order
+		this.id = System.currentTimeMillis();
 	}
 
 	public static enum Result {
@@ -474,7 +464,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		final CollectionUtils.SlidingSortedSet<ChangePlan> set = CollectionUtils.sliding(5);
 		for (int i = 0; i < 10; i++) {
 			System.out.println(new DateTime(DateTimeZone.UTC));
-			set.add(new ChangePlan(i, 1, 1));
+			set.add(new ChangePlan(1, 1));
 			Thread.sleep(200);
 		}
 		System.out.println("----------");
