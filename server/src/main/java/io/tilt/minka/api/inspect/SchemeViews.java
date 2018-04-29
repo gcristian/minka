@@ -105,6 +105,7 @@ public class SchemeViews {
 		Validate.notNull(table);
 		final Map<String, Object> map = new LinkedHashMap<>();
 		map.put("leaderShardId", leaderShardContainer.getLeaderShardId());
+		map.put("previousLeaders", leaderShardContainer.getAllPreviousLeaders());
 		final List<Shard> list = new ArrayList<>();
 		table.getScheme().onShards(null, list::add);
 		map.put("shards", list);
@@ -137,11 +138,17 @@ public class SchemeViews {
 	public String shardedEntitiesToJson(final ShardedPartition partition) throws JsonProcessingException {
 		return elementToJson(buildDuties(partition, true));
 	}
-	private List<Object> buildDuties(final PartitionScheme table, boolean entities) {
+	private Map<String, List<Object>> buildDuties(final PartitionScheme table, boolean entities) {
 		Validate.notNull(table);
-		final List<Object> ret = new ArrayList<>();
-		table.getScheme().onDuties(e->ret.add(entities ? e: e.getDuty()));
-		return ret;
+		final Map<String, List<Object>> byPalletId = new LinkedHashMap<>();
+		table.getScheme().onDuties(d-> {
+			List<Object> pid = byPalletId.get(d.getDuty().getPalletId());
+			if (pid==null) {
+				byPalletId.put(d.getDuty().getPalletId(), pid = new ArrayList<>());
+			}
+			pid.add(entities ? d : d.getDuty().getId());
+		});
+		return byPalletId;
 	}
 
 	private Map<String, List<Object>> buildBackstage(final PartitionScheme.Backstage stage) {

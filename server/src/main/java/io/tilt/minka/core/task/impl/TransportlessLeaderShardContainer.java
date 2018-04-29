@@ -16,6 +16,7 @@
  */
 package io.tilt.minka.core.task.impl;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
@@ -117,8 +118,7 @@ public class TransportlessLeaderShardContainer implements LeaderShardContainer {
 
 	@Override
 	public final List<NetworkShardIdentifier> getAllPreviousLeaders() {
-		// TODO
-		return null;
+		return new ArrayList<>(previousLeaders);
 	}
 
 	@Override

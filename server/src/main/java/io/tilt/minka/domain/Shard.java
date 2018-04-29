@@ -84,9 +84,10 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	public Instant getFirstTimeSeen() {
 		return this.firstTimeSeen;
 	}
-	@JsonProperty(index=1, value="first-seen")
-	private String getFirstTime() {
-		return this.firstTimeSeen.toString();
+	
+	@JsonProperty("last-beat-id")
+	private String lastBeatId() {
+		return String.valueOf(this.getLast().getSequenceId());
 	}
 
 	@JsonIgnore
@@ -119,7 +120,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		return this.beats;
 	}
 	
-	@JsonProperty(index=3, value="heartbeat-last")
+	@JsonIgnore
 	private Heartbeat getLast() {
 	    return this.beats.first();
 	}

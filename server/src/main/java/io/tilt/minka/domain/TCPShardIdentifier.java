@@ -55,15 +55,15 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	private static final long serialVersionUID = 3233785408081305735L;
 	private static final Random random = new Random();
 	private static final int PORT_SEARCHES_MAX = 100;
+	@JsonIgnore
 	private final String logName = getClass().getSimpleName();
 	// this doesnt go to leader
 	private transient final DependencyPlaceholder dependencyPlaceholder;
 
-	@JsonProperty(index=1, value="id")
 	private String id;
-	@JsonProperty(index=2, value="server-hostname")
+	@JsonProperty(index=2, value="broker-hostname")
 	private final InetAddress sourceHost;
-	@JsonProperty(index=3, value="server-port")
+	@JsonProperty(index=3, value="broker-port")
 	private int port;
 	@JsonIgnore
 	private final int configuredPort;  
@@ -280,6 +280,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	}
 
 	@Override
+	@JsonIgnore
 	public String getId() {
 		return this.id;
 	}

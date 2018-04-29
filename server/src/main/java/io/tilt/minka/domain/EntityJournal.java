@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import io.tilt.minka.domain.EntityJournal.Log.TimeState;
+import io.tilt.minka.domain.EntityJournal.Log.StateStamp;
 
 /**
  * Operation and state registry for entities. Living within {@linkplain ShardEntity} instances.
@@ -45,7 +45,7 @@ import io.tilt.minka.domain.EntityJournal.Log.TimeState;
  *   ATACH 		CONFIRMED	9001	 1
  *  
  *  @author Cristian Gonzalez
- *  @since  Oct 15, 2018
+ *  @since  Oct 15, 2017
 */
 public class EntityJournal implements Serializable {
 	
@@ -119,7 +119,7 @@ public class EntityJournal implements Serializable {
 	public boolean hasEverBeenDistributed() {
 	    for (final Log log: logs) {
 	        if (log.getEvent()==EntityEvent.ATTACH) {
-	            for (final TimeState ds: log.getStates()) {
+	            for (final StateStamp ds: log.getStates()) {
 	                if (ds.getState()==EntityState.CONFIRMED) {
 	                    return true;
 	                }
@@ -176,11 +176,11 @@ public class EntityJournal implements Serializable {
 		return null;
 	}
 
-	@JsonProperty("log")
-	public List<String> getStringHistory() {
-		final Map<TimeState, String> ordered = new TreeMap<>(new TimeState.DateComparer());
+	@JsonIgnore
+	protected List<String> getStringHistory() {
+		final Map<StateStamp, String> ordered = new TreeMap<>(new StateStamp.DateComparer());
 		for (Log el : logs) {
-			for (final TimeState ts : el.getStates()) {
+			for (final StateStamp ts : el.getStates()) {
 				ordered.put(ts, String.format("%s %s: %s (%s) at %s",
 								el.getPlanId(),
 								el.getEvent(),
@@ -193,7 +193,7 @@ public class EntityJournal implements Serializable {
 	}
 
 	/**
-	 * Registry of an {@linkplain EntityEvent} with a list of {@linkplain TimeState}, 
+	 * Registry of an {@linkplain EntityEvent} with a list of {@linkplain StateStamp}, 
 	 * for a given conmposed key of {@linkplain ShardEntity}, {@linkplain Plan}, {@linkplain Shard}
 	 * Recording any distribution related operation information.
 	 */
@@ -203,7 +203,7 @@ public class EntityJournal implements Serializable {
 
 		private final Date head;
 		private final EntityEvent event;
-		private final LinkedList<TimeState> states = new LinkedList<>();
+		private final LinkedList<StateStamp> states = new LinkedList<>();
 		private final String targetId;
 		private final long planId;
 
@@ -233,7 +233,7 @@ public class EntityJournal implements Serializable {
 
 		// ---------------------------------------------------------------------------------------------------
 
-		public List<TimeState> getStates() {
+		public List<StateStamp> getStates() {
 			return Collections.unmodifiableList(states);
 		}
 
@@ -253,7 +253,7 @@ public class EntityJournal implements Serializable {
 		}
 
 		public void addState(final EntityState state) {
-			this.states.add(new TimeState(new Date(), state));
+			this.states.add(new StateStamp(new Date(), state));
 		}
 
 		@Override
@@ -296,14 +296,14 @@ public class EntityJournal implements Serializable {
 		/**
 		 * A recording timestamp for a reached state 
 		 */
-		public static class TimeState implements Serializable {
+		public static class StateStamp implements Serializable {
 			private static final long serialVersionUID = -3611519717574368897L;
 
-			public static class DateComparer implements Comparator<TimeState>, Serializable {
+			public static class DateComparer implements Comparator<StateStamp>, Serializable {
 				private static final long serialVersionUID = 3709876521530551544L;
 
 				@Override
-				public int compare(final TimeState o1, final TimeState o2) {
+				public int compare(final StateStamp o1, final StateStamp o2) {
 					if (o1 == null || o2 == null) {
 						return o1 == null && o2 != null ? -1 : o2 == null ? 0 : 1;
 					} else {
@@ -315,7 +315,7 @@ public class EntityJournal implements Serializable {
 			private final Date date;
 			private final EntityState state;
 
-			public TimeState(final Date date, final EntityState state) {
+			public StateStamp(final Date date, final EntityState state) {
 				super();
 				this.date = date;
 				this.state = state;
@@ -347,12 +347,12 @@ public class EntityJournal implements Serializable {
 
 			@Override
 			public boolean equals(final Object obj) {
-				if (obj == null || !(obj instanceof TimeState)) {
+				if (obj == null || !(obj instanceof StateStamp)) {
 					return false;
 				} else if (obj == this) {
 					return true;
 				} else {
-					final TimeState ts = (TimeState) obj;
+					final StateStamp ts = (StateStamp) obj;
 					return ts.getDate().equals(date) && ts.getState().equals(state);
 				}
 			}
