@@ -137,10 +137,14 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 						getClass().getSimpleName(), shard.getShardID().toString());
 			}			
 		} else if (changePlan == null && beat.reportsDuties()) {
+			// changePlan is only NULL before 1st distribution
 			// there's been a change of leader: i'm initiating with older followers
 			for (ShardEntity e: beat.getReportedCapturedDuties()) {
-				if (partitionScheme.getScheme().write(e, shard, e.getLastEvent(), null)) {
-					logger.info("{}: Scheme learning from Followers: {}", classname, e);
+				//L: prepared, L: pending, F: received, C: confirmed, L: ack.
+				if (!partitionScheme.getScheme().dutyExistsAt(e, shard)) {
+					if (partitionScheme.getScheme().write(e, shard, e.getLastEvent(), null)) {
+						logger.info("{}: Scheme learning from Followers: {}", classname, e);
+					}
 				}
 			}
 		}
