@@ -111,7 +111,10 @@ public class EvenSizeBalancer implements Balancer {
 				int i = 0;
 				final Iterator<Duty<?>> it = duties.iterator();
 				while (it.hasNext() && i++ < Math.abs(deltas.get(emisor))) {
-					migrator.transfer(emisor, receptiveCircle.next(), it.next());
+					final Duty<?> d = it.next();
+					if (!deletions.contains(d)) {
+						migrator.transfer(emisor, receptiveCircle.next(), d);
+					}
 				}
 			}
 			// Q pasa cuando una Dangling viene aca, sigue en la tabla asignada a ese shard ?
