@@ -26,8 +26,8 @@ import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Client;
+import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 
 /**

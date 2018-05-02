@@ -21,7 +21,6 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.domain.EntityJournal.Log.StateStamp;
 

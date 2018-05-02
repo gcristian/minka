@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -29,9 +30,9 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.utils.CollectionUtils;
 
 /**
@@ -132,7 +133,7 @@ public class Delivery {
 	}
 	
 	/* recalculates state: DONE when all duties CONFIRMED */
-	public void calculateState() {
+	public void calculateState(final Consumer<String> c) {
 		if (step == Step.ENQUEUED) {
 			if (duties.isEmpty()) {
 				throw new IllegalStateException("delivery without duties cannot go to pending !");
@@ -145,20 +146,17 @@ public class Delivery {
 			for (final ShardEntity duty : duties) {
 				// look up confirmation for the specific logged event matching this delivery
 				final Log found = duty.getJournal().find(getPlanId(), shard.getShardID(), getEvent());
-				if (found != null) {
-					if (found.getLastState() != EntityState.CONFIRMED) {
-						noneLeft = false;
-						// TODO get Partition TAble and check if Shard has long fell offline
-						if (ChangePlan.logger.isInfoEnabled()) {
-							ChangePlan.logger.info("{}: waiting Shard {} for {} still {} for {}",
-									getClass().getSimpleName(),
-									shard,
-									duty.getEntity().getId(),
-									found.getLastState(),
-									found.getEvent());
-						}
-						return;
+				if (found != null && found.getLastState() != EntityState.CONFIRMED) {
+					noneLeft = false;
+					if (c!=null) {
+						c.accept(String.format("%s: waiting Shard %s for %s still %s for %s",
+								getClass().getSimpleName(),
+								found.getTargetId(),
+								duty.getEntity().getId(),
+								found.getLastState(),
+								found.getEvent()));
 					}
+					return;
 				}
 			}
 			if (noneLeft) {

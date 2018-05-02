@@ -50,8 +50,6 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 	private final NetworkShardIdentifier shardId;
 	private final String classname = getClass().getSimpleName();
 
-	private long receivedCount;
-
 	public AbstractBroker(final NetworkShardIdentifier shardId) {
 		this.shardId = shardId;
 		this.consumerPerChannelEventType = HashMultimap.create();
@@ -65,11 +63,8 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 	
 	@Override
 	public void accept(final MessageMetadata meta) {
-		receivedCount++;
 		if (logger.isDebugEnabled()) {
 			logger.debug("{}: ({}) Receiving {}", classname, shardId, meta.getPayloadType().getSimpleName());
-		} else if (logger.isInfoEnabled() && (receivedCount%500==0)) {
-			logger.info("{}: ({}) Received {} # {}", classname, shardId, meta.getPayloadType().getSimpleName(), receivedCount);
 		}
 		String key = meta.getInbox() + meta.getPayloadType().getSimpleName();
 		if (logger.isDebugEnabled()) {

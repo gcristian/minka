@@ -16,14 +16,13 @@
  */
 package io.tilt.minka.core.leader.balancer;
 
-import io.tilt.minka.domain.EntityEvent;
-
 import java.util.Map;
 import java.util.Set;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.Migrator;
+import io.tilt.minka.domain.EntityEvent;
 
 /**
  * Unbalanced strategy related to distribution.

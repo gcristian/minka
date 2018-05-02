@@ -1,13 +1,6 @@
 package io.tilt.minka;
 
-import java.io.Serializable;
-
 import org.junit.Test;
-
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.DutyBuilder;
-import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.ShardEntity;
 
 public class ShardEntityTest {
 

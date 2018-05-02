@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.util.Comparator;
 
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
+import io.tilt.minka.domain.PartitionMaster;
 
 /**
  * A grouping factor for Duties with common and specific treatment requirements. <br> 

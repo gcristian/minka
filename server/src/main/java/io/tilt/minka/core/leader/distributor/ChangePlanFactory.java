@@ -87,7 +87,8 @@ class ChangePlanFactory {
 		}
 		partition.getBackstage().cleanAllocatedDanglings();
 		// add previous fallen and never confirmed migrations
-		restorePendings(previousChange, dutyCreations::add);
+		restorePendings(previousChange, dutyCreations::add, 
+				d->d.getLastEvent()==CREATE || d.getLastEvent()==ATTACH);
 		
 		final Set<ShardEntity> dutyDeletions = new HashSet<>();
 		snapshot.onDutiesCrud(REMOVE::equals, null, crud-> {

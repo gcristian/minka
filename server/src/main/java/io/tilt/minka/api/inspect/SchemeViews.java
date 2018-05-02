@@ -20,23 +20,17 @@ import static java.util.Objects.requireNonNull;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang.Validate;
 import org.joda.time.DateTime;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
@@ -57,10 +51,10 @@ import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
-import io.tilt.minka.domain.EntityState;
 
 /**
  * Read only views about the {@linkplain Scheme} 
@@ -135,9 +129,11 @@ public class SchemeViews {
 		m.put("backstage", buildBackstage(table.getBackstage()));
 		return elementToJson(m);
 	}
-	public String shardedEntitiesToJson(final ShardedPartition partition) throws JsonProcessingException {
-		return elementToJson(buildDuties(partition, true));
+	
+	public String followerEntitiesToJson(final ShardedPartition partition) throws JsonProcessingException {
+		return elementToJson(buildFollowerDuties(partition, true));
 	}
+	
 	private Map<String, List<Object>> buildDuties(final PartitionScheme table, boolean entities) {
 		Validate.notNull(table);
 		final Map<String, List<Object>> byPalletId = new LinkedHashMap<>();
@@ -166,7 +162,7 @@ public class SchemeViews {
 		return m;
 	}
 
-	private List<Object> buildDuties(final ShardedPartition partition, boolean entities) {
+	private List<Object> buildFollowerDuties(final ShardedPartition partition, boolean entities) {
 		Validate.notNull(partition);
 		final List<Object> ret = new ArrayList<>();
 		for (ShardEntity e: partition.getDuties()) {
@@ -254,16 +250,13 @@ public class SchemeViews {
 
 	private static Map<String, Object> buildGlobal(final PartitionScheme table) {
 		SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
-		final int unstaged = table.getBackstage().sizeDutiesCrud(ee->ee==EntityEvent.CREATE, null) 
-				+ table.getBackstage().getDutiesDangling().size() 
-				+ table.getBackstage().getDutiesMissing().size();
-		final int staged = extractor.getSizeTotal();		
 		final Map<String, Object> map = new LinkedHashMap<>();
-		map.put("size-duties", staged+unstaged);
-		map.put("size-pallets", extractor.getPallets().size());
-		map.put("size-staged", staged);
-		map.put("size-unstaged", unstaged);
-		map.put("size-shards", extractor.getShards().size());
+		map.put("shards", extractor.getShards().size());
+		map.put("pallets", extractor.getPallets().size());
+		map.put("scheme", extractor.getSizeTotal());
+		map.put("crud", table.getBackstage().getDutiesCrud().size());
+		map.put("missings", table.getBackstage().getDutiesMissing().size());
+		map.put("dangling", table.getBackstage().getDutiesDangling().size());
 		return map;
 	}
 	

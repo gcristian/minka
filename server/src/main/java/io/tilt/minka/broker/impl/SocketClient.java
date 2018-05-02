@@ -22,7 +22,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -152,8 +151,6 @@ public class SocketClient {
 		sentCounter++;
 		if (logger.isDebugEnabled()) {
 		    logger.debug("{}: ({}) Sending: {}", classname, loggingName, msg.getPayloadType().getSimpleName());
-		} else if (logger.isInfoEnabled() && (sentCounter%500==0)) {
-			logger.info("{}: ({}) Sent {} # {}", classname, loggingName, msg.getPayloadType().getSimpleName(), sentCounter);
 		}
 		
 		if (queueSize>maxQueueThreshold) {

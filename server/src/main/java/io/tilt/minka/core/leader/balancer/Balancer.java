@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.lang.Validate;
-import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,13 +31,13 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
+import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
+import io.tilt.minka.domain.ShardEntity;
 
 /**
  * Analyze the current distribution of {@linkplain Duty}'s and propose changes.

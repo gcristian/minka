@@ -28,8 +28,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.BiConsumer;
 
-import org.apache.logging.log4j.util.BiConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

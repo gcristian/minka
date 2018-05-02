@@ -42,14 +42,16 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
+import io.tilt.minka.api.Config;
 import io.tilt.minka.core.leader.PartitionScheme.Scheme;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal;
 import io.tilt.minka.domain.EntityJournal.Log;
-import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.EntityState;
+import io.tilt.minka.domain.Shard;
+import io.tilt.minka.domain.Shard.ShardState;
+import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.LogUtils;
 
@@ -212,7 +214,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	}
 
 	public Delivery next() {
-		if (!hasNextParallel()) {
+		if (!hasNextParallel(null)) {
 			throw new IllegalAccessError("no permission to advance forward");
 		}
 		lastDelivery = iterator.next();
@@ -259,8 +261,9 @@ public class ChangePlan implements Comparable<ChangePlan> {
 			}
 			for (final ShardEntity entity : del.getDuties()) {
 				final EntityJournal j = entity.getJournal();
-				if (!alreadyPaired.contains(entity) && j
-						.hasEverBeenDistributed() && entity.getLastEvent() != EntityEvent.REMOVE) {
+				if (!alreadyPaired.contains(entity) 
+						&& j.hasEverBeenDistributed() 
+						&& entity.getLastEvent() != EntityEvent.REMOVE) {
 					boolean pair = false;
 					for (Delivery tmp : deliveries) {
 						if (pair |= tmp.getDuties()
@@ -291,7 +294,6 @@ public class ChangePlan implements Comparable<ChangePlan> {
 			final Log l = it.next();
 			if (isLegitUnpair = (l.getEvent()==EntityEvent.CREATE
 					// any suspicious state
-					|| l.getLastState()==EntityState.MISTAKEN
 					|| l.getLastState()==EntityState.PREPARED
 					|| l.getLastState()==EntityState.MISSING
 					|| l.getLastState()==EntityState.PENDING 
@@ -305,12 +307,12 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	}
     
     /** @return whether caller has permission to get next delivery   */
-	public boolean hasNextParallel() {
+	public boolean hasNextParallel(final Consumer<String> c) {
 		if (started == null) {
 			throw new IllegalStateException("ChangePlan not prepared yet !");
 		}
 		// set done if none pending
-		deliveries.forEach(d -> d.calculateState());
+		deliveries.forEach(d -> d.calculateState(c));
 		if (!iterator.hasNext()) {
 			return false;
 		}
@@ -372,12 +374,23 @@ public class ChangePlan implements Comparable<ChangePlan> {
 					logger.info("{}: id:{} in progress waiting confirmation ({}'s to expire)",
 							getClass().getSimpleName(),
 							getId(),
-							(expiration.toEpochMilli() - System.currentTimeMillis()) / 1000);
+							secsToExpire(expiration));
 				}
 				this.result = Result.RUNNING;
 			}
 		}
 	}
+
+	protected long secsToExpire(final Instant expiration) {
+		return (expiration.toEpochMilli() - System.currentTimeMillis()) / 1000;
+	}
+	
+	protected long secsToExpire(final Config config) {
+		final Instant st = started.plusMillis(
+				config.beatToMs(config.getDistributor().getPlanExpirationBeats()));
+		return (st.toEpochMilli() - System.currentTimeMillis()) / 1000;
+	}
+	
 
 	/** 
 	 * declare a dettaching or attaching step to deliver on a shard
@@ -408,9 +421,10 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	public boolean areShippingsEmpty() {
 		return shippings.isEmpty();
 	}
-		
-	public LocalDateTime getStarted() {
-		return LocalDateTime.ofInstant(started, ZoneId.systemDefault());
+	
+	@JsonIgnore
+	public Instant getStarted() {
+		return started;
 	}
 
 	public long getId() {
@@ -458,7 +472,6 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	public Instant getCreation() {
 		return this.created;
 	}
-
 	public static void main(String[] args) throws InterruptedException {
 
 		final CollectionUtils.SlidingSortedSet<ChangePlan> set = CollectionUtils.sliding(5);

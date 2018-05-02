@@ -19,9 +19,9 @@ package io.tilt.minka.domain;
 import java.io.Serializable;
 import java.util.Set;
 
+import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;

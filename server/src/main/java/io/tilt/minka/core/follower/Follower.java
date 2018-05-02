@@ -31,8 +31,8 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.Heartbeat;
-import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.domain.Shard.ShardState;
+import io.tilt.minka.domain.ShardedPartition;
 
 /**
  * An agnostic slave service with the following responsibilities:

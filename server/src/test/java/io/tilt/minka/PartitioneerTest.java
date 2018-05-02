@@ -6,9 +6,8 @@ import java.util.List;
 import org.junit.Test;
 import org.springframework.util.Assert;
 
-import io.tilt.minka.api.DutyBuilder;
-import io.tilt.minka.core.leader.balancer.EvenWeightBalancer;
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.core.leader.balancer.EvenWeightBalancer;
 import io.tilt.minka.domain.ShardEntity;
 
 /**

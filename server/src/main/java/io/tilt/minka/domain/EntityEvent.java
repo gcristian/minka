@@ -48,6 +48,17 @@ public enum EntityEvent {
 		this.crud = crud;
 		this.verb = verb;
 	}
+	
+	public EntityEvent getRootCause() {
+		switch (this) {
+		case ATTACH:
+			return CREATE;
+		case DETACH:
+			return REMOVE;
+		default:
+			return null;
+		}
+	}
 
 	public boolean isCrud() {
 		return crud;

@@ -128,22 +128,29 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			final Consumer<ShardEntity> c) {
 	    
 		boolean includeDuties = false;
+		final StringBuilder tmp = new StringBuilder();
 		for (ShardEntity shardedDuty: partition.getDuties()) {
-			includeDuties |= detectReception(shardedDuty);
+			includeDuties |= detectReception(shardedDuty, tmp);
 			c.accept(shardedDuty);
+		}
+		if (tmp.length()>0 && log.isInfoEnabled()) {
+			log.info(tmp.toString());
 		}
 		return includeDuties;
 	}
 	
 	/** this confirms action to the leader */
-	private boolean detectReception(final ShardEntity shardedDuty) {
+	private boolean detectReception(final ShardEntity shardedDuty, final StringBuilder tmp) {
 		// consider only the last action logged to this shard
 		final Log found = shardedDuty.getJournal().find(partition.getId()); 
 		final EntityState stamp = EntityState.CONFIRMED;
 		if (found.getLastState()!=stamp) {
 			if (log.isInfoEnabled()) {
-				log.info("{}: ({}) Changing {} to {} duty: {}", classname, partition.getId(),
-					found.getLastState(), stamp, shardedDuty.getDuty().getId());
+				if (tmp.length()==0) {
+					tmp.append(String.format("%s: (%s) Changing %s to %s duties: ", classname, partition.getId(),
+					found.getLastState(), stamp));
+				}
+				tmp.append(shardedDuty.getDuty().getId()).append(',');
 			}
 			shardedDuty.getJournal().addEvent(
 					found.getEvent(), 
@@ -151,8 +158,6 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 					partition.getId(), 
 					found.getPlanId());
 			return true;
-//		} else if (found.getPlanId())
-			
 		}
 		return false;
 	}

@@ -20,13 +20,12 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
-import io.tilt.minka.domain.TCPShardIdentifier;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.CapacityComparer;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
+import io.tilt.minka.domain.TCPShardIdentifier;
 
 public class ShardTest {
 

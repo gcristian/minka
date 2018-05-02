@@ -61,10 +61,10 @@ public class LogUtils {
 	}
 	private static String randomSaluteFromFile() {
 		try {
-			final Random rnd = new Random();
-			final int num = rnd.nextInt(2);
-			return StreamUtils.copyToString(LogUtils.class.getResourceAsStream("salutation" + num + 
-					 ".txt"), Charset.forName("utf-8"));
+			final int num = 1;
+			return StreamUtils.copyToString(
+					LogUtils.class.getResourceAsStream("salutation" + num + ".txt"), 
+					Charset.forName("utf-8"));
 		} catch (Exception e) {
 		}
 		return "";
@@ -88,10 +88,10 @@ public class LogUtils {
 		grossLine(GROSS_CHAR, LARGE * 2, sb);
 		sb.append(nl).append(nl);
 		sb.append(logo);
-		sb.append("    Distributing duties since 1438, where no follower has ever got").append(nl).append(nl);
-		sb.append("    Service: ").append(serviceName).append(nl);
-		sb.append("    Tcp Broker: ").append(id).append(nl);
-		sb.append("    Http server: ").append(webserverHostPort).append(nl).append(nl);
+		sb.append("\tThe oldest distribution system, since 1438 to your back").append(nl).append(nl);
+		sb.append("\tService: ").append(serviceName).append(nl);
+		sb.append("\tTcp Broker: ").append(id).append(nl);
+		sb.append("\tHttp server: ").append(webserverHostPort).append(nl).append(nl);
 		sb.append(END_LINE);
 		return sb.toString();
 	}

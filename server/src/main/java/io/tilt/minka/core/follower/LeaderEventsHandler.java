@@ -41,7 +41,6 @@ import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityJournal;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;

@@ -1,6 +1,5 @@
 package io.tilt.minka.api.config;
 
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
 
 public class ConsistencyConfiguration {

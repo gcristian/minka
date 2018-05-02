@@ -112,6 +112,10 @@ public class ShardedPartition {
 		return null;
 	}
 	
+	public ShardEntity getByDuty(final Duty<?> duty) {
+		return this.duties.get(duty);
+	}
+	
 	public Collection<ShardEntity> getDuties() {
 		return unmodifiableCollection(duties.values());
 	}
