@@ -33,11 +33,11 @@ import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.impl.ZookeeperLeaderShardContainer;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.PartitionDelegate;
 import io.tilt.minka.domain.PartitionMaster;
+import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardIdentifier;
 
 /**
  * Facility to execute CRUD ops. to {@linkplain Duty} on the cluster.<br> 
@@ -105,10 +105,10 @@ public class Client<D extends Serializable, P extends Serializable> {
 	* @param duty	    a duty sharded or to be sharded in the cluster
 	* @return whether or not the operation succeed
 	*/
-	public boolean remove(final Duty<D> duty) {
+	public Reply remove(final Duty<D> duty) {
 		return push(duty, EntityEvent.REMOVE, null);
 	}
-	public boolean remove(final Pallet<P> pallet) {
+	public Reply remove(final Pallet<P> pallet) {
 		return push(pallet, EntityEvent.REMOVE, null);
 	}
 	
@@ -123,11 +123,11 @@ public class Client<D extends Serializable, P extends Serializable> {
 	* @param duty      a duty sharded or to be sharded in the cluster
 	* @return whether or not the operation succeed
 	*/
-	public boolean add(final Duty<D> duty) {
+	public Reply add(final Duty<D> duty) {
 		return push(duty, EntityEvent.CREATE, null);
 	}
 
-	public boolean add(final Pallet<P> pallet) {
+	public Reply add(final Pallet<P> pallet) {
 		return push(pallet, EntityEvent.CREATE, null);
 	}
 
@@ -136,20 +136,20 @@ public class Client<D extends Serializable, P extends Serializable> {
 	* @param duty the duty to update
 	* @return whether or not the operation succeed
 	*/
-	public boolean update(final Duty<D> duty) {
+	public Reply update(final Duty<D> duty) {
 		return push(duty, EntityEvent.UPDATE, null);
 	}
-	public boolean update(final Pallet<P> pallet) {
+	public Reply update(final Pallet<P> pallet) {
 		return push(pallet, EntityEvent.UPDATE, null);
 	}
-	public boolean transfer(final Duty<D> duty, final EntityPayload userPayload) {
+	public Reply transfer(final Duty<D> duty, final EntityPayload userPayload) {
 		return push(duty, EntityEvent.TRANSFER, userPayload);
 	}
-	public boolean transfer(final Pallet<P> pallet, final EntityPayload userPayload) {
+	public Reply transfer(final Pallet<P> pallet, final EntityPayload userPayload) {
 		return push(pallet, EntityEvent.TRANSFER, userPayload);
 	}
 	
-	private boolean push(final Entity<?> raw, final EntityEvent event, final EntityPayload userPayload) {
+	private Reply push(final Entity<?> raw, final EntityEvent event, final EntityPayload userPayload) {
 		Validate.notNull(raw, "an entity is required");
 		boolean sent = false;
 		final ShardEntity.Builder builder = ShardEntity.Builder.builder(raw);
@@ -164,7 +164,7 @@ public class Client<D extends Serializable, P extends Serializable> {
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Recurring to local leader !", getClass().getSimpleName());
 			}
-			clientMediator.mediateOnEntity(entity);
+			return clientMediator.mediateOnEntity(entity);
 		} else {
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Sending {}: {} with Event: {} to leader in service", 
@@ -176,8 +176,8 @@ public class Client<D extends Serializable, P extends Serializable> {
 							Channel.FROM_CLIENT,
 							leaderShardContainer.getLeaderShardId()), 
 					entity);
+			return new Reply(sent ? ReplyResult.SUCCESS_SENT : ReplyResult.FAILURE_NOT_SENT, raw, null, event, null);
 		}
-		return sent;
 	}
 
 	public String getShardIdentity() {

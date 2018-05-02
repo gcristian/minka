@@ -24,8 +24,10 @@ import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Client;
+import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Reply;
+import io.tilt.minka.api.ReplyResult;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.task.Scheduler;
@@ -53,7 +55,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	private final Config config;
 	private final PartitionScheme partitionScheme;
 	private final Scheduler scheduler;
-	private final SchemeSentry bookkeeper;
+	private final SchemeSentry sentry;
 	private final EventBroker eventBroker;
 	private final NetworkShardIdentifier shardId;
 
@@ -70,7 +72,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 		this.config = config;
 		this.partitionScheme = partitionScheme;
 		this.scheduler = scheduler;
-		this.bookkeeper = bookkeeper;
+		this.sentry = bookkeeper;
 		this.eventBroker = eventBroker;
 		this.shardId = shardId;
 	}
@@ -103,9 +105,19 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	}
 
 	private void listenUserEvents() {
-		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.FROM_CLIENT, shardId), ShardEntity.class,
+		eventBroker.subscribe(
+				eventBroker.buildToTarget(
+						config, 
+						Channel.FROM_CLIENT, 
+						shardId), 
+				ShardEntity.class,
 				this, 0);
-		eventBroker.subscribe(eventBroker.buildToTarget(config, Channel.FROM_CLIENT, shardId), ShardCommand.class,
+		eventBroker.subscribe(
+				eventBroker.buildToTarget(
+						config, 
+						Channel.FROM_CLIENT, 
+						shardId), 
+				ShardCommand.class,
 				this, 0);
 	}
 
@@ -142,9 +154,9 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 		}
 	}
 
-	public void mediateOnEntity(final ShardEntity entity) {
+	public Reply mediateOnEntity(final ShardEntity entity) {
 		if (entity.is(EntityEvent.UPDATE) || entity.is(EntityEvent.TRANSFER)) {
-			// TODO chekear las cuestiones de disponibilidad de esto
+			boolean sent[] = {false};
 			if (entity.getType()==ShardEntity.Type.DUTY) {
 				final Shard location = partitionScheme.getScheme().getDutyLocation(entity);
 				if (location != null && location.getState().isAlive()) {
@@ -156,7 +168,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 					logger.error("{}: Cannot route event to Duty:{} as Shard:{} is no longer functional",
 							getClass().getSimpleName(), entity.toBrief(), location);
 				}
-				eventBroker.send(location.getBrokerChannel(), entity);
+				sent[0] = eventBroker.send(location.getBrokerChannel(), entity);
 			} else if (entity.getType()==ShardEntity.Type.PALLET) {
 				partitionScheme.getScheme().filterPalletLocations(entity, shard-> {
 					if (shard.getState().isAlive()) {
@@ -164,12 +176,14 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 								? entity.getUserPayload().getClass().getSimpleName() : "[empty]";
 						logger.info("{}: Routing event with Payload: {} on {} to Shard: {}", getClass().getSimpleName(),
 								payloadType, entity, shard);
-						eventBroker.send(shard.getBrokerChannel(), entity);
+						sent[0] = eventBroker.send(shard.getBrokerChannel(), entity);
 					}
 				});
 			}
+			return new Reply(sent[0] ? ReplyResult.SUCCESS_SENT: ReplyResult.FAILURE_NOT_SENT, 
+					entity.getEntity(), null, null, null);
 		} else {
-			bookkeeper.enterCRUD(entity);
+			return sentry.enterCRUD(entity);
 		}
 	}
 
