@@ -114,7 +114,7 @@ public class BasicAppEmulator {
 		
 		
 		
-		//afterLoad(pallets);
+		afterLoad(pallets);
 		
 		
 	}
@@ -130,18 +130,22 @@ public class BasicAppEmulator {
 			server.getClient().add(x);
 		}
 		
-		Thread.sleep(5000);
+		Thread.sleep(10000);
 		for (Duty<String> d: newones) {
 			server.getClient().remove(d);
 		}
+		newones.clear();
 		
-		Thread.sleep(30000);
+		Thread.sleep(15000);
 		final Pallet<String> p = pallets.iterator().next();
 		for (int k = 0 ; k < 10; k++) {
-			final Duty<String> x = Duty.<String>builder("BF-" + k, p.getId()).with("bigfaaaaaart-" + k).build();
+			final Duty<String> x = Duty.<String>builder("BF-" + k, p.getId()).with("BFart-" + k).build();
 			newones.add(x);
 			server.getClient().add(x);
 		}
+		
+		Thread.sleep(10000);
+		newones.forEach(d->server.getClient().remove(d));
 	}
 	
 	public Client<String, String> getClient() {
