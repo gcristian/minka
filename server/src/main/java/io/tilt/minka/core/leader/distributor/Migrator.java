@@ -36,17 +36,17 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionScheme;
 import io.tilt.minka.core.leader.balancer.Balancer;
-import io.tilt.minka.core.leader.balancer.BalancingException;
 import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
 import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
+import io.tilt.minka.core.leader.balancer.BalancingException;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal;
+import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
-import io.tilt.minka.domain.EntityState;
 
 /** 
  * Balancer's Helper to request {@linkplain Transfer} and {@linkplain Override}
@@ -239,12 +239,14 @@ public class Migrator {
 		} else if (source.equals(target)) {
 			throw new BalancingException("bad transfer: duty %s has the same source and target");
 		}
-		if (entity.getLastEvent()==EntityEvent.REMOVE) {
+		if (entity.getLastEvent()==EntityEvent.REMOVE && partition.getBackstage().snapshot().before(entity)) {
 			throw new BalancingException("bad transfer: duty: %s is marked for deletion, cannot be balanced", entity);
 		}
-		partition.getBackstage().onDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, duty-> {
-			if (duty.equals(entity)) {
-				throw new BalancingException("bad transfer: duty: %s is just marked for deletion, cannot be balanced", entity);
+		partition.getBackstage().snapshot().onDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, duty-> {
+			if (partition.getBackstage().snapshot().before(duty)) {
+				if (duty.equals(entity)) {
+					throw new BalancingException("bad transfer: duty: %s is just marked for deletion, cannot be balanced", entity);
+				}
 			}
 		});
 	}
@@ -292,7 +294,7 @@ public class Migrator {
 
 	private boolean anyExclusions() {
 	    boolean[] ret = new boolean[1];
-		partition.getBackstage().onDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, duty-> {
+		partition.getBackstage().snapshot().onDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, duty-> {
 			if (duty.getDuty().getPalletId().equals(pallet.getId()) && 
 					!inTransfers(duty) && 
 					!inOverrides(duty) && 
@@ -302,7 +304,7 @@ public class Migrator {
 			}
 		});
 		final Set<ShardEntity> deletions = new HashSet<>();
-		partition.getBackstage().onDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, deletions::add);
+		partition.getBackstage().snapshot().onDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, deletions::add);
 		partition.getScheme().onDuties(curr-> {
 			if (curr.getDuty().getPalletId().equals(pallet.getId()) && 
 			        !deletions.contains(curr) && 

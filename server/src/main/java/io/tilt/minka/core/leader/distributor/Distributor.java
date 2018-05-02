@@ -38,10 +38,10 @@ import io.tilt.minka.api.DutyBuilder.Task;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.leader.SchemeSentry;
 import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.PartitionScheme;
 import io.tilt.minka.core.leader.PartitionScheme.ClusterHealth;
+import io.tilt.minka.core.leader.SchemeSentry;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.distributor.ChangePlan.Result;
 import io.tilt.minka.core.task.LeaderShardContainer;
@@ -53,8 +53,8 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
@@ -167,16 +167,19 @@ public class Distributor implements Service {
 					return;
 				}
 			}
-			logStatus();
+			
 			final int online = partitionScheme.getScheme().shardsSize(ShardState.ONLINE.filter());
 			final int min = config.getProctor().getMinShardsOnlineBeforeSharding();
 			if (online < min) {
 				logger.warn("{}: balancing posponed: not enough online shards (min:{}, now:{})", getName(), min, online);
 				return;
 			}
+			
 			if (!loadFromClientWhenAllOnlines()) {
 				return;
 			}
+			counterForDistro++;
+			logStatus();
 
 			// distribution
 			drive(currPlan);
@@ -223,11 +226,11 @@ public class Distributor implements Service {
 	/** @return a plan to drive built at balancer's request */
 	private ChangePlan buildPlan(final ChangePlan previous) {
 		final ChangePlan changePlan = factory.create(partitionScheme, previous);
-		partitionScheme.getBackstage().cleanAllocatedDanglings();
 		if (null!=changePlan) {
 			partitionScheme.addPlan(changePlan);
 			this.partitionScheme.setDistributionHealth(ClusterHealth.UNSTABLE);
 			changePlan.prepare();
+			partitionScheme.getBackstage().dropSnapshot();
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Balancer generated issues on ChangePlan: {}", getName(), changePlan.getId());
 			}
@@ -258,9 +261,11 @@ public class Distributor implements Service {
 			logger.info("{}: Driving ChangePlan: {}", getName(), changePlan.getId());
 		}
 		boolean deliveryValid = true;
-		while (changePlan.hasNextParallel() && !changePlan.getResult().isClosed()) {
+		
+		// lets log when it's about to expire
+		while (changePlan.hasNextParallel(logger::info) && !changePlan.getResult().isClosed()) {
 			deliveryValid &= push(changePlan, changePlan.next(), false);
-		}
+		}	
 		if (deliveryValid) {
 			checkAllDeliveriesValid(changePlan);
 		}
@@ -426,7 +431,7 @@ public class Distributor implements Service {
 
 	private void logStatus() {
 		if (logger.isInfoEnabled()) {
-			StringBuilder title = new StringBuilder("Distributor (i").append(++counterForDistro)
+			StringBuilder title = new StringBuilder("Distributor (i").append(counterForDistro)
 					.append(" by Leader: ").append(shardId.toString());
 			logger.info(LogUtils.titleLine(title.toString()));
 		}

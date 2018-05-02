@@ -19,18 +19,16 @@ package io.tilt.minka.core.leader;
 import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.STABLE;
 import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.UNSTABLE;
 
+import java.io.Serializable;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +41,8 @@ import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
@@ -50,7 +50,6 @@ import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.ShardedPartition;
-import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 
@@ -188,7 +187,9 @@ public class PartitionScheme {
 				if (callback!=null) {
 					callback.run();
 				}
-				logger.info("{}: Written {} on: {} at [{}]", getClass().getSimpleName(), event.name(), duty, where);
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: Written {} on: {} at [{}]", getClass().getSimpleName(), event.name(), duty, where);
+				}
 			} else {
 				throw new ConsistencyException("Attach failure. Confirmed attach/creation already exists");
 			}
@@ -216,6 +217,17 @@ public class PartitionScheme {
 					consumer.accept(e);
 				}
 			}
+		}
+		
+		public ShardEntity getByDuty(final Duty<?> duty) {
+			ShardEntity ret = null;
+			for (final Shard shard : partitionsByShard.keySet()) {
+				ret = partitionsByShard.get(shard).getByDuty(duty);
+				if (ret!=null) {
+					break;
+				}
+			}
+			return ret;
 		}
 		
 		public void onDuties(final Consumer<ShardEntity> consumer) {
@@ -280,10 +292,9 @@ public class PartitionScheme {
 		
 		public Shard getDutyLocation(final Duty<?> duty) {
 			for (final Shard shard : partitionsByShard.keySet()) {
-				for (ShardEntity st : partitionsByShard.get(shard).getDuties()) {
-					if (st.getDuty().getId().equals(duty.getId())) {
-						return shard;
-					}
+				final ShardEntity st = partitionsByShard.get(shard).getByDuty(duty);
+				if (st!=null) {
+					return shard;
 				}
 			}
 			return null;
@@ -382,14 +393,46 @@ public class PartitionScheme {
 	
 	/** 
 	 * temporal state of modifications willing to be added to the scheme 
-	 * including inconsistencies detected by the bookkeeper
+	 * including inconsistencies detected by the sentry
 	 * */
 	public static class Backstage {
+		
 		private Map<Pallet<?>, ShardEntity> palletCrud;
 		private Map<Duty<?>, ShardEntity> dutyCrud;
 		private Map<Duty<?>, ShardEntity> dutyMissings;
 		private Map<Duty<?>, ShardEntity> dutyDangling;
+		private Instant snaptake;
 		
+		// read-only clean snapshot (not to be modified, backstage remains MASTER)
+		private Backstage snapshot;
+		
+		/** @return a frozen state of Backstage, so message-events threads 
+		 * (threadpool-size independently) can still modify the instance for further change plans */
+		public synchronized Backstage snapshot() {
+			if (snapshot==null) {
+				final Backstage tmp = new Backstage();
+				tmp.dutyCrud = new HashMap<>(this.dutyCrud);
+				tmp.dutyDangling = new HashMap<>(this.dutyDangling);
+				tmp.dutyMissings = new HashMap<>(this.dutyMissings);
+				tmp.palletCrud = new HashMap<>(this.palletCrud);
+				tmp.snaptake = Instant.now();
+				this.snapshot = tmp;
+			}
+			return snapshot;
+		}
+		
+		public void dropSnapshot() {
+			this.snapshot = null;
+		}
+		
+		public boolean before(final ShardEntity e) {
+			if (snaptake==null) {
+				throw new RuntimeException("bad call");
+			}
+			final Log last = e.getJournal().getLast();
+			return last==null || (last!=null && last.getHead().getTime() <= snaptake.toEpochMilli());
+		}
+
 		public Backstage() {
 			this.palletCrud = new HashMap<>();
 			this.dutyCrud = new HashMap<>();
@@ -427,19 +470,21 @@ public class PartitionScheme {
 
 		}
 		public void cleanAllocatedDanglings() {
-			removeNonStuck(dutyDangling);
-		}
-		private void removeNonStuck(final Map<? extends Entity, ShardEntity> map) {
-			final Iterator<? extends Entity> it = map.keySet().iterator();
-			while (it.hasNext()) {
-				final ShardEntity e = map.get(it.next());
-				if (e.getLastState() != EntityState.STUCK) {
-					stealthChange |=true;
-					it.remove();
-				}
+			if (snapshot!=null && !dutyDangling.isEmpty()) {
+				remove(snapshot.dutyDangling, dutyDangling, s->s.getLastState() != EntityState.STUCK);
 			}
 		}
-
+		private void remove(
+				final Map<? extends Entity<? extends Serializable>, ShardEntity> deletes, 
+				final Map<? extends Entity<? extends Serializable>, ShardEntity> target, 
+				final Predicate<ShardEntity> test) {
+			for (Map.Entry<? extends Entity<? extends Serializable>, ShardEntity> e: deletes.entrySet()) {
+				if (test.test(e.getValue())) {
+					target.remove(e.getKey());
+				}
+			}			
+		}
+		
 		public int accountCrudDuties() {
 			return this.dutyCrud.size();
 		}
@@ -449,7 +494,6 @@ public class PartitionScheme {
 		public boolean addCrudDuty(final ShardEntity duty) {
 			// the uniqueness of it's wrapped object doesnt define the uniqueness of the wrapper
 			// updates and transfer go in their own manner
-			//dutyCrud.remove(duty);
 			final boolean added = dutyCrud.put(duty.getDuty(), duty) == null;
 			stealthChange |= added;
 			return added;
@@ -459,8 +503,13 @@ public class PartitionScheme {
 			return Collections.unmodifiableCollection(this.dutyCrud.values());
 		}
 		public boolean removeCrud(final ShardEntity entity) {
-			final boolean removed =this.dutyCrud.remove(entity.getDuty()) == null;
-			stealthChange |= removed;
+			boolean removed = false;
+			final ShardEntity candidate = dutyCrud.get(entity.getDuty());
+			// consistency check: only if they're the same action 
+			if (candidate!=null) {// && candidate.getLastEvent()==entity.getLastEvent().getRootCause()) {
+				removed =this.dutyCrud.remove(entity.getDuty()) == null;
+				stealthChange |= removed;
+			}
 			return removed;
 		}
 
@@ -468,8 +517,11 @@ public class PartitionScheme {
 		public Collection<ShardEntity> getDutiesMissing() {
 			return Collections.unmodifiableCollection(this.dutyMissings.values());
 		}
+		
 		public void clearAllocatedMissing() {
-			removeNonStuck(dutyMissings);
+			if (snapshot!=null && !dutyMissings.isEmpty()) {
+				remove(snapshot.dutyMissings, dutyMissings, s->s.getLastState() != EntityState.STUCK);
+			}
 		}
 		
 		public boolean addMissing(final Collection<ShardEntity> duties) {
@@ -510,24 +562,26 @@ public class PartitionScheme {
 				final Consumer<ShardEntity> consumer) {
 			onEntitiesCrud(ShardEntity.Type.PALLET, event, state, consumer);
 		}
+		
 		private void onEntitiesCrud(
 				final ShardEntity.Type type, 
 				final Predicate<EntityEvent> eventPredicate, 
 				final Predicate<EntityState> statePredicate, 
 				final Consumer<ShardEntity> consumer) {
-			
-			
-			(type == ShardEntity.Type.DUTY ? getDutiesCrud() : palletCrud.values()).stream()
+			(type == ShardEntity.Type.DUTY ? getDutiesCrud() : palletCrud.values())
+				.stream()
 				.filter(e -> (eventPredicate == null || eventPredicate.test(e.getJournal().getLast().getEvent())) 
 					&& (statePredicate == null || (statePredicate.test(e.getJournal().getLast().getLastState()))))
 				.forEach(consumer);
 		}
-
+		public ShardEntity getCrudByDuty(final Duty<?> duty) {
+			return this.dutyCrud.get(duty);
+		}
 	}
 	
 	private ClusterHealth visibilityHealth;
 	private ClusterHealth distributionHealth;
-	private ClusterCapacity capacity;
+	
 	private final Scheme scheme;
 	private final Backstage backstage;
 	private ChangePlan currentPlan;
@@ -563,7 +617,6 @@ public class PartitionScheme {
 	public PartitionScheme() {
 		this.visibilityHealth = ClusterHealth.STABLE;
 		this.distributionHealth = ClusterHealth.STABLE;
-		this.capacity = ClusterCapacity.IDLE;
 		this.scheme = new Scheme();
 		this.backstage = new Backstage();
 		this.history = CollectionUtils.sliding(20);
@@ -612,15 +665,6 @@ public class PartitionScheme {
 		this.visibilityHealth = health;
 	}
 
-	public ClusterCapacity getCapacity() {
-		return this.capacity;
-	}
-
-	public void setCapacity(ClusterCapacity capacity) {
-		this.capacity = capacity;
-	}
-
-
 	private StringBuilder buildLogForDuties(final List<ShardEntity> sorted) {
 		final StringBuilder sb = new StringBuilder();
 		if (!sorted.isEmpty()) {
@@ -642,10 +686,14 @@ public class PartitionScheme {
 	}
 
 
-	/* add without considerations (they're staged but not distributed per se) */
-	public void addCrudPallet(final ShardEntity pallet) {
-		getScheme().palletsById.put(pallet.getPallet().getId(), pallet);
-		getBackstage().palletCrud.put(pallet.getPallet(), pallet);
+	/** 
+	 * add without considerations (they're staged but not distributed per se)
+	 * @return TRUE if the operation is done for the first time 
+	 */
+	public boolean addCrudPallet(final ShardEntity pallet) {
+		final boolean schematized = getScheme().palletsById.put(pallet.getPallet().getId(), pallet)==null;
+		final boolean staged = getBackstage().palletCrud.put(pallet.getPallet(), pallet)==null;
+		return schematized && staged;
 	}
 
 	public void logStatus() {
