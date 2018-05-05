@@ -37,7 +37,6 @@ import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
-import io.tilt.minka.spectator.NodeCacheable.Identifiable;
 
 /**
  * A heartbeat is a sign that the node must be considered alive.
@@ -46,7 +45,7 @@ import io.tilt.minka.spectator.NodeCacheable.Identifiable;
  * @author Cristian Gonzalez
  * @since Nov 5, 2015
  */
-public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifiable {
+public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 
 	private static final long serialVersionUID = 4828220405145911529L;
 
@@ -290,11 +289,6 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat>, Identifia
 		return o.getCreation().compareTo(getCreation());
 	}
 
-	@Override
-	public String getId() {
-		return this.shardId.getId();
-	}
-	
 	@JsonIgnore
 	public Map<Pallet<?>, Capacity> getCapacities() {
 		return this.capacities;

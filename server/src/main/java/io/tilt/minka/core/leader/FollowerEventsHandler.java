@@ -39,7 +39,7 @@ import io.tilt.minka.domain.Shard;
 
 /**
  * Drives follower's events like {@linkplain Heartbeat} 
- * and maintains a {@linkplain PartitionScheme} by defining a member's service state
+ * and maintains a {@linkplain ShardingScheme} by defining a member's service state
  *  
  * @author Cristian Gonzalez
  * @since Dec 2, 2015
@@ -49,7 +49,7 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private final Config config;
-	private final PartitionScheme partitionScheme;
+	private final ShardingScheme shardingScheme;
 	private final BiConsumer<Heartbeat, Shard> hbConsumer;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
@@ -59,14 +59,14 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 
 	public FollowerEventsHandler(
 			final Config config, 
-			final PartitionScheme partitionScheme, 
+			final ShardingScheme shardingScheme, 
 			final BiConsumer<Heartbeat, Shard> hbConsumer,
 			final EventBroker eventBroker, 
 			final Scheduler scheduler, 
 			final NetworkShardIdentifier shardId) {
 
 		this.config = requireNonNull(config);
-		this.partitionScheme = requireNonNull(partitionScheme);
+		this.shardingScheme = requireNonNull(shardingScheme);
 		this.hbConsumer = requireNonNull(hbConsumer);
 		this.eventBroker = requireNonNull(eventBroker);
 		this.scheduler = requireNonNull(scheduler);
@@ -113,10 +113,10 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 
     private Shard getOrRegisterShard(final Heartbeat hb) {
 		// when a shutdownlock acquired then keep receving HB to evaluate all Slaves are down!
-		Shard shard = partitionScheme.getScheme().getShard(hb.getShardId());
+		Shard shard = shardingScheme.getScheme().getShard(hb.getShardId());
 		if (shard == null) {
 			// new member
-			partitionScheme.getScheme().addShard(shard = new Shard(
+			shardingScheme.getScheme().addShard(shard = new Shard(
 					eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, hb.getShardId()),
 					hb.getShardId()));
 		}

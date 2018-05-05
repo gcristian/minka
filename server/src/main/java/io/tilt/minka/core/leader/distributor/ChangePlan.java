@@ -43,7 +43,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.core.leader.PartitionScheme.Scheme;
+import io.tilt.minka.core.leader.ShardingScheme.Scheme;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal;

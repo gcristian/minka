@@ -28,7 +28,7 @@ import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.leader.ClientEventsHandler;
 import io.tilt.minka.core.leader.Leader;
-import io.tilt.minka.core.leader.PartitionScheme;
+import io.tilt.minka.core.leader.ShardingScheme;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.impl.ZookeeperLeaderShardContainer;
@@ -62,7 +62,7 @@ public class Client<D extends Serializable, P extends Serializable> {
 	private final ShardIdentifier shardId;
 	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
-	private final PartitionScheme table;
+	private final ShardingScheme table;
 	private final SchemeViews views;
 
 	protected Client(
@@ -72,7 +72,7 @@ public class Client<D extends Serializable, P extends Serializable> {
 			final ClientEventsHandler mediator, 
 			final ShardIdentifier shardId, 
 			final ZookeeperLeaderShardContainer leaderShardContainer, 
-			final PartitionScheme table,
+			final ShardingScheme table,
 			final SchemeViews views) {
 		this.config = config;
 		this.leader = leader;

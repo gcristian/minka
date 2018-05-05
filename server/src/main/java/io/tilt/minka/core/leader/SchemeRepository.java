@@ -32,24 +32,24 @@ public class SchemeRepository {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
 
-	private final PartitionScheme scheme;
+	private final ShardingScheme scheme;
 	private final ShardIdentifier shardId;
 
-	public SchemeRepository(final PartitionScheme partitionScheme, final ShardIdentifier shardId) {
+	public SchemeRepository(final ShardingScheme shardingScheme, final ShardIdentifier shardId) {
 		super();
-		this.scheme = partitionScheme;
+		this.scheme = shardingScheme;
 		this.shardId = shardId;
 	}
 
 	public Collection<Duty<?>> getDuties() {
 		final List<Duty<?>> tmp = new LinkedList<>();
-		this.scheme.getScheme().onDuties(d->tmp.add(d.getDuty()));
+		this.scheme.getScheme().findDuties(d->tmp.add(d.getDuty()));
 		return tmp;
 	}
 
 	public Collection<Pallet<?>> getPallets() {
 		final List<Pallet<?>> tmp = new LinkedList<>();
-		this.scheme.getScheme().onDuties(d->tmp.add(d.getPallet()));
+		this.scheme.getScheme().findDuties(d->tmp.add(d.getPallet()));
 		return tmp;
 	}
 
@@ -64,7 +64,7 @@ public class SchemeRepository {
 				skipped.add(res.toString());
 			}
 		}
-		if (!skipped.isEmpty() && logger.isInfoEnabled()) {
+		if (skipped!=null && logger.isInfoEnabled()) {
 			logger.info("{}: Skipping Pallet CRUD already in scheme: {}", classname, skipped);
 		}
 	}
@@ -88,7 +88,9 @@ public class SchemeRepository {
 	private ShardEntity toCreatedEntity(final Entity<?> e) {
 		final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
 		final ShardEntity entity = builder.build();
-		entity.getJournal().addEvent(EntityEvent.CREATE, EntityState.PREPARED, 
+		entity.getJournal().addEvent(
+				EntityEvent.CREATE, 
+				EntityState.PREPARED, 
 				this.shardId,
 				ChangePlan.PLAN_WITHOUT);
 		return entity;
@@ -183,12 +185,12 @@ public class SchemeRepository {
 	}
 	
 	private boolean presentInPartition(final ShardEntity duty) {
-		final Shard shardLocation = scheme.getScheme().getDutyLocation(duty.getDuty());
+		final Shard shardLocation = scheme.getScheme().findDutyLocation(duty.getDuty());
 		return shardLocation != null && shardLocation.getState().isAlive();
 	}
 
 	private boolean presentInPartition(final Duty<?> duty) {
-		final Shard shardLocation = scheme.getScheme().getDutyLocation(duty);
+		final Shard shardLocation = scheme.getScheme().findDutyLocation(duty);
 		return shardLocation != null && shardLocation.getState().isAlive();
 	}
 

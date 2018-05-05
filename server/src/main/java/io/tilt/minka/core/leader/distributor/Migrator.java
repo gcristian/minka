@@ -34,7 +34,7 @@ import com.google.common.util.concurrent.AtomicDouble;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.PartitionScheme;
+import io.tilt.minka.core.leader.ShardingScheme;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
 import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
@@ -65,7 +65,7 @@ public class Migrator {
 
 	protected static final Logger log = LoggerFactory.getLogger(Migrator.class);
 	
-	private final PartitionScheme partition;
+	private final ShardingScheme partition;
 	private final Pallet<?> pallet;
 	private Boolean isWeightedPallet;
 	private List<Override> overrides;
@@ -74,7 +74,7 @@ public class Migrator {
 	private Map<Duty<?>, ShardEntity> sourceRefs;
 	
 	
-	protected Migrator(final PartitionScheme table, final Pallet<?> pallet, final Set<ShardEntity> duties) {
+	protected Migrator(final ShardingScheme table, final Pallet<?> pallet, final Set<ShardEntity> duties) {
 		super();
 		this.partition = requireNonNull(table);
 		this.pallet = requireNonNull(pallet);
@@ -231,7 +231,7 @@ public class Migrator {
 			throw new BalancingException("bad transfer: duty %s already exist in target shard: %s", entity, target);
 		}
 		if (source==null) {
-			final Shard location = partition.getScheme().getDutyLocation(entity);
+			final Shard location = partition.getScheme().findDutyLocation(entity);
 			if (location !=null && !(location.getState()==ShardState.GONE || location.getState()==ShardState.QUITTED)) {
 				throw new BalancingException("bad transfer: duty %s has a source, must be transferred from "
 						+ "its current location: %s", entity, location);
@@ -242,7 +242,7 @@ public class Migrator {
 		if (entity.getLastEvent()==EntityEvent.REMOVE && partition.getBackstage().snapshot().before(entity)) {
 			throw new BalancingException("bad transfer: duty: %s is marked for deletion, cannot be balanced", entity);
 		}
-		partition.getBackstage().snapshot().onDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, duty-> {
+		partition.getBackstage().snapshot().findDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, duty-> {
 			if (partition.getBackstage().snapshot().before(duty)) {
 				if (duty.equals(entity)) {
 					throw new BalancingException("bad transfer: duty: %s is just marked for deletion, cannot be balanced", entity);
@@ -294,7 +294,7 @@ public class Migrator {
 
 	private boolean anyExclusions() {
 	    boolean[] ret = new boolean[1];
-		partition.getBackstage().snapshot().onDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, duty-> {
+		partition.getBackstage().snapshot().findDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, duty-> {
 			if (duty.getDuty().getPalletId().equals(pallet.getId()) && 
 					!inTransfers(duty) && 
 					!inOverrides(duty) && 
@@ -304,8 +304,8 @@ public class Migrator {
 			}
 		});
 		final Set<ShardEntity> deletions = new HashSet<>();
-		partition.getBackstage().snapshot().onDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, deletions::add);
-		partition.getScheme().onDuties(curr-> {
+		partition.getBackstage().snapshot().findDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, deletions::add);
+		partition.getScheme().findDuties(curr-> {
 			if (curr.getDuty().getPalletId().equals(pallet.getId()) && 
 			        !deletions.contains(curr) && 
 					!inTransfers(curr) && 

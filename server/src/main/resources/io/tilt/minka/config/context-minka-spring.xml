@@ -117,7 +117,7 @@
       
     ===============================================================================================-->
     
-    <bean id="partitionScheme" class="io.tilt.minka.core.leader.PartitionScheme"/>
+    <bean id="partitionScheme" class="io.tilt.minka.core.leader.ShardingScheme"/>
         
     <bean id="entityDao" class="io.tilt.minka.core.leader.EntityDao.FakeDao"/>
     
@@ -167,14 +167,13 @@
         <constructor-arg ref="shardId" />
     </bean>
     
-
     <!-- Integracion entre el cliente y el Leader -->
     <bean id="clientEventsHandler" class="io.tilt.minka.core.leader.ClientEventsHandler">
         <constructor-arg ref="config" />
         <constructor-arg ref="partitionScheme" />
         <constructor-arg ref="scheduler" />
+        <constructor-arg ref="schemeRepository" />
         <constructor-arg ref="eventBroker" />
-        <constructor-arg ref="schemeSentry" />
         <constructor-arg ref="shardId" />
     </bean>
     

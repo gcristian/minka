@@ -35,8 +35,8 @@ import java.util.function.BiConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.core.leader.PartitionScheme.Backstage;
-import io.tilt.minka.core.leader.PartitionScheme.Scheme;
+import io.tilt.minka.core.leader.ShardingScheme.Backstage;
+import io.tilt.minka.core.leader.ShardingScheme.Scheme;
 import io.tilt.minka.core.leader.distributor.ChangeDetector;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.leader.distributor.Delivery;
@@ -62,12 +62,12 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
 	
-	private final PartitionScheme partitionScheme;
+	private final ShardingScheme shardingScheme;
 	private final ChangeDetector changeDetector;
 	
-	public SchemeSentry(final PartitionScheme partitionScheme, final Scheduler scheduler) {
-		this.partitionScheme = partitionScheme;
-		this.changeDetector = new ChangeDetector(partitionScheme);
+	public SchemeSentry(final ShardingScheme shardingScheme, final Scheduler scheduler) {
+		this.shardingScheme = shardingScheme;
+		this.changeDetector = new ChangeDetector(shardingScheme);
 	}
 
 	/**
@@ -92,14 +92,14 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 
 		if ((beat.reportsDuties()) && shard.getState().isAlive()) {
 			detectAndSaveAbsents(shard, beat.getReportedCapturedDuties());
-			if (partitionScheme.getCurrentPlan()!=null) {
+			if (shardingScheme.getCurrentPlan()!=null) {
 				detectInvalidShards(shard, beat.getReportedCapturedDuties());
 			}
 		}
 	}
 	
 	public void detectAndWriteChanges(final Shard shard, final Heartbeat beat) {
-		final ChangePlan changePlan = partitionScheme.getCurrentPlan();
+		final ChangePlan changePlan = shardingScheme.getCurrentPlan();
 		if (changePlan!=null && !changePlan.getResult().isClosed()) {
 			final Delivery delivery = changePlan.getDelivery(shard);
 			if (delivery!=null) {
@@ -124,8 +124,8 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			// there's been a change of leader: i'm initiating with older followers
 			for (ShardEntity e: beat.getReportedCapturedDuties()) {
 				//L: prepared, L: pending, F: received, C: confirmed, L: ack.
-				if (!partitionScheme.getScheme().dutyExistsAt(e, shard)) {
-					if (partitionScheme.getScheme().write(e, shard, e.getLastEvent(), null)) {
+				if (!shardingScheme.getScheme().dutyExistsAt(e, shard)) {
+					if (shardingScheme.getScheme().write(e, shard, e.getLastEvent(), null)) {
 						logger.info("{}: Scheme learning from Followers: {}", classname, e);
 					}
 				}
@@ -134,7 +134,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	}
 
 	private void writesOnChange(final Shard shard, final Log changelog, final ShardEntity entity) {
-		if (partitionScheme.getScheme().write(entity, shard, changelog.getEvent(), ()-> {
+		if (shardingScheme.getScheme().write(entity, shard, changelog.getEvent(), ()-> {
 			// copy the found situation to the instance we care
 			entity.getJournal().addEvent(changelog.getEvent(),
 					CONFIRMED,
@@ -147,7 +147,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		if (changelog.getEvent()==EntityEvent.DETACH) {
 			final Log previous = entity.getJournal().descendingIterator().next();
 			if (previous.getEvent()==EntityEvent.REMOVE) {
-				partitionScheme.getScheme().write(entity, shard, previous.getEvent(), ()->{
+				shardingScheme.getScheme().write(entity, shard, previous.getEvent(), ()->{
 					logger.info("{}: Removing duty at request: {}", classname, entity);
 				});
 			}
@@ -156,13 +156,13 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 
 	private void updateBackstage(final Log changelog, final ShardEntity entity) {
 		// remove it from the backstage
-		final ShardEntity crud = partitionScheme.getBackstage().getCrudByDuty(entity.getDuty());
+		final ShardEntity crud = shardingScheme.getBackstage().getCrudByDuty(entity.getDuty());
 		if (crud!=null) {
 			final Instant lastEventOnCrud = crud.getJournal().getLast().getHead().toInstant();
 			boolean previousThanCrud = changelog.getHead().toInstant().isBefore(lastEventOnCrud);
 			// if the update corresponds to the last CRUD OR they're both the same event (duplicated operation)
 			if (!previousThanCrud || changelog.getEvent()==crud.getLastEvent()) {
-				partitionScheme.getBackstage().removeCrud(entity);
+				shardingScheme.getBackstage().removeCrud(entity);
 			} else {
 				logger.warn("{}: Avoiding Backstage removal of CRUD as it's different and after the last event", 
 						classname, entity);
@@ -177,13 +177,13 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		for (Map.Entry<EntityState, List<ShardEntity>> e: findAbsent(shard, reportedDuties).entrySet()) {
 			boolean done = false;
 			if (e.getKey()==DANGLING) { 
-				done = partitionScheme.getBackstage().addDangling(e.getValue());
+				done = shardingScheme.getBackstage().addDangling(e.getValue());
 			} else {
-				done = partitionScheme.getBackstage().addMissing(e.getValue());
+				done = shardingScheme.getBackstage().addMissing(e.getValue());
 			}
 			// copy the event so it's marked for later consideration
 			if (done) {
-				e.getValue().forEach(d->partitionScheme.getScheme().write(d, shard, REMOVE, ()->{
+				e.getValue().forEach(d->shardingScheme.getScheme().write(d, shard, REMOVE, ()->{
 					d.getJournal().addEvent(
 							d.getLastEvent(),
 							e.getKey()==DANGLING ? DANGLING : MISSING, 
@@ -196,7 +196,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 
 	private Map<EntityState, List<ShardEntity>> findAbsent(final Shard shard, final List<ShardEntity> reportedDuties) {
 		Map<EntityState, List<ShardEntity>> lost = null;
-		for (final ShardEntity duty : partitionScheme.getScheme().getDutiesByShard(shard)) {
+		for (final ShardEntity duty : shardingScheme.getScheme().getDutiesByShard(shard)) {
 			boolean found = false;
 			boolean foundAsDangling = false;
 			for (ShardEntity reportedDuty : reportedDuties) {
@@ -242,7 +242,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 
 	private void detectInvalidShards(final Shard sourceShard, final List<ShardEntity> reportedCapturedDuties) {
 		for (final ShardEntity e : reportedCapturedDuties) {
-			final Shard should = partitionScheme.getScheme().getDutyLocation(e);
+			final Shard should = shardingScheme.getScheme().findDutyLocation(e);
 			if (should==null) {
 				logger.error("unexisting duty: " + e.toBrief() + " reported by shard: " + sourceShard);
 			} else if (!should.equals(sourceShard)) {
@@ -253,7 +253,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 
 	public void shardStateChange(final Shard shard, final ShardState prior, final ShardState newState) {
 		shard.setState(newState);
-		partitionScheme.getScheme().stealthChange(true);		
+		shardingScheme.getScheme().stealthChange(true);		
 		switch (newState) {
 		case GONE:
 		case QUITTED:
@@ -277,13 +277,13 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	 * to be confirmed
 	 */
 	private void recoverAndRetire(final Shard shard) {
-		final Collection<ShardEntity> dangling = partitionScheme.getScheme().getDutiesByShard(shard);
+		final Collection<ShardEntity> dangling = shardingScheme.getScheme().getDutiesByShard(shard);
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: Removing fallen Shard: {} from ptable. Saving: #{} duties: {}", classname, shard,
 				dangling.size(), ShardEntity.toStringIds(dangling));
 		}
 		for (ShardEntity e: dangling) {
-			if (partitionScheme.getBackstage().addDangling(e)) {
+			if (shardingScheme.getBackstage().addDangling(e)) {
 				e.getJournal().addEvent(
 						DETACH, 
 						CONFIRMED, 
@@ -291,7 +291,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 						e.getJournal().getLast().getPlanId());
 			}
 		}
-		partitionScheme.getScheme().removeShard(shard);		
+		shardingScheme.getScheme().removeShard(shard);		
 	}
 
 

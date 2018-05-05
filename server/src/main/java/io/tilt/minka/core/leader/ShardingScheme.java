@@ -16,8 +16,8 @@
  */
 package io.tilt.minka.core.leader;
 
-import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.STABLE;
-import static io.tilt.minka.core.leader.PartitionScheme.ClusterHealth.UNSTABLE;
+import static io.tilt.minka.core.leader.ShardingScheme.ClusterHealth.STABLE;
+import static io.tilt.minka.core.leader.ShardingScheme.ClusterHealth.UNSTABLE;
 
 import java.io.Serializable;
 import java.time.Instant;
@@ -64,9 +64,9 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
  * @author Cristian Gonzalez
  * @since Dec 2, 2015	
  */
-public class PartitionScheme {
+public class ShardingScheme {
 
-	private static final Logger logger = LoggerFactory.getLogger(PartitionScheme.class);
+	private static final Logger logger = LoggerFactory.getLogger(Scheme.class);
 	
 	/**
 	 * Repr. of distribution scheme after proper confirmation of the followers 
@@ -74,6 +74,8 @@ public class PartitionScheme {
 	 * Only maintainer: {@linkplain SchemeSentry}
 	 */
 	public static class Scheme {
+	
+		private static final Logger logger = LoggerFactory.getLogger(Scheme.class);
 		
 		private final Map<ShardIdentifier, Shard> shardsByID;
 		private final Map<Shard, ShardedPartition> partitionsByShard;
@@ -94,7 +96,7 @@ public class PartitionScheme {
 			return this.stealthChange;
 		}
 		
-		public void onShards(final Predicate<Shard> test, final Consumer<Shard> consumer) {
+		public void findShards(final Predicate<Shard> test, final Consumer<Shard> consumer) {
 			for (Shard sh: shardsByID.values()) {
 				if (test == null || test.test(sh) || test == null) {
 					consumer.accept(sh);
@@ -124,13 +126,9 @@ public class PartitionScheme {
 		public ShardEntity getPalletById(final String id) {
 			return this.palletsById.get(id);
 		}
-		public void onPallets(final Consumer<ShardEntity> consumer) {
+		public void findPallets(final Consumer<ShardEntity> consumer) {
 			palletsById.values().forEach(consumer);
 		}
-		public boolean filterPallets(final Predicate<ShardEntity> test) {
-			return palletsById.values().stream().anyMatch(test);
-		}
-		
 		
 		/**
 		 * When a Shard has been offline and their dangling duties reassigned
@@ -210,7 +208,7 @@ public class PartitionScheme {
 			return getPartition(shard).getDuties();
 		}
 
-		public void onDuties(final Shard shard, final Pallet<?> pallet, final Consumer<ShardEntity> consumer) {
+		public void findDuties(final Shard shard, final Pallet<?> pallet, final Consumer<ShardEntity> consumer) {
 			for (ShardEntity e: getPartition(shard).getDuties()) {
 				if (pallet==null || e.getDuty().getPalletId().equals(pallet.getId())) {
 					consumer.accept(e);
@@ -229,10 +227,10 @@ public class PartitionScheme {
 			return ret;
 		}
 		
-		public void onDuties(final Consumer<ShardEntity> consumer) {
+		public void findDuties(final Consumer<ShardEntity> consumer) {
 			onDuties(null, null, consumer, null, false);
 		}
-		public void onDutiesByPallet(final Pallet<?> pallet, final Consumer<ShardEntity> consumer) {
+		public void findDutiesByPallet(final Pallet<?> pallet, final Consumer<ShardEntity> consumer) {
 			onDuties(pallet, null, consumer, null, false);
 		}
 		public boolean dutyExists(final ShardEntity e) {
@@ -278,7 +276,7 @@ public class PartitionScheme {
 			return shardsByID.get(id);
 		}
 
-		public Shard getDutyLocation(final ShardEntity se) {
+		public Shard findDutyLocation(final ShardEntity se) {
 			for (final Shard shard : partitionsByShard.keySet()) {
 				for (ShardEntity st : partitionsByShard.get(shard).getDuties()) {
 					if (st.equals(se)) {
@@ -289,7 +287,7 @@ public class PartitionScheme {
 			return null;
 		}
 		
-		public Shard getDutyLocation(final Duty<?> duty) {
+		public Shard findDutyLocation(final Duty<?> duty) {
 			for (final Shard shard : partitionsByShard.keySet()) {
 				final ShardEntity st = partitionsByShard.get(shard).getByDuty(duty);
 				if (st!=null) {
@@ -312,6 +310,42 @@ public class PartitionScheme {
 		
 		public int shardsSize() {
 			return this.shardsByID.values().size();
+		}
+
+		public void logStatus() {
+			if (shardsByID.isEmpty()) {
+				logger.warn("{}: Status without Shards", getClass().getSimpleName());
+			} else {
+				if (!logger.isInfoEnabled()) {
+					return;
+				}
+				for (final Shard shard : shardsByID.values()) {
+					final ShardedPartition partition = partitionsByShard.get(shard);
+					final Map<Pallet<?>, Capacity> capacities = shard.getCapacities();
+					if (partition == null) {
+						logger.info("{}: {} = Empty", getClass().getSimpleName(), shard);
+					} else {
+						for (ShardEntity p: palletsById.values()) {
+							final StringBuilder sb = new StringBuilder();
+							sb.append(shard).append(" Pallet: ").append(p.getPallet().getId());
+							final Capacity cap = capacities.get(p.getPallet());
+							sb.append(" Size: ").append(partition.getDutiesSize(p.getPallet()));
+							sb.append(" Weight/Capacity: ");
+							final double[] weight = new double[1];
+							partition.getDuties().stream()
+								.filter(d->d.getDuty().getPalletId().equals(p.getPallet().getId()))
+								.forEach(d->weight[0]+=d.getDuty().getWeight());
+							sb.append(weight[0]).append("/");
+							sb.append(cap!=null ? cap.getTotal(): "Unreported");
+							if (logger.isDebugEnabled()) {
+								sb.append(" Duties: [").append(partition.toString()).append("]");
+							}
+							logger.info("{}: {}", getClass().getSimpleName(), sb.toString());
+						}
+					}
+				}
+			}
+
 		}
 
 		/** Read-only access */
@@ -386,6 +420,7 @@ public class PartitionScheme {
 				}
 				return total;
 			}
+			
 		}
 	
 	}
@@ -396,6 +431,8 @@ public class PartitionScheme {
 	 * Only maintainers: {@linkplain SchemeSentry} and {@linkplain SchemeRepository}
 	 * */
 	public static class Backstage {
+
+		private static final Logger logger = LoggerFactory.getLogger(Backstage.class);
 
 	    // creations and removes willing to be attached or detached to/from shards.
 		private Map<Pallet<?>, ShardEntity> palletCrud;
@@ -554,13 +591,13 @@ public class PartitionScheme {
 			onEntitiesCrud(ShardEntity.Type.DUTY, event, state, e->size[0]++);
 			return size[0];
 		}
-		public void onDutiesCrud(
+		public void findDutiesCrud(
 				final Predicate<EntityEvent> event, 
 				final Predicate<EntityState> state, 
 				final Consumer<ShardEntity> consumer) {
 			onEntitiesCrud(ShardEntity.Type.DUTY, event, state, consumer);
 		}
-		public void onPalletsCrud(
+		public void findPalletsCrud(
 				final Predicate<EntityEvent> event, 
 				final Predicate<EntityState> state, 
 				final Consumer<ShardEntity> consumer) {
@@ -581,6 +618,33 @@ public class PartitionScheme {
 		public ShardEntity getCrudByDuty(final Duty<?> duty) {
 			return this.dutyCrud.get(duty);
 		}
+
+		public void logStatus() {
+			if (!dutyMissings.isEmpty()) {
+				logger.warn("{}: {} Missing duties: [ {}]", getClass().getSimpleName(), dutyMissings.size(),
+						dutyMissings.toString());
+			}
+			if (!dutyDangling.isEmpty()) {
+				logger.warn("{}: {} Dangling duties: [ {}]", getClass().getSimpleName(), dutyDangling.size(),
+						dutyDangling.toString());
+			}
+			if (dutyCrud.isEmpty()) {
+				logger.info("{}: no CRUD duties", getClass().getSimpleName());
+			} else {
+				logger.info("{}: with {} CRUD duties: [ {}]", getClass().getSimpleName(), dutyCrud.size(),
+						buildLogForDuties(Lists.newArrayList(getDutiesCrud())));
+			}
+		}
+		
+		private StringBuilder buildLogForDuties(final List<ShardEntity> sorted) {
+			final StringBuilder sb = new StringBuilder();
+			if (!sorted.isEmpty()) {
+				sorted.sort(sorted.get(0));
+			}
+			sorted.forEach(i -> sb.append(i.getEntity().getId()).append(", "));
+			return sb;
+		}
+
 	}
 	
 	private ClusterHealth visibilityHealth;
@@ -618,7 +682,7 @@ public class PartitionScheme {
 		INSUFFICIENT,
 	}
 
-	public PartitionScheme() {
+	public ShardingScheme() {
 		this.visibilityHealth = ClusterHealth.STABLE;
 		this.distributionHealth = ClusterHealth.STABLE;
 		this.scheme = new Scheme();
@@ -669,15 +733,6 @@ public class PartitionScheme {
 		this.visibilityHealth = health;
 	}
 
-	private StringBuilder buildLogForDuties(final List<ShardEntity> sorted) {
-		final StringBuilder sb = new StringBuilder();
-		if (!sorted.isEmpty()) {
-			sorted.sort(sorted.get(0));
-		}
-		sorted.forEach(i -> sb.append(i.getEntity().getId()).append(", "));
-		return sb;
-	}
-
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder()
@@ -689,6 +744,11 @@ public class PartitionScheme {
 		return sb.toString();
 	}
 
+	public void logStatus() {
+		getScheme().logStatus();
+		getBackstage().logStatus();
+		logger.info("{}: Health: {}", getClass().getSimpleName(), getDistributionHealth());
+	}
 
 	/** 
 	 * add without considerations (they're staged but not distributed per se)
@@ -700,54 +760,6 @@ public class PartitionScheme {
 		return schematized && staged;
 	}
 
-	public void logStatus() {
-		if (getScheme().shardsByID.isEmpty()) {
-			logger.warn("{}: Status without Shards", getClass().getSimpleName());
-		} else {
-			if (!logger.isInfoEnabled()) {
-				return;
-			}
-			for (final Shard shard : getScheme().shardsByID.values()) {
-				final ShardedPartition partition = getScheme().partitionsByShard.get(shard);
-				final Map<Pallet<?>, Capacity> capacities = shard.getCapacities();
-				if (partition == null) {
-					logger.info("{}: {} = Empty", getClass().getSimpleName(), shard);
-				} else {
-					for (ShardEntity p: getScheme().palletsById.values()) {
-						final StringBuilder sb = new StringBuilder();
-						sb.append(shard).append(" Pallet: ").append(p.getPallet().getId());
-						final Capacity cap = capacities.get(p.getPallet());
-						sb.append(" Size: ").append(partition.getDutiesSize(p.getPallet()));
-						sb.append(" Weight/Capacity: ");
-						final double[] weight = new double[1];
-						partition.getDuties().stream()
-							.filter(d->d.getDuty().getPalletId().equals(p.getPallet().getId()))
-							.forEach(d->weight[0]+=d.getDuty().getWeight());
-						sb.append(weight[0]).append("/");
-						sb.append(cap!=null ? cap.getTotal(): "Unreported");
-						if (logger.isDebugEnabled()) {
-							sb.append(" Duties: [").append(partition.toString()).append("]");
-						}
-						logger.info("{}: {}", getClass().getSimpleName(), sb.toString());
-					}
-				}
-			}
-		}
-		if (!this.getBackstage().dutyMissings.isEmpty()) {
-			logger.warn("{}: {} Missing duties: [ {}]", getClass().getSimpleName(), getBackstage().dutyMissings.size(),
-					this.getBackstage().dutyMissings.toString());
-		}
-		if (!this.getBackstage().dutyDangling.isEmpty()) {
-			logger.warn("{}: {} Dangling duties: [ {}]", getClass().getSimpleName(), getBackstage().dutyDangling.size(),
-					this.getBackstage().dutyDangling.toString());
-		}
-		if (this.getBackstage().dutyCrud.isEmpty()) {
-			logger.info("{}: no CRUD duties", getClass().getSimpleName());
-		} else {
-			logger.info("{}: with {} CRUD duties: [ {}]", getClass().getSimpleName(), getBackstage().dutyCrud.size(),
-					buildLogForDuties(Lists.newArrayList(getBackstage().getDutiesCrud())));
-		}
-		logger.info("{}: Health: {}", getClass().getSimpleName(), getDistributionHealth());
-	}
+
 
 }

@@ -45,7 +45,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.wordnik.swagger.annotations.Api;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.core.leader.PartitionScheme;
+import io.tilt.minka.core.leader.ShardingScheme;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.ShardedPartition;
 
@@ -57,7 +57,7 @@ import io.tilt.minka.domain.ShardedPartition;
 public class AdminEndpoint {
 
 	@Autowired
-	private PartitionScheme table;
+	private ShardingScheme table;
 	@Autowired
 	private SchemeViews views;
 	@Autowired
@@ -68,7 +68,7 @@ public class AdminEndpoint {
 	private ShardedPartition partition;
 
 	@Inject
-	public AdminEndpoint(@Named("partitionTable") PartitionScheme table) {
+	public AdminEndpoint(@Named("partitionScheme") ShardingScheme table) {
 		this.table = table;
 	}
 	/*
@@ -113,7 +113,7 @@ public class AdminEndpoint {
 	@GET
 	@Path("/duties")
 	@Produces(MediaType.APPLICATION_JSON)
-	/** @return the leader's PartitionScheme sharded partition entities */
+	/** @return the leader's ShardingScheme sharded partition entities */
 	public Response duties() throws JsonProcessingException {
 		return Response.accepted(views.dutiesToJson(table)).build();
 	}
