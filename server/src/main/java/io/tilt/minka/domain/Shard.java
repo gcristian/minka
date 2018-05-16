@@ -20,20 +20,26 @@ import static java.util.Objects.requireNonNull;
 
 import java.io.Serializable;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.apache.commons.lang3.StringUtils;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.sun.org.apache.xml.internal.utils.StringComparable;
 
+import io.netty.util.internal.StringUtil;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.config.ProctorSettings;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
@@ -297,7 +303,16 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 				return 1;
 			} else {
 				int ret = Double.compare(cap1.getTotal(), cap2.getTotal());
-				return ret != 0 ? ret : DateComparer.compareByCreation(s, s2);
+				// always the same predictable order 
+				ret = ret != 0 ? ret : DateComparer.compareByCreation(s, s2);
+				if (ret==0) {
+					// TODO refactory
+					ret = Arrays.asList(s.getId().getId(), s2.getId().getId())
+						.stream().sorted()
+						.collect(Collectors.toList())
+						.get(0).equals(s.getId().getId()) ? -1 : 1;
+				}
+				return ret;
 			}
 		}
 	}

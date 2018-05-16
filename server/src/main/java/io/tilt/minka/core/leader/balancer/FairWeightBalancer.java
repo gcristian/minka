@@ -16,8 +16,11 @@
  */
 package io.tilt.minka.core.leader.balancer;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -175,8 +178,8 @@ public class FairWeightBalancer implements Balancer {
 		final Bascule<NetworkLocation, Duty<?>> brute = new Bascule<>();
 		duties.forEach(d->brute.lift(d.getWeight()));
 		Set<Bascule<NetworkLocation, Duty<?>>> bascules = new LinkedHashSet<>();
-		final Set<NetworkLocation> sorted = new TreeSet<>(new CapacityComparer(pallet));
-		sorted.addAll(onlineShards);
+		final List<NetworkLocation> sorted = new ArrayList<>(onlineShards);
+		Collections.sort(sorted, new CapacityComparer(pallet));
 		for (final NetworkLocation shard: sorted) {
 			final Capacity cap = shard.getCapacities().get(pallet);
 			if (cap!=null) {
