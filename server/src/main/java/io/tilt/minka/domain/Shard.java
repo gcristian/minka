@@ -51,14 +51,119 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 @JsonAutoDetect
 public class Shard implements Comparator<Shard>, Comparable<Shard> {
 
-	private static final int MAX_HEARBEATS_TO_EVALUATE = 20;
-
+	public enum ShardState {
+		/** all nodes START in this state while becoming Online after a Quarantine period */
+		JOINING,
+		/** the node has been continuously online for a long time so it can trustworthly receive work */
+		ONLINE,
+		/** the node interrupted heartbeats time enough to be considered not healthly
+		 * online. in this state all nodes tend to rapidly go ONLINE or fall GONE */
+		QUARANTINE,
+		/** the node emited a last heartbeat announcing offline mode either being
+		 * manually stopped or cleanly shuting down so its ignored by the master */
+		QUITTED,
+		/** the server discontinued heartbeats and cannot longer be considered alive,
+		 * recover its reserved duties */
+		GONE
+		;
+		public boolean isAlive() {
+			return this == ONLINE || this == QUARANTINE || this == JOINING;
+		}
+		public Predicate<Shard> filter() {
+			return shard->shard.getState()==this;
+		}
+		public Predicate<Shard> negative() {
+			return shard->shard.getState()!=this;
+		}
+	}
+	
+	public static class Change implements Comparator<Change>, Comparable<Change>{
+		
+		private final Cause cause;
+		private final ShardState state;
+		private Instant timestamp;
+		
+		public Change(final Cause cause, final ShardState state) {
+			super();
+			this.cause = cause;
+			this.state = state;
+			this.timestamp = Instant.now();
+		}
+		public Cause getCause() {
+			return cause;
+		}
+		public ShardState getState() {
+			return state;
+		}
+		public Instant getTimestamp() {
+			return timestamp;
+		}
+		@JsonProperty("timestamp")
+		public String getTimestamp_() {
+			return timestamp.toString();
+		}
+		@Override
+		public int compare(Change o1, Change o2) {
+			if (o1==null) {
+				return 1;
+			} else if (o2==null) {
+				return -1;
+			} else {
+				return o1.getTimestamp().compareTo(o2.getTimestamp());
+			}
+		}
+		@Override
+		public int compareTo(Change o) {
+			return compare(this, o);
+		}
+		@Override
+		public String toString() {
+			return new StringBuilder()
+					.append(getTimestamp_()).append(' ')
+					.append(state).append(' ')
+					.append(cause)
+					.toString();
+		}
+	}
+	
+	public enum Cause {
+		INIT("Initializing"),
+		// recognition of a shard who was too much time without beats
+		BECAME_ANCIENT("BecameAncient"),
+		// too many beats falling below distance and deviation factor to stay online 
+		MAX_SICK_FOR_ONLINE("MaxSickForOnline"),
+		// too few healthly beats to be useful (after a healthly phase)
+		MIN_ABSENT("MinAbsent"),
+		// reaching or escaping quarantine-online frontier   
+		HEALTHLY_THRESHOLD("MinHealthly"),
+		// too few beats yet 
+		FEW_HEARTBEATS("FewHeartbeats"),
+		// too much time joining
+		JOINING_STARVED("JoiningStarved"),
+		// follower quitted fine
+		FOLLOWER_BREAKUP("FollowerBreakUp"),
+		SWITCH_BACK("SwitchBack"),
+		;
+		final String code;
+		Cause(final String code) {
+			this.code = code;
+		}
+		public String getCode() {
+			return code;
+		}
+		@Override
+		public String toString() {
+			return getCode();
+		}
+		;
+	}
+	
 	private final BrokerChannel brokerChannel;
 	private final NetworkShardIdentifier shardId;
 	private final Instant firstTimeSeen;
 	private final SlidingSortedSet<Heartbeat> beats;
+	private final SlidingSortedSet<Change> changes;
 	
-	private DateTime lastStatusChange;
 	private ShardState serviceState;
 	private Map<Pallet<?>, Capacity> capacities;
 
@@ -67,20 +172,16 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 			final NetworkShardIdentifier memberId) {
 		super();
 		this.brokerChannel = requireNonNull(channel);
-		this.shardId = requireNonNull(memberId);
-		this.serviceState = ShardState.JOINING;
-		this.beats = CollectionUtils.sliding(MAX_HEARBEATS_TO_EVALUATE);
+		this.shardId = requireNonNull(memberId);		
+		this.beats = CollectionUtils.sliding(ProctorSettings.MAX_HEARBEATS_TO_EVALUATE);
+		this.changes = CollectionUtils.sliding(ProctorSettings.MAX_SHARD_CHANGES_TO_HOLD);
 		this.firstTimeSeen = Instant.now();
-		this.lastStatusChange = new DateTime(DateTimeZone.UTC);
 		this.capacities = new HashMap<>();
+		applyChange(new Shard.Change(Cause.INIT, ShardState.JOINING));		
 	}
 	@JsonIgnore
-	public DateTime getLastStatusChange() {
-		return this.lastStatusChange;
-	}
-	@JsonProperty(index=2, value="last-change")
-	private String getLastStatusChange_() {
-		return this.lastStatusChange.toString();
+	public Instant getLastStatusChange() {
+		return this.changes.last().getTimestamp();
 	}
 	@JsonIgnore
 	public Instant getFirstTimeSeen() {
@@ -111,9 +212,6 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	}
 
 	public void enterHeartbeat(final Heartbeat hb) {
-		if (hb.getStateChange() != null) {
-			this.serviceState = hb.getStateChange();
-		}
 		this.beats.add(hb);
 	}
 	
@@ -131,9 +229,18 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		return this.serviceState;
 	}
 
-	public void setState(ShardState serviceState) {
-		this.serviceState = serviceState;
-		this.lastStatusChange = new DateTime(DateTimeZone.UTC);
+	public void applyChange(final Change change) {
+		this.serviceState = change.getState();
+		this.changes.add(change);
+	}
+	
+	@JsonIgnore
+	public Set<Change> getChanges() {
+		return changes.values();
+	}
+	@JsonProperty("evolution")
+	public Collection<String> getChanges_() {
+		return changes.values().stream().map(c->c.toString()).collect(Collectors.toList());
 	}
 
 	public int hashCode() {
@@ -192,72 +299,6 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 				int ret = Double.compare(cap1.getTotal(), cap2.getTotal());
 				return ret != 0 ? ret : DateComparer.compareByCreation(s, s2);
 			}
-		}
-	}
-
-	public enum ShardState {
-
-		/**
-		 * all nodes START in this state while becoming Online after a Quarantine period
-		 */
-		JOINING,
-		/**
-		 * the node has been continuously online for a long time so it can trustworthly
-		 * receive work
-		 */
-		ONLINE,
-		/**
-		 * the node interrupted heartbeats time enough to be considered not healthly
-		 * online. in this state all nodes tend to rapidly go ONLINE or fall GONE
-		 */
-		QUARANTINE,
-
-		/**
-		 * the node emited a last heartbeat announcing offline mode either being
-		 * manually stopped or cleanly shuting down so its ignored by the master
-		 */
-		QUITTED,
-
-		/**
-		 * the server discontinued heartbeats and cannot longer be considered alive,
-		 * recover its reserved duties
-		 */
-		GONE
-
-		;
-
-		public boolean isAlive() {
-			return this == ONLINE || this == QUARANTINE || this == JOINING;
-		}
-
-		public Predicate<Shard> filter() {
-			return shard->shard.getState()==this;
-		}
-
-		public Predicate<Shard> negative() {
-			return shard->shard.getState()!=this;
-		}
-
-		public enum Reason {
-
-			INITIALIZING,
-			/*
-			 * the shard persistently ignores commands from the Follower shard
-			 */
-			REBELL,
-			/*
-			 * "inconsistent behaviour measured in short lapses"
-			 *
-			 * not trustworthly shard
-			 */
-			FLAPPING,
-			/*
-			 * "no recent HBs from the shard, long enough"
-			 * 
-			 * the node has ceased to send heartbeats for time enough to be considered gone
-			 * and unrecoverable so it is ignored by the master
-			 */
-			LOST;
 		}
 	}
 

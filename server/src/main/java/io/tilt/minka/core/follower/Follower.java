@@ -31,6 +31,7 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.Heartbeat;
+import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardedPartition;
 
@@ -114,7 +115,7 @@ public class Follower implements Service {
 			
 		if (inService()) {
 			final Heartbeat bye = heartbeatFactory.create(true);
-			bye.setStateChange(ShardState.QUITTED);
+			bye.setShardChange(new Shard.Change(Shard.Cause.FOLLOWER_BREAKUP, ShardState.QUITTED));
 			heartpump.emit(bye);
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: ({}) Stopping timer", classname, config.getLoggingShardId());

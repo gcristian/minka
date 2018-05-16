@@ -75,10 +75,10 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	 */
 	@Override
 	public void accept(final Heartbeat beat, final Shard shard) {
-		if (beat.getStateChange() != null) {
-			logger.info("{}: ShardID: {} changes to: {}", classname, shard, beat.getStateChange());
-			shardStateChange(shard, shard.getState(), beat.getStateChange());
-			if (beat.getStateChange() == QUITTED) {
+		if (beat.getShardChange() != null) {
+			logger.info("{}: ShardID: {} changes to: {}", classname, shard, beat.getShardChange());
+   			shardStateChange(shard, shard.getState(), beat.getShardChange());
+			if (beat.getShardChange().getState() == QUITTED) {
 				return;
 			}
 		}
@@ -251,10 +251,10 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-	public void shardStateChange(final Shard shard, final ShardState prior, final ShardState newState) {
-		shard.setState(newState);
+	public void shardStateChange(final Shard shard, final ShardState prior, final Shard.Change change) {
+		shard.applyChange(change);
 		shardingScheme.getScheme().stealthChange(true);		
-		switch (newState) {
+		switch (change.getState()) {
 		case GONE:
 		case QUITTED:
 			recoverAndRetire(shard);

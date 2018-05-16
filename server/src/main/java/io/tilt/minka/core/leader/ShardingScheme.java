@@ -44,6 +44,7 @@ import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
+import io.tilt.minka.domain.Shard.Change;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.domain.ShardEntity;
@@ -75,12 +76,14 @@ public class ShardingScheme {
 	public static class Scheme {
 	
 		private static final Logger logger = LoggerFactory.getLogger(Scheme.class);
-		
+
 		private final Map<ShardIdentifier, Shard> shardsByID;
 		private final Map<Shard, ShardedPartition> partitionsByShard;
 		private final Map<String, ShardEntity> palletsById;
+		private final Map<ShardIdentifier, SlidingSortedSet<Shard.Change>> goneShards;
 		
 		public Scheme() {
+			this.goneShards = new HashMap<>();
 			this.shardsByID = new HashMap<>();
 			this.partitionsByShard = new HashMap<>();
 			this.palletsById = new HashMap<>();
@@ -143,6 +146,7 @@ public class ShardingScheme {
 				logger.error("{}: trying to delete unexisting Shard: {}", getClass().getSimpleName(), shard);
 			}
 			final boolean changed = rem!=null && part!=null;
+			addGoneShard(shard);
 			stealthChange |= changed;
 			return changed;
 		}
@@ -160,6 +164,18 @@ public class ShardingScheme {
 				this.shardsByID.put(shard.getShardID(), shard);
 				stealthChange = true;
 				return true;
+			}
+		}
+		
+		/** backup gone shards for history */
+		private void addGoneShard(final Shard shard) {
+			int max = 5;
+			for (final Iterator<Change> it = shard.getChanges().iterator(); it.hasNext() && max>0;max--) {
+				SlidingSortedSet<Change> set = goneShards.get(shard.getShardID());
+				if (set==null) {
+					goneShards.put(shard.getShardID(), set = CollectionUtils.sliding(max));
+				}
+				set.add(it.next());
 			}
 		}
 		
@@ -311,6 +327,10 @@ public class ShardingScheme {
 			return this.shardsByID.values().size();
 		}
 
+		public Map<ShardIdentifier, SlidingSortedSet<Shard.Change>> getGoneShards() {
+			return goneShards;
+		}
+		
 		public void logStatus() {
 			if (shardsByID.isEmpty()) {
 				logger.warn("{}: Status without Shards", getClass().getSimpleName());
@@ -464,13 +484,13 @@ public class ShardingScheme {
 			this.snapshot = null;
 		}
 		
-		/** @return true if the last entity event ranges within the last taken snapshot */
-		public boolean before(final ShardEntity e) {
+		/** @return true if the last entity event ocurred before the last snapshot creation */
+		public boolean after(final ShardEntity e) {
 			if (snaptake==null) {
 				throw new RuntimeException("bad call");
 			}
 			final Log last = e.getJournal().getLast();
-			return last==null || (last!=null && last.getHead().getTime() <= snaptake.toEpochMilli());
+			return last==null || snaptake.toEpochMilli() >=last.getHead().getTime();
 		}
 
 		public Backstage() {

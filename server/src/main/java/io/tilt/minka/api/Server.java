@@ -135,10 +135,9 @@ public class Server<D extends Serializable, P extends Serializable> {
 		return this.mapper;
 	}
 	
-	private void init(final Config config) {		
+	private void init(final Config config) {
 		createTenant(config);
 		tenant.setConfig(config);
-		// TODO fix im ignoring config arg.
 		final ClassPathXmlApplicationContext ctx = new ClassPathXmlApplicationContext(new String[] { CONTEXT_PATH }, false);
 		tenant.setContext(ctx);
 		ctx.addBeanFactoryPostProcessor(beanFactory-> beanFactory.registerSingleton("config", config));

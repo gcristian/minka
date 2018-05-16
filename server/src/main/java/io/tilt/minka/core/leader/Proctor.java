@@ -170,17 +170,17 @@ public class Proctor implements Service {
 		final List<Runnable> actions = new LinkedList<>();
 		shardingScheme.getScheme().findShards(null, shard-> {
 			final String[] ressume = new String[1];
-			final ShardState newState = evaluateStateThruHeartbeats(shard, info->ressume[0]=info);
+			final Shard.Change change = evaluateStateThruHeartbeats(shard, info->ressume[0]=info);
 			final ShardState priorState = shard.getState();
-			if (newState != priorState) {
+			if (change.getState() != priorState) {
 				logChangeAndTitle(ressume, actions.isEmpty(), size);
 				lastUnstableAnalysisId = analysisCounter;
-				actions.add(()->schemeSentry.shardStateChange(shard, priorState, newState));
+				actions.add(()->schemeSentry.shardStateChange(shard, priorState, change));
 			} else if (lastAnalysys.isBefore(shard.getFirstTimeSeen())) {
 				logChangeAndTitle(ressume, actions.isEmpty(), size);
 			}
 
-			sizeOnline[0] += newState == ONLINE ? 1 : 0;
+			sizeOnline[0] += change.getState() == ONLINE ? 1 : 0;
 		});
 		// avoid failfast iterator
 		if (!actions.isEmpty()) {
@@ -203,7 +203,7 @@ public class Proctor implements Service {
 		}
 	}
 	
-	private ShardState evaluateStateThruHeartbeats(final Shard shard, final Consumer<String> cons) {
+	private Shard.Change evaluateStateThruHeartbeats(final Shard shard, final Consumer<String> cons) {
 		final long now = System.currentTimeMillis();
 		final long normalDelay = config.beatToMs(config.getFollower().getHeartbeatDelayBeats());
 		final long configuredLapse = config.beatToMs(config.getProctor().getHeartbeatLapseBeats());
@@ -213,7 +213,7 @@ public class Proctor implements Service {
 		final ShardState currentState = shard.getState();
 		ShardState newState = currentState;
 		LinkedList<Heartbeat> pastLapse = null;
-		String msg = "";
+		Shard.Cause cause = null;
 
 		final int minHealthlyToGoOnline = config.getProctor().getMinHealthlyHeartbeatsForShardOnline();
 		final int minToBeGone = config.getProctor().getMinAbsentHeartbeatsBeforeShardGone();
@@ -221,11 +221,11 @@ public class Proctor implements Service {
 
 		if (shard.getHeartbeats().size() < minToBeGone) {
 			final long max = config.beatToMs(config.getProctor().getMaxShardJoiningStateBeats());
-			if (shard.getLastStatusChange().plus(max).isBeforeNow()) {
-				msg = "try joining expired";
+			if (shard.getLastStatusChange().plusMillis(max).isBefore(Instant.now())) {
+				cause = Shard.Cause.JOINING_STARVED;
 				newState = GONE;
 			} else {
-				msg = "no enough heartbeats in lapse";
+				cause = Shard.Cause.FEW_HEARTBEATS;
 				newState = JOINING;
 			}
 		} else {
@@ -234,49 +234,47 @@ public class Proctor implements Service {
 			int pastLapseSize = pastLapse.size();
 			if (pastLapseSize > 0 && checkHealth(now, normalDelay, pastLapse)) {
 				if (pastLapseSize >= minHealthlyToGoOnline) {
-					msg = "healthy lapse > = min. healthly for online";
+					cause = Shard.Cause.HEALTHLY_THRESHOLD;
 					newState = ONLINE;
 				} else {
-					msg = "healthly lapse < min. healthly for online";
+					cause = Shard.Cause.HEALTHLY_THRESHOLD;
 					newState = QUARANTINE;
 					// how many times should we support flapping before killing it
 				}
 			} else {
 				if (pastLapseSize > maxSickToGoQuarantine) {
 					if (pastLapseSize <= minToBeGone || pastLapseSize == 0) {
-						msg = "sick lapse < min to gone";
+						cause = Shard.Cause.MIN_ABSENT;
 						newState = GONE;
 					} else {
-						msg = "sick lapse > max. sick to stay online";
+						cause = Shard.Cause.MAX_SICK_FOR_ONLINE;
 						newState = QUARANTINE;
 					}
 				} else if (pastLapseSize <= minToBeGone && currentState == QUARANTINE) {
-					msg = "sick lapse < min to gone";
+					cause = Shard.Cause.MIN_ABSENT;
 					newState = GONE;
 				} else if (pastLapseSize > 0 && currentState == ONLINE) {
-					msg = "sick lapse > 0 (" + pastLapseSize + ")";
+					cause = Shard.Cause.SWITCH_BACK;
 					newState = QUARANTINE;
 				} else if (pastLapseSize == 0 
 						&& (currentState == QUARANTINE || currentState == ONLINE)) {
-					msg = "sick lapse (0) became ancient";
+					cause = Shard.Cause.BECAME_ANCIENT;
 					newState = GONE;
-				} else {
-					msg = "past lapse is " + pastLapseSize;
 				}
 			}
 		}
 		
 		cons.accept(String.format("%s: %s %s %s, %s, (%s/%s), Seq [%s..%s] %s", getName(), shard,
-			newState == currentState ? "staying" : "going", 
+			newState == currentState ? "stays" : "goes", 
 			newState, 
-			msg, 
+			cause, 
 			shard.getHeartbeats().size(),
 			pastLapse != null ? pastLapse.size() : 0, 
 			shard.getHeartbeats().last().getSequenceId(),
 			shard.getHeartbeats().first().getSequenceId(), 
 			shardId.equals(shard.getShardID()) ? LogUtils.SPECIAL : ""));
 
-		return newState;
+		return new Shard.Change(cause, newState);
 	}
 
 	private boolean checkHealth(final long now, final long normalDelay, final List<Heartbeat> onTime) {

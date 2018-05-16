@@ -121,7 +121,6 @@ public class Config {
 		Defaulter.apply(prop, "follower.", this.getFollower());
 		Defaulter.apply(prop, "scheduler.", this.getScheduler());
 		Defaulter.apply(prop, "proctor.", this.getProctor());
-		logger.info("{}: Configuration: {} ", getClass().getSimpleName(), toJson());
 	}
 
 	public String toJson() {
