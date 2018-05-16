@@ -166,12 +166,23 @@ public class Client<D extends Serializable, P extends Serializable> {
 				logger.info("{}: Sending {}: {} with Event: {} to leader in service", 
 						getClass().getSimpleName(), entity.getType(), raw, event);
 			}
-			sent = eventBroker.send(
-					eventBroker.buildToTarget(
-							config, 
-							Channel.FROM_CLIENT,
-							leaderShardContainer.getLeaderShardId()), 
-					entity);
+			int tries = 10;
+			while (true && tries-->0) {
+				if (leaderShardContainer.getLeaderShardId()!=null) {
+					sent = eventBroker.send(
+						eventBroker.buildToTarget(
+								config, 
+								Channel.FROM_CLIENT,
+								leaderShardContainer.getLeaderShardId()), 
+						entity);
+				} else {
+					try {
+						Thread.sleep(config.beatToMs(10));
+					} catch (InterruptedException ie) {
+						break;
+					}
+				}
+			}
 			return new Reply(sent ? ReplyResult.SUCCESS_SENT : ReplyResult.FAILURE_NOT_SENT, raw, null, event, null);
 		}
 	}
