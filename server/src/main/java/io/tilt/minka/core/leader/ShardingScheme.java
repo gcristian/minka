@@ -607,29 +607,28 @@ public class ShardingScheme {
 		}
 		public int sizeDutiesCrud(final Predicate<EntityEvent> event, final Predicate<EntityState> state) {
 			final int[] size = new int[1];
-			onEntitiesCrud(ShardEntity.Type.DUTY, event, state, e->size[0]++);
+			onEntitiesCrud(getDutiesCrud(), event, state, e->size[0]++);
 			return size[0];
 		}
 		public void findDutiesCrud(
 				final Predicate<EntityEvent> event, 
 				final Predicate<EntityState> state, 
 				final Consumer<ShardEntity> consumer) {
-			onEntitiesCrud(ShardEntity.Type.DUTY, event, state, consumer);
+			onEntitiesCrud(getDutiesCrud(), event, state, consumer);
 		}
 		public void findPalletsCrud(
 				final Predicate<EntityEvent> event, 
 				final Predicate<EntityState> state, 
 				final Consumer<ShardEntity> consumer) {
-			onEntitiesCrud(ShardEntity.Type.PALLET, event, state, consumer);
+			onEntitiesCrud(palletCrud.values(), event, state, consumer);
 		}
 		
 		private void onEntitiesCrud(
-				final ShardEntity.Type type, 
+				final Collection<ShardEntity> coll, 
 				final Predicate<EntityEvent> eventPredicate, 
 				final Predicate<EntityState> statePredicate, 
 				final Consumer<ShardEntity> consumer) {
-			(type == ShardEntity.Type.DUTY ? getDutiesCrud() : palletCrud.values())
-				.stream()
+			coll.stream()
 				.filter(e -> (eventPredicate == null || eventPredicate.test(e.getJournal().getLast().getEvent())) 
 					&& (statePredicate == null || (statePredicate.test(e.getJournal().getLast().getLastState()))))
 				.forEach(consumer);
@@ -651,19 +650,10 @@ public class ShardingScheme {
 				logger.info("{}: no CRUD duties", getClass().getSimpleName());
 			} else {
 				logger.info("{}: with {} CRUD duties: [ {}]", getClass().getSimpleName(), dutyCrud.size(),
-						buildLogForDuties(Lists.newArrayList(getDutiesCrud())));
+						ShardEntity.toStringIds(getDutiesCrud()));
 			}
 		}
 		
-		private StringBuilder buildLogForDuties(final List<ShardEntity> sorted) {
-			final StringBuilder sb = new StringBuilder();
-			if (!sorted.isEmpty()) {
-				sorted.sort(sorted.get(0));
-			}
-			sorted.forEach(i -> sb.append(i.getEntity().getId()).append(", "));
-			return sb;
-		}
-
 	}
 	
 	private ClusterHealth visibilityHealth;

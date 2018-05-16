@@ -83,25 +83,24 @@ public class BasicAppEmulator {
 			.setLocationTag(server.getClient().getShardIdentity() +"-eltag")
 			.onPalletLoad(() -> pallets)
 			.onLoad(()-> duties)
-			.onCapture((final Set<Duty<String>> t) -> {
+			.onCapture((final Set<Duty<String>> d) -> {
 				// start tasks
 				logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "taking"));
-				logger.info("{} # {}+ ({})", shardId, t.size(), toStringIds(t));
-				runningDuties.addAll(t);
+				logger.info("{} # {}+ ({})", shardId, d.size(), toStringIds(d));
+				runningDuties.addAll(d);
 			})
 			.onPalletCapture((p)->logger.info("Taking pallet: {}", p.toString()))
-			.onRelease((final Set<Duty<String>> entities)-> {
+			.onRelease((final Set<Duty<String>> d)-> {
 				// stop tasks previously started
 				logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "releasing"));
-				logger.info("{} # -{} ({})", shardId, entities.size(), toStringIds(entities));
-				runningDuties.removeAll(entities);
+				logger.info("{} # -{} ({})", shardId, d.size(), toStringIds(d));
+				runningDuties.removeAll(d);
 			})
 			.onPalletRelease((p)->logger.info("Releasing pallet: {}", p.toString()))
 			.onActivation(()-> {
+				// only for this emulator class: user would rarely need this event 
 				this.shardId = server.getClient().getShardIdentity();
-				logger.info("{}: Activating", this.shardId);
 			})
-			.onDeactivation(()->logger.info("de-activating"))
 			.onUpdate(d->logger.info("receiving update for: {}", d))
 			.onTransfer((d, e)->logger.info("receiving transfer to: {}", d))
 			.done()

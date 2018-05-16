@@ -57,7 +57,7 @@ public class Config {
 		objectMapper.configure(SerializationFeature.WRITE_NULL_MAP_VALUES, false);
 		objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 		objectMapper.configure(SerializationFeature.CLOSE_CLOSEABLE, true);
-		objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
+		//objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
 		objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
 
 		final SimpleModule simpleModule = new SimpleModule("module-1");

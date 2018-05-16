@@ -4,7 +4,7 @@ for PID in `$(which jps) -mlv | $(which grep) minka | $(which cut) -d' ' -f1`; d
 	LOCAL_ADDRESS=$($(which netstat) -pltn 2>/dev/null | $(which grep) $PID | $(which awk) '{print $4}'); 
 	for HOSTPORT in ${LOCAL_ADDRESS[@]}; do
 		LEADER="$(which curl) -sn $HOSTPORT/minka/admin/shards -XGET"
-		LEADER=$($LEADER | $(which jq) '.leaderShardId."web-host-port" ' | $(which tr) -d '\" ')
+		LEADER=$($LEADER | $(which jq) '.leader."web-host-port" ' | $(which tr) -d '\" ')
 		s=${#LEADER}
 	 	if [ "$s" -gt 10 ]; then
 			echo $LEADER

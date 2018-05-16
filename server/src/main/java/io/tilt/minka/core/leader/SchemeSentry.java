@@ -88,17 +88,18 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			shard.setCapacities(beat.getCapacities());
 		}
 		
-		detectAndWriteChanges(shard, beat);
+		detectExpectedChanges(shard, beat);
 
 		if ((beat.reportsDuties()) && shard.getState().isAlive()) {
-			detectAndSaveAbsents(shard, beat.getReportedCapturedDuties());
+			detectUnexpectedChanges(shard, beat.getReportedCapturedDuties());
 			if (shardingScheme.getCurrentPlan()!=null) {
 				detectInvalidShards(shard, beat.getReportedCapturedDuties());
 			}
 		}
+		beat.clear();
 	}
 	
-	public void detectAndWriteChanges(final Shard shard, final Heartbeat beat) {
+	private void detectExpectedChanges(final Shard shard, final Heartbeat beat) {
 		final ChangePlan changePlan = shardingScheme.getCurrentPlan();
 		if (changePlan!=null && !changePlan.getResult().isClosed()) {
 			final Delivery delivery = changePlan.getDelivery(shard);
@@ -174,7 +175,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	}
 	
 	/*this checks partition table looking for missing duties (not declared dangling, that's diff) */
-	private void detectAndSaveAbsents(final Shard shard, final List<ShardEntity> reportedDuties) {
+	private void detectUnexpectedChanges(final Shard shard, final List<ShardEntity> reportedDuties) {
 		for (Map.Entry<EntityState, List<ShardEntity>> e: findAbsent(shard, reportedDuties).entrySet()) {
 			boolean done = false;
 			if (e.getKey()==DANGLING) { 

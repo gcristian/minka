@@ -85,6 +85,13 @@ public class SchemeRepository {
 		}
 	}
 
+	public static void main(String[] args) throws InterruptedException {
+		while(true) {
+			Thread.sleep(1000l);
+			System.out.println(System.currentTimeMillis());
+		}
+	}
+	
 	private ShardEntity toCreatedEntity(final Entity<?> e) {
 		final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
 		final ShardEntity entity = builder.build();
