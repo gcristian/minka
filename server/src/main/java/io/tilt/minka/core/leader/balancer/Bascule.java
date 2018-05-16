@@ -31,11 +31,15 @@ import io.tilt.minka.api.Duty;
  */
 public class Bascule<O, C> {
 	private final O owner;
+	// real owner's reported capacity: cannot be overloaded 
 	private final double maxRealCapacity;
-	
+	// a custom smaller limit than real one: can be overloaded
 	private double maxTestWeight;
+	// weight lifted so far 
 	private double liftedWeight;
+	// already added (weight accounted) elements in the bascule 
 	private final Set<C> cargo;
+	// rejected elements when tried lift
 	private final Set<C> discarded;
 	
 	/* weighing mode bascule: only to lift weights without assigning */

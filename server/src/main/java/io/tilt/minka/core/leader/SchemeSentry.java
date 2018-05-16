@@ -107,6 +107,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 						(l,d)-> writesOnChange(shard, l, d))) {
 					delivery.calculateState(s->logger.info(s));
 				}
+				changePlan.calculateState();
 				if (changePlan.getResult().isClosed()) {
 					if (logger.isInfoEnabled()) {
 						logger.info("{}: ChangePlan finished ! (all changes in scheme)", classname);
@@ -161,7 +162,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			final Instant lastEventOnCrud = crud.getJournal().getLast().getHead().toInstant();
 			boolean previousThanCrud = changelog.getHead().toInstant().isBefore(lastEventOnCrud);
 			// if the update corresponds to the last CRUD OR they're both the same event (duplicated operation)
-			if (!previousThanCrud || changelog.getEvent()==crud.getLastEvent()) {
+			if (!previousThanCrud || changelog.getEvent().getRootCause()==crud.getLastEvent()) {
 				shardingScheme.getBackstage().removeCrud(entity);
 			} else {
 				logger.warn("{}: Avoiding Backstage removal of CRUD as it's different and after the last event", 

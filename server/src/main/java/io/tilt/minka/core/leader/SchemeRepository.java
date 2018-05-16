@@ -125,9 +125,14 @@ public class SchemeRepository {
 			final ShardEntity pallet = scheme.getScheme().getPalletById(duty.getDuty().getPalletId());
 			if (pallet!=null) {
 				final ShardEntity newone = ShardEntity.Builder
-						.builderFrom(duty)
+						.builder(duty.getDuty())
 						.withRelatedEntity(pallet)
 						.build();
+				newone.getJournal().addEvent(
+						EntityEvent.CREATE, 
+						EntityState.PREPARED, 
+						this.shardId,
+						ChangePlan.PLAN_WITHOUT);
 				if (scheme.getBackstage().addCrudDuty(newone)) {
 					if (logger.isInfoEnabled()) {
 						logger.info("{}: Adding New Duty: {}", classname, newone);

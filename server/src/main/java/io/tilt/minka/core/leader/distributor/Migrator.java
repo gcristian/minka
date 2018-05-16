@@ -193,15 +193,15 @@ public class Migrator {
 	private double checkSuitable(final Shard target, final Set<Duty<?>> cluster) {
 		double remainingCap = 0;
 		if (isWeightedPallet()) {
-			final AtomicDouble accum = new AtomicDouble(0);
+			final double[] accum = {0};
 			final Capacity cap = target.getCapacities().get(pallet);
 			if (cap!=null) {
-				cluster.forEach(d->accum.addAndGet(d.getWeight()));
-				if (cap.getTotal() < accum.get()) {
+				cluster.forEach(d->accum[0]+=d.getWeight());
+				if (cap.getTotal() < accum[0]) {
 					throw new BalancingException("bad override: overwhelming weight!: %s (max capacity: %s, shard: %s)", 
 							accum, cap.getTotal(), target);
 				} else {
-					remainingCap = cap.getTotal() - accum.get();
+					remainingCap = cap.getTotal() - accum[0];
 				}
 			}
 		}

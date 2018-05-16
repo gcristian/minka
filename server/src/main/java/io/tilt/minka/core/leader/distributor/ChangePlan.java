@@ -438,8 +438,11 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	
 	@JsonProperty("elapsed-ms")
 	private String getElapsed() {
-		return LogUtils.humanTimeDiff(started.toEpochMilli(), 
+		if (started!=null) {
+			return LogUtils.humanTimeDiff(started.toEpochMilli(), 
 				ended == null ? System.currentTimeMillis() : ended.toEpochMilli());
+		}
+		return "";
 	}
 
 	@JsonProperty("deliveries")

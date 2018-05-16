@@ -94,15 +94,17 @@ class ChangePlanFactory {
 		snapshot.findDutiesCrud(REMOVE::equals, null, crud-> {
 			// as a CRUD a deletion lives in backstage as a mark within an Opaque ShardEntity
 			// we must now search for the real one
-			final ShardEntity schemed = partition.getScheme().getByDuty(crud.getDuty());
+			final ShardEntity schemed = scheme.getScheme().getByDuty(crud.getDuty());
 			if (schemed!=null) {
 				// translate the REMOVAL event
 				schemed.getJournal().addEvent(
 						crud.getLastEvent(), 
 						crud.getLastState(), 
-						partition.getScheme().findDutyLocation(schemed).getShardID(), 
+						scheme.getScheme().findDutyLocation(schemed).getShardID(), 
 						-1);
 				dutyDeletions.add(schemed);
+				// prevail user's deletion op. over clustering restore/creation
+				dutyCreations.remove(schemed);
 			}
 		});
 		restorePendings(previousChange, dutyDeletions::add, 
@@ -110,12 +112,12 @@ class ChangePlanFactory {
 		
 		// lets add those duties of a certain deleting pallet
 		snapshot.findPalletsCrud(REMOVE::equals, PREPARED::equals, p-> {
-			partition.getScheme().findDutiesByPallet(p.getPallet(), dutyDeletions::add);
+			scheme.getScheme().findDutiesByPallet(p.getPallet(), dutyDeletions::add);
 		});
-		registerDeletions(partition, changePlan, dutyDeletions);
+		shipDeletions(scheme, changePlan, dutyDeletions);
 		
 		final Set<ShardEntity> ents = new HashSet<>();
-		partition.getScheme().findDuties(ents::add);
+		scheme.getScheme().findDuties(ents::add);
 		ents.addAll(dutyCreations);
 		boolean changes = false;
 		final Map<String, List<ShardEntity>> schemeByPallets = ents.stream()
@@ -126,11 +128,11 @@ class ChangePlanFactory {
 		}
 		try {
 			for (final Map.Entry<String, List<ShardEntity>> e : schemeByPallets.entrySet()) {
-				final Pallet<?> pallet = partition.getScheme().getPalletById(e.getKey()).getPallet();
+				final Pallet<?> pallet = scheme.getScheme().getPalletById(e.getKey()).getPallet();
 				final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
-				logStatus(partition, dutyCreations, dutyDeletions, e.getValue(), pallet, balancer);
+				logStatus(scheme, dutyCreations, dutyDeletions, e.getValue(), pallet, balancer);
 				if (balancer != null) {
-					final Migrator migra = balance(partition, pallet, balancer, dutyCreations, dutyDeletions);
+					final Migrator migra = balance(scheme, pallet, balancer, dutyCreations, dutyDeletions);
 					changes |= migra.write(changePlan);
 				} else {
 					if (logger.isInfoEnabled()) {
@@ -139,16 +141,16 @@ class ChangePlanFactory {
 					}
 				}
 			}
-			partition.getBackstage().clearAllocatedMissing();
-			partition.getBackstage().cleanAllocatedDanglings();
+			// only when everything went well otherwise'd be lost
+			scheme.getBackstage().clearAllocatedMissing();
+			scheme.getBackstage().cleanAllocatedDanglings();
 			if (changes || !dutyDeletions.isEmpty()) {
 				return changePlan;
-			} else {
-				partition.getBackstage().dropSnapshot();
 			}
 	    } catch (Exception e) {
 	    	logger.error("{}: Cancelling ChangePlan building", e);
 		}
+		scheme.getBackstage().dropSnapshot();
 		return null;
 	}
 
@@ -244,7 +246,7 @@ class ChangePlanFactory {
 	}
 
 	/* by user deleted */
-	private final void registerDeletions(final ShardingScheme partition, final ChangePlan changePlan,
+	private final void shipDeletions(final ShardingScheme partition, final ChangePlan changePlan,
 			final Set<ShardEntity> deletions) {
 
 		for (final ShardEntity deletion : deletions) {

@@ -706,23 +706,28 @@ public class ShardingScheme {
 		this.distributionHealth = ClusterHealth.STABLE;
 		this.scheme = new Scheme();
 		this.backstage = new Backstage();
-		this.history = CollectionUtils.sliding(20);
 	}
-		
-	public Set<ChangePlan> getHistory() {
-		return this.history.values();
-	}
-
+	
 	public ChangePlan getCurrentPlan() {
 		return this.currentPlan;
 	}
 
-	public void addPlan(final ChangePlan change) {
+	public void setPlan(final ChangePlan change) {
 		this.currentPlan = change;
-		this.history.add(change);
+		notifyObservers();
+	}
+	
+	private void notifyObservers() {
+		if (observers!=null) {
+			for (Runnable run: observers) {
+				try {
+					run.run();
+				} catch (Exception e) {
+				}
+			}
+		}
 	}
 
-	
 	public Backstage getBackstage() {
 		return this.backstage;
 	}
@@ -779,6 +784,12 @@ public class ShardingScheme {
 		return schematized && staged;
 	}
 
+	public void addChangeObserver(final Runnable observer) {
+		if (observers==null) {
+			this.observers = new LinkedList<>();
+		}
+		observers.add(observer);
+	}
 
 
 }
