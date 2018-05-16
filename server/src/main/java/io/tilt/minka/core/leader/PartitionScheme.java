@@ -69,9 +69,8 @@ public class PartitionScheme {
 	private static final Logger logger = LoggerFactory.getLogger(PartitionScheme.class);
 	
 	/**
-	 * Sharding registry of {@linkplain Shard} and {@linkplain Duty} objects and their relations.
-	 * State of continuously checked truth on duties attached to shards.
-	 * any modifications and problem detection goes to {@linkplain Backstage}
+	 * Repr. of distribution scheme after proper confirmation of the followers 
+	 * Holds the sharding registry of duties.
 	 * Only maintainer: {@linkplain SchemeSentry}
 	 */
 	public static class Scheme {
@@ -90,7 +89,7 @@ public class PartitionScheme {
 		public void stealthChange(final boolean value) {
 			this.stealthChange = value;
 		}
-		/** @return true when changes happened that are worthy of distribution phase run  */
+		/** @return true when the scheme has changes worthy of distribution phase run  */
 		public boolean isStealthChange() {
 			return this.stealthChange;
 		}
@@ -392,18 +391,22 @@ public class PartitionScheme {
 	}
 	
 	/** 
-	 * temporal state of modifications willing to be added to the scheme 
+	 * Temporal state of modifications willing to be added to the {@linkplain Scheme}
 	 * including inconsistencies detected by the sentry
+	 * Only maintainers: {@linkplain SchemeSentry} and {@linkplain SchemeRepository}
 	 * */
 	public static class Backstage {
-		
+
+	    // creations and removes willing to be attached or detached to/from shards.
 		private Map<Pallet<?>, ShardEntity> palletCrud;
 		private Map<Duty<?>, ShardEntity> dutyCrud;
+		// absences in shards's reports
 		private Map<Duty<?>, ShardEntity> dutyMissings;
+		// fallen shards's duties
 		private Map<Duty<?>, ShardEntity> dutyDangling;
 		private Instant snaptake;
 		
-		// read-only clean snapshot (not to be modified, backstage remains MASTER)
+		// read-only snapshot for ChangePlanBuilder thread (not to be modified, backstage remains MASTER)
 		private Backstage snapshot;
 		
 		/** @return a frozen state of Backstage, so message-events threads 
@@ -425,6 +428,7 @@ public class PartitionScheme {
 			this.snapshot = null;
 		}
 		
+		/** @return true if the last entity event ranges within the last taken snapshot */
 		public boolean before(final ShardEntity e) {
 			if (snaptake==null) {
 				throw new RuntimeException("bad call");
@@ -444,7 +448,7 @@ public class PartitionScheme {
 		public void stealthChange(final boolean value) {
 			this.stealthChange = value;
 		}
-		/** @return true when changes happened that are worthy of distribution phase run  */
+		/** @return true when the backstage has changes worthy of distribution phase run  */
 		public boolean isStealthChange() {
 			return this.stealthChange;
 		}
