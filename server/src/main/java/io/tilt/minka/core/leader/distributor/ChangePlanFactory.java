@@ -85,7 +85,7 @@ class ChangePlanFactory {
 		for (ShardEntity d: snapshot.getDutiesDangling()) {
 			dutyCreations.add(ShardEntity.Builder.builderFrom(d).build());
 		}
-		partition.getBackstage().cleanAllocatedDanglings();
+		
 		// add previous fallen and never confirmed migrations
 		restorePendings(previousChange, dutyCreations::add, 
 				d->d.getLastEvent()==CREATE || d.getLastEvent()==ATTACH);
@@ -121,8 +121,10 @@ class ChangePlanFactory {
 		final Map<String, List<ShardEntity>> schemeByPallets = ents.stream()
 				.collect(Collectors.groupingBy(e -> e.getDuty().getPalletId()));
 		if (schemeByPallets.isEmpty()) {
-			logger.warn("{}: Scheme is empty. Nothing to balance", name);
-		} else {
+			logger.warn("{}: Scheme and Backstage are empty. Nothing to balance", name);
+			return null;
+		}
+		try {
 			for (final Map.Entry<String, List<ShardEntity>> e : schemeByPallets.entrySet()) {
 				final Pallet<?> pallet = partition.getScheme().getPalletById(e.getKey()).getPallet();
 				final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
@@ -137,14 +139,17 @@ class ChangePlanFactory {
 					}
 				}
 			}
+			partition.getBackstage().clearAllocatedMissing();
+			partition.getBackstage().cleanAllocatedDanglings();
+			if (changes || !dutyDeletions.isEmpty()) {
+				return changePlan;
+			} else {
+				partition.getBackstage().dropSnapshot();
+			}
+	    } catch (Exception e) {
+	    	logger.error("{}: Cancelling ChangePlan building", e);
 		}
-		
-		if (changes || !dutyDeletions.isEmpty()) {
-			return changePlan;
-		} else {
-			partition.getBackstage().dropSnapshot();
-			return null;
-		}
+		return null;
 	}
 
 	private static final Migrator balance(
@@ -219,7 +224,6 @@ class ChangePlanFactory {
 				logger.info("{}: Registered {} dangling duties {}", name, missing.size(), toStringIds(missing));
 			}
 		}
-		partition.getBackstage().clearAllocatedMissing();
 	}
 
 	/*
