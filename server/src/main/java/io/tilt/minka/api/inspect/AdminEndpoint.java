@@ -57,7 +57,7 @@ import io.tilt.minka.domain.ShardedPartition;
 public class AdminEndpoint {
 
 	@Autowired
-	private ShardingScheme table;
+	private ShardingScheme scheme;
 	@Autowired
 	private SchemeViews views;
 	@Autowired
@@ -67,10 +67,7 @@ public class AdminEndpoint {
 	@Autowired
 	private ShardedPartition partition;
 
-	@Inject
-	public AdminEndpoint(@Named("partitionScheme") ShardingScheme table) {
-		this.table = table;
-	}
+	
 	/*
 	
 	@GET
@@ -93,21 +90,21 @@ public class AdminEndpoint {
 	@Path("/distro")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response status() throws JsonProcessingException {
-		return Response.accepted(views.distributionToJson(table)).build();
+		return Response.accepted(views.distributionToJson()).build();
 	}
 
 	@GET
 	@Path("/pallets")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response pallets() throws JsonProcessingException {
-		return Response.accepted(views.palletsToJson(table)).build();
+		return Response.accepted(views.palletsToJson()).build();
 	}
 	                    
 	@GET
 	@Path("/shards")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response shards() throws JsonProcessingException {
-		return Response.accepted(views.shardsToJson(table)).build();
+		return Response.accepted(views.shardsToJson()).build();
 	}
 
 	@GET
@@ -115,7 +112,7 @@ public class AdminEndpoint {
 	@Produces(MediaType.APPLICATION_JSON)
 	/** @return the leader's ShardingScheme sharded partition entities */
 	public Response duties() throws JsonProcessingException {
-		return Response.accepted(views.dutiesToJson(table)).build();
+		return Response.accepted(views.dutiesToJson()).build();
 	}
 
 	@GET
@@ -130,7 +127,7 @@ public class AdminEndpoint {
 	@Path("/entities")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response entities() throws JsonProcessingException {
-		return Response.accepted(views.entitiesToJson(table)).build();
+		return Response.accepted(views.entitiesToJson()).build();
 	}
 
 	@GET
@@ -144,10 +141,7 @@ public class AdminEndpoint {
 	@Path("/plans")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response plans() throws JsonProcessingException {
-		final Map<String, Object> map = new HashMap<>(2);
-		map.put("plans", table.getHistory().size());
-		map.put("history", table.getHistory());
-        return Response.accepted(views.elementToJson(map)).build();
+        return Response.accepted(views.plansToJson()).build();
 	}
 	
 	public enum Format {

@@ -42,7 +42,6 @@ import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.ShardingScheme;
 import io.tilt.minka.core.leader.ShardingScheme.ClusterHealth;
 import io.tilt.minka.core.leader.SchemeRepository;
-import io.tilt.minka.core.leader.SchemeSentry;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.distributor.ChangePlan.Result;
 import io.tilt.minka.core.task.LeaderShardContainer;
@@ -77,7 +76,6 @@ public class Distributor implements Service {
 	private final Scheduler scheduler;
 	private final EventBroker eventBroker;
 	private final ShardingScheme shardingScheme;
-	private final SchemeSentry schemeSentry;
 	private final SchemeRepository schemeRepository;
 	private final ShardIdentifier shardId;
 	private final EntityDao entityDao;
@@ -96,7 +94,6 @@ public class Distributor implements Service {
 			final Scheduler scheduler, 
 			final EventBroker eventBroker,
 			final ShardingScheme shardingScheme, 
-			final SchemeSentry schemeSentry, 
 			final SchemeRepository schemeRepo,
 			final ShardIdentifier shardId,
 			final EntityDao dutyDao, 
@@ -107,7 +104,6 @@ public class Distributor implements Service {
 		this.scheduler = scheduler;
 		this.eventBroker = eventBroker;
 		this.shardingScheme = shardingScheme;
-		this.schemeSentry = schemeSentry;
 		this.schemeRepository = schemeRepo;
 		this.shardId = shardId;
 		this.entityDao = dutyDao;
@@ -155,14 +151,14 @@ public class Distributor implements Service {
 		try {
 			// also if this's a de-frozening thread
 			if (!leaderShardContainer.imLeader()) {
-				logger.warn("{}: ({}) Posponing distribution: not leader anymore ! ", getName(), shardId);
+				logger.warn("{}: ({}) Suspending distribution: not leader anymore ! ", getName(), shardId);
 				return;
 			}
 			// skip if unstable unless a plan in progress or expirations will occurr and dismiss
 			final ChangePlan currPlan = shardingScheme.getCurrentPlan();
 			if ((currPlan==null || currPlan.getResult().isClosed()) && 
 			        shardingScheme.getShardsHealth() == ClusterHealth.UNSTABLE) {
-				logger.warn("{}: ({}) Posponing distribution until reaching cluster stability", getName(), shardId);
+				logger.warn("{}: ({}) Suspending distribution until reaching cluster stability", getName(), shardId);
 				return;
 			} else if (currPlan!=null && currPlan.getResult().isClosed()) {
 				if (config.getDistributor().isRunOnStealthMode() &&
@@ -175,7 +171,7 @@ public class Distributor implements Service {
 			final int online = shardingScheme.getScheme().shardsSize(ShardState.ONLINE.filter());
 			final int min = config.getProctor().getMinShardsOnlineBeforeSharding();
 			if (online < min) {
-				logger.warn("{}: balancing posponed: not enough online shards (min:{}, now:{})", getName(), min, online);
+				logger.warn("{}: Suspending distribution: not enough online shards (min:{}, now:{})", getName(), min, online);
 				return;
 			}
 			
@@ -184,7 +180,7 @@ public class Distributor implements Service {
 			}
 			counterForDistro++;
 			logStatus();
-
+			
 			// distribution
 			drive(currPlan);
 			communicateUpdates();
@@ -231,7 +227,7 @@ public class Distributor implements Service {
 	private ChangePlan buildPlan(final ChangePlan previous) {
 		final ChangePlan changePlan = factory.create(shardingScheme, previous);
 		if (null!=changePlan) {
-			shardingScheme.addPlan(changePlan);
+			shardingScheme.setPlan(changePlan);
 			this.shardingScheme.setDistributionHealth(ClusterHealth.UNSTABLE);
 			changePlan.prepare();
 			shardingScheme.getBackstage().dropSnapshot();

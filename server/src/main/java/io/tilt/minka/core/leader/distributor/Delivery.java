@@ -167,12 +167,21 @@ public class Delivery {
 		
 	@java.lang.Override
 	public String toString() {
-		return event + "-" + shard + "-" + duties.size();
+		return new StringBuilder()
+				.append(event)
+				.append("-")
+				.append(shard)
+				.append("-")
+				.append(duties.size())
+				.toString();
 	}
 	
 	@JsonProperty("event")
 	private String getEventShard() {
-		return event + " " + shard.toString();
+		return new StringBuilder()
+				.append(event).append(' ')
+				.append(shard.toString())
+				.toString();
 	}
 
 	@JsonProperty("state")

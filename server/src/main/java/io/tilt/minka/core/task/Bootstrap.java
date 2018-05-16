@@ -140,8 +140,6 @@ public class Bootstrap implements Service {
 	@Override
 	public void start() {
 	    this.start = new Date();
-		logger.info(LogUtils.getGreetings(leader.getShardId(), config.getBootstrap().getServiceName(), 
-				config.getBootstrap().getWebServerHostPort()));
 		// check configuration is valid and not unstable-prone
 		validator.validate(config, dependencyPlaceholder.getMaster());
 		scheduler.start();

@@ -17,6 +17,7 @@
 package io.tilt.minka.api.inspect;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -26,11 +27,17 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.stream.Collectors;
+
+import javax.ws.rs.core.Response;
 
 import org.apache.commons.lang.Validate;
 import org.joda.time.DateTime;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
@@ -39,12 +46,13 @@ import com.fasterxml.jackson.core.JsonGenerator.Feature;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.google.common.util.concurrent.AtomicDouble;
+import com.fasterxml.jackson.databind.util.JSONPObject;
 
 import io.tilt.minka.core.leader.ShardingScheme;
 import io.tilt.minka.core.leader.ShardingScheme.Scheme;
 import io.tilt.minka.core.leader.ShardingScheme.Scheme.SchemeExtractor;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
+import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -52,9 +60,14 @@ import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
+import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.ShardedPartition;
+import io.tilt.minka.utils.CollectionUtils;
+import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
+import jdk.nashorn.internal.runtime.JSONListAdapter;
 
 /**
  * Read only views about the {@linkplain Scheme} 
@@ -68,12 +81,16 @@ import io.tilt.minka.domain.ShardedPartition;
 public class SchemeViews {
 
 	private final LeaderShardContainer leaderShardContainer; 
-		
-	protected static final ObjectMapper mapper; 
+	private final SlidingSortedSet<String> changePlanHistory;
+	private final ShardingScheme scheme;
+	private final ChangePlan[] lastPlan = {null};
+	
+	public static final ObjectMapper mapper; 
 	static {
 		mapper = new ObjectMapper();
 		mapper.setVisibility(PropertyAccessor.ALL, Visibility.NONE);
 		mapper.setVisibility(PropertyAccessor.FIELD, Visibility.ANY);
+		//mapper.configure(SerializationFeature.INDENT_OUTPUT, true);
 		mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, true);
 		mapper.configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false);
 		mapper.configure(SerializationFeature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED, false);
@@ -81,63 +98,99 @@ public class SchemeViews {
 		mapper.configure(Feature.WRITE_NUMBERS_AS_STRINGS, true);
 	}
 
-	public SchemeViews(final LeaderShardContainer leaderShardContainer) {
+	public SchemeViews(
+			final LeaderShardContainer leaderShardContainer, 
+			final ShardingScheme scheme) {
 		this.leaderShardContainer = requireNonNull(leaderShardContainer);
+		this.scheme = requireNonNull(scheme);
+		this.changePlanHistory = CollectionUtils.sliding(20);
+		scheme.addChangeObserver(()->catchPlan());
 	}
 
-	public String elementToJson(final Object o) throws JsonProcessingException {
-		Validate.notNull(o);
+	private void catchPlan() {
+		try {
+			if (lastPlan[0]!=null) {
+				if (!lastPlan[0].equals(scheme.getCurrentPlan())) {
+					changePlanHistory.add(toJson(lastPlan[0]));
+				}
+			}
+			lastPlan[0] = scheme.getCurrentPlan();
+		} catch (Exception e) {
+		}
+	}
+
+	public String toJson(final Object o) throws JsonProcessingException {
 		return mapper.writeValueAsString(o);
 	}
-
-	public String shardsToJson(final ShardingScheme table) throws JsonProcessingException {
-		Validate.notNull(table);
-		return mapper.writeValueAsString(buildShards(table));
+	
+	public String plansToJson() {
+		try {
+			final JSONArray arr = new JSONArray();
+			final JSONObject js = new JSONObject();
+			js.put("size", changePlanHistory.size());
+			if (lastPlan[0]!=null && !lastPlan[0].getResult().isClosed()) {
+				js.put("current", new JSONObject(toJson(lastPlan[0])));
+			} else if (lastPlan[0]!=null) {
+				arr.put(new JSONObject(toJson(lastPlan[0])));
+			}
+			changePlanHistory.values().forEach(s->arr.put(new JSONObject(s)));
+			js.put("history", arr);
+	        return js.toString();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "";
 	}
 
-	private Map<String, Object> buildShards(final ShardingScheme table) {
-		Validate.notNull(table);
+	public String shardsToJson() throws JsonProcessingException {
+		return mapper.writeValueAsString(buildShards(scheme));
+	}
+
+	private Map<String, Object> buildShards(final ShardingScheme scheme) {
 		final Map<String, Object> map = new LinkedHashMap<>();
-		map.put("leaderShardId", leaderShardContainer.getLeaderShardId());
-		map.put("previousLeaders", leaderShardContainer.getAllPreviousLeaders());
+		map.put("leader", leaderShardContainer.getLeaderShardId());
+		map.put("previous", leaderShardContainer.getAllPreviousLeaders());
+		final Map<String, List<String>> tmp = new HashMap<>();
+		scheme.getScheme().getGoneShards().entrySet().forEach(e-> {
+			tmp.put(e.getKey().getId(), e.getValue().values().stream().map(c->c.toString()).collect(toList()));
+		});
+		map.put("gone", tmp);
 		final List<Shard> list = new ArrayList<>();
-		table.getScheme().findShards(null, list::add);
+		scheme.getScheme().findShards(null, list::add);
 		map.put("shards", list);
 		return map;
 	}
 
-	public String distributionToJson(final ShardingScheme table) throws JsonProcessingException {
-		Validate.notNull(table);
-		return mapper.writeValueAsString(buildDistribution(table));
+	public String distributionToJson() throws JsonProcessingException {
+		return mapper.writeValueAsString(buildDistribution());
 	}
 	
-	public Map<String, Object> buildDistribution(final ShardingScheme table) {
-		Validate.notNull(table);
+	public Map<String, Object> buildDistribution() {
 		final Map<String, Object> map = new LinkedHashMap<>();
-		map.put("global", buildGlobal(table));
-		map.put("distribution", buildShardRep(table));
+		map.put("global", buildGlobal(scheme));
+		map.put("distribution", buildShardRep(scheme));
 		return map;
 	}
 
-	public String dutiesToJson(final ShardingScheme table) throws JsonProcessingException {
-		return elementToJson(buildDuties(table, false));
+	public String dutiesToJson() throws JsonProcessingException {
+		return toJson(buildDuties(false));
 	}
 
-	public String entitiesToJson(final ShardingScheme table) throws JsonProcessingException {
+	public String entitiesToJson() throws JsonProcessingException {
 		Map<String, Object> m = new HashMap<>();
-		m.put("scheme", buildDuties(table, true));
-		m.put("backstage", buildBackstage(table.getBackstage()));
-		return elementToJson(m);
+		m.put("scheme", buildDuties(true));
+		m.put("backstage", buildBackstage(scheme.getBackstage()));
+		return toJson(m);
 	}
 	
 	public String followerEntitiesToJson(final ShardedPartition partition) throws JsonProcessingException {
-		return elementToJson(buildFollowerDuties(partition, true));
+		return toJson(buildFollowerDuties(partition, true));
 	}
 	
-	private Map<String, List<Object>> buildDuties(final ShardingScheme table, boolean entities) {
-		Validate.notNull(table);
+	private Map<String, List<Object>> buildDuties(boolean entities) {
+		Validate.notNull(scheme);
 		final Map<String, List<Object>> byPalletId = new LinkedHashMap<>();
-		table.getScheme().findDuties(d-> {
+		scheme.getScheme().findDuties(d-> {
 			List<Object> pid = byPalletId.get(d.getDuty().getPalletId());
 			if (pid==null) {
 				byPalletId.put(d.getDuty().getPalletId(), pid = new ArrayList<>());
@@ -148,7 +201,6 @@ public class SchemeViews {
 	}
 
 	private Map<String, List<Object>> buildBackstage(final ShardingScheme.Backstage stage) {
-		Validate.notNull(stage);
 		List<Object> ret = new ArrayList<>();
 		final Map<String, List<Object>> m = new HashMap<>();
 		stage.getDutiesCrud().forEach(ret::add);
@@ -171,30 +223,28 @@ public class SchemeViews {
 		return ret;
 	}
 
-	public String palletsToJson(ShardingScheme table) throws JsonProcessingException {
-		Validate.notNull(table);
-		return elementToJson(buildPallets(table));
+	public String palletsToJson() throws JsonProcessingException {
+		return toJson(buildPallets());
 	}
 		
-	private static List<Map<String, Object>> buildPallets(final ShardingScheme table) {
+	private List<Map<String, Object>> buildPallets() {
 		final List<Map<String, Object>> ret = new ArrayList<>();
-		
-		final SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
+		final SchemeExtractor extractor = new SchemeExtractor(scheme.getScheme());
 		
 		for (final ShardEntity pallet: extractor.getPallets()) {
 			
-			AtomicDouble dettachedWeight = new AtomicDouble();
+			final double[] dettachedWeight = {0};
 			final int[] crudSize = new int[1];
-			table.getBackstage().findDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, e-> {
+			scheme.getBackstage().findDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, e-> {
 				if (e.getDuty().getPalletId().equals(pallet.getPallet().getId())) {
 					crudSize[0]++;
-					dettachedWeight.addAndGet(e.getDuty().getWeight());
+					dettachedWeight[0]+=e.getDuty().getWeight();
 				}
 			});
 								
 
 			final List<DutyView> dutyRepList = new ArrayList<>();
-			table.getScheme().findDutiesByPallet(pallet.getPallet(), 
+			scheme.getScheme().findDutiesByPallet(pallet.getPallet(), 
 					d -> dutyRepList.add(new DutyView(
 									d.getDuty().getId(),
 									d.getDuty().getWeight())));
@@ -206,7 +256,7 @@ public class SchemeViews {
 						extractor.getWeightTotal(pallet.getPallet()),
 						pallet.getPallet().getMetadata().getBalancer().getName(), 
 						crudSize[0], 
-						dettachedWeight.get(), 
+						dettachedWeight[0], 
 						new DateTime(pallet.getJournal().getFirst().getHead()),
 						pallet.getPallet().getMetadata(),
 						dutyRepList
@@ -251,12 +301,12 @@ public class SchemeViews {
 	private static Map<String, Object> buildGlobal(final ShardingScheme table) {
 		SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
 		final Map<String, Object> map = new LinkedHashMap<>();
-		map.put("shards", extractor.getShards().size());
-		map.put("pallets", extractor.getPallets().size());
-		map.put("scheme", extractor.getSizeTotal());
-		map.put("crud", table.getBackstage().getDutiesCrud().size());
-		map.put("missings", table.getBackstage().getDutiesMissing().size());
-		map.put("dangling", table.getBackstage().getDutiesDangling().size());
+		map.put("size-shards", extractor.getShards().size());
+		map.put("size-pallets", extractor.getPallets().size());
+		map.put("size-scheme", extractor.getSizeTotal());
+		map.put("size-crud", table.getBackstage().getDutiesCrud().size());
+		map.put("size-missings", table.getBackstage().getDutiesMissing().size());
+		map.put("size-dangling", table.getBackstage().getDutiesDangling().size());
 		return map;
 	}
 	
@@ -329,7 +379,7 @@ public class SchemeViews {
 	}
 	
 	public String scheduleToJson(final Scheduler schedule) throws JsonProcessingException {
-		return elementToJson(getDetail(schedule));
+		return toJson(getDetail(schedule));
 				
 	}
 	

@@ -19,13 +19,10 @@ package io.tilt.minka.domain;
 import static java.util.Collections.unmodifiableCollection;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
 import org.apache.commons.lang.Validate;
-
-import com.google.common.collect.Lists;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
@@ -95,11 +92,7 @@ public class ShardedPartition {
 	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder();
-		final List<ShardEntity> sorted = Lists.newArrayList(duties.values());
-		if (!sorted.isEmpty()) {
-			sorted.sort(sorted.get(0));
-		}
-		sorted.forEach(i -> sb.append(i.toBrief()).append(", "));
+		duties.values().forEach(i -> sb.append(i.toBrief()).append(", "));
 		return sb.toString();
 	}
 

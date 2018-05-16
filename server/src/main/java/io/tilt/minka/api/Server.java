@@ -148,70 +148,72 @@ public class Server<D extends Serializable, P extends Serializable> {
 				.append("-ts:")
 				.append(System.currentTimeMillis())
 				.toString());
-		logger.info("{}: Using configuration", name, config);
+		logger.info("{}: Using configuration: {}", name, config.toString());
 		ctx.setId(serviceName);
 		logger.info("{}: Naming context: {}", name, ctx.getId());
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> destroy()));
 		mapper = new EventMapper<D, P>(tenant);
-		startContext();
+		startContext(config);
 	}
 	
 	private void createTenant(final Config config) {
+		try {
+			lock.tryLock(500l, TimeUnit.MILLISECONDS);
+		} catch (InterruptedException e) {
+			throw new IllegalThreadStateException("Other Server instances are being created concurrently (lock wait exhausted)");
+		}
 		final String serviceName = config.getBootstrap().getServiceName();
 		RuntimeException runtime = null;
-		boolean locked = false;
 		try {
-			locked = lock.tryLock(500l, TimeUnit.MILLISECONDS);
-		} catch (InterruptedException e) {
-			throw new IllegalStateException("Other minka instances are being run concurrently (max 10 lock tries exhausted)");
-		}
-		if (locked) {
-			try {
-				// service cannot be default or preexistent if ZK's chroot is not set
-				final boolean chrootUsed = config.getBootstrap().getZookeeperHostPort().indexOf('/') > 0;
-				final boolean duplicateName = tenants.containsKey(serviceName);
-				if (!chrootUsed && duplicateName) {
-					runtime = new IllegalArgumentException("a service with the name: " + serviceName + " already exists!");
-				} else {
-					if (!duplicateName) {
-						final long maxTenants = config.getBootstrap().getMaxServicesPerMachine();
-						if (tenants.size()>maxTenants) {
-							runtime = new IllegalStateException("There's been created " + tenants.size() 
-								+ " server/s already in this VM. If you indeed want that many: "
-								+ " increase bootstrap's MAX_SERVICES_PER_MACHINE default value");
-						}
-					} else {
-						runtime = new IllegalArgumentException("There're " + tenants.size() + " server/s already" 
-								+ "in this VM with the same service-name: set a different one");
+			// service cannot be default or preexistent if ZK's chroot is not set
+			final boolean chrootUsed = config.getBootstrap().getZookeeperHostPort().indexOf('/') > 0;
+			final boolean duplicateName = tenants.containsKey(serviceName);
+			if (!chrootUsed && duplicateName) {
+				runtime = new IllegalArgumentException("a service with the name: " + serviceName + " already exists!");
+			} else {
+				if (!duplicateName) {
+					final long maxTenants = config.getBootstrap().getMaxServicesPerMachine();
+					if (tenants.size()>maxTenants) {
+						runtime = new IllegalStateException("There's been created " + tenants.size() 
+							+ " server/s already in this VM. If you indeed want that many: "
+							+ " increase bootstrap's MAX_SERVICES_PER_MACHINE default value");
 					}
+				} else {
+					runtime = new IllegalArgumentException("There're " + tenants.size() + " server/s already" 
+							+ "in this VM with the same service-name: set a different one");
 				}
-				for (Tenant t: tenants.values()) {
-					logger.warn("Tenant: service name: {} on broker hostport: {}", 
-							t.getConfig().getBootstrap().getServiceName(), t.getConfig().getBroker().getHostPort());
-				}
-				logger.info("{}: Initializing context for service: {}", name, serviceName);
-				if (duplicateName) {
-					// client should not depend on it anyway
-					final String newName = serviceName + "_" + new Random(System.currentTimeMillis()).nextInt(999999);
-					logger.warn("{}: Overwritting service name: {} to avoid colission with other servers within the same JVM", 
-							name, newName);
-					config.getBootstrap().setServiceName(newName);
-				}
-				tenants.put(config.getBootstrap().getServiceName(), tenant = new Tenant());
-			} finally {
-				lock.unlock();
 			}
+			for (Tenant t: tenants.values()) {
+				logger.warn("Tenant: service name: {} on broker hostport: {}", 
+						t.getConfig().getBootstrap().getServiceName(), t.getConfig().getBroker().getHostPort());
+			}
+			logger.info("{}: Initializing context for service: {}", name, serviceName);
+			if (duplicateName) {
+				// client should not depend on it anyway
+				final String newName = serviceName + "_" + new Random(System.currentTimeMillis()).nextInt(999999);
+				logger.warn("{}: Overwritting service name: {} to avoid colission with other servers within the same JVM", 
+						name, newName);
+				config.getBootstrap().setServiceName(newName);
+			}
+			tenants.put(config.getBootstrap().getServiceName(), tenant = new Tenant());
+		} finally {
+			lock.unlock();
 		}
 		if (runtime != null) {
 			throw runtime;
 		}
 	}
 	   
-	private void startContext() {
+	private void startContext(final Config config) {
 		if (!tenant.getContext().isActive()) {
 			tenant.getContext().refresh();
 			if (tenant.getConfig().getBootstrap().isEnableWebserver()) {
 				startWebserver();
+				logger.info(LogUtils.getGreetings(
+						config.getResolvedShardId(), 
+						config.getBootstrap().getServiceName(), 
+						config.getBootstrap().getWebServerHostPort()));
+
 			} else {
 				logger.info("{}: Webserver disabled by configuration. Enable for a fully functional shard", name);
 			}
@@ -238,9 +240,9 @@ public class Server<D extends Serializable, P extends Serializable> {
 			logger.info("{}: Reconfiguring webserver listener {}", name, listener);
 			listener.getTransport().setSelectorRunnersCount(1);
 			((GrizzlyExecutorService)listener.getTransport().getWorkerThreadPool()).reconfigure(
-					config.copy().setPoolName(SchedulerConfiguration.THREAD_NAME_WEBSERVER_WORKER));
+					config.copy().setPoolName(SchedulerSettings.THREAD_NAME_WEBSERVER_WORKER));
 			((GrizzlyExecutorService)listener.getTransport().getKernelThreadPool()).reconfigure(
-					config.copy().setPoolName(SchedulerConfiguration.THREAD_NAME_WEBSERVER_KERNEL));
+					config.copy().setPoolName(SchedulerSettings.THREAD_NAME_WEBSERVER_KERNEL));
 		}
 		
         // TODO disable ssl etc

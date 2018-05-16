@@ -30,11 +30,10 @@ import static io.tilt.minka.core.task.Semaphore.Hierarchy.PARENT;
 import static io.tilt.minka.core.task.Semaphore.Hierarchy.SIBLING;
 import static java.util.Arrays.asList;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.google.common.collect.Lists;
 
 /**
  * A simple schema to define rules and control permissions on actions.
@@ -182,7 +181,7 @@ public interface Semaphore extends Service {
 		private RuleFactory(Action action) {
 			this.relatedByHierarchy = new HashMap<>(Hierarchy.values().length);
 			for (Hierarchy level : Hierarchy.values()) {
-				relatedByHierarchy.put(level, Lists.newArrayList());
+				relatedByHierarchy.put(level, new ArrayList<>());
 			}
 			this.action = action;
 		}
@@ -214,7 +213,7 @@ public interface Semaphore extends Service {
 	 * warning: beware with deadlock definitions !! (keep a tree locking hiearchy)
 	 */
 	default List<Rule> getLockingRules() {
-		final List<Rule> rules = Lists.newArrayList();
+		final List<Rule> rules = new ArrayList<>();
 
 		/* these two are mutually excluded of running simultaneously */
 		rules.add(builder(BOOTSTRAP)

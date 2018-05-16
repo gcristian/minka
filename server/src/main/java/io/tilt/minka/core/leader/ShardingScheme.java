@@ -24,16 +24,15 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.Lists;
 
 import io.tilt.minka.api.ConsistencyException;
 import io.tilt.minka.api.Duty;
@@ -653,7 +652,7 @@ public class ShardingScheme {
 	private final Scheme scheme;
 	private final Backstage backstage;
 	private ChangePlan currentPlan;
-	private SlidingSortedSet<ChangePlan> history;
+	private List<Runnable> observers;
 	
 	/**
 	 * status for the cluster taken as Avg. for the last 5 cycles

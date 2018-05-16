@@ -162,10 +162,6 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 		return this.differences;
 	}
 
-	public void cleanDuties() {
-		this.reportedCapturedDuties = new ArrayList<>(1);
-	}
-	
 	@JsonIgnore
 	public DateTime getCreation() {
 		return this.creation;
@@ -207,6 +203,12 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	@JsonIgnore
 	public List<ShardEntity> getReportedCapturedDuties() {
 		return this.reportedCapturedDuties;
+	}
+	
+	/** dereferences inner collections */
+	public void clear() {
+		this.reportedCapturedDuties.clear();
+		this.capacities.clear();
 	}
 
 	@JsonProperty(index=5, value="reported-duties")
@@ -286,7 +288,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 
 	@Override
 	public int compareTo(Heartbeat o) {
-		return o.getCreation().compareTo(getCreation());
+		return getCreation().compareTo(o.getCreation());
 	}
 
 	@JsonIgnore

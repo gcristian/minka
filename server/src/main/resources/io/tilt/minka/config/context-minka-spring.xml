@@ -117,12 +117,12 @@
       
     ===============================================================================================-->
     
-    <bean id="partitionScheme" class="io.tilt.minka.core.leader.ShardingScheme"/>
+    <bean id="shardingScheme" class="io.tilt.minka.core.leader.ShardingScheme"/>
         
     <bean id="entityDao" class="io.tilt.minka.core.leader.EntityDao.FakeDao"/>
     
     <bean id="schemeRepository" class="io.tilt.minka.core.leader.SchemeRepository">
-    	<constructor-arg ref="partitionScheme" />
+    	<constructor-arg ref="shardingScheme" />
     	<constructor-arg ref="shardId" />
     </bean>																																														
     
@@ -131,8 +131,7 @@
         <constructor-arg ref="config" />
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="eventBroker" />
-        <constructor-arg ref="partitionScheme" />
-        <constructor-arg ref="schemeSentry" />
+        <constructor-arg ref="shardingScheme" />
         <constructor-arg ref="schemeRepository" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="entityDao" />
@@ -142,14 +141,14 @@
 
     <!-- acceso write-only a la tabla -->
     <bean id="schemeSentry" class="io.tilt.minka.core.leader.SchemeSentry">
-        <constructor-arg ref="partitionScheme" />
+        <constructor-arg ref="shardingScheme" />
         <constructor-arg ref="scheduler" />
     </bean>
     
     <!-- Pastorea los followers -->
     <bean id="proctor" class="io.tilt.minka.core.leader.Proctor">
         <constructor-arg ref="config" />
-        <constructor-arg ref="partitionScheme" />
+        <constructor-arg ref="shardingScheme" />
         <constructor-arg ref="schemeSentry" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="scheduler" />
@@ -160,7 +159,7 @@
     <!-- Pastorea los followers -->
     <bean id="followerEventsHandler" class="io.tilt.minka.core.leader.FollowerEventsHandler">
         <constructor-arg ref="config" />
-        <constructor-arg ref="partitionScheme" />
+        <constructor-arg ref="shardingScheme" />
         <constructor-arg ref="schemeSentry" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="scheduler" />
@@ -170,7 +169,7 @@
     <!-- Integracion entre el cliente y el Leader -->
     <bean id="clientEventsHandler" class="io.tilt.minka.core.leader.ClientEventsHandler">
         <constructor-arg ref="config" />
-        <constructor-arg ref="partitionScheme" />
+        <constructor-arg ref="shardingScheme" />
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="schemeRepository" />
         <constructor-arg ref="eventBroker" />
@@ -192,6 +191,7 @@
     
     <bean id="schemeViews" class="io.tilt.minka.api.inspect.SchemeViews">
         <constructor-arg ref="leaderShardContainer"/>
+        <constructor-arg ref="shardingScheme"/>
     </bean>
     <!-- ============================================================================================
     
@@ -207,7 +207,6 @@
         <constructor-arg ref="clientEventsHandler" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderShardContainer" />
-        <constructor-arg ref="partitionScheme" />
         <constructor-arg ref="schemeViews" />
     </bean>
     

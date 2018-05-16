@@ -161,6 +161,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		try {
 			if (bookedSocket != null && !bookedSocket.isClosed()) {
 				bookedSocket.close();
+				bookedSocket = null;
 			}
 		} catch (IOException e) {
 			throw new IllegalArgumentException("Testing port cannot be tested: ", e);

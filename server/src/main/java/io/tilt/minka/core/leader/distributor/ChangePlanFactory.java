@@ -70,15 +70,15 @@ class ChangePlanFactory {
 	}
 
 	/** @return a plan if there're changes to apply or NULL if not */
-	final ChangePlan create(final ShardingScheme partition, final ChangePlan previousChange) {
+	final ChangePlan create(final ShardingScheme scheme, final ChangePlan previousChange) {
 		
-		final ShardingScheme.Backstage snapshot = partition.getBackstage().snapshot();
+		final ShardingScheme.Backstage snapshot = scheme.getBackstage().snapshot();
 		final ChangePlan changePlan = new ChangePlan(
 				config.beatToMs(config.getDistributor().getPlanExpirationBeats()), 
 				config.getDistributor().getPlanMaxRetries());
 		
 		// recently fallen shards
-		addMissingAsCrud(partition, changePlan);
+		addMissingAsCrud(scheme, changePlan);
 		final Set<ShardEntity> dutyCreations = new HashSet<>();
 		snapshot.findDutiesCrud(CREATE::equals, null, dutyCreations::add);
 		// add danglings as creations prior to migrations

@@ -56,17 +56,17 @@ public class Override {
 		return this.remainingCap;
 	}
 
-	boolean apply(final ChangePlan changePlan, final ShardingScheme table) {
+	boolean apply(final ChangePlan changePlan, final ShardingScheme scheme) {
 		boolean anyChange = false;
 		
 		if (log.isDebugEnabled()) {
 			log.debug("{}: cluster built {}", getClass().getSimpleName(), entities);
 			final StringBuilder tmp = new StringBuilder();
-			table.getScheme().findDuties(getShard(), pallet, d->tmp.append(d).append(", "));
+			scheme.getScheme().findDuties(getShard(), pallet, d->tmp.append(d).append(", "));
 			log.debug("{}: currents at shard {} ", getClass().getSimpleName(), tmp);
 		}
-		anyChange |= dettachDelta(changePlan, table);
-		anyChange |= attachDelta(changePlan, table);
+		anyChange |= dettachDelta(changePlan, scheme);
+		anyChange |= attachDelta(changePlan, scheme);
 		if (!anyChange && log.isInfoEnabled()) {
 			log.info("{}: Shard: {}, unchanged", getClass().getSimpleName(), shard);
 		}
@@ -77,11 +77,11 @@ public class Override {
 	    * null or empty cluster translates to: dettach all existing */
 	private final boolean dettachDelta(
 			final ChangePlan changePlan, 
-			final ShardingScheme partition) {
+			final ShardingScheme scheme) {
 
 		final StringBuilder logg = new StringBuilder(16*10);
 		final int[] count = new int[1];
-		partition.getScheme().findDuties(getShard(), pallet, detach-> {
+		scheme.getScheme().findDuties(getShard(), pallet, detach-> {
 			if (entities == null || !entities.contains(detach)) {
 				detach.getJournal().addEvent(EntityEvent.DETACH,
 						EntityState.PREPARED,
@@ -103,13 +103,13 @@ public class Override {
 	/* attach what's not already living in that shard */
 	private final boolean attachDelta(
 			final ChangePlan changePlan, 
-			final ShardingScheme table) {
+			final ShardingScheme scheme) {
 
 		final StringBuilder logg = new StringBuilder(10 * 16); 
 		int count = 0;
 		if (entities != null) {
 			for (final ShardEntity attach: entities) {
-				if (!table.getScheme().dutyExistsAt(attach, getShard())) {
+				if (!scheme.getScheme().dutyExistsAt(attach, getShard())) {
 					count++;
 					attach.getJournal().addEvent(EntityEvent.ATTACH,
 							EntityState.PREPARED,

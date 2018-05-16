@@ -50,7 +50,7 @@ import io.tilt.minka.domain.EntityJournal.Log.StateStamp;
 public class EntityJournal implements Serializable {
 	
 	protected static final long serialVersionUID = 1L;
-	private static int MAX_JOURNAL_SIZE = 50;
+	
 	
 	final static SimpleDateFormat sdf = new SimpleDateFormat("yyMMdd:hhmmss.SSS");
 	@JsonIgnore

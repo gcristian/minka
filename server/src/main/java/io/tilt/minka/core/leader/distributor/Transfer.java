@@ -53,8 +53,8 @@ class Transfer {
 	}
 	
 	/* dettach in prev. source, attach to next target */
-	boolean apply(final ChangePlan changePlan, final ShardingScheme partition) {
-		final Shard location = partition.getScheme().findDutyLocation(entity);
+	boolean apply(final ChangePlan changePlan, final ShardingScheme scheme) {
+		final Shard location = scheme.getScheme().findDutyLocation(entity);
 		if (location != null && location.equals(target)) {
 			Migrator.log.info("{}: Transfers mean no change for Duty: {}", getClass().getSimpleName(), toString());
 			return false;

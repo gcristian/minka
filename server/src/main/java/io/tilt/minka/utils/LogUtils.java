@@ -88,10 +88,10 @@ public class LogUtils {
 		grossLine(GROSS_CHAR, LARGE * 2, sb);
 		sb.append(nl).append(nl);
 		sb.append(logo);
-		sb.append("\tThe oldest distribution system, since 1438 to your back").append(nl).append(nl);
-		sb.append("\tService: ").append(serviceName).append(nl);
-		sb.append("\tTcp Broker: ").append(id).append(nl);
-		sb.append("\tHttp server: ").append(webserverHostPort).append(nl).append(nl);
+		sb.append("\tNamespace: ").append(serviceName).append(nl);
+		sb.append("\tTCP Broker: ").append(id).append(nl);
+		sb.append("\tHTTP server: ").append(webserverHostPort).append(nl).append(nl);
+		sb.append("\tCheck: ").append(webserverHostPort).append("/minka/admin/distro").append(nl).append(nl);
 		sb.append(END_LINE);
 		return sb.toString();
 	}

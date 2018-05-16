@@ -7,6 +7,7 @@ package io.tilt.minka.utils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -17,6 +18,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 
 import org.apache.commons.lang.Validate;
+import org.joda.time.DateTime;
 
 public class CollectionUtils {
 
@@ -76,12 +78,14 @@ public class CollectionUtils {
 			this.set = new TreeSet<>();
 		}
 
-		public void add(E e) {
+		/** @return first element when the set is sliding or NULL when not.*/
+		public E add(E e) {
 			Validate.notNull(e);
 			set.add(e);
-			if (set.size() >= maxSize) {
-				set.pollLast();
+			if (set.size() > maxSize) {
+				return set.pollFirst();
 			}
+			return null;
 		}
 		
 		public E first() {
@@ -99,7 +103,15 @@ public class CollectionUtils {
 		public Set<E> values() {
 			return this.set;
 		}
-
+		public Iterator<E> descend() {
+			return set.descendingIterator();
+		}
+		@Override
+		public String toString() {
+			final StringBuilder sb = new StringBuilder();
+			set.forEach(e->sb.append(e).append(','));
+			return sb.toString();
+		}
 	}
 	
 	/**
