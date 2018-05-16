@@ -188,16 +188,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		return this.userPayload;
 	}
 
-	public String toStringGroupByPallet(final Set<ShardEntity> duties) {
-		final StringBuilder sb = new StringBuilder(duties.size()*16);
-		final Multimap<String, ShardEntity> mm = HashMultimap.create();
-		duties.forEach(e -> mm.put(e.getDuty().getPalletId(), e));
-		mm.asMap().forEach((k, v) -> {
-			sb.append("p").append(k).append(" -> ").append(toStringBrief(v)).append(", ");
-		});
-		return sb.toString();
-	}
-
 	public static String toDutyStringIds(final Collection<Duty<?>> duties) {
 		final StringBuilder sb = new StringBuilder(duties.size() * 10);
 		duties.forEach(i -> sb.append(i.getId()).append(", "));
@@ -214,21 +204,9 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		}
 	}
 
-	public static String toStringIds(final Stream<ShardEntity> duties) {
-		final StringBuilder sb = new StringBuilder(10*10);
-		duties.forEach(i -> sb.append(i.getEntity().toString()).append(", "));
-		return sb.toString();
-	}
-
 	public static String toStringBrief(final Collection<ShardEntity> duties) {
 		final StringBuilder sb = new StringBuilder(duties.size()*16);
 		duties.forEach(i -> sb.append(i.toBrief()).append(", "));
-		return sb.toString();
-	}
-
-	public static String toString(final Collection<ShardEntity> duties) {
-		final StringBuilder sb = new StringBuilder(duties.size()*10);
-		duties.forEach(i -> sb.append(i.toString()).append(", "));
 		return sb.toString();
 	}
 

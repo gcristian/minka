@@ -19,15 +19,12 @@ public class BootstrapTest {
 	@Test
 	public void test_bootstrap() throws InterruptedException {
 
-		System.out.println("--------------- hello -----------------");
-		System.out.println("Sleeping while bootstrap running");
 		int mins = Integer.getInteger("mins", 30);
 		for (int i = 0; i < mins; i++) {
 			Thread.sleep(60 * 1000l);
 			for (int j = 0; j < 200000; j++)
 				;
 		}
-		System.out.println("--------------- god bye -----------------");
 		bootstrap.stop();
 		Thread.sleep(10 * 1000l);
 
