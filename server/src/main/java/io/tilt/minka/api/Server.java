@@ -343,6 +343,24 @@ public class Server<D extends Serializable, P extends Serializable> {
 		checkInit();
 		return tenant.getContext().getBean(Client.class);
 	}
+
+	/**
+	 * <p>
+	 * Calls the termination of the system in an orderly manner.
+	 * Closing the API and system context, which in turn will trigger finalization
+	 * of processes Leader and Follower, dropping leadership candidature at Zookeeper, 
+	 * <p>
+	 * This will also drop follower's captured entities, calling the client's consumer
+	 * of events passed at the EventMapper. 
+	 */
+	public void shutdown() {
+		try {
+			tenant.getWebServer().shutdown();
+			tenant.getContext().close();
+		} catch (Exception e) {
+			logger.error("{}: Unexpected while stopping server at client call", name, e.getMessage());
+		}
+	}
 	
 
 	/**

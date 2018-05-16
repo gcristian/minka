@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.inject.Singleton;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -87,6 +88,14 @@ public class AdminEndpoint {
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response status() throws JsonProcessingException {
 		return Response.accepted(views.distributionToJson()).build();
+	}
+
+	@POST
+	@Path("/distro/run")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response runDistro() throws JsonProcessingException {
+		scheme.getScheme().stealthChange(true);
+		return Response.accepted().build();
 	}
 
 	@GET
