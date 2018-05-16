@@ -75,10 +75,10 @@ public class ChangeDetector {
 		if (beat.reportsDuties()) {
 			lattestPlanId = latestPlan(beat);
 			if (lattestPlanId==changePlan.getId()) {
-				found|=onFoundAttachments(source, beat.getReportedCapturedDuties(), delivery, bicons);
+				found|=onFoundAttachments(source, beat.getReportedCapturedDuties(), delivery, bicons, changePlan.getId());
 			}
 		}
-		found|=onFoundDetachments(source, beat.getReportedCapturedDuties(), delivery, bicons);
+		found|=onFoundDetachments(source, beat.getReportedCapturedDuties(), delivery, bicons, changePlan.getId());
 
 		if (!found && lattestPlanId==changePlan.getId()) {
 			// delivery found, no change but expected ? 
@@ -109,14 +109,15 @@ public class ChangeDetector {
 			final Shard shard, 
 			final List<ShardEntity> beatedDuties, 
 			final Delivery delivery,
-			final BiConsumer<Log, ShardEntity> c) {
+			final BiConsumer<Log, ShardEntity> c,
+			final long pid) {
 		Set<ShardEntity> sortedLogConfirmed = null;
 		Set<ShardEntity> sortedLogDirty = null;
 		boolean found = false;
 		for (final ShardEntity beated : beatedDuties) {
 			for (ShardEntity delivered : delivery.getDuties()) {
 				if (delivered.equals(beated)) {
-					final Log expected = findConfirmationPair(beated, delivered, shard.getShardID());
+					final Log expected = findConfirmationPair(beated, delivered, shard.getShardID(), pid);
 					if (expected != null) {
 						found = true;
 						if (logger.isInfoEnabled()) {
@@ -156,10 +157,10 @@ public class ChangeDetector {
 	private Log findConfirmationPair(
 			final ShardEntity beated,
 			final ShardEntity delivered,
-			final ShardIdentifier shardid) {
+			final ShardIdentifier shardid, 
+			final long pid) {
 		Log ret = null;
 		// beated duty must belong to current non-expired plan
-		final long pid = partitionScheme.getCurrentPlan().getId();
 		final Log beatedLog = beated.getJournal().find(pid, shardid, ATTACH);
 		if (beatedLog != null) {
 			final EntityState beatedState = beatedLog.getLastState();
@@ -188,14 +189,15 @@ public class ChangeDetector {
 		return ret;
 	}
 	
-	/** @return TRUE if there was a planned absence confirmed */
+	/**
+	 * @return TRUE if there was a planned absence confirmed */
 	private boolean onFoundDetachments(
 			final Shard shard,
 			final List<ShardEntity> beatedDuties,
 			final Delivery delivery,
-			final BiConsumer<Log, ShardEntity> c) {
+			final BiConsumer<Log, ShardEntity> c, 
+			final long pid) {
 		Set<ShardEntity> sortedLog = null;
-		final long pid = partitionScheme.getCurrentPlan().getId();
 		boolean found = false;
 		for (ShardEntity prescripted : delivery.getDuties()) {
 			if (!beatedDuties.contains(prescripted)) {

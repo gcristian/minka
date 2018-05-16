@@ -164,8 +164,9 @@ public class SocketServer {
 				classname, loggingName, networkInterfase, this.connectionHandlerThreads);
 		}
 
+		ServerBootstrap server = null;
 		try {
-			final ServerBootstrap server = new ServerBootstrap();
+			server = new ServerBootstrap();
 			server.group(serverWorkerGroup)
 			    .channel(NioServerSocketChannel.class)
 				.handler(new LoggingHandler(LogLevel.INFO))

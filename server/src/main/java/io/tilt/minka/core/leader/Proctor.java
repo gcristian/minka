@@ -168,7 +168,7 @@ public class Proctor implements Service {
 
 	private int rankShards(final int size) {
 		final int[] sizeOnline = new int[1];
-		final List<Runnable> actions = new ArrayList<>(size);
+		final List<Runnable> actions = new LinkedList<>();
 		partitionScheme.getScheme().onShards(null, shard-> {
 			final String[] ressume = new String[1];
 			final ShardState newState = evaluateStateThruHeartbeats(shard, info->ressume[0]=info);
