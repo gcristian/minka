@@ -181,9 +181,10 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		this.shardId = requireNonNull(memberId);		
 		this.beats = CollectionUtils.sliding(ProctorSettings.MAX_HEARBEATS_TO_EVALUATE);
 		this.changes = CollectionUtils.sliding(ProctorSettings.MAX_SHARD_CHANGES_TO_HOLD);
-		this.firstTimeSeen = Instant.now();
 		this.capacities = new HashMap<>();
-		applyChange(new Shard.Change(Cause.INIT, ShardState.JOINING));		
+		final Shard.Change first = new Shard.Change(Cause.INIT, ShardState.JOINING);
+		applyChange(first);
+		this.firstTimeSeen = first.getTimestamp();
 	}
 	@JsonIgnore
 	public Instant getLastStatusChange() {
