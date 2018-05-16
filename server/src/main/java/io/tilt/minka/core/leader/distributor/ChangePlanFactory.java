@@ -75,7 +75,7 @@ class ChangePlanFactory {
 	final ChangePlan create(final ShardingScheme scheme, final ChangePlan previous) {
 		
 		final Backstage snapshot = scheme.getBackstage().snapshot();
-		final ChangePlan changePlan = new ChangePlan(
+		ChangePlan changePlan = new ChangePlan(
 				config.beatToMs(config.getDistributor().getPlanExpirationBeats()), 
 				config.getDistributor().getPlanMaxRetries());
 		

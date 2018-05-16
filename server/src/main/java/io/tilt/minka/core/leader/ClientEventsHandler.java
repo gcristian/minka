@@ -16,8 +16,14 @@
  */
 package io.tilt.minka.core.leader;
 
+import static java.util.Collections.singletonList;
+
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 
@@ -29,6 +35,7 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Reply;
 import io.tilt.minka.api.ReplyResult;
 import io.tilt.minka.broker.EventBroker;
+import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.leader.data.SchemeRepository;
 import io.tilt.minka.core.leader.data.ShardingScheme;
@@ -107,20 +114,13 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	}
 
 	private void listenUserEvents() {
-		eventBroker.subscribe(
-				eventBroker.buildToTarget(
-						config, 
-						Channel.FROM_CLIENT, 
-						shardId), 
-				ShardEntity.class,
-				this, 0);
-		eventBroker.subscribe(
-				eventBroker.buildToTarget(
-						config, 
-						Channel.FROM_CLIENT, 
-						shardId), 
-				ShardCommand.class,
-				this, 0);
+		final BrokerChannel channel = eventBroker.buildToTarget(
+				config, 
+				Channel.FROM_CLIENT, 
+				shardId);
+		eventBroker.subscribe(channel, ShardEntity.class,this, 0);
+		eventBroker.subscribe(channel, ShardCommand.class,this, 0);
+		eventBroker.subscribe(channel, ArrayList.class,this, 0);
 	}
 
 	@Override
@@ -134,6 +134,8 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	public void stop() {
 		logger.info("{}: Stopping", getClass().getSimpleName());
 		eventBroker.unsubscribe(eventBroker.build(config, Channel.FROM_CLIENT), ShardEntity.class, this);
+		eventBroker.unsubscribe(eventBroker.build(config, Channel.FROM_CLIENT), ShardCommand.class, this);
+		eventBroker.unsubscribe(eventBroker.build(config, Channel.FROM_CLIENT), ArrayList.class, this);
 	}
 
 	@Override
@@ -142,11 +144,13 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	}
 	
 	@Override
-	public void accept(Serializable event) {
+	public void accept(final Serializable event) {
 		if (inService()) {
 			if (event instanceof ShardEntity) {
 				final ShardEntity entity = (ShardEntity) event;
-				mediateOnEntity(entity);
+				mediateOnEntity(singletonList(entity), (r)->{});
+			} else if (event instanceof List) {
+				mediateOnEntity((List)event, (r)->{});
 			} else if (event instanceof ShardCommand) {
 				clusterOperation((ShardCommand) event);
 			}
@@ -156,49 +160,54 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 		}
 	}
 
-	public Reply mediateOnEntity(final ShardEntity entity) {
-		if (entity.is(EntityEvent.UPDATE) || entity.is(EntityEvent.TRANSFER)) {
-			boolean sent[] = {false};
-			if (entity.getType()==ShardEntity.Type.DUTY) {
-				final Shard location = shardingScheme.getScheme().findDutyLocation(entity);
-				if (location != null && location.getState().isAlive()) {
-					final Serializable payloadType = entity.getUserPayload() != null
-							? entity.getUserPayload().getClass().getSimpleName() : "[empty]";
-					logger.info("{}: Routing event with Payload: {} on {} to Shard: {}", getClass().getSimpleName(),
-							payloadType, entity, location);
-				} else {
-					logger.error("{}: Cannot route event to Duty:{} as Shard:{} is no longer functional",
-							getClass().getSimpleName(), entity.toBrief(), location);
-				}
-				sent[0] = eventBroker.send(location.getBrokerChannel(), entity);
-			} else if (entity.getType()==ShardEntity.Type.PALLET) {
-				shardingScheme.getScheme().filterPalletLocations(entity, shard-> {
-					if (shard.getState().isAlive()) {
-						final Serializable payloadType = entity.getUserPayload() != null
-								? entity.getUserPayload().getClass().getSimpleName() : "[empty]";
-						logger.info("{}: Routing event with Payload: {} on {} to Shard: {}", getClass().getSimpleName(),
-								payloadType, entity, shard);
-						sent[0] = eventBroker.send(shard.getBrokerChannel(), entity);
-					}
-				});
-			}
-			return new Reply(sent[0] ? ReplyResult.SUCCESS_SENT: ReplyResult.FAILURE_NOT_SENT, 
-					entity.getEntity(), null, null, null);
+	public void mediateOnEntity(final Collection<ShardEntity> entities, final Consumer<Reply> callback) {
+	    final ShardEntity first = entities.iterator().next();
+    	if (first.is(EntityEvent.UPDATE) || first.is(EntityEvent.TRANSFER)) {
+			updateOrTransfer(callback, first);
 		} else {
-			if (entity.getType()==ShardEntity.Type.DUTY) {
-				if (entity.getLastEvent()==EntityEvent.CREATE) {
-					return repo.saveDuty(entity);
+		    if (first.getType()==ShardEntity.Type.DUTY) {
+				if (first.is(EntityEvent.CREATE)) {
+					repo.saveAllDuty(entities, callback);
 				} else {
-					return repo.removeDuty(entity);
+				    repo.removeAllDuty(entities, callback);
 				}
 			} else {
-				if (entity.getLastEvent()==EntityEvent.CREATE) {
-					return repo.savePallet(entity);
+				if (first.is(EntityEvent.CREATE)) {
+					repo.saveAllPallet(entities, callback);
 				} else {
-					return repo.removePallet(entity);
+					repo.removeAllPallet(entities, callback);
 				}				
 			}
 		}
+	}
+
+	private void updateOrTransfer(final Consumer<Reply> callback, final ShardEntity entity) {
+		boolean sent[] = { false };
+		if (entity.getType() == ShardEntity.Type.DUTY) {
+			final Shard location = shardingScheme.getScheme().findDutyLocation(entity);
+			if (location != null && location.getState().isAlive()) {
+				final Serializable payloadType = entity.getUserPayload() != null ? 
+						entity.getUserPayload().getClass().getSimpleName() : "[empty]";
+				logger.info("{}: Routing event with Payload: {} on {} to Shard: {}", 
+						getClass().getSimpleName(), payloadType, entity, location);
+			} else {
+				logger.error("{}: Cannot route event to Duty:{} as Shard:{} is no longer functional", 
+						getClass().getSimpleName(), entity.toBrief(), location);
+			}
+			sent[0] = eventBroker.send(location.getBrokerChannel(), entity);
+		} else if (entity.getType() == ShardEntity.Type.PALLET) {
+			shardingScheme.getScheme().filterPalletLocations(entity, shard -> {
+				if (shard.getState().isAlive()) {
+					final Serializable payloadType = entity.getUserPayload() != null ? 
+							entity.getUserPayload().getClass().getSimpleName() : "[empty]";
+					logger.info("{}: Routing event with Payload: {} on {} to Shard: {}", 
+							getClass().getSimpleName(), payloadType, entity, shard);
+					sent[0] = eventBroker.send(shard.getBrokerChannel(), entity);
+				}
+			});
+		}
+		callback.accept(new Reply(sent[0] ? ReplyResult.SUCCESS_SENT : ReplyResult.FAILURE_NOT_SENT,
+				entity.getEntity(), null, null, null));
 	}
 
 }

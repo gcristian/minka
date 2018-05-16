@@ -16,8 +16,14 @@
  */
 package io.tilt.minka.api;
 
+import static java.util.Collections.singletonList;
+
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
@@ -25,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.inspect.SchemeViews;
 import io.tilt.minka.broker.EventBroker;
+import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.leader.ClientEventsHandler;
 import io.tilt.minka.core.leader.Leader;
@@ -102,10 +109,18 @@ public class Client<D extends Serializable, P extends Serializable> {
 	* @return whether or not the operation succeed
 	*/
 	public Reply remove(final Duty<D> duty) {
-		return push(duty, EntityEvent.REMOVE, null);
+		final Reply[] tmp = {null};
+		push(singletonList(duty), EntityEvent.REMOVE, null, r->tmp[0]=r);
+		return tmp[0];
 	}
+	public void removeAll(final Collection<Entity<?>> coll, final Consumer<Reply> callback) {
+		push(coll, EntityEvent.REMOVE, null, callback);
+	}
+
 	public Reply remove(final Pallet<P> pallet) {
-		return push(pallet, EntityEvent.REMOVE, null);
+		final Reply[] tmp = {null};
+		push(singletonList(pallet), EntityEvent.REMOVE, null, r->tmp[0]=r);
+		return tmp[0];
 	}
 	
 	/**
@@ -120,11 +135,18 @@ public class Client<D extends Serializable, P extends Serializable> {
 	* @return whether or not the operation succeed
 	*/
 	public Reply add(final Duty<D> duty) {
-		return push(duty, EntityEvent.CREATE, null);
+		final Reply[] tmp = {null};
+		push(singletonList(duty), EntityEvent.CREATE, null, r->tmp[0]=r);
+		return tmp[0];
+	}
+	public void addAll(final Collection<Entity<?>> duty, final Consumer<Reply> callback) {
+		push(duty, EntityEvent.CREATE, null, callback); 
 	}
 
 	public Reply add(final Pallet<P> pallet) {
-		return push(pallet, EntityEvent.CREATE, null);
+		final Reply[] tmp = {null};
+		push(singletonList(pallet), EntityEvent.CREATE, null, r->tmp[0]=r);
+		return tmp[0];
 	}
 
 	/**
@@ -133,48 +155,66 @@ public class Client<D extends Serializable, P extends Serializable> {
 	* @return whether or not the operation succeed
 	*/
 	public Reply update(final Duty<D> duty) {
-		return push(duty, EntityEvent.UPDATE, null);
+		final Reply[] tmp = {null};
+		push(singletonList(duty), EntityEvent.UPDATE, null, r->tmp[0]=r);
+		return tmp[0];
 	}
 	public Reply update(final Pallet<P> pallet) {
-		return push(pallet, EntityEvent.UPDATE, null);
+		final Reply[] tmp = {null};
+		push(singletonList(pallet), EntityEvent.UPDATE, null, r->tmp[0]=r);
+		return tmp[0];
 	}
 	public Reply transfer(final Duty<D> duty, final EntityPayload userPayload) {
-		return push(duty, EntityEvent.TRANSFER, userPayload);
+		final Reply[] tmp = {null};
+		push(singletonList(duty), EntityEvent.TRANSFER, userPayload, r->tmp[0]=r);
+		return tmp[0];
 	}
 	public Reply transfer(final Pallet<P> pallet, final EntityPayload userPayload) {
-		return push(pallet, EntityEvent.TRANSFER, userPayload);
+		final Reply[] tmp = {null};
+		push(singletonList(pallet), EntityEvent.TRANSFER, userPayload, r->tmp[0]=r);
+		return tmp[0];
 	}
 	
-	private Reply push(final Entity<?> raw, final EntityEvent event, final EntityPayload userPayload) {
-		Validate.notNull(raw, "an entity is required");
-		boolean sent = false;
-		final ShardEntity.Builder builder = ShardEntity.Builder.builder(raw);
-		if (userPayload != null) {
-			builder.withPayload(userPayload);
+	private void push(final Collection<Entity<?>> raws, 
+			final EntityEvent event, 
+			final EntityPayload userPayload, 
+			final Consumer<Reply> callback) {
+		
+		Validate.notNull(raws, "an entity is required");
+		
+		final List<ShardEntity> tmp = new ArrayList<>();
+		for (final Entity<?> e: raws) {
+			final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
+			if (userPayload != null) {
+				builder.withPayload(userPayload);
+			}
+			final ShardEntity tmpp = builder.build();
+			tmpp.getJournal().addEvent(
+					event, 
+					EntityState.PREPARED,  
+					this.shardId, 
+					ChangePlan.PLAN_WITHOUT);
+			tmp.add(tmpp);
 		}
-		final ShardEntity entity = builder.build();
-		entity.getJournal().addEvent(event, EntityState.PREPARED, 
-				this.shardId,
-				ChangePlan.PLAN_WITHOUT);
+		
 		if (leader.inService()) {
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Recurring to local leader !", getClass().getSimpleName());
 			}
-			return clientMediator.mediateOnEntity(entity);
+			clientMediator.mediateOnEntity(tmp, callback);
 		} else {
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: Sending {}: {} with Event: {} to leader in service", 
-						getClass().getSimpleName(), entity.getType(), raw, event);
+				//logger.info("{}: Sending {}: {} with Event: {} to leader in service", 
+					//	getClass().getSimpleName(), entity.getType(), raws, event);
 			}
 			int tries = 10;
-			while (true && tries-->0) {
+			boolean[] sent = {false};
+			while (!sent[0] && tries-->0) {
 				if (leaderShardContainer.getLeaderShardId()!=null) {
-					sent = eventBroker.send(
-						eventBroker.buildToTarget(
-								config, 
-								Channel.FROM_CLIENT,
-								leaderShardContainer.getLeaderShardId()), 
-						entity);
+					final BrokerChannel channel = eventBroker.buildToTarget(config, 
+							Channel.FROM_CLIENT,
+							leaderShardContainer.getLeaderShardId());
+					sent[0] = eventBroker.send(channel, (List)tmp);
 				} else {
 					try {
 						Thread.sleep(config.beatToMs(10));
@@ -183,7 +223,12 @@ public class Client<D extends Serializable, P extends Serializable> {
 					}
 				}
 			}
-			return new Reply(sent ? ReplyResult.SUCCESS_SENT : ReplyResult.FAILURE_NOT_SENT, raw, null, event, null);
+			for (ShardEntity e: tmp) {
+				callback.accept(
+					new Reply(sent[0] ? ReplyResult.SUCCESS_SENT : ReplyResult.FAILURE_NOT_SENT, 
+							e.getEntity(), null, event, null)
+					);
+			}
 		}
 	}
 

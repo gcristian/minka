@@ -6,8 +6,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -136,6 +138,18 @@ public class Backstage {
 		return added;
 
 	}
+	public void addAllCrudDuty(final Collection<ShardEntity> coll, final BiConsumer<Duty<?>, Boolean> callback) {
+		// the uniqueness of it's wrapped object doesnt define the uniqueness of the wrapper
+		// updates and transfer go in their own manner
+		boolean added = false; 
+		for (ShardEntity e: coll) {
+			final boolean v = dutyCrud.put(e.getDuty(), e) == null;
+			callback.accept(e.getDuty(), v);
+			added |= v;
+		}
+		stealthChange |= added;
+	}
+	
 	public Collection<ShardEntity> getDutiesCrud() {
 		return Collections.unmodifiableCollection(this.dutyCrud.values());
 	}
