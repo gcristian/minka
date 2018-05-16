@@ -36,10 +36,10 @@ import io.tilt.minka.api.config.BalancerConfiguration;
 import io.tilt.minka.api.config.BootstrapConfiguration;
 import io.tilt.minka.api.config.BrokerConfiguration;
 import io.tilt.minka.api.config.ConsistencyConfiguration;
-import io.tilt.minka.api.config.DistributorConfiguration;
-import io.tilt.minka.api.config.FollowerConfiguration;
-import io.tilt.minka.api.config.ProctorConfiguration;
-import io.tilt.minka.api.config.SchedulerConfiguration;
+import io.tilt.minka.api.config.DistributorSettings;
+import io.tilt.minka.api.config.FollowerSettings;
+import io.tilt.minka.api.config.ProctorSettings;
+import io.tilt.minka.api.config.SchedulerSettings;
 import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.utils.Defaulter;
 
@@ -70,22 +70,22 @@ public class Config {
 	@JsonIgnore
 	private ShardIdentifier resolvedShardId;
 
-	private SchedulerConfiguration scheduler;
+	private SchedulerSettings scheduler;
 	private BootstrapConfiguration bootstrap;
 	private BrokerConfiguration broker;
-	private FollowerConfiguration follower;
+	private FollowerSettings follower;
 	private BalancerConfiguration balancer;
-	private DistributorConfiguration distributor;
-	private ProctorConfiguration proctor;
+	private DistributorSettings distributor;
+	private ProctorSettings proctor;
 	private ConsistencyConfiguration consistency;
 
 	private void init() {
-		this.scheduler = new SchedulerConfiguration();
+		this.scheduler = new SchedulerSettings();
 		this.bootstrap = new BootstrapConfiguration();
 		this.broker = new BrokerConfiguration();
-		this.follower = new FollowerConfiguration();
-		this.distributor = new DistributorConfiguration();
-		this.proctor = new ProctorConfiguration();
+		this.follower = new FollowerSettings();
+		this.distributor = new DistributorSettings();
+		this.proctor = new ProctorSettings();
 		this.balancer = new BalancerConfiguration();
 		this.consistency = new ConsistencyConfiguration();		
 	}
@@ -184,27 +184,27 @@ public class Config {
 		this.broker = broker;
 	}
 
-	public FollowerConfiguration getFollower() {
+	public FollowerSettings getFollower() {
 		return this.follower;
 	}
 
-	public void setFollower(FollowerConfiguration follower) {
+	public void setFollower(FollowerSettings follower) {
 		this.follower = follower;
 	}
 
-	public DistributorConfiguration getDistributor() {
+	public DistributorSettings getDistributor() {
 		return this.distributor;
 	}
 
-	public void setDistributor(DistributorConfiguration distributor) {
+	public void setDistributor(DistributorSettings distributor) {
 		this.distributor = distributor;
 	}
 
-	public ProctorConfiguration getProctor() {
+	public ProctorSettings getProctor() {
 		return this.proctor;
 	}
 
-	public void setProctor(ProctorConfiguration proctor) {
+	public void setProctor(ProctorSettings proctor) {
 		this.proctor = proctor;
 	}
 
@@ -224,11 +224,11 @@ public class Config {
 		this.balancer = balancer;
 	}
 
-	public SchedulerConfiguration getScheduler() {
+	public SchedulerSettings getScheduler() {
 		return scheduler;
 	}
 
-	public void setScheduler(SchedulerConfiguration scheduler) {
+	public void setScheduler(SchedulerSettings scheduler) {
 		this.scheduler = scheduler;
 	}
 

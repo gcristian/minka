@@ -1,6 +1,6 @@
 package io.tilt.minka.api.config;
 
-public class FollowerConfiguration {
+public class FollowerSettings {
 	
 	/**
 	 * When true. the heartbeat factory doesnt compares duty definition between

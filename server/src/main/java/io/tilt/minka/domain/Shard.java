@@ -34,6 +34,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.api.Pallet;
+import io.tilt.minka.api.config.ProctorSettings;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
 import io.tilt.minka.domain.ShardCapacity.Capacity;

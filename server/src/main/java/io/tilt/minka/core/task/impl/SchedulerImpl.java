@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.config.SchedulerConfiguration;
+import io.tilt.minka.api.config.SchedulerSettings;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.ShardIdentifier;
 
@@ -69,7 +69,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		this.executor = new ScheduledThreadPoolExecutor(
 				config.getScheduler().getMaxConcurrency(),
 				new ThreadFactoryBuilder()
-					.setNameFormat(SchedulerConfiguration.THREAD_NAME_SCHEDULER + "-%d")
+					.setNameFormat(SchedulerSettings.THREAD_NAME_SCHEDULER + "-%d")
 					.build());
 		executor.setRemoveOnCancelPolicy(true);
 		executor.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);

@@ -1,6 +1,8 @@
 package io.tilt.minka.api.config;
 
-public class DistributorConfiguration {
+public class DistributorSettings {
+	public static int MAX_JOURNAL_SIZE = 10;
+	
 	protected static final boolean RUN_CONSISTENCY_CHECK = false;
 	private boolean runConsistencyCheck;
 	protected static final boolean RUN_ON_STEALTH_MODE = true;

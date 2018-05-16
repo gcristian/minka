@@ -28,7 +28,6 @@ import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.leader.ClientEventsHandler;
 import io.tilt.minka.core.leader.Leader;
-import io.tilt.minka.core.leader.ShardingScheme;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.impl.ZookeeperLeaderShardContainer;
@@ -62,7 +61,6 @@ public class Client<D extends Serializable, P extends Serializable> {
 	private final ShardIdentifier shardId;
 	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
-	private final ShardingScheme table;
 	private final SchemeViews views;
 
 	protected Client(
@@ -72,7 +70,6 @@ public class Client<D extends Serializable, P extends Serializable> {
 			final ClientEventsHandler mediator, 
 			final ShardIdentifier shardId, 
 			final ZookeeperLeaderShardContainer leaderShardContainer, 
-			final ShardingScheme table,
 			final SchemeViews views) {
 		this.config = config;
 		this.leader = leader;
@@ -80,7 +77,6 @@ public class Client<D extends Serializable, P extends Serializable> {
 		this.clientMediator = mediator;
 		this.shardId = shardId;
 		this.leaderShardContainer = leaderShardContainer;
-		this.table = table;
 		this.views = views;
 	}
 
@@ -89,7 +85,7 @@ public class Client<D extends Serializable, P extends Serializable> {
 	 * @return a nonempty Status only when the curent shard is the Leader 
 	 */
 	public Map<String, Object> getStatus() {
-		return views.buildDistribution(table);
+		return views.buildDistribution();
 	}
 	/**
 	* Remove duties already running/distributed by Minka

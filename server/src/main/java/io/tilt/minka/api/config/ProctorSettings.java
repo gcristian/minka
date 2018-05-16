@@ -1,8 +1,12 @@
 package io.tilt.minka.api.config;
 
-public class ProctorConfiguration {
+public class ProctorSettings {
 
+	public static final int MAX_HEARBEATS_TO_EVALUATE = 10;
+	public final static int MAX_SHARD_CHANGES_TO_HOLD = 5;
+	
 	protected final static long START_DELAY_BEATS = 1;
+	
 	private long startDelayBeats;
 	protected final static long DELAY_BEATS = 3; // i jhad it on 2000
 	private long delayBeats;
@@ -21,7 +25,7 @@ public class ProctorConfiguration {
 	private int minShardsOnlineBeforeSharding;
 	protected static final double HEARTBEAT_MAX_BIGGEST_DISTANCE_FACTOR = 2.5d;
 	private double heartbeatMaxBiggestDistanceFactor;
-	protected static final int HEARTBEAT_LAPSE_BEATS = 15;
+	protected static final int HEARTBEAT_LAPSE_BEATS = 30;
 	private int heartbeatLapseBeats;
 	protected static final double HEARTBEAT_MAX_DISTANCE_STANDARD_DEVIATION = 4;
 	private double heartbeatMaxDistanceStandardDeviation;

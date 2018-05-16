@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import io.tilt.minka.api.config.DistributorSettings;
 import io.tilt.minka.domain.EntityJournal.Log.StateStamp;
 
 /**
@@ -80,7 +81,7 @@ public class EntityJournal implements Serializable {
 		Log log = (planid > 0) ? find_(planid, shid, event) : null;
 		if (log == null) {
 			logs.add(log = new Log(new Date(), event, shid == null ? NOT_APPLIABLE : shid, planid));
-			if (sliding || (sliding = logs.size() == MAX_JOURNAL_SIZE)) {
+			if (sliding || (sliding = logs.size() == DistributorSettings.MAX_JOURNAL_SIZE)) {
 				logs.removeFirst();
 			}
 		}

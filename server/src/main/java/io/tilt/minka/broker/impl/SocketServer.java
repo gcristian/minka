@@ -41,7 +41,7 @@ import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-import io.tilt.minka.api.config.SchedulerConfiguration;
+import io.tilt.minka.api.config.SchedulerSettings;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
@@ -134,7 +134,7 @@ public class SocketServer {
 		this.serverWorkerGroup = new NioEventLoopGroup(
 				this.connectionHandlerThreads,
 				new ThreadFactoryBuilder()
-					.setNameFormat(SchedulerConfiguration.THREAD_NAME_BROKER_SERVER_WORKER)
+					.setNameFormat(SchedulerSettings.THREAD_NAME_BROKER_SERVER_WORKER)
 					.build());
 
 		boolean disconnected = true;

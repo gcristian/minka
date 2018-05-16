@@ -1,6 +1,6 @@
 package io.tilt.minka.api.config;
 
-public class SchedulerConfiguration {
+public class SchedulerSettings {
 
 	public static String PNAME = "MK"; // + serviceName;
 	public static String THREAD_NAME_SCHEDULER = PNAME + "Scheduler";

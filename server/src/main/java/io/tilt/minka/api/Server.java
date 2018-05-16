@@ -26,16 +26,17 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import io.tilt.minka.api.config.BootstrapConfiguration;
 import io.tilt.minka.api.config.BrokerConfiguration;
-import io.tilt.minka.api.config.SchedulerConfiguration;
+import io.tilt.minka.api.config.SchedulerSettings;
 import io.tilt.minka.api.inspect.AdminEndpoint;
 import io.tilt.minka.domain.AwaitingDelegate;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.PartitionDelegate;
 import io.tilt.minka.domain.PartitionMaster;
+import io.tilt.minka.utils.LogUtils;
 
 /**
  * System initiator and holder.<br>
- * Use an {@linkplain EventMapper} to map required and optional sharding events, or use your own implementation
+ * Use an {@linkplain EventMapper} to map required and optional sharding events, or use a custom implementation
  * of {@linkplain PartitionMaster} and {@linkplain PartitionDelegate} <br>
  * <br>
  * Each server instance will spawn the underlying context which connects to Zookkeeper and starts network broker services.<br>   
