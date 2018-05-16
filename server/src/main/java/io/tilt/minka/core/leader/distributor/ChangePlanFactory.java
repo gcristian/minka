@@ -40,9 +40,11 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.ShardingScheme;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
+import io.tilt.minka.core.leader.data.Backstage;
+import io.tilt.minka.core.leader.data.Scheme;
+import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
@@ -72,7 +74,7 @@ class ChangePlanFactory {
 	/** @return a plan if there're changes to apply or NULL if not */
 	final ChangePlan create(final ShardingScheme scheme, final ChangePlan previousChange) {
 		
-		final ShardingScheme.Backstage snapshot = scheme.getBackstage().snapshot();
+		final Backstage snapshot = scheme.getBackstage().snapshot();
 		final ChangePlan changePlan = new ChangePlan(
 				config.beatToMs(config.getDistributor().getPlanExpirationBeats()), 
 				config.getDistributor().getPlanMaxRetries());
@@ -286,7 +288,7 @@ class ChangePlanFactory {
 		});
 		logger.info("{}: Total cluster capacity: {}", name, clusterCapacity);
 		logger.info("{}: RECKONING #{}; +{}; -{} duties: {}", name,
-			new ShardingScheme.Scheme.SchemeExtractor(partition.getScheme())
+			new Scheme.SchemeExtractor(partition.getScheme())
 				.getAccountConfirmed(pallet), 
 			dutyCreations.stream()
 				.filter(d->d.getDuty().getPalletId().equals(pallet.getId()))

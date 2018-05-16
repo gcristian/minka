@@ -22,7 +22,7 @@ import static io.tilt.minka.core.leader.distributor.Migrator.log;
 import java.util.Set;
 
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.ShardingScheme;
+import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Shard;

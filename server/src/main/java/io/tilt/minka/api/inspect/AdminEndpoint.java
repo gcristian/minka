@@ -41,7 +41,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.wordnik.swagger.annotations.Api;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.core.leader.ShardingScheme;
+import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.ShardedPartition;
 

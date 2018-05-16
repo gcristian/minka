@@ -17,8 +17,8 @@
 package io.tilt.minka.core.leader;
 
 import static io.tilt.minka.broker.EventBroker.ChannelHint.EVENT_SET;
-import static io.tilt.minka.core.leader.ShardingScheme.ClusterHealth.STABLE;
-import static io.tilt.minka.core.leader.ShardingScheme.ClusterHealth.UNSTABLE;
+import static io.tilt.minka.core.leader.data.ShardingScheme.ClusterHealth.STABLE;
+import static io.tilt.minka.core.leader.data.ShardingScheme.ClusterHealth.UNSTABLE;
 import static io.tilt.minka.domain.Shard.ShardState.GONE;
 import static io.tilt.minka.domain.Shard.ShardState.JOINING;
 import static io.tilt.minka.domain.Shard.ShardState.ONLINE;
@@ -43,7 +43,8 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.leader.ShardingScheme.ClusterHealth;
+import io.tilt.minka.core.leader.data.ShardingScheme;
+import io.tilt.minka.core.leader.data.ShardingScheme.ClusterHealth;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;

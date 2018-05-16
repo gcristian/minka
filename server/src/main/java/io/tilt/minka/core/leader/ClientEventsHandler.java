@@ -30,6 +30,8 @@ import io.tilt.minka.api.Reply;
 import io.tilt.minka.api.ReplyResult;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
+import io.tilt.minka.core.leader.data.SchemeRepository;
+import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Service;

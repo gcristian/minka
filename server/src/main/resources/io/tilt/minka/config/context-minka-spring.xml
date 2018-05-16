@@ -117,11 +117,11 @@
       
     ===============================================================================================-->
     
-    <bean id="shardingScheme" class="io.tilt.minka.core.leader.ShardingScheme"/>
+    <bean id="shardingScheme" class="io.tilt.minka.core.leader.data.ShardingScheme"/>
         
     <bean id="entityDao" class="io.tilt.minka.core.leader.EntityDao.FakeDao"/>
     
-    <bean id="schemeRepository" class="io.tilt.minka.core.leader.SchemeRepository">
+    <bean id="schemeRepository" class="io.tilt.minka.core.leader.data.SchemeRepository">
     	<constructor-arg ref="shardingScheme" />
     	<constructor-arg ref="shardId" />
     </bean>																																														

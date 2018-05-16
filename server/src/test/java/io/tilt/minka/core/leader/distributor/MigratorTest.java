@@ -3,7 +3,7 @@ package io.tilt.minka.core.leader.distributor;
 import java.util.Set;
 
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.ShardingScheme;
+import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 

@@ -48,10 +48,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.JSONPObject;
 
-import io.tilt.minka.core.leader.ShardingScheme;
-import io.tilt.minka.core.leader.ShardingScheme.Scheme;
-import io.tilt.minka.core.leader.ShardingScheme.Scheme.SchemeExtractor;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
+import io.tilt.minka.core.leader.data.Backstage;
+import io.tilt.minka.core.leader.data.Scheme;
+import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
@@ -200,7 +200,7 @@ public class SchemeViews {
 		return byPalletId;
 	}
 
-	private Map<String, List<Object>> buildBackstage(final ShardingScheme.Backstage stage) {
+	private Map<String, List<Object>> buildBackstage(final Backstage stage) {
 		List<Object> ret = new ArrayList<>();
 		final Map<String, List<Object>> m = new HashMap<>();
 		stage.getDutiesCrud().forEach(ret::add);
@@ -229,7 +229,7 @@ public class SchemeViews {
 		
 	private List<Map<String, Object>> buildPallets() {
 		final List<Map<String, Object>> ret = new ArrayList<>();
-		final SchemeExtractor extractor = new SchemeExtractor(scheme.getScheme());
+		final Scheme.SchemeExtractor extractor = new Scheme.SchemeExtractor(scheme.getScheme());
 		
 		for (final ShardEntity pallet: extractor.getPallets()) {
 			
@@ -267,7 +267,7 @@ public class SchemeViews {
 
 	private static List<Map<String, Object>> buildShardRep(final ShardingScheme table) {	    
 		final List<Map<String, Object>> ret = new LinkedList<>();
-		final SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
+		final Scheme.SchemeExtractor extractor = new Scheme.SchemeExtractor(table.getScheme());
 		for (final Shard shard : extractor.getShards()) {
 			final List<Map<String , Object>> palletsAtShard =new LinkedList<>();
 			
@@ -299,7 +299,7 @@ public class SchemeViews {
 	}
 
 	private static Map<String, Object> buildGlobal(final ShardingScheme table) {
-		SchemeExtractor extractor = new SchemeExtractor(table.getScheme());
+		Scheme.SchemeExtractor extractor = new Scheme.SchemeExtractor(table.getScheme());
 		final Map<String, Object> map = new LinkedHashMap<>();
 		map.put("size-shards", extractor.getShards().size());
 		map.put("size-pallets", extractor.getPallets().size());

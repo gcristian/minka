@@ -1,4 +1,4 @@
-package io.tilt.minka.core.leader;
+package io.tilt.minka.core.leader.data;
 
 import static io.tilt.minka.domain.EntityEvent.CREATE;
 import static io.tilt.minka.domain.EntityEvent.REMOVE;
@@ -6,11 +6,10 @@ import static io.tilt.minka.domain.EntityState.PREPARED;
 
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

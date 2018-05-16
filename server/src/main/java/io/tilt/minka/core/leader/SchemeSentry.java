@@ -35,8 +35,9 @@ import java.util.function.BiConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.core.leader.ShardingScheme.Backstage;
-import io.tilt.minka.core.leader.ShardingScheme.Scheme;
+import io.tilt.minka.core.leader.data.Backstage;
+import io.tilt.minka.core.leader.data.Scheme;
+import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.core.leader.distributor.ChangeDetector;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.leader.distributor.Delivery;

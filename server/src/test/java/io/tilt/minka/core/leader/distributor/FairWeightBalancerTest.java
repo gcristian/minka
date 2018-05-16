@@ -16,9 +16,9 @@ import org.junit.Test;
 import io.tilt.minka.ShardTest;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.ShardingScheme;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
+import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.core.leader.balancer.FairWeightBalancer;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
@@ -243,7 +243,7 @@ public class FairWeightBalancerTest {
 		// this's due to balancer's fairness algorithm, which is trying
 		// to fullfill the cluster so all shards receive proportional weight
 		// causing all the shards to reach max capacity at the same time
-		// instead of the smaller shards to reach limit early on than bigger ones.
+		// instead of the smaller shards to reach limit early on, than bigger ones.
 		
 		for (Override o: migra.getOverrides()) {
 			if (o.getShard().getShardID().getId().equals("3")) {

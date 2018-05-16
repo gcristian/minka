@@ -33,8 +33,8 @@ import java.util.function.BiConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.core.leader.ShardingScheme;
 import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;

@@ -32,10 +32,10 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.ShardingScheme;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
 import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
+import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.core.leader.balancer.BalancingException;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal;
