@@ -89,35 +89,37 @@ class ChangePlanFactory {
 		final Map<String, List<ShardEntity>> schemeByPallets = ents.stream()
 				.collect(Collectors.groupingBy(e -> e.getDuty().getPalletId()));
 		if (schemeByPallets.isEmpty()) {
-			logger.warn("{}: Scheme and Backstage are empty. Nothing to balance", name);
-			return null;
-		}
-		try {
-			for (final Map.Entry<String, List<ShardEntity>> e : schemeByPallets.entrySet()) {
-				final Pallet<?> pallet = scheme.getScheme().getPalletById(e.getKey()).getPallet();
-				final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
-				logStatus(scheme, creations, deletions, e.getValue(), pallet, balancer);
-				if (balancer != null) {
-					final Migrator migra = balancePallet(scheme, pallet, balancer, creations, deletions);
-					changes |= migra.write(changePlan);
-				} else {
-					if (logger.isInfoEnabled()) {
-						logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", name,
-							pallet.getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
+			logger.warn("{}: Scheme and Backstage are empty. Nothing to balance (C:{}, R:{})", 
+					name, creations.size(), deletions.size());
+			changePlan = null;
+		} else {
+			try {
+				for (final Map.Entry<String, List<ShardEntity>> e : schemeByPallets.entrySet()) {
+					final Pallet<?> pallet = scheme.getScheme().getPalletById(e.getKey()).getPallet();
+					final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
+					logStatus(scheme, creations, deletions, e.getValue(), pallet, balancer);
+					if (balancer != null) {
+						final Migrator migra = balancePallet(scheme, pallet, balancer, creations, deletions);
+						changes |= migra.write(changePlan);
+					} else {
+						if (logger.isInfoEnabled()) {
+							logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", name,
+								pallet.getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
+						}
 					}
 				}
+				// only when everything went well otherwise'd be lost
+				scheme.getBackstage().clearAllocatedMissing();
+				scheme.getBackstage().cleanAllocatedDanglings();
+				if (!changes && deletions.isEmpty()) {
+					changePlan = null;
+				}
+		    } catch (Exception e) {
+		    	logger.error("{}: Cancelling ChangePlan building", e);
 			}
-			// only when everything went well otherwise'd be lost
-			scheme.getBackstage().clearAllocatedMissing();
-			scheme.getBackstage().cleanAllocatedDanglings();
-			if (changes || !deletions.isEmpty()) {
-				return changePlan;
-			}
-	    } catch (Exception e) {
-	    	logger.error("{}: Cancelling ChangePlan building", e);
 		}
 		scheme.getBackstage().dropSnapshot();
-		return null;
+		return changePlan;
 	}
 
 	private Set<ShardEntity> collectAsRemoves(
