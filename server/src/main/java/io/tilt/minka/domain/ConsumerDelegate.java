@@ -214,13 +214,13 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 					getClass().getSimpleName());
 			return false;
 		} else if (capacities.isEmpty()) {
-			log.error("{}: ConsumerDelegate not ready: capacities not reported", 
+			log.warn("{}: ConsumerDelegate not ready: capacities not reported", 
 					getClass().getSimpleName());
-			return false;
+			return true;
 		} else if (biconsumerTransfer ==null) {
-			log.error("{}: ConsumerDelegate not ready: biconsumers still unset", 
+			log.warn("{}: ConsumerDelegate not ready: biconsumers still unset", 
 					getClass().getSimpleName());
-			return false;
+			return true;
 		} else {
 			for (final Pallet<P> p: loadPallets()) {
 				if (!capacities.containsKey(p)) {
@@ -246,7 +246,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (c!=null) {
 			c.accept(pallets);
 		} else {
-			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), capturePallet);
+			log.warn(UNMAPPED_EVENT, getClass().getSimpleName(), capturePallet);
 		}
 	}
 	@Override
@@ -264,7 +264,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (c!=null) {
 			c.accept(pallets);
 		} else {
-			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), releasePallet);
+			log.warn(UNMAPPED_EVENT, getClass().getSimpleName(), releasePallet);
 		}
 	}
 	
@@ -306,7 +306,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (run!=null) {
 			run.run();;
 		} else {
-			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), activation);
+			log.warn(UNMAPPED_EVENT, getClass().getSimpleName(), activation);
 		}
 	}
 	@Override
@@ -315,7 +315,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (r!=null) {
 			r.run();;
 		} else {
-			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), deactivation);
+			log.warn(UNMAPPED_EVENT, getClass().getSimpleName(), deactivation);
 		}
 	}
 	@Override
