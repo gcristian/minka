@@ -55,7 +55,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	private final Config config;
 	private final PartitionScheme partitionScheme;
 	private final Scheduler scheduler;
-	private final SchemeSentry sentry;
+	private final SchemeRepository repo;
 	private final EventBroker eventBroker;
 	private final NetworkShardIdentifier shardId;
 
@@ -65,14 +65,14 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 			final Config config, 
 			final PartitionScheme partitionScheme, 
 			final Scheduler scheduler,
-			final SchemeSentry bookkeeper,
+			final SchemeRepository repo,
 			final EventBroker eventBroker, 
 			final NetworkShardIdentifier shardId) {
 
 		this.config = config;
 		this.partitionScheme = partitionScheme;
 		this.scheduler = scheduler;
-		this.sentry = bookkeeper;
+		this.repo = repo;
 		this.eventBroker = eventBroker;
 		this.shardId = shardId;
 	}
@@ -183,7 +183,19 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 			return new Reply(sent[0] ? ReplyResult.SUCCESS_SENT: ReplyResult.FAILURE_NOT_SENT, 
 					entity.getEntity(), null, null, null);
 		} else {
-			return sentry.enterCRUD(entity);
+			if (entity.getType()==ShardEntity.Type.DUTY) {
+				if (entity.getLastEvent()==EntityEvent.CREATE) {
+					return repo.saveDuty(entity);
+				} else {
+					return repo.removeDuty(entity);
+				}
+			} else {
+				if (entity.getLastEvent()==EntityEvent.CREATE) {
+					return repo.savePallet(entity);
+				} else {
+					return repo.removePallet(entity);
+				}				
+			}
 		}
 	}
 

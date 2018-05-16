@@ -41,6 +41,7 @@ import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.PartitionScheme;
 import io.tilt.minka.core.leader.PartitionScheme.ClusterHealth;
+import io.tilt.minka.core.leader.SchemeRepository;
 import io.tilt.minka.core.leader.SchemeSentry;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.distributor.ChangePlan.Result;
@@ -77,6 +78,7 @@ public class Distributor implements Service {
 	private final EventBroker eventBroker;
 	private final PartitionScheme partitionScheme;
 	private final SchemeSentry schemeSentry;
+	private final SchemeRepository schemeRepository;
 	private final ShardIdentifier shardId;
 	private final EntityDao entityDao;
 	private final DependencyPlaceholder dependencyPlaceholder;
@@ -95,6 +97,7 @@ public class Distributor implements Service {
 			final EventBroker eventBroker,
 			final PartitionScheme partitionScheme, 
 			final SchemeSentry schemeSentry, 
+			final SchemeRepository schemeRepo,
 			final ShardIdentifier shardId,
 			final EntityDao dutyDao, 
 			final DependencyPlaceholder dependencyPlaceholder, 
@@ -105,6 +108,7 @@ public class Distributor implements Service {
 		this.eventBroker = eventBroker;
 		this.partitionScheme = partitionScheme;
 		this.schemeSentry = schemeSentry;
+		this.schemeRepository = schemeRepo;
 		this.shardId = shardId;
 		this.entityDao = dutyDao;
 		this.leaderShardContainer = leaderShardContainer;
@@ -346,8 +350,8 @@ public class Distributor implements Service {
 				logger.info("{}: {} reported {} entities for sharding...", getName(),
 					config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster",
 					duties.size());
-				schemeSentry.enterPalletsFromSource(new ArrayList<>(pallets));
-				schemeSentry.enterDutiesFromSource(new ArrayList<>(duties));
+				schemeRepository.savePallets(pallets);
+				schemeRepository.saveDuties(duties);
 				initialAdding = false;
 			}
 			if (partitionScheme.getBackstage().getDutiesCrud().isEmpty()) {

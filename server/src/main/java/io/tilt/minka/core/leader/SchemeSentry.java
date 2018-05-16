@@ -16,36 +16,27 @@
  */
 package io.tilt.minka.core.leader;
 
-import static io.tilt.minka.domain.EntityEvent.CREATE;
 import static io.tilt.minka.domain.EntityEvent.DETACH;
 import static io.tilt.minka.domain.EntityEvent.REMOVE;
 import static io.tilt.minka.domain.EntityState.CONFIRMED;
 import static io.tilt.minka.domain.EntityState.DANGLING;
 import static io.tilt.minka.domain.EntityState.MISSING;
-import static io.tilt.minka.domain.EntityState.PREPARED;
 import static io.tilt.minka.domain.Shard.ShardState.QUITTED;
 import static java.util.Collections.emptyMap;
 
 import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.function.BiConsumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.PartitionScheme.Backstage;
 import io.tilt.minka.core.leader.PartitionScheme.Scheme;
-import io.tilt.minka.api.Reply;
-import io.tilt.minka.api.ReplyResult;
 import io.tilt.minka.core.leader.distributor.ChangeDetector;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.leader.distributor.Delivery;
@@ -303,159 +294,5 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		partitionScheme.getScheme().removeShard(shard);		
 	}
 
-	private boolean presentInPartition(final ShardEntity duty) {
-		final Shard shardLocation = partitionScheme.getScheme().getDutyLocation(duty.getDuty());
-		return shardLocation != null && shardLocation.getState().isAlive();
-	}
-
-	private boolean presentInPartition(final Duty<?> duty) {
-		final Shard shardLocation = partitionScheme.getScheme().getDutyLocation(duty);
-		return shardLocation != null && shardLocation.getState().isAlive();
-	}
-
-	public void enterDutiesFromSource(final List<Duty<?>> dutiesFromSource) {
-		Set<Duty<?>> sortedLog = null;
-		final Iterator<Duty<?>> it = dutiesFromSource.iterator();
-		while (it.hasNext()) {
-			final Duty<?> duty = it.next();
-			final ShardEntity pallet = partitionScheme.getScheme().getPalletById(duty.getPalletId());
-			if (presentInPartition(duty)) {
-				if (sortedLog == null) {
-					sortedLog = new TreeSet<>();
-				}
-				sortedLog.add(duty);
-				it.remove();
-			} else {
-				if (pallet!=null) {
-					final ShardEntity newone = ShardEntity.Builder
-							.builder(duty)
-							.withRelatedEntity(pallet)
-							.build();
-					if (partitionScheme.getBackstage().addCrudDuty(newone)) {
-						if (logger.isInfoEnabled()) {
-							logger.info("{}: Adding New Duty: {}", classname, newone);
-						}
-					} else {
-						// TRY FIXING LEARNT AFTER REELECTION
-						for (ShardEntity e: partitionScheme.getBackstage().getDutiesCrud()) {
-							if (e.equals(newone)) {
-								if (e.getPallet()==null) {
-									
-								}
-							}
-						}
-					}
-				} else {
-					logger.error("{}: Skipping Duty CRUD {}: Pallet Not found (pallet id: {})", classname,
-							duty, duty.getPalletId());
-				}
-			}
-		}
-		if (sortedLog!=null && logger.isInfoEnabled()) {
-			logger.info("{}: Skipping Duty CRUD already in PTable: {}", classname, sortedLog);
-		}
-	}
-
-	public void enterPalletsFromSource(final List<Pallet<?>> palletsFromSource) {
-		final Set<ShardEntity> sortedLog = new TreeSet<>();
-		final Iterator<Pallet<?>> it = palletsFromSource.iterator();
-		while (it.hasNext()) {
-			final ShardEntity she = ShardEntity.Builder.builder(it.next()).build();
-			if (partitionScheme.getScheme().filterPallets(she::equals)) {
-				sortedLog.add(she);
-				it.remove();
-			} else {
-				if (logger.isInfoEnabled()) {
-					logger.info("{}: Adding New Pallet: {} with Balancer: {}", classname, she, 
-						she.getPallet().getMetadata());
-				}
-				partitionScheme.addCrudPallet(she);
-			}
-		}
-		if (!sortedLog.isEmpty() && logger.isInfoEnabled()) {
-			logger.info("{}: Skipping Pallet CRUD already in PTable: {}", classname,
-					ShardEntity.toStringIds(sortedLog));
-		}
-	}
-
-	/**
-	 * Check valid actions to client sent duties/pallets, 
-	 * according their action and the current partition table
-	 * @param 	dutiesFromAction entities to act on
-	 * @return 
-	 */
-	public Reply enterCRUD(final ShardEntity entity) {
-		Reply reply = null; 
-		final boolean typeDuty = entity.getType()==ShardEntity.Type.DUTY;
-		final boolean found = (typeDuty && presentInPartition(entity)) || 
-				(!typeDuty && partitionScheme.getScheme().filterPallets(entity::equals));
-		final EntityEvent event = entity.getLastEvent();
-		if (!event.isCrud()) {
-			throw new RuntimeException("Bad call");
-		}
-		
-		if ((!found && event == CREATE) || (found && event == REMOVE)) {
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: CRUD Request {} {}: {}", classname, entity.getLastEvent(), entity.getType(), entity);
-			}
-			if (typeDuty) {
-				if (event == CREATE) {
-					final ShardEntity pallet = partitionScheme.getScheme().getPalletById(entity.getDuty().getPalletId());
-					if (pallet!=null) {
-						final ShardEntity current  = partitionScheme.getScheme().getByDuty(entity.getDuty());
-						if (current ==null) {
-							final boolean added = partitionScheme.getBackstage().addCrudDuty(
-									ShardEntity.Builder.builder(entity.getEntity())
-										.withRelatedEntity(pallet)
-										.build());
-							if (added) {
-								reply = new Reply(ReplyResult.SUCCESS, entity.getEntity(), PREPARED, CREATE, null);
-							} else {
-								reply = new Reply(ReplyResult.SUCCESS_OPERATION_ALREADY_SUBMITTED, 
-										entity.getEntity(), null, EntityEvent.CREATE, 
-										String.format("%s: Added already !: %s", classname, entity));
-							}
-						} else {
-							reply = new Reply(ReplyResult.ERROR_ENTITY_ALREADY_EXISTS, 
-									entity.getEntity(), current .getLastState(), current .getLastEvent(), 
-									String.format("%s: Skipping Crud Event %s: already in scheme !", classname, entity));
-						}
-					} else {
-						reply = new Reply(ReplyResult.ERROR_ENTITY_INCONSISTENT,
-								entity.getEntity(), null, null, String.format(
-								"%s: Skipping Crud Event %s: Pallet ID :%s set not found or yet created", classname,
-								event, entity, entity.getDuty().getPalletId()));
-					}
-				} else {
-					final ShardEntity current  = partitionScheme.getScheme().getByDuty(entity.getDuty());
-					if (current!=null) {
-						final boolean added = partitionScheme.getBackstage().addCrudDuty(entity);
-						if (added) {
-							reply = new Reply(ReplyResult.SUCCESS, entity.getEntity(), PREPARED, REMOVE, null);
-						} else {
-							reply = new Reply(ReplyResult.SUCCESS_OPERATION_ALREADY_SUBMITTED, 
-									entity.getEntity(), null, EntityEvent.REMOVE, 
-									String.format("%s: Added already !: %s", classname, entity));
-						}
-					} else {
-						reply = new Reply(ReplyResult.ERROR_ENTITY_NOT_FOUND, entity.getEntity(), null, null, 
-								String.format("%s: Deletion request not found on scheme: %s", classname, entity));
-					}						
-				}
-			} else {
-				final boolean original = partitionScheme.addCrudPallet(entity);
-				reply = new Reply(original ? ReplyResult.SUCCESS : ReplyResult.SUCCESS_OPERATION_ALREADY_SUBMITTED, 
-						entity.getEntity(), PREPARED, REMOVE, null);
-			}
-		} else {
-			reply = new Reply(found ? ReplyResult.ERROR_ENTITY_ALREADY_EXISTS : ReplyResult.ERROR_ENTITY_NOT_FOUND, 
-					entity.getEntity(), null, null, String.format("%s: Skipping Crud Event %s %s in Partition Table: %s", 
-					getClass().getSimpleName(), event, found ? "already found": " Not found", entity));
-		}
-		if (reply.getMessage()!=null) {
-			logger.warn(reply.toString());
-		}
-		return reply;
-	}
 
 }

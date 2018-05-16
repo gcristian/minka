@@ -121,6 +121,11 @@
         
     <bean id="entityDao" class="io.tilt.minka.core.leader.EntityDao.FakeDao"/>
     
+    <bean id="schemeRepository" class="io.tilt.minka.core.leader.SchemeRepository">
+    	<constructor-arg ref="partitionScheme" />
+    	<constructor-arg ref="shardId" />
+    </bean>																																														
+    
     <!-- Balancea las tareas -->
     <bean id="distributor" class="io.tilt.minka.core.leader.distributor.Distributor">
         <constructor-arg ref="config" />
@@ -128,6 +133,7 @@
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="partitionScheme" />
         <constructor-arg ref="schemeSentry" />
+        <constructor-arg ref="schemeRepository" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="entityDao" />
         <constructor-arg ref="clientHolder" />
