@@ -5,6 +5,9 @@ public class BootstrapConfiguration {
     public static final String NAMESPACE_MASK_LEADER_LATCH = "minka/%s/leader-latch";
     public static final String NAMESPACE_MASK_LEADER_SHARD_RECORD = "minka/%s/leader-shard-record";
 
+    public static final boolean DROP_VM_LIMIT = false;
+    protected boolean dropVMLimit;
+    
 	protected static final String SERVICE_NAME = ("default-name");
 	private static String serviceName;
 
@@ -43,6 +46,12 @@ public class BootstrapConfiguration {
 	}
 	public void setServiceName(String serviceName) {
 		BootstrapConfiguration.serviceName = serviceName;
+	}
+	public void setDropVMLimit(boolean dropVMLimit) {
+		this.dropVMLimit = dropVMLimit;
+	}
+	public boolean isDropVMLimit() {
+		return dropVMLimit;
 	}
 	public long getMaxServicesPerMachine() {
 		return maxServicesPerMachine;

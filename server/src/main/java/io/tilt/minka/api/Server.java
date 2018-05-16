@@ -167,19 +167,22 @@ public class Server<D extends Serializable, P extends Serializable> {
 			// service cannot be default or preexistent if ZK's chroot is not set
 			final boolean chrootUsed = config.getBootstrap().getZookeeperHostPort().indexOf('/') > 0;
 			final boolean duplicateName = tenants.containsKey(serviceName);
-			if (!chrootUsed && duplicateName) {
+			final boolean vmLimitAware = config.getBootstrap().isDropVMLimit();
+			if (!chrootUsed && duplicateName && !vmLimitAware) {
 				runtime = new IllegalArgumentException("a service with the name: " + serviceName + " already exists!");
 			} else {
-				if (!duplicateName) {
-					final long maxTenants = config.getBootstrap().getMaxServicesPerMachine();
-					if (tenants.size()>maxTenants) {
-						runtime = new IllegalStateException("There's been created " + tenants.size() 
-							+ " server/s already in this VM. If you indeed want that many: "
-							+ " increase bootstrap's MAX_SERVICES_PER_MACHINE default value");
+				if (!vmLimitAware) {
+					if (!duplicateName) {
+						final long maxTenants = config.getBootstrap().getMaxServicesPerMachine();
+						if (tenants.size()>maxTenants) {
+							runtime = new IllegalStateException("There's been created " + tenants.size() 
+								+ " server/s already in this VM. If you indeed want that many: "
+								+ " increase bootstrap's MAX_SERVICES_PER_MACHINE default value");
+						}
+					} else {
+						runtime = new IllegalArgumentException("There're " + tenants.size() + " server/s already" 
+								+ " in this VM with the same service-name: set a different one");
 					}
-				} else {
-					runtime = new IllegalArgumentException("There're " + tenants.size() + " server/s already" 
-							+ " in this VM with the same service-name: set a different one");
 				}
 			}
 			for (Tenant t: tenants.values()) {
@@ -187,7 +190,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 						t.getConfig().getBootstrap().getServiceName(), t.getConfig().getBroker().getHostPort());
 			}
 			logger.info("{}: Initializing context for service: {}", name, serviceName);
-			if (duplicateName) {
+			if (duplicateName && !vmLimitAware) {
 				// client should not depend on it anyway
 				final String newName = serviceName + "_" + new Random(System.currentTimeMillis()).nextInt(999999);
 				logger.warn("{}: Overwritting service name: {} to avoid colission with other servers within the same JVM", 
