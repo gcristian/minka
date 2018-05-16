@@ -112,6 +112,8 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 
 	@Override
 	public void stop() {
+		// caution on bad initialization
+		getShardId().release();
 		closeServer();
 		closeClients();
 	}
