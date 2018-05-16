@@ -171,7 +171,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 						classname, entity);
 			}
 		} else {
-			logger.warn("{}: Avoiding Backstage removal of CRUD as was not found: {}", classname, entity);
+			// they were not crud: (dangling/missing/..)
 		}
 	}
 	

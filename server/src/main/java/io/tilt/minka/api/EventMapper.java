@@ -221,4 +221,5 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).setExplicitlyReady();
 		return this;
 	}
+
 }

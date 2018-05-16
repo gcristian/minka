@@ -287,6 +287,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	}
 	
 	
+	/* is important to maintain a predictable order to avoid migration churning */
 	public static class CapacityComparer implements Comparator<NetworkLocation>, Serializable {
 		private static final long serialVersionUID = 2191475545082914908L;
 		private final Pallet<?> pallet;

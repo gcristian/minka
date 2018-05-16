@@ -118,6 +118,7 @@ public class FairWeightBalancer implements Balancer {
 		duties.removeAll(backstage.get(EntityEvent.REMOVE)); // delete those marked for deletion
 		if (meta.getDispersion()==Dispersion.EVEN) {
 			final Set<Bascule<NetworkLocation, Duty<?>>> bascules = buildBascules(pallet, scheme.keySet(), duties);
+			System.out.println(bascules);
 			if (bascules==null) {
 				return;
 			} else if (bascules.isEmpty()) {
@@ -183,6 +184,7 @@ public class FairWeightBalancer implements Balancer {
 		for (final NetworkLocation shard: sorted) {
 			final Capacity cap = shard.getCapacities().get(pallet);
 			if (cap!=null) {
+				System.out.println(shard.getCreation());
 				bascules.add(new Bascule<>(shard, cap.getTotal()));
 			}
 		}
@@ -199,6 +201,7 @@ public class FairWeightBalancer implements Balancer {
 				// fairness thru shard's capacities flattening according total weight
 				// so total bascule's fair value ends up close to equal the total weight
 				final double fair = Math.min(brute.totalLift() * (b.getMaxRealCapacity() / clusterCap), b.getMaxRealCapacity());
+				System.out.println(fair);
 				if (logger.isInfoEnabled()) {
 					logger.info("{}: Shard: {} Fair load: {}, capacity: {} (c.c. {}, d.w. {})", 
 						getClass().getSimpleName(), 

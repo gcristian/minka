@@ -144,19 +144,24 @@ public class FairWeightBalancerTest {
 		final ShardingScheme table = emptyTableWithShards(p1, 5000, 5000, 5000);
 		final Set<Shard> shards = new HashSet<>();
 		table.getScheme().findShards(null, shards::add);
-		final Migrator migra1 = MigratorTest.migrator(shards, ents, p1);
-		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, migra1);		
-		if (migra1.getOverrides().size()!=3) {
+		final Migrator m = MigratorTest.migrator(shards, ents, p1);
+		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, m);		
+		if (m.getOverrides().size()!=3) {
 			int u = 0;
 		}
-		for (final Override o: migra1.getOverrides()) {
+		/*
+		for (final Override o: m.getOverrides()) {
+			System.out.println(o.getEntities());
+		}
+		*/
+		for (final Override o: m.getOverrides()) {
 			assertTrue("balancer didnt returned a fair amount of duties when all same weight", 
 					o.getEntities().size()==4);
 		}
 		
-		assertFalse(migra1.getOverrides().get(0).equals(migra1.getOverrides().get(1)));
-		assertFalse(migra1.getOverrides().get(0).equals(migra1.getOverrides().get(2)));
-		assertFalse(migra1.getOverrides().get(1).equals(migra1.getOverrides().get(2)));
+		assertFalse(m.getOverrides().get(0).equals(m.getOverrides().get(1)));
+		assertFalse(m.getOverrides().get(0).equals(m.getOverrides().get(2)));
+		assertFalse(m.getOverrides().get(1).equals(m.getOverrides().get(2)));
 
 	}
 
@@ -293,7 +298,7 @@ public class FairWeightBalancerTest {
 	@Test
 	public void testOther() throws Exception {
 		// some basic domain
-		final Set<ShardEntity> ents = dutiesWithWeights(2, 2, 2, 2);
+		final Set<ShardEntity> ents = dutiesWithWeights(6, 6, 6, 6);
 		final Set<Duty<?>> duties = dutiesFromEntities(ents);		
 		final Pallet p1 = Pallet.builder("1")
 				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, Balancer.PreSort.DATE))
@@ -310,7 +315,7 @@ public class FairWeightBalancerTest {
 		table.getScheme().findShards(null, shards::add);
 		final Migrator migra = MigratorTest.migrator(shards, ents, p1);
 		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, migra);		
-		assertTrue(migra.getOverrides().size()==4);
+		assertTrue(migra.getOverrides().size()>=3);
 		
 		// this case shows cluster capacity slightly over total duty weight
 		// which scatters the duty more close to intuition
@@ -319,27 +324,26 @@ public class FairWeightBalancerTest {
 		// causing all the shards to reach max capacity at the same time
 		// instead of the smaller shards to reach limit early on than bigger ones.
 		
-		for (Override o: migra.getOverrides()) {
-			//System.out.println(o.getShard().getShardID().getStringIdentity() + " : " + o.getEntities());
-			/**
-			if (o.getShard().getShardID().getStringIdentity().equals("1")) {
+		for (Override o: migra.getOverrides()) {			
+			if (o.getShard().getShardID().getId().equals("1")) {
 				assertTrue(o.getEntities().stream()
 						.filter(e->e.getDuty().getId().equals("1"))
 						.count()==1);
-			} else if (o.getShard().getShardID().getStringIdentity().equals("2")) {
+			} else if (o.getShard().getShardID().getId().equals("2")) {
 				assertTrue(o.getEntities().stream()
 						.filter(e->e.getDuty().getId().startsWith("2"))
 						.count()==1);
-			} else if (o.getShard().getShardID().getStringIdentity().equals("3")) {
+			} else if (o.getShard().getShardID().getId().equals("3")) {
 				assertTrue(o.getEntities().stream()
 						.filter(e->e.getDuty().getId().startsWith("3"))
 						.count()==1);
-			} else if (o.getShard().getShardID().getStringIdentity().equals("4")) {
+			} else if (o.getShard().getShardID().getId().equals("4")) {
+				System.out.println(o.getEntities());
 				assertTrue(o.getEntities().stream()
 						.filter(e->e.getDuty().getId().startsWith("4"))
 						.count()==1);
 			}
-			*/
+			
 		}
 
 	}

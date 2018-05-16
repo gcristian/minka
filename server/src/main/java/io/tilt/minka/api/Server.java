@@ -179,7 +179,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 					}
 				} else {
 					runtime = new IllegalArgumentException("There're " + tenants.size() + " server/s already" 
-							+ "in this VM with the same service-name: set a different one");
+							+ " in this VM with the same service-name: set a different one");
 				}
 			}
 			for (Tenant t: tenants.values()) {

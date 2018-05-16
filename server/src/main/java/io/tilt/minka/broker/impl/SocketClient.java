@@ -225,6 +225,7 @@ public class SocketClient {
 				logger.info("{}: ({}) Binding to broker: {}:{} at channel: {}", classname, loggingName,
 					address, port, channel.getChannel().name());
 			}
+			
 			bootstrap.connect(addr.getAddress().getHostAddress(), addr.getPort())
 				.sync();
 				//.channel().closeFuture().sync();
