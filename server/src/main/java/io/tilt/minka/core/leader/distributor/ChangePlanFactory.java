@@ -72,25 +72,60 @@ class ChangePlanFactory {
 	}
 
 	/** @return a plan if there're changes to apply or NULL if not */
-	final ChangePlan create(final ShardingScheme scheme, final ChangePlan previousChange) {
+	final ChangePlan create(final ShardingScheme scheme, final ChangePlan previous) {
 		
 		final Backstage snapshot = scheme.getBackstage().snapshot();
 		final ChangePlan changePlan = new ChangePlan(
 				config.beatToMs(config.getDistributor().getPlanExpirationBeats()), 
 				config.getDistributor().getPlanMaxRetries());
 		
-		// recently fallen shards
-		addMissingAsCrud(scheme, changePlan);
-		final Set<ShardEntity> dutyCreations = new HashSet<>();
-		snapshot.findDutiesCrud(CREATE::equals, null, dutyCreations::add);
-		// add danglings as creations prior to migrations
-		for (ShardEntity d: snapshot.getDutiesDangling()) {
-			dutyCreations.add(ShardEntity.Builder.builderFrom(d).build());
-		}
+		final Set<ShardEntity> creations = collectAsCreates(scheme, previous, snapshot, changePlan);		
+		final Set<ShardEntity> deletions = collectAsRemoves(scheme, previous, snapshot, changePlan, creations);
 		
-		// add previous fallen and never confirmed migrations
-		restorePendings(previousChange, dutyCreations::add, 
-				d->d.getLastEvent()==CREATE || d.getLastEvent()==ATTACH);
+		final Set<ShardEntity> ents = new HashSet<>();
+		scheme.getScheme().findDuties(ents::add);
+		ents.addAll(creations);
+		boolean changes = false;
+		final Map<String, List<ShardEntity>> schemeByPallets = ents.stream()
+				.collect(Collectors.groupingBy(e -> e.getDuty().getPalletId()));
+		if (schemeByPallets.isEmpty()) {
+			logger.warn("{}: Scheme and Backstage are empty. Nothing to balance", name);
+			return null;
+		}
+		try {
+			for (final Map.Entry<String, List<ShardEntity>> e : schemeByPallets.entrySet()) {
+				final Pallet<?> pallet = scheme.getScheme().getPalletById(e.getKey()).getPallet();
+				final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
+				logStatus(scheme, creations, deletions, e.getValue(), pallet, balancer);
+				if (balancer != null) {
+					final Migrator migra = balancePallet(scheme, pallet, balancer, creations, deletions);
+					changes |= migra.write(changePlan);
+				} else {
+					if (logger.isInfoEnabled()) {
+						logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", name,
+							pallet.getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
+					}
+				}
+			}
+			// only when everything went well otherwise'd be lost
+			scheme.getBackstage().clearAllocatedMissing();
+			scheme.getBackstage().cleanAllocatedDanglings();
+			if (changes || !deletions.isEmpty()) {
+				return changePlan;
+			}
+	    } catch (Exception e) {
+	    	logger.error("{}: Cancelling ChangePlan building", e);
+		}
+		scheme.getBackstage().dropSnapshot();
+		return null;
+	}
+
+	private Set<ShardEntity> collectAsRemoves(
+			final ShardingScheme scheme,
+			final ChangePlan previousChange,
+			final Backstage snapshot,
+			final ChangePlan changePlan, 
+			final Set<ShardEntity> dutyCreations) {
 		
 		final Set<ShardEntity> dutyDeletions = new HashSet<>();
 		snapshot.findDutiesCrud(REMOVE::equals, null, crud-> {
@@ -117,46 +152,29 @@ class ChangePlanFactory {
 			scheme.getScheme().findDutiesByPallet(p.getPallet(), dutyDeletions::add);
 		});
 		shipDeletions(scheme, changePlan, dutyDeletions);
-		
-		final Set<ShardEntity> ents = new HashSet<>();
-		scheme.getScheme().findDuties(ents::add);
-		ents.addAll(dutyCreations);
-		boolean changes = false;
-		final Map<String, List<ShardEntity>> schemeByPallets = ents.stream()
-				.collect(Collectors.groupingBy(e -> e.getDuty().getPalletId()));
-		if (schemeByPallets.isEmpty()) {
-			logger.warn("{}: Scheme and Backstage are empty. Nothing to balance", name);
-			return null;
-		}
-		try {
-			for (final Map.Entry<String, List<ShardEntity>> e : schemeByPallets.entrySet()) {
-				final Pallet<?> pallet = scheme.getScheme().getPalletById(e.getKey()).getPallet();
-				final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
-				logStatus(scheme, dutyCreations, dutyDeletions, e.getValue(), pallet, balancer);
-				if (balancer != null) {
-					final Migrator migra = balance(scheme, pallet, balancer, dutyCreations, dutyDeletions);
-					changes |= migra.write(changePlan);
-				} else {
-					if (logger.isInfoEnabled()) {
-						logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", name,
-							pallet.getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
-					}
-				}
-			}
-			// only when everything went well otherwise'd be lost
-			scheme.getBackstage().clearAllocatedMissing();
-			scheme.getBackstage().cleanAllocatedDanglings();
-			if (changes || !dutyDeletions.isEmpty()) {
-				return changePlan;
-			}
-	    } catch (Exception e) {
-	    	logger.error("{}: Cancelling ChangePlan building", e);
-		}
-		scheme.getBackstage().dropSnapshot();
-		return null;
+		return dutyDeletions;
 	}
 
-	private static final Migrator balance(
+	private Set<ShardEntity> collectAsCreates(final ShardingScheme scheme,
+			final ChangePlan previousChange,
+			final Backstage snapshot,
+			final ChangePlan changePlan) {
+		// recently fallen shards
+		addMissingAsCrud(scheme, changePlan);
+		final Set<ShardEntity> dutyCreations = new HashSet<>();
+		snapshot.findDutiesCrud(CREATE::equals, null, dutyCreations::add);
+		// add danglings as creations prior to migrations
+		for (ShardEntity d: snapshot.getDutiesDangling()) {
+			dutyCreations.add(ShardEntity.Builder.builderFrom(d).build());
+		}
+		
+		// add previous fallen and never confirmed migrations
+		restorePendings(previousChange, dutyCreations::add, 
+				d->d.getLastEvent()==CREATE || d.getLastEvent()==ATTACH);
+		return dutyCreations;
+	}
+
+	private static final Migrator balancePallet(
 			final ShardingScheme partition, 
 			final Pallet<?> pallet, 
 			final Balancer balancer,
