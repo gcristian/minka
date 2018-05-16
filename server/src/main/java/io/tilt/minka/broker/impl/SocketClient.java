@@ -101,6 +101,7 @@ public class SocketClient {
 				PriorityLock.HIGH_ISOLATED,
 				Frequency.ONCE, 
 				() -> keepConnecting(channel, maxRetries, retryDelay))
+			.delayed(1000l)
 			.build();
 		scheduler.schedule(connector);
 		this.creation = System.currentTimeMillis();
