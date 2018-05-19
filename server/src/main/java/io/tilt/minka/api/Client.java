@@ -109,18 +109,14 @@ public class Client<D extends Serializable, P extends Serializable> {
 	* @return whether or not the operation succeed
 	*/
 	public Reply remove(final Duty<D> duty) {
-		final Reply[] tmp = {null};
-		push(singletonList(duty), EntityEvent.REMOVE, null, r->tmp[0]=r);
-		return tmp[0];
+		return push(singletonList(duty), EntityEvent.REMOVE, null, null);
 	}
 	public void removeAll(final Collection<Entity<?>> coll, final Consumer<Reply> callback) {
 		push(coll, EntityEvent.REMOVE, null, callback);
 	}
 
 	public Reply remove(final Pallet<P> pallet) {
-		final Reply[] tmp = {null};
-		push(singletonList(pallet), EntityEvent.REMOVE, null, r->tmp[0]=r);
-		return tmp[0];
+		return push(singletonList(pallet), EntityEvent.REMOVE, null, null);
 	}
 	
 	/**
@@ -135,18 +131,14 @@ public class Client<D extends Serializable, P extends Serializable> {
 	* @return whether or not the operation succeed
 	*/
 	public Reply add(final Duty<D> duty) {
-		final Reply[] tmp = {null};
-		push(singletonList(duty), EntityEvent.CREATE, null, r->tmp[0]=r);
-		return tmp[0];
+		return push(singletonList(duty), EntityEvent.CREATE, null, null);
 	}
 	public void addAll(final Collection<Entity<?>> duty, final Consumer<Reply> callback) {
 		push(duty, EntityEvent.CREATE, null, callback); 
 	}
 
 	public Reply add(final Pallet<P> pallet) {
-		final Reply[] tmp = {null};
-		push(singletonList(pallet), EntityEvent.CREATE, null, r->tmp[0]=r);
-		return tmp[0];
+		return push(singletonList(pallet), EntityEvent.CREATE, null, null);
 	}
 
 	/**
@@ -155,32 +147,93 @@ public class Client<D extends Serializable, P extends Serializable> {
 	* @return whether or not the operation succeed
 	*/
 	public Reply update(final Duty<D> duty) {
-		final Reply[] tmp = {null};
-		push(singletonList(duty), EntityEvent.UPDATE, null, r->tmp[0]=r);
-		return tmp[0];
+		return push(singletonList(duty), EntityEvent.UPDATE, null, null);
 	}
 	public Reply update(final Pallet<P> pallet) {
-		final Reply[] tmp = {null};
-		push(singletonList(pallet), EntityEvent.UPDATE, null, r->tmp[0]=r);
-		return tmp[0];
+		return push(singletonList(pallet), EntityEvent.UPDATE, null, null);
 	}
 	public Reply transfer(final Duty<D> duty, final EntityPayload userPayload) {
-		final Reply[] tmp = {null};
-		push(singletonList(duty), EntityEvent.TRANSFER, userPayload, r->tmp[0]=r);
-		return tmp[0];
+		return push(singletonList(duty), EntityEvent.TRANSFER, userPayload, null);
 	}
 	public Reply transfer(final Pallet<P> pallet, final EntityPayload userPayload) {
-		final Reply[] tmp = {null};
-		push(singletonList(pallet), EntityEvent.TRANSFER, userPayload, r->tmp[0]=r);
-		return tmp[0];
+		return push(singletonList(pallet), EntityEvent.TRANSFER, userPayload, null);
 	}
 	
-	private void push(final Collection<Entity<?>> raws, 
+	private Reply push(final Collection<Entity<?>> raws, 
 			final EntityEvent event, 
 			final EntityPayload userPayload, 
 			final Consumer<Reply> callback) {
 		
 		Validate.notNull(raws, "an entity is required");
+		// only not null when raws.size > 1 
+		final Reply[] r = {null};
+		
+		final List<ShardEntity> entities = toEntities(raws, event, userPayload);
+		
+		if (leader.inService()) {
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Recurring to local leader !", getClass().getSimpleName());
+			}
+			if (callback==null) {
+				clientMediator.mediateOnEntity(entities, reply->r[0]=reply);
+			} else {
+				clientMediator.mediateOnEntity(entities, callback);
+			}
+		} else {
+			if (logger.isInfoEnabled()) {
+				//logger.info("{}: Sending {}: {} with Event: {} to leader in service", 
+					//	getClass().getSimpleName(), entity.getType(), raws, event);
+			}
+			r[0] = sendAndReply(event, callback, r, entities);
+		}
+		return r[0];
+	}
+
+	private Reply sendAndReply(
+			final EntityEvent event, 
+			final Consumer<Reply> callback, 
+			final Reply[] r,
+			final List<ShardEntity> tmp) {
+		int tries = 10;
+		boolean[] sent = {false};
+		while (!sent[0] && tries-->0) {
+			if (leaderShardContainer.getLeaderShardId()!=null) {
+				final BrokerChannel channel = eventBroker.buildToTarget(config, 
+						Channel.FROM_CLIENT,
+						leaderShardContainer.getLeaderShardId());
+				sent[0] = eventBroker.send(channel, (List)tmp);
+			} else {
+				try {
+					Thread.sleep(config.beatToMs(10));
+				} catch (InterruptedException ie) {
+					break;
+				}
+			}
+		}
+		if (callback==null) {
+			return new Reply(sent[0] ? ReplyResult.SUCCESS_SENT : ReplyResult.FAILURE_NOT_SENT, 
+					tmp.get(0).getEntity(), null, event, null);
+		} else {
+			for (ShardEntity e: tmp) {
+				try {
+					callback.accept(new Reply(
+							sent[0] ? ReplyResult.SUCCESS_SENT : ReplyResult.FAILURE_NOT_SENT, 
+							e.getEntity(), 
+							null, 
+							event, 
+							null));	
+				} catch (Exception e2) {
+					logger.warn("{}: reply callback throwed exception: {}", getClass().getSimpleName(), e2.getMessage());
+				}
+			}
+		}
+		return null;
+	}
+
+	private List<ShardEntity> toEntities(
+			final Collection<Entity<?>> raws, 
+			final EntityEvent event,
+			final EntityPayload userPayload) {
 		
 		final List<ShardEntity> tmp = new ArrayList<>();
 		for (final Entity<?> e: raws) {
@@ -196,40 +249,7 @@ public class Client<D extends Serializable, P extends Serializable> {
 					ChangePlan.PLAN_WITHOUT);
 			tmp.add(tmpp);
 		}
-		
-		if (leader.inService()) {
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: Recurring to local leader !", getClass().getSimpleName());
-			}
-			clientMediator.mediateOnEntity(tmp, callback);
-		} else {
-			if (logger.isInfoEnabled()) {
-				//logger.info("{}: Sending {}: {} with Event: {} to leader in service", 
-					//	getClass().getSimpleName(), entity.getType(), raws, event);
-			}
-			int tries = 10;
-			boolean[] sent = {false};
-			while (!sent[0] && tries-->0) {
-				if (leaderShardContainer.getLeaderShardId()!=null) {
-					final BrokerChannel channel = eventBroker.buildToTarget(config, 
-							Channel.FROM_CLIENT,
-							leaderShardContainer.getLeaderShardId());
-					sent[0] = eventBroker.send(channel, (List)tmp);
-				} else {
-					try {
-						Thread.sleep(config.beatToMs(10));
-					} catch (InterruptedException ie) {
-						break;
-					}
-				}
-			}
-			for (ShardEntity e: tmp) {
-				callback.accept(
-					new Reply(sent[0] ? ReplyResult.SUCCESS_SENT : ReplyResult.FAILURE_NOT_SENT, 
-							e.getEntity(), null, event, null)
-					);
-			}
-		}
+		return tmp;
 	}
 
 	public String getShardIdentity() {

@@ -290,13 +290,21 @@ public class Server<D extends Serializable, P extends Serializable> {
 	
 	protected synchronized void destroy() {
 		if (tenant != null && tenant.getContext().isActive()) {
-			tenant.getContext().close();
+			try {
+				tenant.getContext().close();	
+			} catch (Exception e) {
+				logger.error("{}: Unexpected while destroying context at client call", name, e.getMessage());
+			}
 			if (tenant.getConfig().getBootstrap().isEnableWebserver() && tenant.getWebServer()!=null) {
-				tenant.getWebServer().shutdown();
+				try {
+					tenant.getWebServer().shutdown();					
+				} catch (Exception e) {
+					logger.error("{}: Unexpected while stopping server at client call", name, e.getMessage());
+				}
 			}
 			tenant = null;
 		} else {
-			logger.error("{}: Can only destroy service's context once !", name);
+			logger.info("{}: Context already destroyed ", name);
 		}
 	}
 	
@@ -346,20 +354,16 @@ public class Server<D extends Serializable, P extends Serializable> {
 
 	/**
 	 * <p>
-	 * Calls the termination of the system in an orderly manner.
-	 * Closing the API and system context, which in turn will trigger finalization
-	 * of processes Leader and Follower, dropping leadership candidature at Zookeeper, 
+	 * Warning: This executes automatically at VM shutdown (hook), but must be called independently 
+	 * when in need to release unnecesary resource consumption. 
 	 * <p>
-	 * This will also drop follower's captured entities, calling the client's consumer
-	 * of events passed at the EventMapper. 
+	 * Calls the termination of the system in an orderly manner.
+	 * Closing the API webserver and system context, which in turn will trigger finalization
+	 * of all spawned processes: dropping leadership candidature at Zookeeper, 
+	 * and follower's captured entities. (properly calling the passed lambda at EventMapper)
 	 */
 	public void shutdown() {
-		try {
-			tenant.getWebServer().shutdown();
-			tenant.getContext().close();
-		} catch (Exception e) {
-			logger.error("{}: Unexpected while stopping server at client call", name, e.getMessage());
-		}
+		destroy();
 	}
 	
 

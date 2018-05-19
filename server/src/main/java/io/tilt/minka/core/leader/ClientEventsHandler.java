@@ -167,13 +167,13 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 		} else {
 		    if (first.getType()==ShardEntity.Type.DUTY) {
 				if (first.is(EntityEvent.CREATE)) {
-					repo.saveAllDuty(entities, callback);
+					repo.saveAllDuties(entities, callback);
 				} else {
-				    repo.removeAllDuty(entities, callback);
+				    repo.removeAllDuties(entities, callback);
 				}
 			} else {
 				if (first.is(EntityEvent.CREATE)) {
-					repo.saveAllPallet(entities, callback);
+					repo.saveAllPallets(entities, callback);
 				} else {
 					repo.removeAllPallet(entities, callback);
 				}				
