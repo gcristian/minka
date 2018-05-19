@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.Validate;
@@ -37,6 +38,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.DutyBuilder.Task;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Pallet.Storage;
+import io.tilt.minka.api.Reply;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.balancer.Balancer;
@@ -331,11 +333,19 @@ public class Distributor implements Service {
 			logger.info("{}: reloading duties from storage", getName());
 			final Set<Duty<?>> duties = reloadDutiesFromStorage();
 			final Set<Pallet<?>> pallets = reloadPalletsFromStorage();
-			if (duties == null || duties.isEmpty() || pallets == null || pallets.isEmpty()) {
-				logger.warn("{}: distribution posponed: {} hasn't return any entities (pallets = {}, duties: {})",getName(),
-					config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "Minka storage" : "PartitionMaster",
-					duties, pallets);
-				return false;
+						
+			final String master = config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? 
+					"Minka storage" : "PartitionMaster";
+			if (pallets == null || pallets.isEmpty()) {
+				logger.warn("{}: EventMapper user's supplier hasn't return any pallets {}",getName(), master,  pallets);
+				initialAdding = false;
+			} else {				
+				schemeRepository.saveAllPalletsRaw(pallets, logger("Pallet"));
+			}
+			
+			if (duties == null || duties.isEmpty()) {
+				logger.warn("{}: EventMapper user's supplier hasn't return any duties: {}",getName(), master, duties);
+				initialAdding = false;
 			} else {
 				try {
 					duties.forEach(d -> Task.validateBuiltParams(d));
@@ -343,21 +353,28 @@ public class Distributor implements Service {
 					logger.error("{}: Distribution suspended - Duty Built construction problem: ", getName(), e);
 					return false;
 				}
-				logger.info("{}: {} reported {} entities for sharding...", getName(),
-					config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster",
-					duties.size());
-				schemeRepository.savePallets(pallets);
-				schemeRepository.saveDuties(duties);
+				schemeRepository.saveAllDutiesRaw(duties, logger("Duty"));
 				initialAdding = false;
 			}
+
 			if (shardingScheme.getBackstage().getDutiesCrud().isEmpty()) {
-				logger.warn("{}: Aborting first distribution cause of no duties !", getName());
+				logger.warn("{}: Aborting first distribution (no CRUD duties)", getName());
 				return false;
+			} else {
+				logger.info("{}: {} reported {} entities for sharding...", getName(), master, duties.size());
 			}
 		} else {
 			checkUnexistingDutiesFromStorage();
 		}
 		return true;
+	}
+
+	private Consumer<Reply> logger(final String type) {
+		return (reply)-> {
+			if (!reply.isSuccess()) {
+				logger.info("{}: Skipping {} CRUD already in scheme: {}", getName(), type, reply.getEntity());
+			}
+		};
 	}
 
 	/** feed missing duties with storage/scheme diff. */
