@@ -63,10 +63,12 @@ public class Bootstrap implements Service {
 	private final ShardIdentifier shardId;
 	private final EventBroker eventBroker;
 	private final SpectatorSupplier spectatorSupplier;
-	private final Agent bootLeadershipCandidate;
-	private final Agent readyAwareBooting;
-	private final Agent unconfidentLeader;
 	private final String leaderLatchPath;
+	
+	private Agent bootLeadershipCandidate;
+	private Agent readyAwareBooting;
+	private Agent unconfidentLeader;
+	
 	
 	private Date start;
 	private Locks locks;
@@ -102,15 +104,17 @@ public class Bootstrap implements Service {
 
 		this.repostulationCounter = 0;
 
-		this.bootLeadershipCandidate = scheduler
-				.getAgentFactory().create(
-						Action.BOOTSTRAP_LEADERSHIP_CANDIDATURE, 
-						PriorityLock.HIGH_ISOLATED,
-						Frequency.ONCE_DELAYED, 
-						() -> bootLeadershipCandidate())
-				.delayed(REPUBLISH_LEADER_CANDIDATE_AFTER_LOST_MS)
-				.build();
+		createCandidate(scheduler);
+		createBootup(config, scheduler);
+		createUnconfident(config, scheduler);
 
+		if (autoStart) {
+			start();
+		}
+		this.leaderLatchPath = String.format(NAMESPACE_MASK_LEADER_LATCH, config.getBootstrap().getServiceName());
+	}
+
+	private void createBootup(final Config config, final Scheduler scheduler) {
 		this.readyAwareBooting = scheduler
 				.getAgentFactory().create(
 						Action.BOOTSTRAP_BULLETPROOF_START, 
@@ -119,21 +123,29 @@ public class Bootstrap implements Service {
 						() -> readyAwareBooting())
 				.delayed(config.beatToMs(config.getBootstrap().getReadynessRetryDelayBeats()))
 				.build();
+	}
 
+	private void createCandidate(final Scheduler scheduler) {
+		this.bootLeadershipCandidate = scheduler
+				.getAgentFactory().create(
+						Action.BOOTSTRAP_LEADERSHIP_CANDIDATURE, 
+						PriorityLock.HIGH_ISOLATED,
+						Frequency.ONCE_DELAYED, 
+						() -> bootLeadershipCandidate())
+				.delayed(REPUBLISH_LEADER_CANDIDATE_AFTER_LOST_MS)
+				.build();
+	}
+
+	private void createUnconfident(final Config config, final Scheduler scheduler) {
 		this.unconfidentLeader = scheduler
 				.getAgentFactory().create(
 						Action.ANY, 
 						PriorityLock.HIGH_ISOLATED,
 						Frequency.PERIODIC, 
 						() -> checkReceivingBeats())
-				.every(config.beatToMs(5))
-				.delayed(config.beatToMs(config.getBootstrap().getReadynessRetryDelayBeats()))
+				.every(config.beatToMs(config.getBootstrap().getLeaderUnconfidentStartDelayBeats()))
+				.delayed(config.beatToMs(config.getBootstrap().getLeaderUnconfidentDelayBeats()))
 				.build();
-
-		if (autoStart) {
-			start();
-		}
-		this.leaderLatchPath = String.format(NAMESPACE_MASK_LEADER_LATCH, config.getBootstrap().getServiceName());
 	}
 	
 	@Override
@@ -143,11 +155,12 @@ public class Bootstrap implements Service {
 		validator.validate(config, dependencyPlaceholder.getMaster());
 		scheduler.start();
 		leaderShardContainer.start(); // all latter services will use it
-		eventBroker.start(); // enable the principal service
+		
 		locks = new Locks(spectatorSupplier.get());
 		readyAwareBooting(); // start the real thing
 		// after booting to avoid booting's failure race condition with restart()
 		locks.setConnectionLostCallback(() -> restart());
+		eventBroker.start(); // enable the principal service
 	}
 
 	@Override
@@ -221,13 +234,13 @@ public class Bootstrap implements Service {
 				public void start() {
 					logger.info("Bootstrap: {} Elected as Leader", leader.getShardId());
 					leader.start();
-					scheduler.schedule(unconfidentLeader);
-					//for testing only: oppingLeader(latchName);
+					//scheduler.schedule(unconfidentLeader);
+					//for testing only: hoppingLeader(latchName);
 				}
 				@Override
 				public void stop() {
 					leader.stop();
-					scheduler.stop(unconfidentLeader);
+					//scheduler.stop(unconfidentLeader);
 					if (inService()) {
 						logger.info("Bootstrap: {} Stopping Leader: now Candidate", leader.getShardId());
 						scheduler.schedule(bootLeadershipCandidate);

@@ -19,6 +19,10 @@ public class BootstrapConfiguration {
 	private long beatUnitMs;		
 	protected static final long READYNESS_RETRY_DELAY_BEATS = 5;
 	private long readynessRetryDelayBeats;
+	protected static final long LEADER_UNCONFIDENT_START_DELAY_BEATS = 20;
+	private long leaderUnconfidentStartDelayBeats;
+	protected static final long LEADER_UNCONFIDENT_DELAY_BEATS = 10;
+	private long leaderUnconfidentDelayBeats;
 	
 	//protected static final long READYNESS_RETRY_DELAY_MS = 5000l;
 	//private long readynessRetryDelayMs;
@@ -64,6 +68,18 @@ public class BootstrapConfiguration {
 	}
 	public long getReadynessRetryDelayBeats() {
 		return readynessRetryDelayBeats;
+	}
+	public long getLeaderUnconfidentDelayBeats() {
+		return leaderUnconfidentDelayBeats;
+	}
+	public void setLeaderUnconfidentDelayBeats(long leaderUnconfidentDelayBeats) {
+		this.leaderUnconfidentDelayBeats = leaderUnconfidentDelayBeats;
+	}
+	public long getLeaderUnconfidentStartDelayBeats() {
+		return leaderUnconfidentStartDelayBeats;
+	}
+	public void setLeaderUnconfidentStartDelayBeats(long leaderUnconfidentStartDelayBeats) {
+		this.leaderUnconfidentStartDelayBeats = leaderUnconfidentStartDelayBeats;
 	}
 	public void setBeatUnitMs(long beatUnitMs) {
 		this.beatUnitMs = beatUnitMs;
