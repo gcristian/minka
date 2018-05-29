@@ -6,11 +6,8 @@ import static io.tilt.minka.domain.EntityState.PREPARED;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -71,13 +68,13 @@ public class SchemeRepository {
 
 	public void removeAllDuties(final Collection<ShardEntity> coll, final Consumer<Reply> callback) {
 		final List<ShardEntity> tmp = new ArrayList<>(coll.size());
-		for (ShardEntity se : coll) {
-			final ShardEntity current = scheme.getScheme().getByDuty(se.getDuty());
+		for (ShardEntity remove : coll) {
+			final ShardEntity current = scheme.getScheme().getByDuty(remove.getDuty());
 			if (current != null) {
-				tmp.add(current);
+				tmp.add(remove);
 			} else {
-				tryCallback(callback, new Reply(ReplyResult.ERROR_ENTITY_NOT_FOUND, se.getDuty(), null, null,
-						String.format("%s: Deletion request not found on scheme: %s", classname, se.getDuty())));
+				tryCallback(callback, new Reply(ReplyResult.ERROR_ENTITY_NOT_FOUND, remove.getDuty(), null, null,
+						String.format("%s: Deletion request not found on scheme: %s", classname, remove.getDuty())));
 			}
 		}
 
@@ -180,8 +177,8 @@ public class SchemeRepository {
     					String.format("%s: Skipping remove not found in Scheme: %s", 
     							getClass().getSimpleName(), pallet.getEntity().getId())));
     		} else {
-    		    final boolean original = scheme.addCrudPallet(pallet);
-    		    tryCallback(callback, new Reply(original ? ReplyResult.SUCCESS : ReplyResult.SUCCESS_OPERATION_ALREADY_SUBMITTED, 
+    		    final boolean done = scheme.addCrudPallet(pallet);
+    		    tryCallback(callback, new Reply(done ? ReplyResult.SUCCESS : ReplyResult.ERROR_ENTITY_NOT_FOUND, 
                     pallet.getEntity(), PREPARED, REMOVE, null));
     		}
 	    }

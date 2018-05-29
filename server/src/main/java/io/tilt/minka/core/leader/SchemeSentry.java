@@ -165,7 +165,9 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			boolean previousThanCrud = changelog.getHead().toInstant().isBefore(lastEventOnCrud);
 			// if the update corresponds to the last CRUD OR they're both the same event (duplicated operation)
 			if (!previousThanCrud || changelog.getEvent().getRootCause()==crud.getLastEvent()) {
-				shardingScheme.getBackstage().removeCrud(entity);
+				if (!shardingScheme.getBackstage().removeCrud(entity)) {
+					logger.warn("{} Backstage CRUD didnt existed: {}", classname, entity);
+				}
 			} else {
 				logger.warn("{}: Avoiding Backstage removal of CRUD as it's different and after the last event", 
 						classname, entity);

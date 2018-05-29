@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.leader.SchemeSentry;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 
@@ -159,9 +160,15 @@ public class ShardingScheme {
 	 * @return TRUE if the operation is done for the first time 
 	 */
 	public boolean addCrudPallet(final ShardEntity pallet) {
-		final boolean schematized = getScheme().palletsById.put(pallet.getPallet().getId(), pallet)==null;
-		final boolean staged = getBackstage().palletCrud.put(pallet.getPallet(), pallet)==null;
-		return schematized && staged;
+		boolean done = false;
+		if (pallet.getLastEvent()==EntityEvent.REMOVE) {
+			// TRUE: something removed
+			done = getScheme().palletsById.remove(pallet.getPallet().getId())!=null;
+		} else if (pallet.getLastEvent()==EntityEvent.CREATE) {
+			// TRUE: done first time
+			done = getScheme().palletsById.put(pallet.getPallet().getId(), pallet)==null;	
+		}
+		return done;
 	}
 
 	public void addChangeObserver(final Runnable observer) {
