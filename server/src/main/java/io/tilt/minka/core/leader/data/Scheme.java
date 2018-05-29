@@ -224,7 +224,7 @@ public class Scheme {
 			final boolean one) {
 		for (Shard shard: shardsByID.values()) {
 			if (state==null || shard.getState()==state) {
-				for (final ShardEntity e: partitionsByShard.get(shard).getDuties()) {
+				for (final ShardEntity e: getPartition(shard).getDuties()) {
 					if (pallet == null || e.getDuty().getPalletId().equals(pallet.getId())) {
 						if (test==null || test.test(e)) {
 							consumer.accept(e);
