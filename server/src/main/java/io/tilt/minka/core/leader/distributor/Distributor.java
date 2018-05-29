@@ -156,17 +156,26 @@ public class Distributor implements Service {
 				logger.warn("{}: ({}) Suspending distribution: not leader anymore ! ", getName(), shardId);
 				return;
 			}
+			final boolean noNews = !config.getDistributor().isRunOnStealthMode() &&
+					(!shardingScheme.getScheme().isStealthChange() 
+					&& !shardingScheme.getBackstage().isStealthChange());
 			// skip if unstable unless a plan in progress or expirations will occurr and dismiss
 			final ChangePlan currPlan = shardingScheme.getCurrentPlan();
-			if ((currPlan==null || currPlan.getResult().isClosed()) && 
-			        shardingScheme.getShardsHealth() == ClusterHealth.UNSTABLE) {
+			
+			final boolean noPlan = currPlan==null || currPlan.getResult().isClosed();
+			
+			if (noPlan && shardingScheme.getShardsHealth() == ClusterHealth.UNSTABLE) {
 				logger.warn("{}: ({}) Suspending distribution until reaching cluster stability", getName(), shardId);
 				return;
-			} else if (currPlan!=null && currPlan.getResult().isClosed()) {
-				if (config.getDistributor().isRunOnStealthMode() &&
-						(!shardingScheme.getScheme().isStealthChange() 
-						&& !shardingScheme.getBackstage().isStealthChange())) {
-					return;
+			} else if (noNews && noPlan) {
+				return;
+			} else if (!noNews && noPlan) {
+				if (shardingScheme.getBackstage().isStealthChange()) {
+					final long threshold = config.beatToMs(config.getDistributor().getStealthHoldThresholdBeats());
+					if (!shardingScheme.getBackstage().stealthOverThreshold(threshold)) {
+						//logger.info("{}: Waiting backstage's stealth-change over time distance threshold");
+						//return;
+					}
 				}
 			}
 			
@@ -243,7 +252,7 @@ public class Distributor implements Service {
 				logger.info("{}: Distribution in Balance ", getName(), LogUtils.BALANCED_CHAR);
 			}			
 			shardingScheme.getScheme().stealthChange(false);
-			shardingScheme.getBackstage().stealthChange(false);
+			shardingScheme.getBackstage().setStealthChange(false);
 			return null;
 		}
 	}

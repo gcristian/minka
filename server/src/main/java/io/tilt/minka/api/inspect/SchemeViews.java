@@ -307,6 +307,8 @@ public class SchemeViews {
 		map.put("size-crud", table.getBackstage().getDutiesCrud().size());
 		map.put("size-missings", table.getBackstage().getDutiesMissing().size());
 		map.put("size-dangling", table.getBackstage().getDutiesDangling().size());
+		map.put("stage-change", table.getBackstage().isStealthChange());
+		map.put("scheme-change", table.getScheme().isStealthChange());
 		return map;
 	}
 	

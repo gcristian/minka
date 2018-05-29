@@ -7,6 +7,8 @@ public class DistributorSettings {
 	private boolean runConsistencyCheck;
 	protected static final boolean RUN_ON_STEALTH_MODE = true;
 	private boolean runOnStealthMode;
+	protected static final long STEALTH_HOLD_THRESHOLD_BEATS = 5;
+	private long stealthHoldThresholdBeats;
 	protected static final boolean RELOAD_DUTIES_FROM_STORAGE = false;
 	private boolean reloadDutiesFromStorage;
 	protected static final int RELOAD_DUTIES_FROM_STORAGE_EACH_PERIODS = 10;
@@ -34,6 +36,12 @@ public class DistributorSettings {
 	}
 	public void setRunOnStealthMode(boolean runOnStealthMode) {
 		this.runOnStealthMode = runOnStealthMode;
+	}
+	public long getStealthHoldThresholdBeats() {
+		return stealthHoldThresholdBeats;
+	}
+	public void setStealthHoldThresholdBeats(long stealthHoldThresholdBeats) {
+		this.stealthHoldThresholdBeats = stealthHoldThresholdBeats;
 	}
 	public boolean isReloadDutiesFromStorage() {
 		return this.reloadDutiesFromStorage;

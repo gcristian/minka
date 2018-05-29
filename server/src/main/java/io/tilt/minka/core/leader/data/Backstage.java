@@ -43,10 +43,13 @@ public class Backstage {
 	// read-only snapshot for ChangePlanBuilder thread (not to be modified, backstage remains MASTER)
 	private Backstage snapshot;
 	private boolean stealthChange;
+	private boolean snap = false;
+	private Instant lastStealthChange;
 	
 	/** @return a frozen state of Backstage, so message-events threads 
 	 * (threadpool-size independently) can still modify the instance for further change plans */
 	public synchronized Backstage snapshot() {
+		checkNotOnSnap();
 		if (snapshot==null) {
 			final Backstage tmp = new Backstage();
 			tmp.dutyCrud.putAll(this.dutyCrud);
@@ -54,12 +57,20 @@ public class Backstage {
 			tmp.dutyMissings.putAll(this.dutyMissings);
 			tmp.palletCrud.putAll(this.palletCrud);
 			tmp.snaptake = Instant.now();
+			tmp.snap = true;
 			this.snapshot = tmp;
 		}
 		return snapshot;
 	}
+
+	private void checkNotOnSnap() {
+		if (snap) {
+			throw new IllegalStateException("already a snapshot - bad usage !");
+		}
+	}
 	
 	public void dropSnapshot() {
+		checkNotOnSnap();
 		this.snapshot = null;
 	}
 	
@@ -79,11 +90,23 @@ public class Backstage {
 		this.dutyDangling = new HashMap<>();
 	}
 
-	public void stealthChange(final boolean value) {
+	public void setStealthChange(final boolean value) {
+		checkNotOnSnap();
+		if (!value && snapshot!=null) {
+			// invalidate a turn-off on changes done after last snapshot
+			if (this.snaptake.isBefore(this.lastStealthChange)) {
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: invalidating stealth-change turn-off on changes post-snapshot", 
+							getClass().getSimpleName());
+				}
+				return;
+			}
+		}
 		this.stealthChange = value;
 	}
 	/** @return true when the backstage has changes worthy of distribution phase run  */
 	public boolean isStealthChange() {
+		checkNotOnSnap();
 		return this.stealthChange;
 	}
 	
@@ -92,22 +115,39 @@ public class Backstage {
 		return Collections.unmodifiableCollection(this.dutyDangling.values());
 	}
 	
+	private void evalStealth(final boolean value) {
+		if (value) {
+			stealthChange = true;
+			lastStealthChange = Instant.now();
+		}
+	}
+	
+	/** @return TRUE if last stealth change timestamp has got far away more than threshold */
+	public boolean stealthOverThreshold(final long thresholdMillis) {
+		final long diff = Instant.now().getEpochSecond() - lastStealthChange.getEpochSecond();
+		logger.info("diff: {},  thgresholdMillis {}", diff, thresholdMillis);
+		return (diff * 1000 ) > thresholdMillis;
+		
+	}
+	
 	/** @return true if added for the first time else is being replaced */
 	public boolean addDangling(final Collection<ShardEntity> dangling) {
 		boolean added = false; 
 		for (ShardEntity d: dangling) {
 			added |= this.dutyDangling.put(d.getDuty(), d) == null;
 		}
-		stealthChange |= added;
+		evalStealth(added);
 		return added;
 	}
+	
 	public boolean addDangling(final ShardEntity dangling) {
 		final boolean added = this.dutyDangling.put(dangling.getDuty(), dangling) == null;
-		stealthChange |= added;
+		evalStealth(added);
 		return added;
 
 	}
 	public void cleanAllocatedDanglings() {
+		checkNotOnSnap();
 		if (snapshot!=null && !dutyDangling.isEmpty()) {
 			remove(snapshot.dutyDangling, dutyDangling, s->s.getLastState() != EntityState.STUCK);
 		}
@@ -120,7 +160,7 @@ public class Backstage {
 			if (test.test(e.getValue())) {
 				target.remove(e.getKey());
 			}
-		}			
+		}
 	}
 	
 	public int accountCrudDuties() {
@@ -133,10 +173,10 @@ public class Backstage {
 		// the uniqueness of it's wrapped object doesnt define the uniqueness of the wrapper
 		// updates and transfer go in their own manner
 		final boolean added = dutyCrud.put(duty.getDuty(), duty) == null;
-		stealthChange |= added;
+		evalStealth(added);
 		return added;
-
 	}
+
 	public void addAllCrudDuty(final Collection<ShardEntity> coll, final BiConsumer<Duty<?>, Boolean> callback) {
 		// the uniqueness of it's wrapped object doesnt define the uniqueness of the wrapper
 		// updates and transfer go in their own manner
@@ -146,7 +186,7 @@ public class Backstage {
 			callback.accept(e.getDuty(), v);
 			added |= v;
 		}
-		stealthChange |= added;
+		evalStealth(added);
 	}
 	
 	public Collection<ShardEntity> getDutiesCrud() {
@@ -157,8 +197,8 @@ public class Backstage {
 		final ShardEntity candidate = dutyCrud.get(entity.getDuty());
 		// consistency check: only if they're the same action 
 		if (candidate!=null) {// && candidate.getLastEvent()==entity.getLastEvent().getRootCause()) {
-			removed =this.dutyCrud.remove(entity.getDuty()) == null;
-			stealthChange |= removed;
+			removed =this.dutyCrud.remove(entity.getDuty()) != null;
+			evalStealth(removed);
 		}
 		return removed;
 	}
@@ -169,30 +209,33 @@ public class Backstage {
 	}
 	
 	public void clearAllocatedMissing() {
+		checkNotOnSnap();
 		if (snapshot!=null && !dutyMissings.isEmpty()) {
 			remove(snapshot.dutyMissings, dutyMissings, s->s.getLastState() != EntityState.STUCK);
 		}
 	}
 	
 	public boolean addMissing(final Collection<ShardEntity> duties) {
+		checkNotOnSnap();
 		boolean added = false;
 		for (ShardEntity d: duties) {
 			added |= dutyMissings.put(d.getDuty(), d) == null;
 		}
-		stealthChange |= added;
+		evalStealth(added);
 		return true;
-
 	}
 
 	public boolean addMissing(final ShardEntity duty) {
+		checkNotOnSnap();
 		final boolean replaced = this.dutyMissings.put(duty.getDuty(), duty) !=null;
-		stealthChange |= replaced;
+		evalStealth(replaced);
 		return true;
 	}
 
 	public void removeCrudDuties() {
+		checkNotOnSnap();
 		this.dutyCrud.clear();
-		stealthChange = true;
+		evalStealth(true);
 	}
 	public int sizeDutiesCrud(final Predicate<EntityEvent> event, final Predicate<EntityState> state) {
 		final int[] size = new int[1];
