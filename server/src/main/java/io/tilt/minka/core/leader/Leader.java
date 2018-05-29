@@ -56,6 +56,7 @@ public class Leader implements Service {
 
 	private boolean served;
 	private Date start;
+	private Date stop;
 
 	public Leader(
 			final Config config, 
@@ -91,25 +92,32 @@ public class Leader implements Service {
 	@Override
 	public void start() {
 		try {
-			this.start = new Date();
 			//if (!locks.runOnLockRace(Names.getLeaderLockName(config.getServiceName()), ()-> {
 			scheduler.run(scheduler.getFactory().build(
 					Action.LEADERSHIP, 
 					PriorityLock.LOW_ON_PERMISSION, 
 					() -> {
+				
 				try {
 					served = true;
-					logger.info("{}: Registering as Leader at well after waiting {} msecs", getName(),
-							System.currentTimeMillis() - start.getTime());
-					leaderShardContainer.setNewLeader(shardId);
-					logger.info("{}: {} msec since load till leader election", getName(),
-							(DateTime.now().getMillis() - config.loadTime.getMillis()));
-					// start analyzing the shards and distribute duties
-					proctor.start();
-					distributor.start();
-					// start listening events from followers and clients alike
-					followerEventsHandler.start();
-					clientEventsHandler.start();
+					final Date start = new Date();
+					if (stop==null) {
+						final long w = System.currentTimeMillis() - start.getTime();
+						logger.info("{}: Registering as Leader at well after waiting {} msecs", getName(), w);
+						leaderShardContainer.setNewLeader(shardId);
+						final long e = DateTime.now().getMillis() - config.loadTime.getMillis();
+						logger.info("{}: {} msec since load till leader election", getName(), e);
+						// start analyzing the shards and distribute duties
+						proctor.start();
+						distributor.start();
+						// start listening events from followers and clients alike
+						followerEventsHandler.start();
+						clientEventsHandler.start();
+					} else {
+						logger.warn("{}: Skipping start of an already stopped leader: {}", getName(), shardId);
+					}
+					
+					this.start = start;
 				} catch (Exception e) {
 					logger.error("Unexpected error when starting service. Cannot procede", e);
 				}
@@ -129,6 +137,7 @@ public class Leader implements Service {
 	@Override
 	public void stop() {
 		if (start!=null) {
+			this.stop = new Date();
 			this.start = null;
 			logger.info("{}: Stopping ({})", getName(), !served ? "never served" : "paid my duty");
 			proctor.stop();
