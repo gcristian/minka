@@ -14,9 +14,9 @@ public class DistributorSettings {
 	protected static final int RELOAD_DUTIES_FROM_STORAGE_EACH_PERIODS = 10;
 	private int reloadDutiesFromStorageEachPeriods;
 	/* 10 seconds to let the Proctor discover all Followers before distributing */
-	protected final static long START_DELAY_BEATS = 5;
+	protected final static long START_DELAY_BEATS = 1;
 	private long startDelayBeats;
-	protected final static long DELAY_BEATS = 3;
+	protected final static long DELAY_BEATS = 2;
 	private long delayBeats;
 	protected static final int PLAN_EXPIRATION_BEATS = 10;
 	private int planExpirationBeats;
