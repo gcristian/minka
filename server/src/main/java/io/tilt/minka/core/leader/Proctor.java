@@ -214,7 +214,7 @@ public class Proctor implements Service {
 		final ShardState currentState = shard.getState();
 		ShardState newState = currentState;
 		LinkedList<Heartbeat> pastLapse = null;
-		Shard.Cause cause = null;
+		Shard.Cause cause = shard.getChanges().iterator().next().getCause();
 
 		final int minHealthlyToGoOnline = config.getProctor().getMinHealthlyHeartbeatsForShardOnline();
 		final int minToBeGone = config.getProctor().getMinAbsentHeartbeatsBeforeShardGone();

@@ -6,8 +6,8 @@ public class ProctorSettings {
 	public final static int MAX_SHARD_CHANGES_TO_HOLD = 5;
 	
 	protected final static long START_DELAY_BEATS = 1;
-	
 	private long startDelayBeats;
+	
 	protected final static long DELAY_BEATS = 3; // i jhad it on 2000
 	private long delayBeats;
 	protected static final int MAX_SHARD_JOINING_STATE_BEATS = 15;

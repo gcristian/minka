@@ -9,7 +9,7 @@ public class BootstrapConfiguration {
     protected boolean dropVMLimit;
     
 	protected static final String SERVICE_NAME = ("default-name");
-	private static String serviceName;
+	private String serviceName;
 
 	protected static final long MAX_SERVICES_PER_MACHINE = 1;
 	private long maxServicesPerMachine;
@@ -45,7 +45,7 @@ public class BootstrapConfiguration {
 		return serviceName;
 	}
 	public void setServiceName(String serviceName) {
-		BootstrapConfiguration.serviceName = serviceName;
+		this.serviceName = serviceName;
 	}
 	public void setDropVMLimit(boolean dropVMLimit) {
 		this.dropVMLimit = dropVMLimit;

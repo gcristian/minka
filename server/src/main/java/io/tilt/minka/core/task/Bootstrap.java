@@ -89,8 +89,7 @@ public class Bootstrap implements Service {
 			final ShardIdentifier shardId, 
 			final EventBroker eventBroker) {
 
-		Validate.notNull(config, "a unique service name is required (within the ZK ensemble)");
-		this.config = config;
+		this.config = requireNonNull(config, "a unique service name is required (within the ZK ensemble)");
 		this.validator = requireNonNull(validator);
 		this.spectatorSupplier = requireNonNull(spectatorSupplier);
 		this.leader = requireNonNull(leader);
@@ -203,8 +202,8 @@ public class Bootstrap implements Service {
 			}
 			bootLeadershipCandidate();
 		} else {
-			logger.warn("{}: ({}) Not ready ? check method Server.load() (PartitionDelegate returned not ready!. Bootstrap will retry endlessly)",
-					getName(), shardId);
+			logger.warn("{}: ({}) Not ready ? check method Server.load() (PartitionDelegate returned not ready!. "
+					+ "Bootstrap will retry endlessly)", getName(), shardId);
 			scheduler.schedule(readyAwareBooting);
 		}
 	}

@@ -22,6 +22,7 @@ public class DistributorSettings {
 	protected static final int PLAN_MAX_RETRIES = 3;
 	private int planMaxRetries;
 	
+	
 	public boolean isRunConsistencyCheck() {
 		return this.runConsistencyCheck;
 	}

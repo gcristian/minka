@@ -171,8 +171,8 @@ public class Client<D extends Serializable, P extends Serializable> {
 		final List<ShardEntity> entities = toEntities(raws, event, userPayload);
 		
 		if (leader.inService()) {
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: Recurring to local leader !", getClass().getSimpleName());
+			if (logger.isDebugEnabled()) {
+				logger.debug("{}: Recurring to local leader !", getClass().getSimpleName());
 			}
 			if (callback==null) {
 				clientMediator.mediateOnEntity(entities, reply->r[0]=reply);
@@ -180,9 +180,9 @@ public class Client<D extends Serializable, P extends Serializable> {
 				clientMediator.mediateOnEntity(entities, callback);
 			}
 		} else {
-			if (logger.isInfoEnabled()) {
-				//logger.info("{}: Sending {}: {} with Event: {} to leader in service", 
-					//	getClass().getSimpleName(), entity.getType(), raws, event);
+			if (logger.isDebugEnabled()) {
+				logger.debug("{}: Sending event: {} to leader in service", 
+					getClass().getSimpleName(), event, raws, event);
 			}
 			r[0] = sendAndReply(event, callback, r, entities);
 		}

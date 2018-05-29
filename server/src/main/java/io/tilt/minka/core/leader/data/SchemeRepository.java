@@ -156,7 +156,7 @@ public class SchemeRepository {
 					originId, 
 					origin.getPlanId());
 		} else {
-			logger.warn("{}: Origin Shard sender of duties not found: {}", classname, origin.getTargetId());
+			logger.error("{}: Origin Shard sender of duties not found: {}", classname, origin.getTargetId());
 		}
 	}
 
