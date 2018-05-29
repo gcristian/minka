@@ -85,7 +85,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	@Override
 	public void start() {
 		if (server == null) {
-			this.leaderShardContainer.observeForChange((s) -> onLeaderChange(s));
+			
 			scheduler.schedule(scheduler.getAgentFactory()
 					.create(Action.DISCARD_OBSOLETE_CONNECTIONS, 
 							PriorityLock.HIGH_ISOLATED,
@@ -107,6 +107,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 					(int)config.beatToMs(config.getBroker().getRetryDelayMiliBeats()/1000),
 					config.getBroker().getMaxRetries(), 
 					getShardId().toString());
+			this.leaderShardContainer.observeForChange((s) -> onLeaderChange(s));
 		}
 	}
 
