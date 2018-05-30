@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.EntityPayload;
 import io.tilt.minka.broker.EventBroker;
+import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
@@ -66,6 +67,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 	private final LeaderShardContainer leaderContainer;
 	
 	private Clearance lastClearance;
+	private BrokerChannel channel;
 	
 	public LeaderEventsHandler(
 			final Config config, 
@@ -92,13 +94,8 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		this.dependencyPlaceholder.getDelegate().activate();
 		logger.info("{}: ({}) Preparing for leader events", getName(), config.getLoggingShardId());
 		final long sinceNow = System.currentTimeMillis();
-		eventBroker.subscribeEvents(
-				eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, partition.getId()),
-				this, 
-				sinceNow, 
-				ShardEntity.class, 
-				Clearance.class, 
-				ArrayList.class);
+		this.channel = eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, partition.getId());
+		eventBroker.subscribeEvents(channel,this, sinceNow, ShardEntity.class, Clearance.class, ArrayList.class);
 	}
 
 	public Clearance getLastClearance() {
@@ -110,12 +107,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		logger.info("{}: ({}) Stopping", getName(), config.getLoggingShardId());
 		partitionManager.releaseAll();
 		this.dependencyPlaceholder.getDelegate().deactivate();
-		eventBroker.unsubscribe(
-		        eventBroker.buildToTarget(
-    		        config, 
-    		        Channel.INSTRUCTIONS, 
-    		        partition.getId()),
-				EntityPayload.class, this);
+		eventBroker.unsubscribe(channel, EntityPayload.class, this);
 	}
 
 	@Override

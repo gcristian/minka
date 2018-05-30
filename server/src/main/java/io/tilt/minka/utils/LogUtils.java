@@ -61,7 +61,7 @@ public class LogUtils {
 	}
 	private static String randomSaluteFromFile() {
 		try {
-			final int num = 1;
+			final int num = 2;
 			return StreamUtils.copyToString(
 					LogUtils.class.getResourceAsStream("salutation" + num + ".txt"), 
 					Charset.forName("utf-8"));

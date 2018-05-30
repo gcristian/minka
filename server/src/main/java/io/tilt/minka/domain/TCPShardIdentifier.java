@@ -26,6 +26,7 @@ import java.net.ServerSocket;
 import java.util.Enumeration;
 import java.util.Random;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang3.Validate;
 import org.joda.time.DateTime;
@@ -129,7 +130,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 					return;
 				}
 			} catch (Exception e) {
-				if (search == 0 && !!findAnyPort || findAnyPort) {
+				if (search == 0) {
 					cause = e;
 				}
 			}
@@ -152,6 +153,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 			logger.debug("{}: Testing host {} port {} OK", logName, sourceHost, testPort);
 			return socket;
 		} catch (IOException e) {
+			IOUtils.closeQuietly(socket);
 			throw new IllegalArgumentException("Testing port cannot be opened: " + testPort, e);
 		}
 	}

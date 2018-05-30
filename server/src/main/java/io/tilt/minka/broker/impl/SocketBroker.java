@@ -38,6 +38,7 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
@@ -65,6 +66,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	private final Config config;
     private final Scheduler scheduler;
 	private final LeaderShardContainer leaderShardContainer;
+	private final Agent discarderAgent;
 	
 	private SocketServer server;
 	private Map<DirectChannel, SocketClient> clients;
@@ -80,20 +82,22 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 		this.scheduler = requireNonNull(scheduler);
 		this.leaderShardContainer = requireNonNull(leaderContainerShard);
 		this.clients = new HashMap<>(5);
+		
+		this.discarderAgent = scheduler.getAgentFactory()
+				.create(Action.DISCARD_OBSOLETE_CONNECTIONS, 
+						PriorityLock.HIGH_ISOLATED,
+						Frequency.PERIODIC, 
+						() -> discardObsoleteClients())
+				.delayed(5000)
+				.every(2000)
+				.build();
+
 	}
 
 	@Override
 	public void start() {
-		if (server == null) {
-			
-			scheduler.schedule(scheduler.getAgentFactory()
-					.create(Action.DISCARD_OBSOLETE_CONNECTIONS, 
-							PriorityLock.HIGH_ISOLATED,
-							Frequency.PERIODIC, 
-							() -> discardObsoleteClients())
-					.delayed(5000)
-					.every(2000)
-					.build());
+		if (server == null) {			
+			scheduler.schedule(discarderAgent);
 
 			logger.info("{}: Creating SocketServer", getName());
 			getShardId().release();
@@ -113,6 +117,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 
 	@Override
 	public void stop() {
+		scheduler.stop(discarderAgent);
 		// caution on bad initialization
 		getShardId().release();
 		closeServer();
@@ -216,11 +221,6 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 			final Class<? extends Serializable> eventType,
 			final Consumer<Serializable> driver) {
 		return true;
-	}
-
-	@Override
-	public void setBrokerShutdownCallback(Runnable callback) {
-		server.setShutdownCallback(callback);
 	}
 
 	public class DirectChannel implements BrokerChannel {

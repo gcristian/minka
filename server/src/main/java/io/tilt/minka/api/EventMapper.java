@@ -94,7 +94,7 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	 */
 	public EventMapper<D, P> onPalletCapture(final Consumer<Set<Pallet<P>>> consumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).putConsumerPallet(consumer, MappingEvent.capture);
+		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).putConsumerPallet(consumer, MappingEvent.capturePallet);
 		return this;
 	}	
 	/**

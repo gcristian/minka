@@ -67,21 +67,28 @@ public class TestUtils {
 		ownConfig.getBootstrap().setBeatUnitMs(refConfig.getBootstrap().getBeatUnitMs());
 		ownConfig.getBootstrap().setDropVMLimit(true);
 
-		final Set<Duty<String>> captured = new HashSet<>();
-		final Set<Duty<String>> released = new HashSet<>();
-		
+		final Set<Duty<String>> everCaptured = new HashSet<>();
+		final Set<Duty<String>> everReleased = new HashSet<>();
+		final Set<Duty<String>> current = new HashSet<>();
+		final Object[] o = {null};
 		final Server<String, String> server = new Server<String, String>(ownConfig);
-		final EventMapper<String, String> mapper = server.getEventMapper()
-			.onPalletLoad(() -> pallets)
-			.onLoad(()-> duties)
-			.onCapture(captured::addAll)
-			.onRelease(released::addAll)
-			;
-		if (!pallets.isEmpty()) {
-			for (Pallet<String> p: pallets) {
-				mapper.setCapacity(p, 100);
-			}
+		final EventMapper<String, String> mapper = server.getEventMapper();
+		for (Pallet<String> p: pallets) {
+			mapper.setCapacity(p, 100);
 		}
+		mapper.onPalletLoad(() -> pallets)
+			.onLoad(()-> duties)
+			.onPalletRelease(p->o[0]=p)
+			.onPalletCapture(p->o[0]=p)
+			.onCapture(d-> { 
+				everCaptured.addAll(d);
+				current.addAll(d);
+			})
+			.onRelease(d-> {
+				everReleased.addAll(d);
+				current.removeAll(d);
+			});
+			;
 		mapper
 			.setLocationTag(tag)
 			.done();
@@ -89,7 +96,7 @@ public class TestUtils {
 			Thread.sleep(500l);
 		} catch (InterruptedException e) {
 		}
-		return new ServerWhitness(server, captured, released);
+		return new ServerWhitness(server, everCaptured, everReleased, current);
 	}
 
 	public static enum Type {
@@ -102,11 +109,11 @@ public class TestUtils {
 			final Set<Duty<String>> duties) {
 		final Set<Duty<String>> check = new HashSet<>(duties);
 		for (ServerWhitness w: cluster) {
-			Set<Duty<String>> collModified = w.getCaptured();
-			Set<Duty<String>> collUnmodified = w.getReleased();
+			Set<Duty<String>> collModified = w.getEverCaptured();
+			Set<Duty<String>> collUnmodified = w.getEverReleased();
 			if (type==Type.remove) {
-				collUnmodified = w.getCaptured();
-				collModified = w.getReleased();
+				collUnmodified = w.getEverCaptured();
+				collModified = w.getEverReleased();
 			}
 			assertTrue("captured/released should have contents", collModified.size()>0);
 			assertTrue("captured/released should be empty", collUnmodified.size()==0);
@@ -131,8 +138,8 @@ public class TestUtils {
 
 	public static void cleanWhitnesses(final Set<ServerWhitness> cluster) {
 		for (ServerWhitness w: cluster) {
-			w.getCaptured().clear();
-			w.getReleased().clear();
+			w.getEverCaptured().clear();
+			w.getEverReleased().clear();
 		}
 	}
 	

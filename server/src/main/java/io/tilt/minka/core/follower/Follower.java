@@ -125,8 +125,7 @@ public class Follower implements Service {
 			this.leaderEventsHandler.stop();
 		} else {
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: ({}) Follower was not longer in service", classname,
-					config.getLoggingShardId());
+				logger.info("{}: ({}) Follower was not longer in service", classname, config.getLoggingShardId());
 			}
 		}
 	}

@@ -122,8 +122,4 @@ public interface EventBroker extends Service {
 			Class<? extends Serializable> eventType,
 			Consumer<Serializable> driver);
 
-	/* emergency callback to know when the communication has been broken */
-	void setBrokerShutdownCallback(final Runnable callback);
-
-
 }

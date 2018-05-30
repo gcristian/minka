@@ -20,6 +20,7 @@ import static io.tilt.minka.core.leader.distributor.ChangePlan.Result.CLOSED_EXP
 import static io.tilt.minka.core.leader.distributor.ChangePlan.Result.CLOSED_OBSOLETE;
 import static io.tilt.minka.core.leader.distributor.ChangePlan.Result.RETRYING;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -89,6 +90,7 @@ public class Distributor implements Service {
 	private int counterForReloads;
 	private int counterForDistro;
 	private ChangePlanFactory factory;
+	private Instant lastStealthBlocked;
 
 
 	Distributor(
@@ -156,9 +158,9 @@ public class Distributor implements Service {
 				logger.warn("{}: ({}) Suspending distribution: not leader anymore ! ", getName(), shardId);
 				return;
 			}
-			final boolean noNews = !config.getDistributor().isRunOnStealthMode() &&
-					(!shardingScheme.getScheme().isStealthChange() 
-					&& !shardingScheme.getBackstage().isStealthChange());
+			final boolean changes = config.getDistributor().isRunOnStealthMode() &&
+					(shardingScheme.getScheme().isStealthChange() 
+					|| shardingScheme.getBackstage().isStealthChange());
 			// skip if unstable unless a plan in progress or expirations will occurr and dismiss
 			final ChangePlan currPlan = shardingScheme.getCurrentPlan();
 			
@@ -167,15 +169,23 @@ public class Distributor implements Service {
 			if (noPlan && shardingScheme.getShardsHealth() == ClusterHealth.UNSTABLE) {
 				logger.warn("{}: ({}) Suspending distribution until reaching cluster stability", getName(), shardId);
 				return;
-			} else if (noNews && noPlan) {
+			} else if (!changes && noPlan) {
 				return;
-			} else if (!noNews && noPlan) {
+			} else if (changes && noPlan) {
 				if (shardingScheme.getBackstage().isStealthChange()) {
 					final long threshold = config.beatToMs(config.getDistributor().getStealthHoldThresholdBeats());
-					if (!shardingScheme.getBackstage().stealthOverThreshold(threshold)) {
-						//logger.info("{}: Waiting backstage's stealth-change over time distance threshold");
-						//return;
-					}
+					if (!shardingScheme.getBackstage().stealthOverThreshold(threshold)) {						
+						if (lastStealthBlocked==null) {
+							lastStealthBlocked = Instant.now();
+						} else if (System.currentTimeMillis() - lastStealthBlocked.toEpochMilli() > 
+							config.beatToMs(config.getDistributor().getDelayBeats() * 5)) {
+							lastStealthBlocked = null;
+							logger.warn("{}: Phase release: threshold ", getName());
+						} else {
+							logger.info("{}: Phase hold: backstage's stealth-change over time distance threshold", getName());
+							return;
+						}
+					}					
 				}
 			}
 			

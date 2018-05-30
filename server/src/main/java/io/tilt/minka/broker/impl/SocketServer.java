@@ -77,8 +77,6 @@ public class SocketServer {
 	private final String loggingName;
 	private final String classname = getClass().getSimpleName();
 	
-	private Runnable shutdownCallback;
-
 	private ChannelFuture channelFuture;
 	
 
@@ -113,10 +111,6 @@ public class SocketServer {
 			.every(5000l)
 			.build();
 		scheduler.schedule(agent);
-	}
-
-	protected void setShutdownCallback(Runnable callback) {
-		this.shutdownCallback = callback;
 	}
 
 	/*
@@ -200,23 +194,7 @@ public class SocketServer {
 		}
 		return disconnected;
 	}
-
-	private void shutdown() {
-		if (this.shutdownCallback != null) {
-			try {
-				if (logger.isInfoEnabled()) {
-					logger.info("{}: ({}) Executing shutdown callback: {}", classname,
-						shutdownCallback.getClass().getSimpleName(), loggingName);
-				}
-				shutdownCallback.run();
-			} catch (Exception e) {
-				logger.error("{}: ({}) Unexpected while executing shutdown callback", 
-						classname, loggingName, e);
-			}
-		}
-		close();
-	}
-
+	
 	public void close() {
 		logger.warn("{}: ({}) Closing connections to client (total received: {})", classname, loggingName, count.get());
 		if (serverWorkerGroup != null) {

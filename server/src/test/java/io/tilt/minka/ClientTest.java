@@ -8,6 +8,7 @@ import static io.tilt.minka.api.ReplyResult.SUCCESS_SENT;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.singleton;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -27,6 +28,59 @@ import io.tilt.minka.api.Pallet;
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class ClientTest {
 
+	@Test
+	public void test_size_bouncing_cluster() throws Exception {
+		final Pallet<String> p = Pallet.<String>builder("p-tgc").build();
+		final Set<Pallet<String>> pallets = Sets.newHashSet(p);
+		final Set<Duty<String>> duties = TestUtils.duties(p, 50);
+
+		final Config proto = TestUtils.prototypeConfig();
+		final long distroWait = proto.beatToMs(10);
+		int count = 1;
+		final Set<ServerWhitness> cluster = TestUtils.buildCluster(count, proto, pallets, duties);
+		
+		Thread.sleep(distroWait * 3);
+		
+		// then increase 1 server each period 
+		for (;count < 10; count++) {
+			cluster.add(TestUtils.createServer(proto, duties, pallets, String.valueOf(count)));
+			Thread.sleep(distroWait * 3);
+		}
+		
+		Thread.sleep(distroWait * 3);
+		
+		// all duties must be uniquely distributed
+		final Set<Duty<String>> current = new HashSet<>();
+		for (ServerWhitness sw: cluster) {
+			assertTrue(sw.getEverCaptured().size()>0);
+			current.addAll(sw.getCurrent());
+		}
+		
+		assertEquals(duties, current);
+		
+		// then decrease 1 server each period
+		final Iterator<ServerWhitness> it = cluster.iterator();
+		while (it.hasNext()) {
+			final ServerWhitness sw = it.next();			
+			if (!sw.getServer().getClient().isCurrentLeader()) {
+				sw.getServer().shutdown();
+				it.remove();
+				Thread.sleep(distroWait * 3);
+			}
+		}
+		
+		Thread.sleep(distroWait * 5);
+		
+		// last standing server must have assigned all duties from above quitting servers
+		
+		assertEquals(1, cluster.size());
+		assertEquals(duties.size(), cluster.iterator().next().getCurrent().size());
+		assertEquals(duties, cluster.iterator().next().getCurrent());
+		
+		//Thread.sleep(60 * 60 * 1000);
+		
+		TestUtils.shutdownServers(cluster);
+	}
 
 	@Test
     public void test_start_full_then_remove_add() throws Exception {
@@ -153,14 +207,14 @@ public class ClientTest {
 		// default balancer will evenly spread duties to all servers
 		final Set<Integer> numbers = new HashSet<>();
 		for (ServerWhitness sw: cluster) {
-			final int x = sw.getCaptured().size();
+			final int x = sw.getEverCaptured().size();
 			if (x==39 || x==41 || x ==0) {
 				int i = 9;
 			}
 			assertEquals(dutySizeLoop * loops, x);
-			assertEquals(0l, sw.getReleased().size());
+			assertEquals(0l, sw.getEverReleased().size());
 			// record them
-			sw.getCaptured().forEach(d->numbers.add(Integer.parseInt(d.getId())));
+			sw.getEverCaptured().forEach(d->numbers.add(Integer.parseInt(d.getId())));
 		}
 		
 		assertEquals(numbers.size(), sizeAll);
@@ -187,7 +241,7 @@ public class ClientTest {
 		// at least half the duties has been reassigned
 		numbers.clear();
 		for (ServerWhitness sw: cluster) {
-			sw.getCaptured().forEach(d->numbers.add(Integer.parseInt(d.getId())));
+			sw.getEverCaptured().forEach(d->numbers.add(Integer.parseInt(d.getId())));
 		}
 		// all duties still assigned
 		assertEquals(numbers.size(), sizeAll);
@@ -201,7 +255,7 @@ public class ClientTest {
 		Thread.sleep(distroWait * 5);
 		
 		// the only shard standing is the leader and has all the duties so far
-		assertEquals(TestUtils.giveMeAServer(cluster, true).getCaptured().size(), sizeAll);
+		assertEquals(TestUtils.giveMeAServer(cluster, true).getEverCaptured().size(), sizeAll);
 		
 		TestUtils.shutdownServers(cluster);
 	}
