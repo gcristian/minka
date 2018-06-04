@@ -23,6 +23,8 @@ public class BootstrapConfiguration {
 	private long leaderUnconfidentStartDelayBeats;
 	protected static final long LEADER_UNCONFIDENT_DELAY_BEATS = 10;
 	private long leaderUnconfidentDelayBeats;
+	protected static final long RESOURCE_RELwEASE_WAIT_BEATS = 10;
+	private long resourceReleaseWaitBeats;
 	
 	//protected static final long READYNESS_RETRY_DELAY_MS = 5000l;
 	//private long readynessRetryDelayMs;
@@ -86,6 +88,12 @@ public class BootstrapConfiguration {
 	}
 	public void setReadynessRetryDelayBeats(long readynessRetryDelayBeats) {
 		this.readynessRetryDelayBeats = readynessRetryDelayBeats;
+	}
+	public void setResourceReleaseWaitBeats(long resourceReleaseWaitBeats) {
+		this.resourceReleaseWaitBeats = resourceReleaseWaitBeats;
+	}
+	public long getResourceReleaseWaitBeats() {
+		return resourceReleaseWaitBeats;
 	}
 	
 	public boolean isPublishLeaderCandidature() {

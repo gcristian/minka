@@ -3,6 +3,9 @@ package io.tilt.minka.api;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URI;
 import java.util.Iterator;
 import java.util.Map;
@@ -12,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
 import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.grizzly.http.server.NetworkListener;
@@ -32,6 +36,7 @@ import io.tilt.minka.domain.AwaitingDelegate;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.PartitionDelegate;
 import io.tilt.minka.domain.PartitionMaster;
+import io.tilt.minka.domain.TCPShardIdentifier;
 import io.tilt.minka.utils.LogUtils;
 
 /**
@@ -137,6 +142,8 @@ public class Server<D extends Serializable, P extends Serializable> {
 	
 	private void init(final Config config) {
 		createTenant(config);
+		logger.info("{}: Initializing context for service: {}", name, config.getBootstrap().getServiceName());
+		Runtime.getRuntime().addShutdownHook(new Thread(() -> destroy(false)));
 		tenant.setConfig(config);
 		final ClassPathXmlApplicationContext ctx = new ClassPathXmlApplicationContext(new String[] { CONTEXT_PATH }, false);
 		tenant.setContext(ctx);
@@ -147,10 +154,10 @@ public class Server<D extends Serializable, P extends Serializable> {
 				.append("-ts:")
 				.append(System.currentTimeMillis())
 				.toString());
-		logger.info("{}: Using configuration: {}", name, config.toString());
+		//logger.info("{}: Using configuration: {}", name, config.toString());
 		ctx.setId(serviceName);
-		logger.info("{}: Naming context: {}", name, ctx.getId());
-		Runtime.getRuntime().addShutdownHook(new Thread(() -> destroy()));
+		logger.info("{}: {} Naming context: {}", name, tenant.getConnectReference(), ctx.getId());
+		
 		mapper = new EventMapper<D, P>(tenant);
 		startContext(config);
 	}
@@ -169,19 +176,16 @@ public class Server<D extends Serializable, P extends Serializable> {
 			final boolean duplicateName = tenants.containsKey(serviceName);
 			final boolean vmLimitAware = config.getBootstrap().isDropVMLimit();
 			if (!chrootUsed && duplicateName && !vmLimitAware) {
-				runtime = new IllegalArgumentException("a service with the name: " + serviceName + " already exists!");
+				runtime = exceptionSameName(serviceName);
 			} else {
 				if (!vmLimitAware) {
 					if (!duplicateName) {
 						final long maxTenants = config.getBootstrap().getMaxServicesPerMachine();
 						if (tenants.size()>maxTenants) {
-							runtime = new IllegalStateException("There's been created " + tenants.size() 
-								+ " server/s already in this VM. If you indeed want that many: "
-								+ " increase bootstrap's MAX_SERVICES_PER_MACHINE default value");
+							runtime = exceptionMaxTenants();
 						}
 					} else {
-						runtime = new IllegalArgumentException("There're " + tenants.size() + " server/s already" 
-								+ " in this VM with the same service-name: set a different one");
+						runtime = exceptionMaxTenantsSameVM();
 					}
 				}
 			}
@@ -189,7 +193,6 @@ public class Server<D extends Serializable, P extends Serializable> {
 				logger.warn("Tenant: service name: {} on broker hostport: {}", 
 						t.getConfig().getBootstrap().getServiceName(), t.getConfig().getBroker().getHostPort());
 			}
-			logger.info("{}: Initializing context for service: {}", name, serviceName);
 			if (duplicateName && !vmLimitAware) {
 				// client should not depend on it anyway
 				final String newName = serviceName + "_" + new Random(System.currentTimeMillis()).nextInt(999999);
@@ -197,13 +200,41 @@ public class Server<D extends Serializable, P extends Serializable> {
 						name, newName);
 				config.getBootstrap().setServiceName(newName);
 			}
-			tenants.put(config.getBootstrap().getServiceName(), tenant = new Tenant());
+			if (runtime == null) {
+				tenants.put(config.getBootstrap().getServiceName(), tenant = new Tenant());
+			}
 		} finally {
 			lock.unlock();
 		}
 		if (runtime != null) {
 			throw runtime;
 		}
+	}
+	private IllegalArgumentException exceptionMaxTenantsSameVM() {
+		return new IllegalArgumentException(new StringBuilder()
+				.append(tenant.getConnectReference())
+				.append(": There're ")
+				.append(tenants.size())
+				.append(" server/s already")
+				.append(" in this VM with the same service-name: set a different one")
+				.toString());
+	}
+	private IllegalStateException exceptionMaxTenants() {
+		return new IllegalStateException(new StringBuilder()
+				.append(tenant.getConnectReference())
+				.append(": There's been created ")
+				.append(tenants.size()) 
+				.append(" server/s already in this VM. If you indeed want that many: ")
+				.append(" increase bootstrap's MAX_SERVICES_PER_MACHINE default value")
+				.toString());
+	}
+	private IllegalArgumentException exceptionSameName(final String serviceName) {
+		return new IllegalArgumentException(new StringBuilder()
+					.append(tenant.getConnectReference())
+					.append(" a service with the name: ")
+					.append(serviceName)
+					.append(" already exists!")
+					.toString());
 	}
 	   
 	private void startContext(final Config config) {
@@ -277,7 +308,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 		}
 		config.getResolvedShardId().setWebHostPort(webhostport);
 		config.getBootstrap().setWebServerHostPort(webhostport);
-		logger.info("{}: Web host:port = {}", name, webhostport);
+		logger.info("{}: {} Web host:port = {}", name, tenant.getConnectReference(), webhostport);
 		builder.path(config.getBootstrap().getWebServerContextPath());
 		return builder.build();
 	}
@@ -288,31 +319,56 @@ public class Server<D extends Serializable, P extends Serializable> {
 		}
 	}
 	
-	protected synchronized void destroy() {
-		if (tenant != null && tenant.getContext().isActive()) {
+	protected synchronized void destroy(final boolean wait) {
+		if (tenant != null && tenant.getContext()!=null && tenant.getContext().isActive()) {
 			try {
 				tenant.getContext().close();	
 			} catch (Exception e) {
-				logger.error("{}: Unexpected while destroying context at client call", name, e.getMessage());
+				logger.error("{}: {} Unexpected while destroying context at client call", 
+						name, tenant.getConnectReference(), e.getMessage());
 			}
 			if (tenant.getConfig().getBootstrap().isEnableWebserver() && tenant.getWebServer()!=null) {
 				try {
-					tenant.getWebServer().shutdown();					
+					tenant.getWebServer().shutdown();
 				} catch (Exception e) {
-					logger.error("{}: Unexpected while stopping server at client call", name, e.getMessage());
+					logger.error("{}: {} Unexpected while stopping server at client call", 
+							name, tenant.getConnectReference(), e.getMessage());
 				}
 			}
+			tenants.remove(tenant.getConfig().getBootstrap().getServiceName());
+			if (wait && !holdUntilDisconnect()) {
+				logger.error("{}: {} Couldnt wait for finalization of resources (may still remain open)", 
+						name, tenant.getConnectReference());
+			}
 			tenant = null;
-		} else {
-			logger.info("{}: Context already destroyed ", name);
 		}
+	}
+	
+	/** 
+	 * sleep and block current thread 3 times with 1s delay until broker's host-port is available again
+	 * in order to properly enable further tenant systems to initiate with a clean environment  
+	 */
+	private boolean holdUntilDisconnect() {
+		final Config c = tenant.getConfig();
+		final String[] parts = c.getBroker().getHostPort().split(":");
+		for(int retry = 0; retry < 3; retry++) {
+			try (ServerSocket tmp = new ServerSocket(Integer.parseInt(parts[1]))) {
+				return true;
+			} catch (IOException ioe) {
+				try {
+					Thread.sleep(c.beatToMs(c.getBootstrap().getResourceReleaseWaitBeats()));
+				} catch (InterruptedException e) {
+				}
+			}
+		}
+		return false;
 	}
 	
 	private DependencyPlaceholder getDepPlaceholder() {
 		return tenant.getContext().getBean(DependencyPlaceholder.class);
 	}
 
-	
+
 	/**
 	 * An alternative way of mapping duty and pallet events, thru an implementation class.
 	 * @param delegate	a fully implementation class of a partition delegate
@@ -347,6 +403,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 	 * Minka service must be fully initialized before being able to obtain an operative client
 	 * @return	an instance of a client   
 	 */
+	@SuppressWarnings("unchecked")
 	public Client<D, P> getClient() {
 		checkInit();
 		return tenant.getContext().getBean(Client.class);
@@ -362,8 +419,11 @@ public class Server<D extends Serializable, P extends Serializable> {
 	 * of all spawned processes: dropping leadership candidature at Zookeeper, 
 	 * and follower's captured entities. (properly calling the passed lambda at EventMapper)
 	 */
+	public void shutdown(final boolean wait) {
+		destroy(wait);
+	}
 	public void shutdown() {
-		destroy();
+		destroy(false);
 	}
 	
 
@@ -372,6 +432,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 	 */
 	protected static class Tenant {
 		private HttpServer webServer;
+		private String connectReference;
 		private ClassPathXmlApplicationContext context;
 		private Config config;
 		private Tenant() {}
@@ -380,6 +441,21 @@ public class Server<D extends Serializable, P extends Serializable> {
 		}
 		public void setWebServer(HttpServer webServer) {
 			this.webServer = webServer;
+		}
+		public void setConnectReference(String connectReference) {
+			this.connectReference = connectReference;
+		}
+		public String getConnectReference() {
+			String ret = StringUtils.EMPTY;
+			if (StringUtils.isEmpty(connectReference)) {
+				if (getContext()!=null 
+						&& getContext().isActive()) {
+					ret = connectReference = getContext().getBean(TCPShardIdentifier.class).getConnectString();
+				}
+			} else {
+				ret = connectReference;
+			}
+			return ret;
 		}
 		public ClassPathXmlApplicationContext getContext() {
 			return this.context;
