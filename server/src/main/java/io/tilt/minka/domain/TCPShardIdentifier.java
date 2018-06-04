@@ -58,8 +58,6 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	private static final int PORT_SEARCHES_MAX = 100;
 	@JsonIgnore
 	private final String logName = getClass().getSimpleName();
-	// this doesnt go to leader
-	private transient final DependencyPlaceholder dependencyPlaceholder;
 
 	private String id;
 	@JsonProperty(index=2, value="broker-hostname")
@@ -71,16 +69,14 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	@JsonIgnore
 	private final DateTime creation;
 	@JsonProperty(index = 5, value = "tag")
-	private String tag;
+	// this transports the follower's config (value) which doesnt reach the leader
+	private final String tag;
 	@JsonIgnore
 	private transient ServerSocket bookedSocket;
 	@JsonProperty(index = 4, value = "web-host-port")
 	private String webhostport;
 
-	public TCPShardIdentifier(
-			final Config config,
-			final DependencyPlaceholder dependencyPlaceholder) throws Exception {
-		this.dependencyPlaceholder = requireNonNull(dependencyPlaceholder);
+	public TCPShardIdentifier(final Config config) throws Exception {
 		final String hostStr = config.getBroker().getHostPort();
 		final String[] brokerStr = hostStr.split(":");
 		Validate.isTrue(brokerStr.length>1, new StringBuilder("Bad broker host format: ")
@@ -88,26 +84,27 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 					.append("([hostname]:[port])")
 					.toString());
 		this.creation = new DateTime(DateTimeZone.UTC);
+		this.tag = config.getBootstrap().getServerTag();
 		this.configuredPort = Integer.parseInt(brokerStr[1]);
 		this.port = configuredPort;
 		this.sourceHost = findLANAddress(brokerStr[0], config.getBroker().getNetworkInterfase());
+		
 		config.setResolvedShardId(this);
 		take(config.getBroker().isEnablePortFallback());
 		buildId(config);
 	}
-
-	@Override
-	public void setTag(final String tag) {
-		this.tag = tag;
+	
+	@JsonProperty("broker-connect")
+	public String getConnectString() {
+		return new StringBuilder()
+				.append(sourceHost.getHostName())
+				.append(':')
+				.append(port)
+				.toString();
 	}
+	
 	@Override
 	public String getTag() {
-		if (tag == null 
-				&& dependencyPlaceholder!=null 
-				&& dependencyPlaceholder.getDelegate() != null 
-				&& dependencyPlaceholder.getDelegate() instanceof ConsumerDelegate) {
-			tag = ((ConsumerDelegate)dependencyPlaceholder.getDelegate()).getLocationTag();
-		}
 		return tag;
 	}
 

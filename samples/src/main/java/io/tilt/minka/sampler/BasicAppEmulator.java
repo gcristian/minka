@@ -73,6 +73,7 @@ public class BasicAppEmulator {
 		final Set<Pallet<String>> pallets = new TreeSet<>(loader.loadPallets());
 
 		config.getBootstrap().setServiceName("basic-app-emulator");
+		config.getBootstrap().setServerTag(server.getClient().getShardIdentity() +"-eltag");
 		server = new Server<>(config);
 
 		// data only needed for logging
@@ -80,7 +81,6 @@ public class BasicAppEmulator {
 		logger.info("{} Loading {} duties: {}", shardId, duties.size(), toStringGroupByPallet(duties));
 		// optional info
 		server.getEventMapper()
-			.setLocationTag(server.getClient().getShardIdentity() +"-eltag")
 			.onPalletLoad(() -> pallets)
 			.onLoad(()-> duties)
 			.onCapture((final Set<Duty<String>> d) -> {

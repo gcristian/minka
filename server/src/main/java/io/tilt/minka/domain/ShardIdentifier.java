@@ -38,8 +38,6 @@ public interface ShardIdentifier extends Serializable {
 	/** to be used by users as a secondary reference */
 	String getTag();
 
-	void setTag(String tag);
-
 	DateTime getCreation();
 
 	/* receive it after server initialization */

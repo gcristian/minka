@@ -10,6 +10,14 @@ public class BootstrapConfiguration {
     
 	protected static final String SERVICE_NAME = ("default-name");
 	private String serviceName;
+	
+	/**
+	 * Optional. To be used by custom balancers as a server reference.
+	 * @param tag  any user's meaningful value to the current Minka's location 
+	 * @return	the event mapper builder
+	 */
+	protected static final String SERVER_TAG = ("default-server-tag");
+	private String serverTag;
 
 	protected static final long MAX_SERVICES_PER_MACHINE = 1;
 	private long maxServicesPerMachine;
@@ -52,6 +60,12 @@ public class BootstrapConfiguration {
 	}
 	public void setServiceName(String serviceName) {
 		this.serviceName = serviceName;
+	}
+	public String getServerTag() {
+		return serverTag;
+	}
+	public void setServerTag(String serverTag) {
+		this.serverTag = serverTag;
 	}
 	public void setDropVMLimit(boolean dropVMLimit) {
 		this.dropVMLimit = dropVMLimit;

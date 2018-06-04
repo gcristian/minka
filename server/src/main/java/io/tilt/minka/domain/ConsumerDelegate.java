@@ -324,16 +324,8 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (d!=null) {
 			return d;
 		} else {
-			log.error(UNMAPPED_EVENT + " pallet: {}", getClass().getSimpleName(), "capacity", pallet.getId());
+			log.error(UNMAPPED_EVENT + " pallet: {}", getClass().getSimpleName(), connectReference, "capacity", pallet.getId());
 			return 0;
 		}
-	}
-
-	public void setLocationTag(final String tag) {
-		this.locationTag = tag;
-	}
-
-	public String getLocationTag() {
-		return locationTag;
 	}
 }

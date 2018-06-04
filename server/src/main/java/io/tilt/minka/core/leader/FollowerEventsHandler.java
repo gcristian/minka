@@ -121,10 +121,6 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 					eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, hb.getShardId()),
 					hb.getShardId()));
 		}
-		final String tag = hb.getShardId().getTag();
-		if (tag != null) {
-			shard.getShardID().setTag(tag);
-		}
 		return shard;
 	}
 

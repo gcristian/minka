@@ -198,18 +198,7 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).putCapacity(pallet, weight);
 		return this;
 	}
-	
-	/**
-	 * Optional. To be used by custom balancers as a server reference.
-	 * @param tag  any user's meaningful value to the current Minka's location 
-	 * @return	the event mapper builder
-	 */
-	public EventMapper<D, P> setLocationTag(final String tag) {
-		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).setLocationTag(tag);
-		return this;
-	}
-	
+
 	/**
 	 * Tells the Server to release the bootstrapping process that fires leader and follower agents. <br>
 	 * Mandatory when mapping only required events like: duties::capture/release. 

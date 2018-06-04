@@ -63,6 +63,7 @@ public class TestUtils {
 			final String tag) {
 		
 		final Config ownConfig = new Config(refConfig.getBootstrap().getZookeeperHostPort());
+		ownConfig.getBootstrap().setServerTag(tag);
 		ownConfig.getBootstrap().setServiceName(refConfig.getBootstrap().getServiceName());
 		ownConfig.getBootstrap().setBeatUnitMs(refConfig.getBootstrap().getBeatUnitMs());
 		ownConfig.getBootstrap().setDropVMLimit(true);
@@ -87,10 +88,7 @@ public class TestUtils {
 			.onRelease(d-> {
 				everReleased.addAll(d);
 				current.removeAll(d);
-			});
-			;
-		mapper
-			.setLocationTag(tag)
+			})
 			.done();
 		try {
 			Thread.sleep(500l);

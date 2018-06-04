@@ -82,8 +82,6 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		final long now = System.currentTimeMillis();
 		// this's used only if there's nothing important to report (differences, absences, etc)
 		final Heartbeat.Builder builder = Heartbeat.builder(sequence.getAndIncrement(), partition.getId());
-		// update the tag
-		partition.getId().getTag();
 		// add reported: as confirmed if previously assigned, dangling otherwise.
 		final List<ShardEntity> tmp = new ArrayList<>(partition.getDuties().size()); 
 		boolean issues = detectChangesOnReport(builder, tmp::add);
