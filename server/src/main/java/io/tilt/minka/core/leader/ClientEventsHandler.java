@@ -160,7 +160,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 		}
 	}
 
-	public void mediateOnEntity(final Collection<ShardEntity> entities, final Consumer<Reply> callback) {
+	public synchronized void mediateOnEntity(final Collection<ShardEntity> entities, final Consumer<Reply> callback) {
 	    final ShardEntity first = entities.iterator().next();
     	if (first.is(EntityEvent.UPDATE) || first.is(EntityEvent.TRANSFER)) {
 			updateOrTransfer(callback, first);
