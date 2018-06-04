@@ -251,7 +251,7 @@ public class SemaphoreImpl implements Service, Semaphore {
 	private String nameForDistributedLock(final Action action, final String id) {
 		return new StringBuilder()
 				.append(SpectatorSupplier.MINKA_SUBDOMAIN).append("/")
-				.append(config.getBootstrap().getServiceName()).append("/")
+				.append(config.getBootstrap().getNamespace()).append("/")
 				.append(action.toString()).append((id == null ? "" : "-" + id))
 				.toString();
 	}

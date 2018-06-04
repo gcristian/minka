@@ -293,7 +293,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 
 	@Override
 	public BrokerChannel build(final Config config, final Channel channel) {
-		return build(config.getBootstrap().getServiceName(), channel);
+		return build(config.getBootstrap().getNamespace(), channel);
 	}
 
 	@Override
@@ -306,7 +306,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 			final Config config, 
 			final Channel channel, 
 			final NetworkShardIdentifier shardId) {
-		return new DirectChannel(config.getBootstrap().getServiceName(), shardId, channel);
+		return new DirectChannel(config.getBootstrap().getNamespace(), shardId, channel);
 	}
 	
 	public Map<BrokerChannel, Object> getSendMetrics() {

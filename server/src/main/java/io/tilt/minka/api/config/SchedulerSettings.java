@@ -2,7 +2,7 @@ package io.tilt.minka.api.config;
 
 public class SchedulerSettings {
 
-	public static String PNAME = "MK"; // + serviceName;
+	public static String PNAME = "MK";
 	public static String THREAD_NAME_SCHEDULER = PNAME + "Scheduler";
 	public static String THREAD_NAME_BROKER_SERVER_GROUP = PNAME + "BrokerServerGroup";
 	public static String THREAD_NAME_BROKER_SERVER_WORKER = PNAME + "BrokerServerWorker";

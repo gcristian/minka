@@ -19,7 +19,7 @@ public class TestUtils {
 
 	public static Config prototypeConfig() {
 		final Config prototypeConfig = new Config();
-		prototypeConfig.getBootstrap().setServiceName("client-test");
+		prototypeConfig.getBootstrap().setNamespace("client-test");
 		prototypeConfig.getBootstrap().setBeatUnitMs(100l);
 		return prototypeConfig;
 	}
@@ -66,7 +66,7 @@ public class TestUtils {
 		
 		final Config ownConfig = new Config(refConfig.getBootstrap().getZookeeperHostPort());
 		ownConfig.getBootstrap().setServerTag(tag);
-		ownConfig.getBootstrap().setServiceName(refConfig.getBootstrap().getServiceName());
+		ownConfig.getBootstrap().setNamespace(refConfig.getBootstrap().getNamespace());
 		ownConfig.getBootstrap().setBeatUnitMs(refConfig.getBootstrap().getBeatUnitMs());
 		ownConfig.getBootstrap().setDropVMLimit(true);
 

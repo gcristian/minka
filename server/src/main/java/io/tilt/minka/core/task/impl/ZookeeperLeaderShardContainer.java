@@ -55,7 +55,7 @@ public class ZookeeperLeaderShardContainer extends TransportlessLeaderShardConta
 		super(myShardId);
 		Validate.notNull(config);
 		this.supplier = supplier;
-		this.zookeeperPath = String.format(NAMESPACE_MASK_LEADER_SHARD_RECORD, config.getBootstrap().getServiceName());
+		this.zookeeperPath = String.format(NAMESPACE_MASK_LEADER_SHARD_RECORD, config.getBootstrap().getNamespace());
 		// define it once to avoid varying hashCode as inline argument
 		this.callbackConsumer = (meta) -> {
 			try {

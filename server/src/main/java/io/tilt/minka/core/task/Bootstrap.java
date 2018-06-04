@@ -111,7 +111,7 @@ public class Bootstrap implements Service {
 		if (autoStart) {
 			start();
 		}
-		this.leaderLatchPath = String.format(NAMESPACE_MASK_LEADER_LATCH, config.getBootstrap().getServiceName());
+		this.leaderLatchPath = String.format(NAMESPACE_MASK_LEADER_LATCH, config.getBootstrap().getNamespace());
 	}
 
 	private void createBootup(final Config config, final Scheduler scheduler) {

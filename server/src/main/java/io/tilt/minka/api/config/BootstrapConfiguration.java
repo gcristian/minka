@@ -9,7 +9,7 @@ public class BootstrapConfiguration {
     protected boolean dropVMLimit;
     
 	protected static final String SERVICE_NAME = ("default-name");
-	private String serviceName;
+	private String namespace;
 	
 	/**
 	 * Optional. To be used by custom balancers as a server reference.
@@ -55,11 +55,11 @@ public class BootstrapConfiguration {
 	protected static final boolean ENABLE_LOGGING = true;
 	private boolean enableLogging;
 	
-	public String getServiceName() {
-		return serviceName;
+	public String getNamespace() {
+		return namespace;
 	}
-	public void setServiceName(String serviceName) {
-		this.serviceName = serviceName;
+	public void setNamespace(String namespace) {
+		this.namespace = namespace;
 	}
 	public String getServerTag() {
 		return serverTag;

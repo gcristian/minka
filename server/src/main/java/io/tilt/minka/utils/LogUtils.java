@@ -81,13 +81,13 @@ public class LogUtils {
 		return line.toString();
 	}
 
-	public static String getGreetings(final ShardIdentifier id, final String serviceName, final String webserverHostPort) {
+	public static String getGreetings(final ShardIdentifier id, final String namespace, final String webserverHostPort) {
 		final String nl = System.getProperty("line.separator");
 		StringBuilder sb = new StringBuilder(nl);
 		grossLine(GROSS_CHAR, LARGE * 2, sb);
 		sb.append(nl).append(nl);
 		sb.append(logo);
-		sb.append("\tNamespace: ").append(serviceName).append(nl);
+		sb.append("\tNamespace: ").append(namespace).append(nl);
 		sb.append("\tTCP Broker: ").append(id).append(nl);
 		sb.append("\tHTTP server: ").append(webserverHostPort).append(nl).append(nl);
 		sb.append("\tCheck: ").append(webserverHostPort).append("/minka/admin/distro").append(nl).append(nl);

@@ -94,13 +94,14 @@ public class Server<D extends Serializable, P extends Serializable> {
 	 * one liner to custom main TCP hostname/ports only
 	 * @param zookeeperConnectionString		in the form hostname:port/chroot 
 	 * @param minkaHostPort		in the form hostname:port
+	 * @param namespace			all cluster members must reach themselves within it   
 	 */
-	public Server(final String zookeeperConnectionString, final String minkaHostPort, final String serviceName)  {
+	public Server(final String zookeeperConnectionString, final String minkaHostPort, final String namespace)  {
 		Validate.notNull(zookeeperConnectionString);
 		Validate.notNull(minkaHostPort);
-		Validate.notNull(serviceName);
+		Validate.notNull(namespace);
 		final Config config = new Config(zookeeperConnectionString, minkaHostPort);
-		config.getBootstrap().setServiceName(serviceName);
+		config.getBootstrap().setNamespace(namespace);
 		init(config);
 	}
 	/**
@@ -110,13 +111,13 @@ public class Server<D extends Serializable, P extends Serializable> {
 	 * Rest API will take port 57480
 	 * 
 	 * @param zookeeperConnectionString in the zookeeper form hostname:port/chroot
-	 * @param zookeeperConnectionString in the zookeeper form hostname:port/chroot
+	 * @param namespace					all cluster members must reach themselves within it
 	 */
-	public Server(final String zookeeperConnectionString, final String serviceName)  {
+	public Server(final String zookeeperConnectionString, final String namespace)  {
 		Validate.notNull(zookeeperConnectionString);
-		Validate.notNull(serviceName);
+		Validate.notNull(namespace);
 		Config config = new Config(zookeeperConnectionString);
-		config.getBootstrap().setServiceName(serviceName);
+		config.getBootstrap().setNamespace(namespace);
 		init(config);
 	}
 	/**
@@ -142,20 +143,20 @@ public class Server<D extends Serializable, P extends Serializable> {
 	
 	private void init(final Config config) {
 		createTenant(config);
-		logger.info("{}: Initializing context for service: {}", name, config.getBootstrap().getServiceName());
+		logger.info("{}: Initializing context for namespace: {}", name, config.getBootstrap().getNamespace());
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> destroy(false)));
 		tenant.setConfig(config);
 		final ClassPathXmlApplicationContext ctx = new ClassPathXmlApplicationContext(new String[] { CONTEXT_PATH }, false);
 		tenant.setContext(ctx);
 		ctx.addBeanFactoryPostProcessor(beanFactory-> beanFactory.registerSingleton("config", config));
-		final String serviceName = config.getBootstrap().getServiceName();
+		final String namespace = config.getBootstrap().getNamespace();
 		ctx.setDisplayName(new StringBuilder("minka-")
-				.append(serviceName)
+				.append(namespace)
 				.append("-ts:")
 				.append(System.currentTimeMillis())
 				.toString());
 		//logger.info("{}: Using configuration: {}", name, config.toString());
-		ctx.setId(serviceName);
+		ctx.setId(namespace);
 		logger.info("{}: {} Naming context: {}", name, tenant.getConnectReference(), ctx.getId());
 		
 		mapper = new EventMapper<D, P>(tenant);
@@ -168,15 +169,15 @@ public class Server<D extends Serializable, P extends Serializable> {
 		} catch (InterruptedException e) {
 			throw new IllegalThreadStateException("Other Server instances are being created concurrently (lock wait exhausted)");
 		}
-		final String serviceName = config.getBootstrap().getServiceName();
+		final String namespace = config.getBootstrap().getNamespace();
 		RuntimeException runtime = null;
 		try {
-			// service cannot be default or preexistent if ZK's chroot is not set
+			// namespace cannot be default or preexistent if ZK's chroot is not set
 			final boolean chrootUsed = config.getBootstrap().getZookeeperHostPort().indexOf('/') > 0;
-			final boolean duplicateName = tenants.containsKey(serviceName);
+			final boolean duplicateName = tenants.containsKey(namespace);
 			final boolean vmLimitAware = config.getBootstrap().isDropVMLimit();
 			if (!chrootUsed && duplicateName && !vmLimitAware) {
-				runtime = exceptionSameName(serviceName);
+				runtime = exceptionSameName(namespace);
 			} else {
 				if (!vmLimitAware) {
 					if (!duplicateName) {
@@ -190,18 +191,18 @@ public class Server<D extends Serializable, P extends Serializable> {
 				}
 			}
 			for (Tenant t: tenants.values()) {
-				logger.warn("Tenant: service name: {} on broker hostport: {}", 
-						t.getConfig().getBootstrap().getServiceName(), t.getConfig().getBroker().getHostPort());
+				logger.warn("Tenant: namespace: {} on broker hostport: {}", 
+						t.getConfig().getBootstrap().getNamespace(), t.getConfig().getBroker().getHostPort());
 			}
 			if (duplicateName && !vmLimitAware) {
 				// client should not depend on it anyway
-				final String newName = serviceName + "_" + new Random(System.currentTimeMillis()).nextInt(999999);
+				final String newName = namespace + "_" + new Random(System.currentTimeMillis()).nextInt(999999);
 				logger.warn("{}: Overwritting service name: {} to avoid colission with other servers within the same JVM", 
 						name, newName);
-				config.getBootstrap().setServiceName(newName);
+				config.getBootstrap().setNamespace(newName);
 			}
 			if (runtime == null) {
-				tenants.put(config.getBootstrap().getServiceName(), tenant = new Tenant());
+				tenants.put(config.getBootstrap().getNamespace(), tenant = new Tenant());
 			}
 		} finally {
 			lock.unlock();
@@ -228,11 +229,11 @@ public class Server<D extends Serializable, P extends Serializable> {
 				.append(" increase bootstrap's MAX_SERVICES_PER_MACHINE default value")
 				.toString());
 	}
-	private IllegalArgumentException exceptionSameName(final String serviceName) {
+	private IllegalArgumentException exceptionSameName(final String namespace) {
 		return new IllegalArgumentException(new StringBuilder()
 					.append(tenant.getConnectReference())
-					.append(" a service with the name: ")
-					.append(serviceName)
+					.append(" a service on the namespace: ")
+					.append(namespace)
 					.append(" already exists!")
 					.toString());
 	}
@@ -244,7 +245,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 				startWebserver();
 				logger.info(LogUtils.getGreetings(
 						config.getResolvedShardId(), 
-						config.getBootstrap().getServiceName(), 
+						config.getBootstrap().getNamespace(), 
 						config.getBootstrap().getWebServerHostPort()));
 
 			} else {
@@ -279,7 +280,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 		}
 		
         // TODO disable ssl etc
-		tenants.get(tenant.getConfig().getBootstrap().getServiceName()).setWebServer(webServer);
+		tenants.get(tenant.getConfig().getBootstrap().getNamespace()).setWebServer(webServer);
 		try {
 			webServer.start();
 		} catch (IOException e) {
@@ -335,7 +336,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 							name, tenant.getConnectReference(), e.getMessage());
 				}
 			}
-			tenants.remove(tenant.getConfig().getBootstrap().getServiceName());
+			tenants.remove(tenant.getConfig().getBootstrap().getNamespace());
 			if (wait && !holdUntilDisconnect()) {
 				logger.error("{}: {} Couldnt wait for finalization of resources (may still remain open)", 
 						name, tenant.getConnectReference());
