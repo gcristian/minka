@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import io.netty.bootstrap.Bootstrap;
@@ -63,17 +64,20 @@ public class SocketClient {
 	private final String classname = getClass().getSimpleName();
 	
 	/* for client */
+	@JsonProperty("alive")
 	private final AtomicBoolean alive;
+	@JsonProperty("connect-retrying")
 	private final AtomicInteger retry;
 	private final long clientExpiration;
 	private final AtomicBoolean antiflapper;
 	private final int maxQueueThreshold;
-	private final Scheduler scheduler; 
-	private final Agent connector;
+	private transient final Scheduler scheduler; 
+	private transient final Agent connector;
 	
-	private EventLoopGroup clientGroup;
-	private SocketClientHandler clientHandler;
+	private transient EventLoopGroup clientGroup;
+	private transient SocketClientHandler clientHandler;
 	
+	@JsonProperty("log-name")
 	private String loggingName;
 	private long creation;
 	private long lastUsage;
@@ -115,6 +119,11 @@ public class SocketClient {
 		return creation;
 	}
 
+	@JsonProperty("queue-size")
+	public int getQueueSize() {
+		return this.clientHandler.queue.size();
+	}
+	@JsonProperty("expired")
 	protected boolean hasExpired() {
 		if (creation == 0) {
 			return false;
@@ -348,4 +357,20 @@ public class SocketClient {
 		}
 	}
 
+	public long getClientExpiration() {
+		return clientExpiration;
+	}
+	public AtomicBoolean getAlive() {
+		return alive;
+	}
+	public long getLastUsage() {
+		return lastUsage;
+	}
+	public AtomicInteger getRetry() {
+		return retry;
+	}
+	public long getSentCounter() {
+		return sentCounter;
+	}
+	
 }

@@ -21,6 +21,8 @@ import static java.util.stream.Collectors.toList;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -48,6 +50,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.JSONPObject;
 
+import io.tilt.minka.broker.EventBroker;
+import io.tilt.minka.broker.EventBroker.BrokerChannel;
+import io.tilt.minka.broker.EventBroker.Channel;
+import io.tilt.minka.broker.impl.SocketClient;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 import io.tilt.minka.core.leader.data.Backstage;
 import io.tilt.minka.core.leader.data.Scheme;
@@ -67,7 +73,6 @@ import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
-import jdk.nashorn.internal.runtime.JSONListAdapter;
 
 /**
  * Read only views about the {@linkplain Scheme} 
@@ -82,8 +87,10 @@ public class SchemeViews {
 
 	private final LeaderShardContainer leaderShardContainer; 
 	private final SlidingSortedSet<String> changePlanHistory;
+	private final SlidingSortedSet<Long> planids;
 	private final ShardingScheme scheme;
 	private final ChangePlan[] lastPlan = {null};
+	private final EventBroker broker;
 	
 	public static final ObjectMapper mapper; 
 	static {
@@ -100,10 +107,13 @@ public class SchemeViews {
 
 	public SchemeViews(
 			final LeaderShardContainer leaderShardContainer, 
-			final ShardingScheme scheme) {
+			final ShardingScheme scheme, 
+			final EventBroker broker) {
 		this.leaderShardContainer = requireNonNull(leaderShardContainer);
 		this.scheme = requireNonNull(scheme);
+		this.broker = requireNonNull(broker);
 		this.changePlanHistory = CollectionUtils.sliding(20);
+		this.planids = CollectionUtils.sliding(10);
 		scheme.addChangeObserver(()->catchPlan());
 	}
 
@@ -112,6 +122,7 @@ public class SchemeViews {
 			if (lastPlan[0]!=null) {
 				if (!lastPlan[0].equals(scheme.getCurrentPlan())) {
 					changePlanHistory.add(toJson(lastPlan[0]));
+					planids.add(lastPlan[0].getId());
 				}
 			}
 			lastPlan[0] = scheme.getCurrentPlan();
@@ -125,23 +136,48 @@ public class SchemeViews {
 	
 	public String plansToJson() {
 		try {
-			final JSONArray arr = new JSONArray();
 			final JSONObject js = new JSONObject();
+			final JSONArray arr = new JSONArray();
 			js.put("size", changePlanHistory.size());
+			changePlanHistory.values().forEach(s-> arr.put(new JSONObject(s)));
+			js.put("ids", this.planids.values());
 			if (lastPlan[0]!=null && !lastPlan[0].getResult().isClosed()) {
 				js.put("current", new JSONObject(toJson(lastPlan[0])));
 			} else if (lastPlan[0]!=null) {
 				arr.put(new JSONObject(toJson(lastPlan[0])));
 			}
-			changePlanHistory.values().forEach(s->arr.put(new JSONObject(s)));
+			
 			js.put("history", arr);
-	        return js.toString();
+	        return toJson(js.toMap());
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		return "";
 	}
-
+	
+	public String brokerToJSon() throws JsonProcessingException {
+		final Map<String, Map> global = new LinkedHashMap<>();
+		global.put("inbound", broker.getReceptionMetrics());
+		final Map<Channel, Map<String, Object>> clients = new LinkedHashMap<>();
+		for (Entry<BrokerChannel, Object> e: broker.getSendMetrics().entrySet()) {
+			Map<String, Object> shardsByChannel = clients.get(e.getKey().getChannel());
+			if (shardsByChannel==null) {
+				clients.put(e.getKey().getChannel(), shardsByChannel=new LinkedHashMap<>());
+			}
+			final Map<String, String> brief = new LinkedHashMap<>();
+			if (e.getValue() instanceof SocketClient) {
+				final SocketClient sc = (SocketClient)e.getValue();				
+				brief.put("queue-size", String.valueOf(sc.getQueueSize()));
+				brief.put("sent-counter", String.valueOf(sc.getSentCounter()));
+				brief.put("alive", String.valueOf(sc.getAlive()));
+				brief.put("retry-counter", String.valueOf(sc.getRetry()));
+			}
+			shardsByChannel.put(e.getKey().getAddress().toString(), brief);
+		}
+		global.put("outbound", clients);
+		
+		return toJson(global);
+	}
 	public String shardsToJson() throws JsonProcessingException {
 		return mapper.writeValueAsString(buildShards(scheme));
 	}
@@ -172,14 +208,10 @@ public class SchemeViews {
 		return map;
 	}
 
-	public String dutiesToJson() throws JsonProcessingException {
-		return toJson(buildDuties(false));
-	}
-
-	public String entitiesToJson() throws JsonProcessingException {
-		Map<String, Object> m = new HashMap<>();
-		m.put("scheme", buildDuties(true));
-		m.put("backstage", buildBackstage(scheme.getBackstage()));
+	public String schemeToJson(final boolean detail) throws JsonProcessingException {
+		Map<String, Object> m = new LinkedHashMap<>();
+		m.put("scheme", buildDuties(detail));
+		m.put("backstage", buildBackstage(detail, scheme.getBackstage()));
 		return toJson(m);
 	}
 	
@@ -187,7 +219,7 @@ public class SchemeViews {
 		return toJson(buildFollowerDuties(partition, true));
 	}
 	
-	private Map<String, List<Object>> buildDuties(boolean entities) {
+	private Map<String, List<Object>> buildDuties(final boolean detail) {
 		Validate.notNull(scheme);
 		final Map<String, List<Object>> byPalletId = new LinkedHashMap<>();
 		scheme.getScheme().findDuties(d-> {
@@ -195,23 +227,29 @@ public class SchemeViews {
 			if (pid==null) {
 				byPalletId.put(d.getDuty().getPalletId(), pid = new ArrayList<>());
 			}
-			pid.add(entities ? d : d.getDuty().getId());
+			pid.add(detail ? d : d.getDuty().getId());
 		});
 		return byPalletId;
 	}
 
-	private Map<String, List<Object>> buildBackstage(final Backstage stage) {
+	private List<Object> dutyBrief(final Collection<ShardEntity> coll, final boolean detail) {
 		List<Object> ret = new ArrayList<>();
-		final Map<String, List<Object>> m = new HashMap<>();
-		stage.getDutiesCrud().forEach(ret::add);
-		m.put("crud", ret);
-		ret = new ArrayList<>();
-		stage.getDutiesDangling().forEach(ret::add);
-		m.put("dangling", ret);
-		ret = new ArrayList<>();
-		stage.getDutiesMissing().forEach(ret::add);
-		m.put("missing", ret);
-		return m;
+		if (detail) {
+			coll.stream()
+				.map(d->d.getDuty().getId())
+				.forEach(ret::add);
+		} else {
+			coll.forEach(ret::add);
+		}
+		return ret;
+	}
+	
+	private Map<String, List<Object>> buildBackstage(final boolean detail, final Backstage stage) {
+		final Map<String, List<Object>> ret = new LinkedHashMap<>();		
+		ret.put("crud", dutyBrief(stage.getDutiesCrud(), detail));
+		ret.put("dangling", dutyBrief(stage.getDutiesDangling(), detail));
+		ret.put("missing", dutyBrief(stage.getDutiesMissing(), detail));
+		return ret;
 	}
 
 	private List<Object> buildFollowerDuties(final ShardedPartition partition, boolean entities) {

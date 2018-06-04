@@ -16,6 +16,10 @@
  */
 package io.tilt.minka.broker.impl;
 
+import static java.util.Collections.synchronizedMap;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -208,6 +212,8 @@ public class SocketServer {
 	 */
 	protected class SocketServerHandler extends ChannelInboundHandlerAdapter {
 
+		public final Map<String, Map<String, Integer>> countByTypeAndHost = synchronizedMap(new LinkedHashMap<>());
+		
 		@Override
 		public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
 			super.channelUnregistered(ctx);
@@ -224,6 +230,8 @@ public class SocketServer {
 				if (logger.isDebugEnabled()) {
 				    logger.debug("{}: ({}) Reading: {}", classname, loggingName, meta.getPayloadType());
 				}
+
+				addMetric(meta);
 				scheduler.schedule(scheduler.getAgentFactory()
 						.create(
 							Action.BROKER_INCOMING_MESSAGE, 
@@ -235,6 +243,17 @@ public class SocketServer {
 				logger.error("({}) SocketServerHandler: Unexpected while reading incoming message", loggingName, e);
 			}
 		}
+
+		private void addMetric(MessageMetadata meta) {
+			final String origin = meta.getOriginConnectAddress();
+			Map<String, Integer> typesByHost = countByTypeAndHost.get(origin);
+			if (typesByHost==null) {
+				countByTypeAndHost.put(origin, typesByHost = new LinkedHashMap<>());
+			}
+			final String type = meta.getPayloadType().getSimpleName();
+			final Integer c = typesByHost.get(type);
+			typesByHost.put(type, c==null ? new Integer(1) : new Integer(c+1));
+		}
 		
 		@Override
 		public void exceptionCaught(final ChannelHandlerContext ctx, final Throwable e) {
@@ -244,6 +263,17 @@ public class SocketServer {
 			}
 			ctx.close();
 		}
+	}
+	
+	public Map<String, Map<String, Integer>> getCountByTypeAndHost() {
+		return this.serverHandler.countByTypeAndHost;
+	}
+	
+	public AtomicLong getCount() {
+		return count;
+	}
+	public int getRetry() {
+		return retry;
 	}
 
 }

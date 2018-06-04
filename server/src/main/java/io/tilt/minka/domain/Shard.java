@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -199,6 +200,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		return this.brokerChannel;
 	}
 
+	@JsonProperty("id")
 	public NetworkShardIdentifier getShardID() {
 		return this.shardId;
 	}
@@ -210,6 +212,14 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	@JsonIgnore
 	public Map<Pallet<?>, Capacity> getCapacities() {
 		return this.capacities;
+	}
+	@JsonProperty("capacities")
+	public Map<String, Double> briefCapacities() {
+		final Map<String, Double> ret = new LinkedHashMap<>();
+		for (final Map.Entry<Pallet<?>, Capacity> e: capacities.entrySet()) {
+			ret.put(e.getKey().getId(), e.getValue().getTotal());
+		}
+		return ret;
 	}
 
 	public void enterHeartbeat(final Heartbeat hb) {
@@ -239,7 +249,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	public Set<Change> getChanges() {
 		return changes.values();
 	}
-	@JsonProperty("evolution")
+	@JsonProperty("state-changes")
 	public Collection<String> getChanges_() {
 		return changes.values().stream().map(c->c.toString()).collect(Collectors.toList());
 	}

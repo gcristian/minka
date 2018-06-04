@@ -21,6 +21,7 @@ import static io.tilt.minka.broker.EventBroker.ChannelHint.EVENT_SET;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import io.tilt.minka.api.Config;
@@ -121,5 +122,8 @@ public interface EventBroker extends Service {
 			BrokerChannel channel, 
 			Class<? extends Serializable> eventType,
 			Consumer<Serializable> driver);
-
+	
+	Map<BrokerChannel, Object> getSendMetrics();
+	Map<String, Map> getReceptionMetrics();
+	
 }

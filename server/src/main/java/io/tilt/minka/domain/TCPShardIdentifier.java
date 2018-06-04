@@ -60,9 +60,9 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	private final String logName = getClass().getSimpleName();
 
 	private String id;
-	@JsonProperty(index=2, value="broker-hostname")
+	@JsonIgnore
 	private final InetAddress sourceHost;
-	@JsonProperty(index=3, value="broker-port")
+	@JsonIgnore
 	private int port;
 	@JsonIgnore
 	private final int configuredPort;  
@@ -276,7 +276,10 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 
 	@Override
 	public String toString() {
-		return id;
+		return new StringBuilder(id.length() + 3 + (tag!=null ? tag.length() : 0))
+				.append(id)
+				.append(" (").append(tag).append(')')
+				.toString();
 	}
 
 	@Override

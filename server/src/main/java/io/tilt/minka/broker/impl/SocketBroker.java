@@ -308,5 +308,14 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 			final NetworkShardIdentifier shardId) {
 		return new DirectChannel(config.getBootstrap().getServiceName(), shardId, channel);
 	}
+	
+	public Map<BrokerChannel, Object> getSendMetrics() {
+		return (Map)this.clients;
+	}
+	
+	public Map<String, Map> getReceptionMetrics() {
+		return (Map)this.server.getCountByTypeAndHost();
+	}
 
 }
+ 

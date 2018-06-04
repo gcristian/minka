@@ -20,6 +20,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import javax.inject.Singleton;
@@ -28,6 +30,7 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -76,6 +79,25 @@ public class AdminEndpoint {
     }
 
 */
+	
+	@GET
+	@Path("/help")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response help() throws Exception {
+		final Map<String, String> ret = new LinkedHashMap<>();
+		ret.put("/config", "show initial settings");
+		ret.put("/distro", "show duty distribution status");
+		ret.put("/distro/run", "run distribution on demand");
+		ret.put("/broker", "show event broker stats");
+		ret.put("/pallets", "show pallets in scheme");
+		ret.put("/shards", "show cluster members");
+		ret.put("/scheme", "show available and backstage duties");
+		ret.put("/sharded", "show duty partition on current shard");
+		ret.put("/plans", "show distribution change plans");
+		ret.put("/log/text", "capture logging on demand");
+		return Response.accepted(ret).build();
+	}
+	
 	@GET
 	@Path("/config")
 	@Produces(MediaType.APPLICATION_JSON)
@@ -99,6 +121,13 @@ public class AdminEndpoint {
 	}
 
 	@GET
+	@Path("/broker")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response broker() throws JsonProcessingException {
+		return Response.accepted(views.brokerToJSon()).build();
+	}
+
+	@GET
 	@Path("/pallets")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response pallets() throws JsonProcessingException {
@@ -113,11 +142,10 @@ public class AdminEndpoint {
 	}
 
 	@GET
-	@Path("/duties")
+	@Path("/scheme")
 	@Produces(MediaType.APPLICATION_JSON)
-	/** @return the leader's ShardingScheme sharded partition entities */
-	public Response duties() throws JsonProcessingException {
-		return Response.accepted(views.dutiesToJson()).build();
+	public Response scheme(@QueryParam("detail") final boolean detail) throws JsonProcessingException {
+		return Response.accepted(views.schemeToJson(detail)).build();
 	}
 
 	@GET
@@ -126,13 +154,6 @@ public class AdminEndpoint {
 	/** @return the follower's sharded partition entities */
 	public Response shardedDuties() throws JsonProcessingException {
 		return Response.accepted(views.followerEntitiesToJson(partition)).build();
-	}
-
-	@GET
-	@Path("/entities")
-	@Produces(MediaType.APPLICATION_JSON)
-	public Response entities() throws JsonProcessingException {
-		return Response.accepted(views.entitiesToJson()).build();
 	}
 
 	@GET

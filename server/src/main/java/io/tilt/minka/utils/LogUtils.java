@@ -17,7 +17,6 @@
 package io.tilt.minka.utils;
 
 import java.nio.charset.Charset;
-import java.util.Random;
 
 import org.springframework.util.StreamUtils;
 

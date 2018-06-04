@@ -191,6 +191,7 @@
     <bean id="schemeViews" class="io.tilt.minka.api.inspect.SchemeViews">
         <constructor-arg ref="leaderShardContainer"/>
         <constructor-arg ref="shardingScheme"/>
+        <constructor-arg ref="eventBroker"/>
     </bean>
     <!-- ============================================================================================
     
