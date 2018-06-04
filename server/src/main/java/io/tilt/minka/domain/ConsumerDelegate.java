@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Client;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 
@@ -37,7 +38,7 @@ import io.tilt.minka.api.Pallet;
  */
 public class ConsumerDelegate<D extends Serializable, P extends Serializable> implements PartitionMaster<D, P> {
 
-	private static final String UNMAPPED_EVENT = "{}: Unmapped event: {}";
+	private static final String UNMAPPED_EVENT = "{}: {} Unmapped event: {}";
 	private static final Logger log = LoggerFactory.getLogger(Client.class);
 
 	public enum MappingEvent {
@@ -85,17 +86,18 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 	private Supplier<Set<Pallet<P>>> palletSupplier;
 	private final Map<MappingEvent, Runnable> runnables;
 	private final Map<Pallet<P>, Double> capacities;
+	private final String connectReference;
 	
-	private String locationTag;
 	private boolean explicitlyReady;
     
-	public ConsumerDelegate() {
+	public ConsumerDelegate(final Config config) {
 		super();
 		this.consumers = new HashMap<>();
 		this.consumersPallets = new HashMap<>();
 		this.suppliers = new HashMap<>();
 		this.runnables = new HashMap<>();
 		this.capacities = new HashMap<>();
+		this.connectReference = config.getResolvedShardId().toString();
 	}
 	
 	public void putConsumer(final Consumer<Set<Duty<D>>> consumer, final MappingEvent event) {
@@ -146,7 +148,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 				return true;
 			}
 		}
-		log.info("{}: ConsumerDelegate not ready: still unmapped events: {}", getClass().getSimpleName(), ev);
+		log.info("{}: {} ConsumerDelegate not ready: still unmapped events: {}", getClass().getSimpleName(), connectReference, ev);
 		return false;
 	}
 	
@@ -157,7 +159,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (areRequiredEventsMapped()) {
 			this.explicitlyReady = true;
 		} else {
-			throw new IllegalStateException("There're events yet to be mapped before calling load()!");
+			throw new IllegalStateException(connectReference + "There're events yet to be mapped before calling load()!");
 		}
 	}
 	
@@ -167,8 +169,8 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 			readyIf(suppliers, loadduties) &&
 			palletSupplier!=null;
 		if (palletSupplier==null) {
-			log.error("{}: ConsumerDelegate not ready: still unmapped event: Pallet supplier", 
-				getClass().getSimpleName());
+			log.error("{}: {} ConsumerDelegate not ready: still unmapped event: Pallet supplier", 
+				getClass().getSimpleName(), connectReference);
 		}
 		return ready;
 	}
@@ -178,7 +180,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (s!=null) {
 			return s.get();
 		} else {
-			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), loadduties);
+			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), connectReference, loadduties);
 			return Collections.emptySet();
 		}
 	}
@@ -187,7 +189,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (palletSupplier!=null) {
 			return palletSupplier.get();
 		} else {
-			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), loadpallets);
+			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), connectReference, loadpallets);
 			return Collections.emptySet();
 		}
 	}
@@ -224,7 +226,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		} else {
 			for (final Pallet<P> p: loadPallets()) {
 				if (!capacities.containsKey(p)) {
-					log.error("{}: Unset pallet capacity: {}", getClass().getSimpleName(), p);
+					log.error("{}: {} Unset pallet capacity: {}", getClass().getSimpleName(), connectReference, p);
 					return false;
 				}
 			}
@@ -237,7 +239,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (c!=null) {
 			c.accept(duties);
 		} else {
-			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), capture);
+			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), connectReference, capture);
 		}
 	}
 	@Override
@@ -246,7 +248,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (c!=null) {
 			c.accept(pallets);
 		} else {
-			log.warn(UNMAPPED_EVENT, getClass().getSimpleName(), capturePallet);
+			log.warn(UNMAPPED_EVENT, getClass().getSimpleName(), connectReference, capturePallet);
 		}
 	}
 	@Override
@@ -255,7 +257,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (c!=null) {
 			c.accept(duties);
 		} else {
-			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), release);
+			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), connectReference, release);
 		}
 	}
 	@Override
@@ -264,7 +266,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (c!=null) {
 			c.accept(pallets);
 		} else {
-			log.warn(UNMAPPED_EVENT, getClass().getSimpleName(), releasePallet);
+			log.warn(UNMAPPED_EVENT, getClass().getSimpleName(), connectReference, releasePallet);
 		}
 	}
 	
@@ -273,7 +275,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (this.consumerUpdate!=null) {
 			this.consumerUpdate.accept(duties);
 		} else {
-			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), update);
+			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), connectReference, update);
 		}
 	}
 	@Override
@@ -281,7 +283,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (this.biconsumerTransfer!=null) {
 			this.biconsumerTransfer.accept(duty, clientPayload);
 		} else {
-			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), transfer);
+			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), connectReference, transfer);
 		}
 	}
 	@Override
@@ -289,7 +291,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (this.consumerPalletUpdate!=null) {
 			this.consumerPalletUpdate.accept(pallet);
 		} else {
-			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), update);
+			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), connectReference, update);
 		}
 	}
 	@Override
@@ -297,7 +299,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (this.biconsumerPalletTransfer!=null) {
 			this.biconsumerPalletTransfer.accept(pallet, clientPayload);
 		} else {
-			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), transferPallet);
+			log.error(UNMAPPED_EVENT, getClass().getSimpleName(), connectReference, transferPallet);
 		}
 	}
 	@Override
@@ -306,7 +308,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (run!=null) {
 			run.run();;
 		} else {
-			log.warn(UNMAPPED_EVENT, getClass().getSimpleName(), activation);
+			log.warn(UNMAPPED_EVENT, getClass().getSimpleName(), connectReference, activation);
 		}
 	}
 	@Override
@@ -315,7 +317,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		if (r!=null) {
 			r.run();;
 		} else {
-			log.warn(UNMAPPED_EVENT, getClass().getSimpleName(), deactivation);
+			log.warn(UNMAPPED_EVENT, getClass().getSimpleName(), connectReference, deactivation);
 		}
 	}
 	@Override

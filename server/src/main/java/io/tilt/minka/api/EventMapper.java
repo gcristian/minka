@@ -42,7 +42,7 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	private synchronized void initConsumerDelegate() {
 		DependencyPlaceholder holder = getDepPlaceholder();
 		if (holder.getMaster() == null || holder.getMaster() instanceof AwaitingDelegate) {
-			final ConsumerDelegate<Serializable, Serializable> delegate = new ConsumerDelegate<>();
+			final ConsumerDelegate<Serializable, Serializable> delegate = new ConsumerDelegate<>(tenant.getConfig());
 			holder.setDelegate(delegate);
 			holder.setMaster(delegate);
 		} else {
