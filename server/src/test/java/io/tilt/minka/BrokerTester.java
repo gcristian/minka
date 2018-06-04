@@ -17,7 +17,6 @@ import java.util.function.Consumer;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mockito;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;

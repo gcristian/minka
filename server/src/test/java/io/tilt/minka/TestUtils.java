@@ -1,7 +1,9 @@
 package io.tilt.minka;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -22,7 +24,7 @@ public class TestUtils {
 		return prototypeConfig;
 	}
 
-	public static void shutdownServers(final Set<ServerWhitness> cluster) {
+	public static void shutdownServers(final Collection<ServerWhitness> cluster) {
 		for (ServerWhitness w: cluster) {
 			w.getServer().shutdown();
 		}
@@ -55,7 +57,7 @@ public class TestUtils {
 		Assert.fail("no leader chosen");
 		return null;
 	}
-
+	
 	public static ServerWhitness createServer(
 			final Config refConfig,
 			final Set<Duty<String>> duties, 
@@ -78,6 +80,8 @@ public class TestUtils {
 			mapper.setCapacity(p, 100);
 		}
 		mapper.onPalletLoad(() -> pallets)
+			.onActivation(()->{})
+			.onDeactivation(()->{})
 			.onLoad(()-> duties)
 			.onPalletRelease(p->o[0]=p)
 			.onPalletCapture(p->o[0]=p)
@@ -103,8 +107,8 @@ public class TestUtils {
 	
 	public static void assertCRUDExecuted(
 			final Type type, 
-			final Set<ServerWhitness> cluster, 
-			final Set<Duty<String>> duties) {
+			final Collection<ServerWhitness> cluster, 
+			final Collection<Duty<String>> duties) {
 		final Set<Duty<String>> check = new HashSet<>(duties);
 		for (ServerWhitness w: cluster) {
 			Set<Duty<String>> collModified = w.getEverCaptured();
@@ -118,6 +122,18 @@ public class TestUtils {
 			assertTrue("captured/released is uncompleted", check.removeAll(collModified));
 		}
 		assertTrue(check.isEmpty());
+	}
+	
+	public static void assertDistribution(
+			final Collection<ServerWhitness> cluster,
+			final Collection<Duty<String>> duties) {
+		final Set<Duty<String>> tmp = new HashSet<>();
+		for (ServerWhitness w: cluster) {
+			assertTrue(w.getCurrent().size()>0);
+			assertTrue(tmp.addAll(w.getCurrent()));
+		}
+		assertEquals("different size of expected distribution ", duties.size(), tmp.size());
+		assertEquals("different content of expected distribution", duties, tmp);
 	}
 	
 
@@ -134,14 +150,14 @@ public class TestUtils {
 	}
     
 
-	public static void cleanWhitnesses(final Set<ServerWhitness> cluster) {
+	public static void cleanWhitnesses(final Collection<ServerWhitness> cluster) {
 		for (ServerWhitness w: cluster) {
 			w.getEverCaptured().clear();
 			w.getEverReleased().clear();
 		}
 	}
 	
-	public static ServerWhitness giveMeAServer(final Set<ServerWhitness> list, final boolean leader) {
+	public static ServerWhitness giveMeAServer(final Collection<ServerWhitness> list, final boolean leader) {
 		ServerWhitness ret = null;
 		for (ServerWhitness w: list) {
 			final boolean isL = w.getServer().getClient().isCurrentLeader();
