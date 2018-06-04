@@ -115,7 +115,8 @@ class ChangePlanFactory {
 					changePlan = null;
 				}
 		    } catch (Exception e) {
-		    	logger.error("{}: Cancelling ChangePlan building", e);
+		    	changePlan = null;
+		    	logger.error("{}: Cancelling ChangePlan building", name, e);
 			}
 		}
 		scheme.getBackstage().dropSnapshot();
