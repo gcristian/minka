@@ -35,31 +35,18 @@ public class MessageMetadata implements Serializable {
     private static final Logger logger = LoggerFactory.getLogger(MessageMetadata.class);
     private static AtomicInteger sequencer;
 
-    private static String currentHost;
-    private static String currentIP;
-
     private final Object payload;
-    private final String sourceHost;
-    private final String sourceIP;
     private final String inbox;
+    private final String originConnectAddress;
     private long createdAt;
     private int sequenceNumber;
     
     static {
         sequencer = new AtomicInteger();
-        try {
-            MessageMetadata.currentHost = InetAddress.getLocalHost().getHostName();
-            MessageMetadata.currentIP = InetAddress.getLocalHost().getHostAddress();
-        } catch (Exception e) {
-            logger.warn("Coudnnt obtain current hostname and IP", e);
-        }
     }
-    
-    public MessageMetadata(final Object payload, final String inbox) {
-        super();
+    public MessageMetadata(final Object payload, final String inbox, final String originConnectAddress) {
         this.payload = payload;
-        this.sourceHost = currentHost;
-        this.sourceIP = currentIP;
+        this.originConnectAddress = originConnectAddress;
         this.createdAt = System.currentTimeMillis();
         this.inbox = inbox;
         this.sequenceNumber = sequencer.incrementAndGet();
@@ -73,22 +60,23 @@ public class MessageMetadata implements Serializable {
         return this.payload.getClass();
     }
 
+    public String getOriginConnectAddress() {
+		return originConnectAddress;
+	}
+    
     @Override
     public String toString() {
         StringBuilder sb= new StringBuilder()
-            .append("Msg: SourceIP::SeqID=").append(getSourceIP()).append("::").append(this.sequenceNumber)
-            .append(", CreatedAt=").append(getCreatedAt())
-            .append(", Payload=").append(payload != null ? payload.toString() : "[null]");
+            .append("Msg: SourceIP::SeqID=")
+            .append(this.originConnectAddress)
+            .append("::")
+            .append(this.sequenceNumber)
+            .append(", CreatedAt=")
+            .append(getCreatedAt())
+            .append(", Payload=")
+            .append(payload != null ? payload.toString() : "[null]");
             
         return sb.toString(); 
-    }
-
-    public String getSourceHost() {
-        return this.sourceHost;
-    }
-
-    public String getSourceIP() {
-        return this.sourceIP;
     }
 
     public long getCreatedAt() {

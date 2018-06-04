@@ -16,6 +16,7 @@
  */
 package io.tilt.minka.spectator;
 
+import java.net.InetAddress;
 import java.util.Collection;
 import java.util.function.Consumer;
 
@@ -89,7 +90,8 @@ public abstract class NodeCacheable extends Spectator {
         boolean result = false;
         try {
             //String regenPath = null;
-            final byte[] bytes = SerializationUtils.serialize(new MessageMetadata(payload, clientName));
+            final byte[] bytes = SerializationUtils.serialize(
+            		new MessageMetadata(payload, clientName, InetAddress.getLocalHost().getHostAddress()));
             try {
                 acc+=bytes.length;
                 if (logger.isDebugEnabled()) {

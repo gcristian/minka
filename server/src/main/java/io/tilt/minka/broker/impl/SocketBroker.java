@@ -195,7 +195,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 				event.getClass().getSimpleName(), channel.getChannel());
 		}
 
-		return client.send(new MessageMetadata(event, channel.getChannel().name()));
+		return client.send(new MessageMetadata(event, channel.getChannel().name(), getShardId().toString()));
 	}
 
 	private SocketClient getOrCreate(final BrokerChannel channel) {
