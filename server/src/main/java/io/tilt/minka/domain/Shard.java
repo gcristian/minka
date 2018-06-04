@@ -40,7 +40,6 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.config.ProctorSettings;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
-import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 

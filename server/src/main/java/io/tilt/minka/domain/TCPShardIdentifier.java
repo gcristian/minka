@@ -16,8 +16,6 @@
  */
 package io.tilt.minka.domain;
 
-import static java.util.Objects.requireNonNull;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;

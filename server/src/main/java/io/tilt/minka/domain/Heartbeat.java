@@ -35,8 +35,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
-import io.tilt.minka.domain.Shard.ShardState;
-import io.tilt.minka.domain.ShardCapacity.Capacity;
 
 /**
  * A heartbeat is a sign that the node must be considered alive.
@@ -77,7 +75,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 		private final long sequenceId;
 		private final DateTime creation;
 		private final NetworkShardIdentifier shardId;
-		private final Map<Pallet<?>, ShardCapacity.Capacity> capacities = new HashMap<>();
+		private final Map<Pallet<?>, Capacity> capacities = new HashMap<>();
 
 		private Builder(final long sequenceId, final NetworkShardIdentifier shardId) {
 			this.shardId = shardId;

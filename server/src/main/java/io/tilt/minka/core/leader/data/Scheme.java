@@ -15,6 +15,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.ConcurrentDutyException;
 import io.tilt.minka.core.leader.SchemeSentry;
+import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
@@ -23,7 +24,6 @@ import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.domain.Shard.Change;
 import io.tilt.minka.domain.Shard.ShardState;
-import io.tilt.minka.domain.ShardCapacity.Capacity;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 

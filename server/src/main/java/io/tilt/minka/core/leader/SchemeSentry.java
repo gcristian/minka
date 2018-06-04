@@ -86,7 +86,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 
 		shard.enterHeartbeat(beat);
 		if (beat.getCapacities()!=null) {
-			shard.setCapacities(beat.getCapacities());
+			shard.setCapacities(new HashMap<>(beat.getCapacities()));
 		}
 		
 		detectExpectedChanges(shard, beat);
