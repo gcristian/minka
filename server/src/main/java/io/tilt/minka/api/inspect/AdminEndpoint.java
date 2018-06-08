@@ -46,8 +46,6 @@ import com.wordnik.swagger.annotations.Api;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.leader.data.ShardingScheme;
-import io.tilt.minka.core.task.Scheduler;
-import io.tilt.minka.domain.ShardedPartition;
 
 @Api("Minka Endpoint API")
 @Path("admin")
@@ -59,15 +57,10 @@ public class AdminEndpoint {
 	@Autowired
 	private ShardingScheme scheme;
 	@Autowired
-	private SchemeViews views;
-	@Autowired
-	private Scheduler scheduler;
+	private SystemState state;
 	@Autowired
 	private Config config;
-	@Autowired
-	private ShardedPartition partition;
 
-	
 	/*
 	
 	@GET
@@ -109,7 +102,7 @@ public class AdminEndpoint {
 	@Path("/distro")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response status() throws JsonProcessingException {
-		return Response.accepted(views.distributionToJson()).build();
+		return Response.accepted(state.distributionToJson()).build();
 	}
 
 	@POST
@@ -124,28 +117,28 @@ public class AdminEndpoint {
 	@Path("/broker")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response broker() throws JsonProcessingException {
-		return Response.accepted(views.brokerToJSon()).build();
+		return Response.accepted(state.brokerToJson()).build();
 	}
 
 	@GET
 	@Path("/pallets")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response pallets() throws JsonProcessingException {
-		return Response.accepted(views.palletsToJson()).build();
+		return Response.accepted(state.palletsToJson()).build();
 	}
 	                    
 	@GET
 	@Path("/shards")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response shards() throws JsonProcessingException {
-		return Response.accepted(views.shardsToJson()).build();
+		return Response.accepted(state.shardsToJson()).build();
 	}
 
 	@GET
 	@Path("/scheme")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response scheme(@QueryParam("detail") final boolean detail) throws JsonProcessingException {
-		return Response.accepted(views.schemeToJson(detail)).build();
+		return Response.accepted(state.schemeToJson(detail)).build();
 	}
 
 	@GET
@@ -153,21 +146,21 @@ public class AdminEndpoint {
 	@Produces(MediaType.APPLICATION_JSON)
 	/** @return the follower's sharded partition entities */
 	public Response shardedDuties() throws JsonProcessingException {
-		return Response.accepted(views.followerEntitiesToJson(partition)).build();
+		return Response.accepted(state.followerEntitiesToJson()).build();
 	}
 
 	@GET
 	@Path("/schedule")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response schedule() throws JsonProcessingException {
-		return Response.accepted(views.scheduleToJson(scheduler)).build();
+		return Response.accepted(state.scheduleToJson()).build();
 	}
 
 	@GET
 	@Path("/plans")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response plans() throws JsonProcessingException {
-        return Response.accepted(views.plansToJson()).build();
+        return Response.accepted(state.plansToJson()).build();
 	}
 	
 	public enum Format {

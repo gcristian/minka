@@ -18,7 +18,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Reply;
-import io.tilt.minka.api.ReplyResult;
+import io.tilt.minka.api.ReplyValue;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
@@ -73,16 +73,16 @@ public class SchemeRepository {
 			if (current != null) {
 				tmp.add(remove);
 			} else {
-				tryCallback(callback, new Reply(ReplyResult.ERROR_ENTITY_NOT_FOUND, remove.getDuty(), null, null,
+				tryCallback(callback, new Reply(ReplyValue.ERROR_ENTITY_NOT_FOUND, remove.getDuty(), null, null,
 						String.format("%s: Deletion request not found on scheme: %s", classname, remove.getDuty())));
 			}
 		}
 
 		scheme.getBackstage().addAllCrudDuty(tmp, (duty, added) -> {
 			if (added) {
-				tryCallback(callback, new Reply(ReplyResult.SUCCESS, duty, PREPARED, REMOVE, null));
+				tryCallback(callback, new Reply(ReplyValue.SUCCESS, duty, PREPARED, REMOVE, null));
 			} else {
-				tryCallback(callback, new Reply(ReplyResult.SUCCESS_OPERATION_ALREADY_SUBMITTED, duty, null,
+				tryCallback(callback, new Reply(ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED, duty, null,
 						EntityEvent.REMOVE, String.format("%s: Added already !: %s", classname, duty)));
 			}
 		});
@@ -105,12 +105,12 @@ public class SchemeRepository {
 		for (final ShardEntity duty: coll) {
 			Reply ret = null;
 			if (presentInPartition(duty)) {
-				ret = new Reply(ReplyResult.ERROR_ENTITY_ALREADY_EXISTS, duty.getDuty(), null, null, null);
+				ret = new Reply(ReplyValue.ERROR_ENTITY_ALREADY_EXISTS, duty.getDuty(), null, null, null);
 				tryCallback(callback, ret);
 			} else {
 				final ShardEntity pallet = scheme.getScheme().getPalletById(duty.getDuty().getPalletId());
 				if (pallet==null) {
-					tryCallback(callback, new Reply(ReplyResult.ERROR_ENTITY_INCONSISTENT, duty.getDuty(), null, null, 
+					tryCallback(callback, new Reply(ReplyValue.ERROR_ENTITY_INCONSISTENT, duty.getDuty(), null, null, 
 							String.format("%s: Skipping Crud Event %s: Pallet ID :%s set not found or yet created", classname,
 								EntityEvent.CREATE, null, duty.getDuty().getPalletId())));
 				} else {
@@ -135,9 +135,9 @@ public class SchemeRepository {
 				if (logger.isInfoEnabled()) {
 					logger.info("{}: Adding New Duty: {}", classname, duty);
 				}
-				tryCallback(callback, new Reply(ReplyResult.SUCCESS, duty, PREPARED, CREATE, null));
+				tryCallback(callback, new Reply(ReplyValue.SUCCESS, duty, PREPARED, CREATE, null));
 			} else {
-				tryCallback(callback, new Reply(ReplyResult.SUCCESS_OPERATION_ALREADY_SUBMITTED, duty, null, 
+				tryCallback(callback, new Reply(ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED, duty, null, 
 						EntityEvent.CREATE, String.format("%s: Added already !: %s", classname, duty)));
 			}
 		});
@@ -173,12 +173,12 @@ public class SchemeRepository {
 	    for (ShardEntity pallet: coll) {
 	        final ShardEntity p = scheme.getScheme().getPalletById(pallet.getEntity().getId());
     		if (p==null) {
-    			tryCallback(callback, new Reply(ReplyResult.ERROR_ENTITY_NOT_FOUND, pallet.getEntity(), null, null, 
+    			tryCallback(callback, new Reply(ReplyValue.ERROR_ENTITY_NOT_FOUND, pallet.getEntity(), null, null, 
     					String.format("%s: Skipping remove not found in Scheme: %s", 
     							getClass().getSimpleName(), pallet.getEntity().getId())));
     		} else {
     		    final boolean done = scheme.addCrudPallet(pallet);
-    		    tryCallback(callback, new Reply(done ? ReplyResult.SUCCESS : ReplyResult.ERROR_ENTITY_NOT_FOUND, 
+    		    tryCallback(callback, new Reply(done ? ReplyValue.SUCCESS : ReplyValue.ERROR_ENTITY_NOT_FOUND, 
                     pallet.getEntity(), PREPARED, REMOVE, null));
     		}
 	    }
@@ -195,11 +195,11 @@ public class SchemeRepository {
     	                p.getPallet().getMetadata());
     	        }
     	        final boolean added = scheme.addCrudPallet(p);
-    	        tryCallback(callback, new Reply(added ? ReplyResult.SUCCESS : ReplyResult.SUCCESS_OPERATION_ALREADY_SUBMITTED, 
+    	        tryCallback(callback, new Reply(added ? ReplyValue.SUCCESS : ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED, 
                         p.getEntity(), null, EntityEvent.CREATE, 
                         String.format("%s: Added %s: %s", classname, added ? "": "already", p.getPallet())));
     		} else {
-    			tryCallback(callback, new Reply(ReplyResult.ERROR_ENTITY_ALREADY_EXISTS, p.getEntity(), null, EntityEvent.CREATE, 
+    			tryCallback(callback, new Reply(ReplyValue.ERROR_ENTITY_ALREADY_EXISTS, p.getEntity(), null, EntityEvent.CREATE, 
                         String.format("%s: Skipping creation already in Scheme: %s", 
                                 getClass().getSimpleName(), p.getEntity().getId())));
     		}

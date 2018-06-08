@@ -64,13 +64,14 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 	@Override
 	public void accept(final MessageMetadata meta) {
 		if (logger.isDebugEnabled()) {
-			logger.debug("{}: ({}) Receiving {}", classname, shardId, meta.getPayloadType().getSimpleName());
+			logger.debug("{}: ({}) Receiving {} from {}", classname, shardId, meta.getPayloadType().getSimpleName(),
+					meta.getOriginConnectAddress());
 		}
 		String key = meta.getInbox() + meta.getPayloadType().getSimpleName();
 		if (logger.isDebugEnabled()) {
 		    logger.debug("{}: ({}) Looking subscribed consumer to Key: {}", classname, shardId, key);
 		}
-
+		String key = meta.getInbox() + meta.getPayloadType().getSimpleName();
 		Collection<Consumer<Serializable>> consumers = consumerPerChannelEventType.get(key);
 		if (!consumers.isEmpty()) {
 			consumers.forEach(i -> i.accept((Serializable) meta.getPayload()));
@@ -109,8 +110,7 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 			final String key = channel.getChannel().name() + eventType.getSimpleName();
 			final Collection<Consumer<Serializable>> drivers = consumerPerChannelEventType.get(key);
 			if (drivers != null && drivers.contains(consumer)) {
-				logger.warn("{}: ({}) Already subscribed to channel-eventType: {}", classname, shardId,
-						key);
+				logger.warn("{}: ({}) Already subscribed to channel-eventType: {}", classname, shardId, key);
 				return true;
 			} else {
 				if (logger.isInfoEnabled()) {

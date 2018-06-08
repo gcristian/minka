@@ -1,10 +1,10 @@
 package io.tilt.minka;
 
-import static io.tilt.minka.api.ReplyResult.ERROR_ENTITY_ALREADY_EXISTS;
-import static io.tilt.minka.api.ReplyResult.ERROR_ENTITY_NOT_FOUND;
-import static io.tilt.minka.api.ReplyResult.SUCCESS;
-import static io.tilt.minka.api.ReplyResult.SUCCESS_OPERATION_ALREADY_SUBMITTED;
-import static io.tilt.minka.api.ReplyResult.SUCCESS_SENT;
+import static io.tilt.minka.api.ReplyValue.ERROR_ENTITY_ALREADY_EXISTS;
+import static io.tilt.minka.api.ReplyValue.ERROR_ENTITY_NOT_FOUND;
+import static io.tilt.minka.api.ReplyValue.SUCCESS;
+import static io.tilt.minka.api.ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED;
+import static io.tilt.minka.api.ReplyValue.SUCCESS_SENT;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.singleton;
 import static org.junit.Assert.assertEquals;
@@ -104,11 +104,11 @@ public class ClientTest {
 		
 		// remove unexisting pallet
 		final Client<String, String> leaderCli = lead.getServer().getClient();
-		assertEquals(SUCCESS, leaderCli.remove(p).getCause());
+		assertEquals(SUCCESS, leaderCli.remove(p).getValue());
 		// add new pallet
-		assertEquals(SUCCESS, leaderCli.add(p).getCause());
+		assertEquals(SUCCESS, leaderCli.add(p).getValue());
 		// add duties
-		leaderCli.addAll((Collection)duties, (r)-> assertEquals(ERROR_ENTITY_ALREADY_EXISTS, r.getCause()));
+		leaderCli.addAll((Collection)duties, (r)-> assertEquals(ERROR_ENTITY_ALREADY_EXISTS, r.getValue()));
 		
 		// wait for attaches to happen
 		Thread.sleep(distroWait);
@@ -116,11 +116,11 @@ public class ClientTest {
 		
 		TestUtils.cleanWhitnesses(cluster);
 		// remove duties
-		leaderCli.removeAll((Collection)duties, (r)-> assertEquals(SUCCESS, r.getCause()));
+		leaderCli.removeAll((Collection)duties, (r)-> assertEquals(SUCCESS, r.getValue()));
 		// wait for detaches to happen
 		Thread.sleep(distroWait);
 		// remove again duties		
-		leaderCli.removeAll((Collection)duties, (r)-> assertEquals(ERROR_ENTITY_NOT_FOUND, r.getCause()));
+		leaderCli.removeAll((Collection)duties, (r)-> assertEquals(ERROR_ENTITY_NOT_FOUND, r.getValue()));
 		TestUtils.assertCRUDExecuted(TestUtils.Type.remove, cluster, duties);
 		
 		TestUtils.shutdownServers(cluster);
@@ -144,28 +144,28 @@ public class ClientTest {
 		
 		// remove unexisting pallet
 		final Client<String, String> leaderCli = lead.getServer().getClient();
-		assertEquals(ERROR_ENTITY_NOT_FOUND, leaderCli.remove(p).getCause());
+		assertEquals(ERROR_ENTITY_NOT_FOUND, leaderCli.remove(p).getValue());
 		// add new pallet
-		assertEquals(SUCCESS, leaderCli.add(p).getCause());
+		assertEquals(SUCCESS, leaderCli.add(p).getValue());
 		// set capacities for each server
 		for (ServerWhitness sw: cluster) {
 			pallets.forEach(pallet->sw.getServer().getEventMapper().setCapacity(pallet, 100));
 		}		
 		
 		// add duties
-		leaderCli.addAll((Collection)duties, (r)-> assertEquals(SUCCESS, r.getCause()));
+		leaderCli.addAll((Collection)duties, (r)-> assertEquals(SUCCESS, r.getValue()));
 		// wait for attaches to happen
 		Thread.sleep(distroWait);
 		TestUtils.assertCRUDExecuted(TestUtils.Type.add, cluster, duties);
 		
 		TestUtils.cleanWhitnesses(cluster);
 		// remove duties
-		leaderCli.removeAll((Collection)duties, (r)-> assertEquals(SUCCESS, r.getCause()));
+		leaderCli.removeAll((Collection)duties, (r)-> assertEquals(SUCCESS, r.getValue()));
 		// wait for detaches to happen
 		Thread.sleep(distroWait);
 
 		// remove again duties		
-		leaderCli.removeAll((Collection)duties, (r)-> assertEquals(ERROR_ENTITY_NOT_FOUND, r.getCause()));
+		leaderCli.removeAll((Collection)duties, (r)-> assertEquals(ERROR_ENTITY_NOT_FOUND, r.getValue()));
 		TestUtils.assertCRUDExecuted(TestUtils.Type.remove, cluster, duties);
 		
 		TestUtils.shutdownServers(cluster);
@@ -199,7 +199,7 @@ public class ClientTest {
 					final Client<String, String> cli = sw.getServer().getClient();
 					assertEquals(
 							cli.isCurrentLeader() ? SUCCESS : SUCCESS_SENT,
-							cli.add(TestUtils.duty(p, id.incrementAndGet())).getCause());
+							cli.add(TestUtils.duty(p, id.incrementAndGet())).getValue());
 				}
 			}
 		}
@@ -283,9 +283,9 @@ public class ClientTest {
 		
 		// remove unexisting pallet
 		final Client<String, String> leaderCli = lead.getServer().getClient();
-		assertEquals(ERROR_ENTITY_NOT_FOUND, leaderCli.remove(p).getCause());
+		assertEquals(ERROR_ENTITY_NOT_FOUND, leaderCli.remove(p).getValue());
 		// add new pallet
-		assertEquals(SUCCESS, leaderCli.add(p).getCause());
+		assertEquals(SUCCESS, leaderCli.add(p).getValue());
 		
 		// set capacities for each server
 		for (ServerWhitness sw: cluster) {
@@ -293,29 +293,29 @@ public class ClientTest {
 		}
 		
 		// add an already added pallet
-		assertEquals(ERROR_ENTITY_ALREADY_EXISTS, leaderCli.add(p).getCause());
+		assertEquals(ERROR_ENTITY_ALREADY_EXISTS, leaderCli.add(p).getValue());
 		
 		// add duties
-		leaderCli.addAll((Collection)duties, (r)-> assertEquals(SUCCESS, r.getCause()));
+		leaderCli.addAll((Collection)duties, (r)-> assertEquals(SUCCESS, r.getValue()));
 		// add already added duties
-		leaderCli.addAll((Collection)duties, (r)-> assertEquals(SUCCESS_OPERATION_ALREADY_SUBMITTED, r.getCause()));
+		leaderCli.addAll((Collection)duties, (r)-> assertEquals(SUCCESS_OPERATION_ALREADY_SUBMITTED, r.getValue()));
 		// wait for attaches to happen
 		Thread.sleep(distroWait);
 
 		// add already added duties	
-		leaderCli.addAll((Collection)duties, (r)-> assertEquals(ERROR_ENTITY_ALREADY_EXISTS, r.getCause()));
+		leaderCli.addAll((Collection)duties, (r)-> assertEquals(ERROR_ENTITY_ALREADY_EXISTS, r.getValue()));
 		TestUtils.assertCRUDExecuted(TestUtils.Type.add, cluster, duties);
 		
 		TestUtils.cleanWhitnesses(cluster);
 		// remove duties
-		leaderCli.removeAll((Collection)duties, (r)-> assertEquals(SUCCESS, r.getCause()));
+		leaderCli.removeAll((Collection)duties, (r)-> assertEquals(SUCCESS, r.getValue()));
 		// remove again d uties
-		leaderCli.removeAll((Collection)duties, (r)-> assertEquals(SUCCESS_OPERATION_ALREADY_SUBMITTED, r.getCause()));
+		leaderCli.removeAll((Collection)duties, (r)-> assertEquals(SUCCESS_OPERATION_ALREADY_SUBMITTED, r.getValue()));
 		// wait for detaches to happen
 		Thread.sleep(distroWait);
 
 		// remove again duties
-		leaderCli.removeAll((Collection)duties, (r)-> assertEquals(ERROR_ENTITY_NOT_FOUND, r.getCause()));
+		leaderCli.removeAll((Collection)duties, (r)-> assertEquals(ERROR_ENTITY_NOT_FOUND, r.getValue()));
 		TestUtils.assertCRUDExecuted(TestUtils.Type.remove, cluster, duties);
 		
 		TestUtils.shutdownServers(cluster);

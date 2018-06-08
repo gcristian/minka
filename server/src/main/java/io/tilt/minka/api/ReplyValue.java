@@ -1,6 +1,6 @@
 package io.tilt.minka.api;
 
-public enum ReplyResult {
+public enum ReplyValue {
 	
 	/** response from the leader */
 	SUCCESS(202),
@@ -29,7 +29,7 @@ public enum ReplyResult {
 	;
 	
 	final int httpCode;
-	ReplyResult(final int code) {
+	ReplyValue(final int code) {
 		this.httpCode = code;
 	}
 	/** @return an http status code, restful analog */

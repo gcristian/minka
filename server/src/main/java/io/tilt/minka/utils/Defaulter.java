@@ -104,16 +104,19 @@ public class Defaulter {
 		final String setLog = "Defaulter: set '{}' to field: {} ({} {})";
 		try {
 			editor.setAsText(propertyOrDefault.toString());
-			logger.info(setLog, editor.getValue(), name,  propertyOrDefault != staticValue ? 
+			if (logger.isDebugEnabled()) {
+				logger.debug(setLog, editor.getValue(), name,  propertyOrDefault != staticValue ? 
 					" custom value)" : "static: " + staticField.getName());
+			}
 		} catch (Exception e) {
-			logger.error(
-					"Defaulter: object {} field: {} does not accept property or static "
+			logger.error("Defaulter: object {} field: {} does not accept property or static "
 							+ "default value: {} (reason: {})",
 					objName, name, propertyOrDefault, e.getClass().getSimpleName());
 			try { // at this moment only prop. might've been failed
 				editor.setAsText(staticValue);
-				logger.info(setLog, objName, name, editor.getValue(), staticField.getName());
+				if (logger.isDebugEnabled()) {
+					logger.debug(setLog, objName, name, editor.getValue(), staticField.getName());
+				}
 			} catch (Exception e2) {
 				final StringBuilder sb = new StringBuilder().append("Defaulter: object <").append(objName)
 						.append("> field: ").append(name).append(" does not accept static default value: ")

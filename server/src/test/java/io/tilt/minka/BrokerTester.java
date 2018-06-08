@@ -1,7 +1,7 @@
 
 package io.tilt.minka;
 
-import static io.tilt.minka.broker.EventBroker.Channel.INSTRUCTIONS;
+import static io.tilt.minka.broker.EventBroker.Channel.LEADTOFOLL;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -154,7 +154,7 @@ public class BrokerTester {
 		msgAtDestiny.set(0);
 
 		Assert.assertTrue(sourceBroker
-				.send(sourceBroker.buildToTarget(config, INSTRUCTIONS, targetShard), msgAtOrigin));
+				.send(sourceBroker.buildToTarget(config, LEADTOFOLL, targetShard), msgAtOrigin));
 		latch.await(5, TimeUnit.SECONDS); // wait for message to bounce loopback
 		Assert.assertEquals(msgAtOrigin.intValue(), msgAtDestiny.get());
 	}
@@ -176,7 +176,7 @@ public class BrokerTester {
 						new SynchronizedAgentFactoryImpl(),
 						new SynchronizedFactoryImpl()));
 		broker.subscribe(
-				broker.buildToTarget(config, Channel.INSTRUCTIONS, shard), 
+				broker.buildToTarget(config, Channel.LEADTOFOLL, shard), 
 				AtomicInteger.class,
 				driver, 
 				System.currentTimeMillis());

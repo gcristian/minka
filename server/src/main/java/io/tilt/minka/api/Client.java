@@ -29,7 +29,7 @@ import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.inspect.SchemeViews;
+import io.tilt.minka.api.inspect.SystemState;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
@@ -68,7 +68,7 @@ public class Client<D extends Serializable, P extends Serializable> {
 	private final ShardIdentifier shardId;
 	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
-	private final SchemeViews views;
+	private final SystemState state;
 
 	protected Client(
 			final Config config, 
@@ -77,14 +77,14 @@ public class Client<D extends Serializable, P extends Serializable> {
 			final ClientEventsHandler mediator, 
 			final ShardIdentifier shardId, 
 			final ZookeeperLeaderShardContainer leaderShardContainer, 
-			final SchemeViews views) {
+			final SystemState state) {
 		this.config = config;
 		this.leader = leader;
 		this.eventBroker = eventBroker;
 		this.clientMediator = mediator;
 		this.shardId = shardId;
 		this.leaderShardContainer = leaderShardContainer;
-		this.views = views;
+		this.state = state;
 	}
 
 	/**
@@ -92,7 +92,7 @@ public class Client<D extends Serializable, P extends Serializable> {
 	 * @return a nonempty Status only when the curent shard is the Leader 
 	 */
 	public Map<String, Object> getStatus() {
-		return views.buildDistribution();
+		return state.buildDistribution();
 	}
 	/**
 	* Remove duties already running/distributed by Minka
@@ -199,7 +199,7 @@ public class Client<D extends Serializable, P extends Serializable> {
 		while (!sent[0] && tries-->0) {
 			if (leaderShardContainer.getLeaderShardId()!=null) {
 				final BrokerChannel channel = eventBroker.buildToTarget(config, 
-						Channel.FROM_CLIENT,
+						Channel.CLITOLEAD,
 						leaderShardContainer.getLeaderShardId());
 				sent[0] = eventBroker.send(channel, (List)tmp);
 			} else {
@@ -211,13 +211,13 @@ public class Client<D extends Serializable, P extends Serializable> {
 			}
 		}
 		if (callback==null) {
-			return new Reply(sent[0] ? ReplyResult.SUCCESS_SENT : ReplyResult.FAILURE_NOT_SENT, 
+			return new Reply(sent[0] ? ReplyValue.SUCCESS_SENT : ReplyValue.FAILURE_NOT_SENT, 
 					tmp.get(0).getEntity(), null, event, null);
 		} else {
 			for (ShardEntity e: tmp) {
 				try {
 					callback.accept(new Reply(
-							sent[0] ? ReplyResult.SUCCESS_SENT : ReplyResult.FAILURE_NOT_SENT, 
+							sent[0] ? ReplyValue.SUCCESS_SENT : ReplyValue.FAILURE_NOT_SENT, 
 							e.getEntity(), 
 							null, 
 							event, 

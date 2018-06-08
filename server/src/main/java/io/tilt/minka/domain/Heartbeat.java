@@ -275,13 +275,24 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 
 	@Override
 	public String toString() {
-		return new StringBuilder()
-				.append(" Sequence: ").append(sequenceId)
-				.append(" - Created: ").append(getCreation())
-				.append(" - ShardID: ").append(getShardId())
-				.append(" - Duties: ").append(reportsDuties() ? 
-						getReportedCapturedDuties().size() : "<single>")
-				.toString();
+		final StringBuilder sb = new StringBuilder()
+			.append(" Sequence: ").append(sequenceId)
+			.append(" - Created: ").append(getCreation())
+			.append(" - ShardID: ").append(getShardId())
+			;
+		if (getShardChange()!=null) {
+			sb.append(" - w/StateChange ");
+		}
+		if (hasWarning()) {
+			sb.append(" - w/Warn ");
+		}
+		if (hasDifferences()) {
+			sb.append(" - w/Diff ");
+		}
+		sb.append(" - Duties: ")
+			.append(reportsDuties() ? getReportedCapturedDuties().size() : "<single>")
+		;
+		return sb.toString();
 	}
 
 	@Override

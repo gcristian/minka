@@ -188,16 +188,20 @@
         <constructor-arg ref="eventBroker" />
     </bean>
     
-    <bean id="schemeViews" class="io.tilt.minka.api.inspect.SchemeViews">
-        <constructor-arg ref="leaderShardContainer"/>
-        <constructor-arg ref="shardingScheme"/>
-        <constructor-arg ref="eventBroker"/>
-    </bean>
     <!-- ============================================================================================
     
     ENSAMBLE
       
     ===============================================================================================-->
+    
+    
+    <bean id="systemState" class="io.tilt.minka.api.inspect.SystemState">
+        <constructor-arg ref="leaderShardContainer"/>
+        <constructor-arg ref="shardingScheme"/>
+        <constructor-arg ref="partition"/>
+        <constructor-arg ref="scheduler"/>
+        <constructor-arg ref="eventBroker"/>
+    </bean>
     
     <!-- Integracion con el cliente  -->
     <bean id="minkaClient" class="io.tilt.minka.api.Client">
@@ -207,7 +211,7 @@
         <constructor-arg ref="clientEventsHandler" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderShardContainer" />
-        <constructor-arg ref="schemeViews" />
+        <constructor-arg ref="systemState" />
     </bean>
     
     <bean id="configValidator" class="io.tilt.minka.api.ConfigValidator"/>

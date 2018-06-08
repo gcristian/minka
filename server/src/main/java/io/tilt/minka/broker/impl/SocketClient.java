@@ -248,7 +248,7 @@ public class SocketClient {
 			logger.error("{}: ({}) Unexpected while contacting shard's broker", classname, loggingName, e);
 		} finally {
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: ({}) Exiting client writing scope", classname, loggingName);
+				logger.info("{}: ({}) Exiting connection scope", classname, loggingName);
 			}
 		}
 		return wrongDisconnection;
@@ -281,8 +281,8 @@ public class SocketClient {
 			final MessageMetadata eldest = queue.peek();
 			if ((System.currentTimeMillis() - eldest.getCreatedAt()) > maxLagBeforeDiscardingClientQueueBeats || queue
 					.size() == maxClientQueueSize) {
-				logger.error("{}: ({}) Clearing queue for LAG reached LIMIT - increment client connector threads size", getClass()
-						.getSimpleName(), loggingName);
+				logger.error("{}: ({}) Clearing queue for LAG reached LIMIT - increment client connector threads size", 
+						getClass().getSimpleName(), loggingName);
 				return true;
 			} else {
 				return false;

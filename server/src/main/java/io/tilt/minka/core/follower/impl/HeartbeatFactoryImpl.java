@@ -73,7 +73,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		this.dependencyPlaceholder = requireNonNull(holder);
 		this.partition = requireNonNull(partition);
 		this.sequence = new AtomicLong();
-		this.leaderShardContainer = leaderShardContainer;
+		this.leaderShardContainer = requireNonNull(leaderShardContainer);
 		this.includeFrequency = config.beatToMs(50);
 	}
 

@@ -80,7 +80,7 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 		logger.info("{}: Starting. Scheduling constant shepherding check", getName());
 		final long readQueueSince = System.currentTimeMillis();
 		eventBroker.subscribe(
-				eventBroker.buildToTarget(config, Channel.HEARTBEATS, shardId),
+				eventBroker.buildToTarget(config, Channel.FOLLTOLEAD, shardId),
 				Heartbeat.class,
 				(Consumer) this, 
 				readQueueSince);
@@ -91,7 +91,7 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 	public void stop() {
 		logger.info("{}: Stopping", getClass().getSimpleName());
 		this.eventBroker.unsubscribe(
-				eventBroker.build(config, Channel.HEARTBEATS),
+				eventBroker.build(config, Channel.FOLLTOLEAD),
 				Heartbeat.class,
 				(Consumer) this);
 	}
@@ -101,15 +101,13 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 		lastBeat = Instant.ofEpochMilli(hb.getCreation().getMillis());
 		hb.setReception(new DateTime(DateTimeZone.UTC));
 		if (logger.isDebugEnabled()) {
-			logger.debug("{}: Receiving Heartbeat: {} delayed {}ms", getName(), hb.toString(),
-					hb.getReceptionDelay());
+			logger.debug("{}: Receiving Heartbeat: {} ({}ms) from {}", getName(), hb.toString(),
+					hb.getReceptionDelay(), hb.getShardId());
 		}
 
 		scheduler.run(scheduler.getFactory().build(
 			Scheduler.Action.PARTITION_TABLE_UPDATE, 
-			PriorityLock.MEDIUM_BLOCKING, () -> {
-				hbConsumer.accept(hb, getOrRegisterShard(hb));
-			}));
+			PriorityLock.MEDIUM_BLOCKING, ()-> hbConsumer.accept(hb, getOrRegisterShard(hb))));
 	}
 
     private Shard getOrRegisterShard(final Heartbeat hb) {
@@ -118,7 +116,7 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 		if (shard == null) {
 			// new member
 			shardingScheme.getScheme().addShard(shard = new Shard(
-					eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, hb.getShardId()),
+					eventBroker.buildToTarget(config, Channel.LEADTOFOLL, hb.getShardId()),
 					hb.getShardId()));
 		}
 		return shard;

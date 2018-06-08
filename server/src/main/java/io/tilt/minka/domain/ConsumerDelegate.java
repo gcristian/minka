@@ -216,11 +216,11 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 					getClass().getSimpleName());
 			return false;
 		} else if (capacities.isEmpty()) {
-			log.warn("{}: ConsumerDelegate not ready: capacities not reported", 
+			log.warn("{}: ConsumerDelegate not full: still unmapped event: capacities not reported", 
 					getClass().getSimpleName());
 			return true;
 		} else if (biconsumerTransfer ==null) {
-			log.warn("{}: ConsumerDelegate not ready: biconsumers still unset", 
+			log.warn("{}: ConsumerDelegate not full: still unmapped event: transfer suplier", 
 					getClass().getSimpleName());
 			return true;
 		} else {

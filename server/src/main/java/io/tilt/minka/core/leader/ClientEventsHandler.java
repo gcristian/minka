@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Reply;
-import io.tilt.minka.api.ReplyResult;
+import io.tilt.minka.api.ReplyValue;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
@@ -116,7 +116,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	private void listenUserEvents() {
 		final BrokerChannel channel = eventBroker.buildToTarget(
 				config, 
-				Channel.FROM_CLIENT, 
+				Channel.CLITOLEAD, 
 				shardId);
 		eventBroker.subscribe(channel, ShardEntity.class,this, 0);
 		eventBroker.subscribe(channel, ShardCommand.class,this, 0);
@@ -133,9 +133,9 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	@Override
 	public void stop() {
 		logger.info("{}: Stopping", getClass().getSimpleName());
-		eventBroker.unsubscribe(eventBroker.build(config, Channel.FROM_CLIENT), ShardEntity.class, this);
-		eventBroker.unsubscribe(eventBroker.build(config, Channel.FROM_CLIENT), ShardCommand.class, this);
-		eventBroker.unsubscribe(eventBroker.build(config, Channel.FROM_CLIENT), ArrayList.class, this);
+		eventBroker.unsubscribe(eventBroker.build(config, Channel.CLITOLEAD), ShardEntity.class, this);
+		eventBroker.unsubscribe(eventBroker.build(config, Channel.CLITOLEAD), ShardCommand.class, this);
+		eventBroker.unsubscribe(eventBroker.build(config, Channel.CLITOLEAD), ArrayList.class, this);
 	}
 
 	@Override
@@ -206,7 +206,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 				}
 			});
 		}
-		callback.accept(new Reply(sent[0] ? ReplyResult.SUCCESS_SENT : ReplyResult.FAILURE_NOT_SENT,
+		callback.accept(new Reply(sent[0] ? ReplyValue.SUCCESS_SENT : ReplyValue.FAILURE_NOT_SENT,
 				entity.getEntity(), null, null, null));
 	}
 

@@ -1,7 +1,7 @@
 package io.tilt.minka.api;
 
-import static io.tilt.minka.api.ReplyResult.SUCCESS;
-import static io.tilt.minka.api.ReplyResult.SUCCESS_OPERATION_ALREADY_SUBMITTED;
+import static io.tilt.minka.api.ReplyValue.SUCCESS;
+import static io.tilt.minka.api.ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED;
 
 import java.io.Serializable;
 
@@ -21,7 +21,7 @@ import io.tilt.minka.domain.EntityState;
 @JsonInclude(Include.NON_NULL)
 public class Reply {
 	
-	private ReplyResult cause;
+	private ReplyValue value;
 	private Entity<? extends Serializable> entity;
 	private EntityState state;
 	private EntityEvent event;
@@ -30,13 +30,13 @@ public class Reply {
 	//serialization
 	public Reply() {}
 	public Reply(
-			final ReplyResult cause, 
+			final ReplyValue value, 
 			final Entity<? extends Serializable> entity, 
 			final EntityState state,
 			final EntityEvent event, 
 			final String msg) {
 		super();
-		this.cause = cause;
+		this.value = value;
 		this.entity = entity;
 		this.state = state;
 		this.event = event;
@@ -44,10 +44,10 @@ public class Reply {
 	}
 	@JsonIgnore
 	public boolean isSuccess() {
-		return cause==SUCCESS || cause==SUCCESS_OPERATION_ALREADY_SUBMITTED;
+		return value==SUCCESS || value==SUCCESS_OPERATION_ALREADY_SUBMITTED;
 	}
-	public ReplyResult getCause() {
-		return cause;
+	public ReplyValue getValue() {
+		return value;
 	}
 	public Entity<? extends Serializable> getEntity() {
 		return entity;
@@ -73,14 +73,14 @@ public class Reply {
 	public String toString() {
 		return new StringBuilder()
 				.append("Client-Result:").append(isSuccess()).append(',')
-				.append("Cause-Code:").append(cause.toString()).append(',')
+				.append("Cause-Code:").append(value.toString()).append(',')
 				.toString()
 				;
 	}
 	
 	// serialization
-	public void setCause(final ReplyResult cause) {
-		this.cause = cause;
+	public void setValue(final ReplyValue value) {
+		this.value = value;
 	}
 	public void setEntity(final Entity<? extends Serializable> entity) {
 		this.entity = entity;

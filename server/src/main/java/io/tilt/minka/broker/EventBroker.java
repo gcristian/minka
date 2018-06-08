@@ -66,11 +66,11 @@ public interface EventBroker extends Service {
 	public enum Channel {
 
 		/* where the followers put their events to the leader */
-		HEARTBEATS(EVENT_SET),
+		FOLLTOLEAD(EVENT_SET),
 		/* where the client put its events to the leader */
-		FROM_CLIENT(EVENT_QUEUE),
+		CLITOLEAD(EVENT_QUEUE),
 		/* where the leader puts its partition messags to followers */
-		INSTRUCTIONS(EVENT_QUEUE);
+		LEADTOFOLL(EVENT_QUEUE);
 
 		private final ChannelHint type;
 

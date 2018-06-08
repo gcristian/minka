@@ -22,19 +22,13 @@ import static java.util.stream.Collectors.toList;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.stream.Collectors;
-
-import javax.ws.rs.core.Response;
 
 import org.apache.commons.lang.Validate;
 import org.joda.time.DateTime;
@@ -48,7 +42,6 @@ import com.fasterxml.jackson.core.JsonGenerator.Feature;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.util.JSONPObject;
 
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
@@ -62,35 +55,34 @@ import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
-import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
-import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 
 /**
- * Read only views about the {@linkplain Scheme} 
+ * Read only views built at request about the system state  
  * JSON format.
  * 
  * @author Cristian Gonzalez
  * @since Nov 6, 2016
  */
-@SuppressWarnings("unused")
 @JsonPropertyOrder({"global", "shards", "pallets", "roadmaps"})
-public class SchemeViews {
+public class SystemState {
 
 	private final LeaderShardContainer leaderShardContainer; 
+	private final ShardingScheme scheme;
+	private final ShardedPartition partition;
+	private final Scheduler scheduler;
+	private final EventBroker broker;
+	
+	private final ChangePlan[] lastPlan = {null};
 	private final SlidingSortedSet<String> changePlanHistory;
 	private final SlidingSortedSet<Long> planids;
-	private final ShardingScheme scheme;
-	private final ChangePlan[] lastPlan = {null};
-	private final EventBroker broker;
 	
 	public static final ObjectMapper mapper; 
 	static {
@@ -105,38 +97,82 @@ public class SchemeViews {
 		mapper.configure(Feature.WRITE_NUMBERS_AS_STRINGS, true);
 	}
 
-	public SchemeViews(
+	public SystemState(
 			final LeaderShardContainer leaderShardContainer, 
-			final ShardingScheme scheme, 
+			final ShardingScheme scheme,
+			final ShardedPartition partition,
+			final Scheduler scheduler,
 			final EventBroker broker) {
+		
 		this.leaderShardContainer = requireNonNull(leaderShardContainer);
+		this.scheduler = requireNonNull(scheduler);
 		this.scheme = requireNonNull(scheme);
 		this.broker = requireNonNull(broker);
+		this.partition = requireNonNull(partition);
+		
 		this.changePlanHistory = CollectionUtils.sliding(20);
 		this.planids = CollectionUtils.sliding(10);
-		scheme.addChangeObserver(()->catchPlan());
-	}
-
-	private void catchPlan() {
-		try {
-			if (lastPlan[0]!=null) {
-				if (!lastPlan[0].equals(scheme.getCurrentPlan())) {
-					changePlanHistory.add(toJson(lastPlan[0]));
-					planids.add(lastPlan[0].getId());
+		
+		scheme.addChangeObserver(()->{
+			try {
+				if (lastPlan[0]!=null) {
+					if (!lastPlan[0].equals(scheme.getCurrentPlan())) {
+						changePlanHistory.add(toJson(lastPlan[0]));
+						planids.add(lastPlan[0].getId());
+					}
 				}
+				lastPlan[0] = scheme.getCurrentPlan();
+			} catch (Exception e) {
 			}
-			lastPlan[0] = scheme.getCurrentPlan();
-		} catch (Exception e) {
-		}
+		});
 	}
 
-	public String toJson(final Object o) throws JsonProcessingException {
-		return mapper.writeValueAsString(o);
+	public String toJson(final Object o) {
+		try {
+			return mapper.writeValueAsString(o);
+		} catch (JsonProcessingException e) {
+			return "";
+		}
 	}
 	
 	public String plansToJson() {
+		return toJson(buildPlans().toMap());
+	}
+	
+	public String brokerToJson() {
+		return toJson(buildBroker());
+	}
+
+	public String shardsToJson()  {
+		return toJson(buildShards(scheme));
+	}
+
+	public String distributionToJson() {
+		return toJson(buildDistribution());
+	}
+
+	public String followerEntitiesToJson() {
+		return toJson(buildFollowerDuties(partition, true));
+	}
+	
+	public String palletsToJson() {
+		return toJson(buildPallets());
+	}
+
+	public String scheduleToJson() {
+		return toJson(buildSchedule(scheduler));
+	}
+	
+	public String schemeToJson(final boolean detail) {
+		Map<String, Object> m = new LinkedHashMap<>();
+		m.put("scheme", buildDuties(detail));
+		m.put("backstage", buildBackstage(detail, scheme.getBackstage()));
+		return toJson(m);
+	}
+
+	public JSONObject buildPlans() {
+		final JSONObject js = new JSONObject();
 		try {
-			final JSONObject js = new JSONObject();
 			final JSONArray arr = new JSONArray();
 			js.put("size", changePlanHistory.size());
 			changePlanHistory.values().forEach(s-> arr.put(new JSONObject(s)));
@@ -148,14 +184,12 @@ public class SchemeViews {
 			}
 			
 			js.put("history", arr);
-	        return toJson(js.toMap());
 		} catch (Exception e) {
-			e.printStackTrace();
 		}
-		return "";
+		return js;
 	}
-	
-	public String brokerToJSon() throws JsonProcessingException {
+
+	private Map<String, Map> buildBroker() {
 		final Map<String, Map> global = new LinkedHashMap<>();
 		global.put("inbound", broker.getReceptionMetrics());
 		final Map<Channel, Map<String, Object>> clients = new LinkedHashMap<>();
@@ -175,11 +209,7 @@ public class SchemeViews {
 			shardsByChannel.put(e.getKey().getAddress().toString(), brief);
 		}
 		global.put("outbound", clients);
-		
-		return toJson(global);
-	}
-	public String shardsToJson() throws JsonProcessingException {
-		return mapper.writeValueAsString(buildShards(scheme));
+		return global;
 	}
 
 	private Map<String, Object> buildShards(final ShardingScheme scheme) {
@@ -196,27 +226,12 @@ public class SchemeViews {
 		map.put("shards", list);
 		return map;
 	}
-
-	public String distributionToJson() throws JsonProcessingException {
-		return mapper.writeValueAsString(buildDistribution());
-	}
 	
 	public Map<String, Object> buildDistribution() {
 		final Map<String, Object> map = new LinkedHashMap<>();
 		map.put("global", buildGlobal(scheme));
 		map.put("distribution", buildShardRep(scheme));
 		return map;
-	}
-
-	public String schemeToJson(final boolean detail) throws JsonProcessingException {
-		Map<String, Object> m = new LinkedHashMap<>();
-		m.put("scheme", buildDuties(detail));
-		m.put("backstage", buildBackstage(detail, scheme.getBackstage()));
-		return toJson(m);
-	}
-	
-	public String followerEntitiesToJson(final ShardedPartition partition) throws JsonProcessingException {
-		return toJson(buildFollowerDuties(partition, true));
 	}
 	
 	private Map<String, List<Object>> buildDuties(final boolean detail) {
@@ -259,10 +274,6 @@ public class SchemeViews {
 			ret.add(entities ? e: e.getDuty());
 		}
 		return ret;
-	}
-
-	public String palletsToJson() throws JsonProcessingException {
-		return toJson(buildPallets());
 	}
 		
 	private List<Map<String, Object>> buildPallets() {
@@ -418,17 +429,10 @@ public class SchemeViews {
 		return map;
 	}
 	
-	public String scheduleToJson(final Scheduler schedule) throws JsonProcessingException {
-		return toJson(getDetail(schedule));
-				
-	}
-	
-	
-	public Map<String, Object> getDetail(final Scheduler schedule) {
+	private Map<String, Object> buildSchedule(final Scheduler schedule) {
 		final Map<String, Object> ret = new LinkedHashMap<>();
 		try {
 			final ScheduledThreadPoolExecutor executor = schedule.getExecutor();
-			final Map<Synchronized, ScheduledFuture<?>> futures = schedule.getFutures();
 			final long now = System.currentTimeMillis();
 			ret.put("queue-size", executor.getQueue().size());
 			ret.put("corepool-size", executor.getCorePoolSize());

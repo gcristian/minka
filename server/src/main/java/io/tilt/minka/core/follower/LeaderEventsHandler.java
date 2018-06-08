@@ -94,7 +94,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		this.dependencyPlaceholder.getDelegate().activate();
 		logger.info("{}: ({}) Preparing for leader events", getName(), config.getLoggingShardId());
 		final long sinceNow = System.currentTimeMillis();
-		this.channel = eventBroker.buildToTarget(config, Channel.INSTRUCTIONS, partition.getId());
+		this.channel = eventBroker.buildToTarget(config, Channel.LEADTOFOLL, partition.getId());
 		eventBroker.subscribeEvents(channel,this, sinceNow, ShardEntity.class, Clearance.class, ArrayList.class);
 	}
 

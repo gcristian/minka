@@ -45,11 +45,11 @@ import io.tilt.minka.utils.LogUtils;
  * of {@linkplain PartitionMaster} and {@linkplain PartitionDelegate} <br>
  * <br>
  * Each server instance will spawn the underlying context which connects to Zookkeeper and starts network broker services.<br>   
- * Although many instances can coexist within the same JVM under different service names, is not recommended.
+ * Although many instances can coexist within the same JVM under different namespaces, is not recommended.
  * You should only create one instance per application willing to distribute duties .<br>
  * <br>
  * By default all Minka services excluding broker service, run several tasks within a one-thread-only ThreadPoolExecutor.<br>
- * After an instance is created: the context gets initialized and waits for {@linkplain Server.load()}. <br>  
+ * After an instance is created: the context gets initialized and waits for {@linkplain EventMapper::done}. <br>  
  * 
  * @author Cristian Gonzalez
  * @since Sept 20, 2016
@@ -157,8 +157,6 @@ public class Server<D extends Serializable, P extends Serializable> {
 				.toString());
 		//logger.info("{}: Using configuration: {}", name, config.toString());
 		ctx.setId(namespace);
-		logger.info("{}: {} Naming context: {}", name, tenant.getConnectReference(), ctx.getId());
-		
 		mapper = new EventMapper<D, P>(tenant);
 		startContext(config);
 	}
@@ -191,7 +189,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 				}
 			}
 			for (Tenant t: tenants.values()) {
-				logger.warn("Tenant: namespace: {} on broker hostport: {}", 
+				logger.warn("Other tenant within the VM on the namespace: {} on broker hostport: {}", 
 						t.getConfig().getBootstrap().getNamespace(), t.getConfig().getBroker().getHostPort());
 			}
 			if (duplicateName && !vmLimitAware) {
@@ -249,10 +247,11 @@ public class Server<D extends Serializable, P extends Serializable> {
 						config.getBootstrap().getWebServerHostPort()));
 
 			} else {
-				logger.info("{}: Webserver disabled by configuration. Enable for a fully functional shard", name);
+				logger.info("{}: {} Webserver disabled by configuration. Enable for a fully functional shard", name,
+						tenant.getConnectReference());
 			}
 		} else {
-			logger.error("{}: Can only load Minka once !", name);
+			logger.error("{}: {} Can only load Minka once !", name);
 		}
 	}
 
@@ -271,7 +270,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 		final Iterator<NetworkListener> it = webServer.getListeners().iterator();
 		while (it.hasNext()) {
 			final NetworkListener listener = it.next();
-			logger.info("{}: Reconfiguring webserver listener {}", name, listener);
+			logger.info("{}: {} Reconfiguring webserver listener {}", name, tenant.getConnectReference(), listener);
 			listener.getTransport().setSelectorRunnersCount(1);
 			((GrizzlyExecutorService)listener.getTransport().getWorkerThreadPool()).reconfigure(
 					config.copy().setPoolName(SchedulerSettings.THREAD_NAME_WEBSERVER_WORKER));
@@ -284,7 +283,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 		try {
 			webServer.start();
 		} catch (IOException e) {
-			logger.info("{}: Unable to start web server", name, e);
+			logger.info("{}: {} Unable to start web server", name, tenant.getConnectReference(), e);
 		}
     }
 
@@ -316,7 +315,7 @@ public class Server<D extends Serializable, P extends Serializable> {
     
 	private void checkInit() {
 		if (!tenant.getContext().isActive()) {
-			throw new IllegalStateException("Minka service must be started first !");
+			throw new IllegalStateException(tenant.getConnectReference() + " Minka service must be started first !");
 		}
 	}
 	
@@ -381,7 +380,8 @@ public class Server<D extends Serializable, P extends Serializable> {
 		final DependencyPlaceholder holder = getDepPlaceholder();
 		Validate.isTrue(holder==null || (holder.getDelegate() instanceof AwaitingDelegate), 
 				"You're overwriting previous delegate or event's consumer: " + delegate.getClass().getSimpleName());
-		logger.info("{}: Using new PartitionDelegate: {}", name, delegate.getClass().getSimpleName());
+		logger.info("{}: {} Using new PartitionDelegate: {}", name, tenant.getConnectReference(), 
+				delegate.getClass().getSimpleName());
 		holder.setDelegate(delegate);
 	}
 	/**
@@ -395,7 +395,8 @@ public class Server<D extends Serializable, P extends Serializable> {
 		final DependencyPlaceholder holder = getDepPlaceholder();
 		Validate.isTrue(holder==null || (holder.getMaster() instanceof AwaitingDelegate), 
 				"You're overwriting previous delegate or event's consumer: " + master.getClass().getSimpleName());
-		logger.info("{}: Using new PartitionMaster: {}", name, master.getClass().getSimpleName());
+		logger.info("{}: {} Using new PartitionMaster: {}", name, tenant.getConnectReference(),
+				master.getClass().getSimpleName());
 		getDepPlaceholder().setMaster(master);
 	}
 
@@ -424,7 +425,10 @@ public class Server<D extends Serializable, P extends Serializable> {
 		destroy(wait);
 	}
 	public void shutdown() {
-		destroy(false);
+		if (tenant!=null) {
+			logger.info("{}: {} Shutting down at request", name, tenant.getConnectReference());
+			destroy(true);
+		}
 	}
 	
 

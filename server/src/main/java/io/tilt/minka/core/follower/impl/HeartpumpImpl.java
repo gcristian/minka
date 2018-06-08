@@ -69,7 +69,7 @@ public class HeartpumpImpl implements Heartpump {
 			if (eventBroker.send(
 					eventBroker.buildToTarget(
 							config, 
-							Channel.HEARTBEATS,
+							Channel.FOLLTOLEAD,
 							leaderShardContainer.getLeaderShardId()), 
 					arg)) {
 				this.lastHeartbeatTimestamp = new DateTime(DateTimeZone.UTC);
