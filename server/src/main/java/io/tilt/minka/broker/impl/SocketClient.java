@@ -116,7 +116,7 @@ public class SocketClient {
 		this.creation = System.currentTimeMillis();
 		this.clientExpiration = Math.max(
 				requireNonNull(config).beatToMs(config.getProctor().getDelayBeats()), 
-				config.beatToMs(config.getFollower().getClearanceMaxAbsenceBeats()));
+				config.beatToMs(config.getFollower().getClearanceMaxAbsenceBeats() * 2));
 		this.maxQueueThreshold = config.getBroker().getConnectionHandlerThreads();
 	}
 
@@ -264,7 +264,7 @@ public class SocketClient {
 		private final BlockingQueue<MessageMetadata> queue;
 		private final long maxLagBeforeDiscardingClientQueueBeats;
 		private final int maxClientQueueSize;
-
+		
 		public SocketClientHandler(
 				final long maxLagBeforeDiscardingClientQueueBeats,
 				final int maxClientQueueSize) {
@@ -328,7 +328,7 @@ public class SocketClient {
 						classname, loggingName, e);
 			}
 		}
-
+		
 		@Override
 		public void channelRead(ChannelHandlerContext ctx, Object msg) {
 			ctx.write(msg);
