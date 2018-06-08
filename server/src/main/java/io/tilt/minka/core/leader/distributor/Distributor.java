@@ -306,7 +306,7 @@ public class Distributor implements Service {
 
 	private boolean deliveryShardValid(final Delivery d) {
 		return shardingScheme.getScheme().filterShards(
-				sh->sh.equals(d.getShard()) && sh.getState()==ShardState.ONLINE);							
+				sh->sh.equals(d.getShard()) && sh.getState().isAlive());							
 	}
 
 	/** @return if plan is still valid */
