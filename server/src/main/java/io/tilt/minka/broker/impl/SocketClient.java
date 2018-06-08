@@ -20,6 +20,7 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -71,6 +72,8 @@ public class SocketClient {
 	private final long clientExpiration;
 	private final AtomicBoolean antiflapper;
 	private final int maxQueueThreshold;
+	private final Config config;
+	
 	private transient final Scheduler scheduler; 
 	private transient final Agent connector;
 	
@@ -92,13 +95,15 @@ public class SocketClient {
 			final Config config) {
 
 		this.loggingName = loggingName;
+		this.config = config;
+		this.scheduler = requireNonNull(scheduler);
+
 		this.clientHandler = new SocketClientHandler(
 				config.beatToMs(config.getBroker().getMaxLagBeforeDiscardingClientQueueBeats()), 
 				config.getBroker().getMaxClientQueueSize());
 		this.antiflapper = new AtomicBoolean(true);
 		this.alive = new AtomicBoolean();
 		this.retry  = new AtomicInteger();
-		this.scheduler = requireNonNull(scheduler);
 		this.connector = scheduler.getAgentFactory()
 			.create(
 				Action.BROKER_CLIENT_START, 
@@ -350,7 +355,10 @@ public class SocketClient {
 					classname, loggingName, sentCounter, clientHandler.size());
 			}
 			this.alive.set(false);
-			clientGroup.shutdownGracefully();
+			clientGroup.shutdownGracefully(
+					config.beatToMs(config.getBroker().getShutdownQuietBeats()), 
+					config.beatToMs(config.getBroker().getShutdownTimeoutBeats()), 
+					TimeUnit.MILLISECONDS);
 		} else {
 			logger.error("{}: ({}) Invalid state to close client: {}", classname, loggingName,
 					clientGroup == null ? "not started" : "already shut-down");

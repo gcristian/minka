@@ -29,6 +29,11 @@ public class BrokerConfiguration {
 	protected static final String NETWORK_INTERFASE = "lo";
 	private String networkInterfase;
 	
+	protected final static long SHUTDOWN_QUIET_BEATS = 5;
+	private long shutdownQuietBeats;
+	protected final static long SHUTDOWN_TIMEOUT_BEATS = SHUTDOWN_QUIET_BEATS * 3;
+	private long shutdownTimeoutBeats;
+	
 	public String getHostPort() {
 		return this.hostPort;
 	}
@@ -89,5 +94,17 @@ public class BrokerConfiguration {
 	}
 	public void setMaxClientQueueSize(final int maxClientQueueSize) {
 		this.maxClientQueueSize = maxClientQueueSize;
+	}
+	public long getShutdownQuietBeats() {
+		return shutdownQuietBeats;
+	}
+	public void setShutdownQuietBeats(long shutdownQuietBeats) {
+		this.shutdownQuietBeats = shutdownQuietBeats;
+	}
+	public long getShutdownTimeoutBeats() {
+		return shutdownTimeoutBeats;
+	}
+	public void setShutdownTimeoutBeats(long shutdownTimeoutBeats) {
+		this.shutdownTimeoutBeats = shutdownTimeoutBeats;
 	}
 }
