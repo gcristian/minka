@@ -132,10 +132,9 @@ public class Client<D extends Serializable, P extends Serializable> {
 	 * 
 	 * @return			a list of captured duties
 	 */
-	@SuppressWarnings("rawtypes")
 	public List<Duty<D>> captured() {
 		return this.partition.getDuties().stream()
-				.map(d->(Duty)d.getDuty())
+				.map(d->(Duty<D>)d.getDuty())
 				.collect(Collectors.toList());
 	}
 	

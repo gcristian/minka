@@ -137,7 +137,7 @@ public class SystemState {
 	
 	/**
 	 * <p>
-	 * Detailed information on change plans built in distributor phase
+	 * Gives detailed information on change plans built in distributor phase
 	 * to accomodate duties into shards. Including any on-going plan, and historic plans.
 	 * <p>
 	 * Non-Empty only when the current server is the Leader.
@@ -149,7 +149,7 @@ public class SystemState {
 	
 	/**
 	 * <p>
-	 * Metrics on the event broker's server and clients, used to communicate shards.  
+	 * Shows metrics on the event broker's server and clients, used to communicate shards.  
 	 * Each shard has at least one server to listen events from the leader and one client to send
 	 * events to the leader. The Leader has one server to listen events from all followers, and 
 	 * one client for each follower that sends events to.  
@@ -163,7 +163,7 @@ public class SystemState {
 
 	/**
 	 * <p>
-	 * Detailed information on the shards, members of the cluster within the namespace, reporting to the leader.
+	 * Gives detailed information on the shards, members of the cluster within the namespace, reporting to the leader.
 	 * <p>
 	 * Full when the current server is the Leader, self shard info. when the server is a Follower.
 	 * @return			a String in json format
@@ -172,10 +172,22 @@ public class SystemState {
 		return toJson(buildShards(scheme));
 	}
 
+	/**
+	 * <p>
+	 * Gives detailed information on distributed duties and their shard locations
+	 * <p>
+	 * Non-Empty only when the current server is the Leader.
+	 * @return			a String in json format
+	 */
 	public String distributionToJson() {
 		return toJson(buildDistribution());
 	}
 
+	/**
+	 * <p>
+	 * Shows the duties captured by the shard.
+	 * @return			a String in json format
+	 */
 	public String currentPartitionToJson() {
 		return toJson(buildFollowerDuties(partition, true));
 	}
@@ -184,10 +196,23 @@ public class SystemState {
 		return toJson(buildPallets());
 	}
 
+	/**
+	 * <p>
+	 * Shows the state of the scheduler 
+	 * <p>
+	 * Non-Empty only when the current server is the Leader.
+	 * @return			a String in json format
+	 */
 	public String scheduleToJson() {
 		return toJson(buildSchedule(scheduler));
 	}
-	
+
+	/**
+	 * 
+	 * <p>
+	 * Non-Empty only when the current server is the Leader.
+	 * @return			a String in json format
+	 */
 	public String schemeToJson(final boolean detail) {
 		Map<String, Object> m = new LinkedHashMap<>();
 		m.put("scheme", buildDuties(detail));

@@ -43,6 +43,7 @@ public class ClusterTests {
 	 * proves duties are always distributed at anytime, though in different shards 
 	 */
 	public void test_jumping_leader() throws Exception {
+		proto.getBootstrap().setNamespace("test_jumping_leader");
 		int size = 4;
 		
 		final Set<ServerWhitness> cluster = buildCluster(size, proto, pallets, duties);	
@@ -71,6 +72,7 @@ public class ClusterTests {
 	 * while all duties still kept distributed
 	 */
 	public void test_cluster_falling_apart() throws Exception {
+		proto.getBootstrap().setNamespace("test_cluster_falling_apart");
 		final Set<ServerWhitness> set = buildCluster(5, proto, pallets, duties);
 		sleep(wait * 3);
 		
@@ -101,6 +103,7 @@ public class ClusterTests {
 	 * proves the leader acknowledges every situation
 	 */
 	public void test_cluster_highly_unstable() throws Exception {
+		proto.getBootstrap().setNamespace("test_cluster_highly_unstable");
 		// start with 3 (surely 1st will be leader)
 		final ServerWhitness a1 = createServer(proto, duties, pallets, "a1");
 		final ServerWhitness a2 = createServer(proto, duties, pallets, "a2");
@@ -148,6 +151,7 @@ public class ClusterTests {
 	 */
 	public void test_cluster_size_increase_decrease() throws Exception {
 		int count = 1;
+		proto.getBootstrap().setNamespace("test_cluster_size_increase_decrease");
 		final Set<ServerWhitness> cluster = buildCluster(count, proto, pallets, duties);
 		
 		Thread.sleep(wait * 3); 

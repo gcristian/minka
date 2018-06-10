@@ -43,6 +43,7 @@ public class ClientTests {
 		final Set<Duty<String>> duties = duties(p, 12);
 
 		final Config proto = prototypeConfig();
+		proto.getBootstrap().setNamespace("test_start_full_then_remove_add");
 		final long distroWait = proto.beatToMs(10);
 		final Set<ServerWhitness> cluster = buildCluster(4, proto, pallets, duties);
 
@@ -84,6 +85,7 @@ public class ClientTests {
 		final Set<Duty<String>> duties = duties(p, 12);
 		
 		final Config proto = prototypeConfig();
+		proto.getBootstrap().setNamespace("test_start_empty_then_add_and_remove");
 		final long distroWait = proto.beatToMs(10);
 		final Set<ServerWhitness> cluster = buildCluster(4, proto, emptySet(), emptySet());
 
@@ -135,6 +137,7 @@ public class ClientTests {
 		final int sizeAll = serverSize * dutySizeLoop * loops;
 		
 		final Config proto = prototypeConfig();
+		proto.getBootstrap().setNamespace("test_distributed_additions_and_servers_decay");
 		final long distroWait = proto.beatToMs(10);
 		final Set<ServerWhitness> cluster = buildCluster(serverSize, proto, singleton(p), emptySet());
 
@@ -221,6 +224,7 @@ public class ClientTests {
 		final Set<Duty<String>> duties = duties(p, 12);
 		
 		final Config proto = prototypeConfig();
+		proto.getBootstrap().setNamespace("test_start_empty_then_repeat_add_and_removes");
 		final long distroWait = proto.beatToMs(10);
 		final Set<ServerWhitness> cluster = buildCluster(4, proto, emptySet(), emptySet());
 
