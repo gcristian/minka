@@ -212,6 +212,7 @@
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderShardContainer" />
         <constructor-arg ref="systemState" />
+        <constructor-arg ref="partition" />
     </bean>
     
     <bean id="configValidator" class="io.tilt.minka.api.ConfigValidator"/>

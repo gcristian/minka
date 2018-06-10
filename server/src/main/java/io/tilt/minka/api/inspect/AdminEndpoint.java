@@ -85,7 +85,7 @@ public class AdminEndpoint {
 		ret.put("/pallets", "show pallets in scheme");
 		ret.put("/shards", "show cluster members");
 		ret.put("/scheme", "show available and backstage duties");
-		ret.put("/sharded", "show duty partition on current shard");
+		ret.put("/partition", "show duty partition on current shard");
 		ret.put("/plans", "show distribution change plans");
 		ret.put("/log/text", "capture logging on demand");
 		return Response.accepted(ret).build();
@@ -142,15 +142,15 @@ public class AdminEndpoint {
 	}
 
 	@GET
-	@Path("/sharded")
+	@Path("/partition")
 	@Produces(MediaType.APPLICATION_JSON)
 	/** @return the follower's sharded partition entities */
 	public Response shardedDuties() throws JsonProcessingException {
-		return Response.accepted(state.followerEntitiesToJson()).build();
+		return Response.accepted(state.currentPartitionToJson()).build();
 	}
 
 	@GET
-	@Path("/schedule")
+	@Path("/scheduler")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response schedule() throws JsonProcessingException {
 		return Response.accepted(state.scheduleToJson()).build();

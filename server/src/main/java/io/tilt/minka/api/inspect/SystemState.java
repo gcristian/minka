@@ -127,7 +127,7 @@ public class SystemState {
 		});
 	}
 
-	public String toJson(final Object o) {
+	private String toJson(final Object o) {
 		try {
 			return mapper.writeValueAsString(o);
 		} catch (JsonProcessingException e) {
@@ -135,14 +135,39 @@ public class SystemState {
 		}
 	}
 	
+	/**
+	 * <p>
+	 * Detailed information on change plans built in distributor phase
+	 * to accomodate duties into shards. Including any on-going plan, and historic plans.
+	 * <p>
+	 * Non-Empty only when the current server is the Leader.
+	 * @return			a String in json format
+	 */
 	public String plansToJson() {
 		return toJson(buildPlans().toMap());
 	}
 	
+	/**
+	 * <p>
+	 * Metrics on the event broker's server and clients, used to communicate shards.  
+	 * Each shard has at least one server to listen events from the leader and one client to send
+	 * events to the leader. The Leader has one server to listen events from all followers, and 
+	 * one client for each follower that sends events to.  
+	 * <p>
+	 * Full when the current server is the Leader, self broker information when the server is a Follower.
+	 * @return			a String in json format
+	 */
 	public String brokerToJson() {
 		return toJson(buildBroker());
 	}
 
+	/**
+	 * <p>
+	 * Detailed information on the shards, members of the cluster within the namespace, reporting to the leader.
+	 * <p>
+	 * Full when the current server is the Leader, self shard info. when the server is a Follower.
+	 * @return			a String in json format
+	 */
 	public String shardsToJson()  {
 		return toJson(buildShards(scheme));
 	}
@@ -151,7 +176,7 @@ public class SystemState {
 		return toJson(buildDistribution());
 	}
 
-	public String followerEntitiesToJson() {
+	public String currentPartitionToJson() {
 		return toJson(buildFollowerDuties(partition, true));
 	}
 	

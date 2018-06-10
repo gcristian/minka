@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
@@ -44,6 +45,7 @@ import io.tilt.minka.domain.PartitionDelegate;
 import io.tilt.minka.domain.PartitionMaster;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
+import io.tilt.minka.domain.ShardedPartition;
 
 /**
  * Facility to execute CRUD ops. to {@linkplain Duty} on the cluster.<br> 
@@ -69,6 +71,7 @@ public class Client<D extends Serializable, P extends Serializable> {
 	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
 	private final SystemState state;
+	private final ShardedPartition partition;
 
 	protected Client(
 			final Config config, 
@@ -77,7 +80,8 @@ public class Client<D extends Serializable, P extends Serializable> {
 			final ClientEventsHandler mediator, 
 			final ShardIdentifier shardId, 
 			final ZookeeperLeaderShardContainer leaderShardContainer, 
-			final SystemState state) {
+			final SystemState state,
+			final ShardedPartition partition) {
 		this.config = config;
 		this.leader = leader;
 		this.eventBroker = eventBroker;
@@ -85,6 +89,7 @@ public class Client<D extends Serializable, P extends Serializable> {
 		this.shardId = shardId;
 		this.leaderShardContainer = leaderShardContainer;
 		this.state = state;
+		this.partition = partition;
 	}
 
 	/**
@@ -117,6 +122,21 @@ public class Client<D extends Serializable, P extends Serializable> {
 
 	public Reply remove(final Pallet<P> pallet) {
 		return push(singletonList(pallet), EntityEvent.REMOVE, null, null);
+	}
+
+	/**
+	 * <p>
+	 * A list of duties currently captured by the server shard, 
+	 * Contents will differ since the call of this method, if new distributions occurr,
+	 * i.e. calling this method twice may not return the same contents.
+	 * 
+	 * @return			a list of captured duties
+	 */
+	@SuppressWarnings("rawtypes")
+	public List<Duty<D>> captured() {
+		return this.partition.getDuties().stream()
+				.map(d->(Duty)d.getDuty())
+				.collect(Collectors.toList());
 	}
 	
 	/**
