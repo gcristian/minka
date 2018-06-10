@@ -128,7 +128,11 @@ public class Server<D extends Serializable, P extends Serializable> {
 	}
 
 	public Config getConfig() {
-		return tenant.getConfig();
+		if (tenant!=null) {
+			return tenant.getConfig();
+		} else {
+			throw new IllegalStateException("server already shutdown");
+		}
 	}
 	
 	/**
@@ -136,7 +140,11 @@ public class Server<D extends Serializable, P extends Serializable> {
 	 * @return the event mapper instance associated with this server
 	 */
 	public EventMapper<D, P> getEventMapper() {
-		return this.mapper;
+		if (tenant!=null) {
+			return this.mapper;
+		} else {
+			throw new IllegalStateException("server already shutdown");
+		}
 	}
 	
 	private void init(final Config config) {
@@ -312,7 +320,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 	}
     
 	private void checkInit() {
-		if (!tenant.getContext().isActive()) {
+		if (tenant!=null && !tenant.getContext().isActive()) {
 			throw new IllegalStateException(tenant.getConnectReference() + " Minka service must be started first !");
 		}
 	}
@@ -420,13 +428,13 @@ public class Server<D extends Serializable, P extends Serializable> {
 	 * and follower's captured entities. (properly calling the passed lambda at EventMapper)
 	 */
 	public void shutdown(final boolean wait) {
-		destroy(wait);
-	}
-	public void shutdown() {
 		if (tenant!=null) {
 			logger.info("{}: {} Shutting down at request", name, tenant.getConnectReference());
 			destroy(true);
 		}
+	}
+	public void shutdown() {
+		shutdown(true);
 	}
 	
 

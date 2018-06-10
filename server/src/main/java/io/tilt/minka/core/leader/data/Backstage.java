@@ -125,7 +125,6 @@ public class Backstage {
 	/** @return TRUE if last stealth change timestamp has got far away more than threshold */
 	public boolean stealthOverThreshold(final long thresholdMillis) {
 		final long diff = Instant.now().getEpochSecond() - lastStealthChange.getEpochSecond();
-		logger.info("diff: {},  thgresholdMillis {}", diff, thresholdMillis);
 		return (diff * 1000 ) > thresholdMillis;
 		
 	}

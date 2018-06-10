@@ -231,7 +231,6 @@ public class SocketServer {
 				    logger.debug("{}: ({}) Reading: {}", classname, loggingName, meta.getPayloadType());
 				}
 
-				addMetric(meta);
 				scheduler.schedule(scheduler.getAgentFactory()
 						.create(
 							Action.BROKER_INCOMING_MESSAGE, 
@@ -239,6 +238,7 @@ public class SocketServer {
 							Frequency.ONCE, 
 							() -> consumer.accept(meta))
 						.build());
+				addMetric(meta);
 			} catch (Exception e) {
 				logger.error("({}) SocketServerHandler: Unexpected while reading incoming message", loggingName, e);
 			}

@@ -1,11 +1,14 @@
 package io.tilt.minka;
 
-import java.util.HashSet;
 import java.util.Set;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Server;
 
+/**
+ * Facility wrapper with the server instance 
+ * and testimony data of it's main events
+ */
 public class ServerWhitness {
 	private final Server<String, String> server;
 	private final Set<Duty<String>> everCaptured;

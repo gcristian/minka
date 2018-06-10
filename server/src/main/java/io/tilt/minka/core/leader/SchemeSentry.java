@@ -35,6 +35,7 @@ import java.util.function.BiConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.data.Backstage;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.ShardingScheme;
@@ -42,6 +43,7 @@ import io.tilt.minka.core.leader.distributor.ChangeDetector;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.leader.distributor.Delivery;
 import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.EntityState;
@@ -83,10 +85,11 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 				return;
 			}
 		}
-
+	
 		shard.enterHeartbeat(beat);
-		if (beat.getCapacities()!=null) {
-			shard.setCapacities(new HashMap<>(beat.getCapacities()));
+		final Map<Pallet<?>, Capacity> cap = beat.getCapacities();
+		if (cap!=null) {
+			shard.setCapacities(new HashMap<>(cap));
 		}
 		
 		detectExpectedChanges(shard, beat);
@@ -112,7 +115,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 				changePlan.calculateState();
 				if (changePlan.getResult().isClosed()) {
 					if (logger.isInfoEnabled()) {
-						logger.info("{}: ChangePlan finished ! (all changes in scheme)", classname);
+						logger.info("{}: ChangePlan finished ! (promoted)", classname);
 					}
 				} else if (logger.isInfoEnabled() && changePlan.hasUnlatched()) {
 					logger.info("{}: ChangePlan unlatched, fwd >> distributor agent ", classname);

@@ -116,7 +116,11 @@ public class Follower implements Service {
 		if (inService()) {
 			final Heartbeat bye = heartbeatFactory.create(true);
 			bye.setShardChange(new Shard.Change(Shard.Cause.FOLLOWER_BREAKUP, ShardState.QUITTED));
-			heartpump.emit(bye);
+			if (!heartpump.emit(bye)) {
+				logger.error("{}: ({}) Unable to send quitting heartbeat", classname, config.getLoggingShardId());
+			} else {
+				logger.info("{}: ({}) Emitted quitting heartbeat: {}", classname, config.getLoggingShardId(), bye);
+			}
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: ({}) Stopping timer", classname, config.getLoggingShardId());
 			}

@@ -71,7 +71,6 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 		if (logger.isDebugEnabled()) {
 		    logger.debug("{}: ({}) Looking subscribed consumer to Key: {}", classname, shardId, key);
 		}
-		String key = meta.getInbox() + meta.getPayloadType().getSimpleName();
 		Collection<Consumer<Serializable>> consumers = consumerPerChannelEventType.get(key);
 		if (!consumers.isEmpty()) {
 			consumers.forEach(i -> i.accept((Serializable) meta.getPayload()));

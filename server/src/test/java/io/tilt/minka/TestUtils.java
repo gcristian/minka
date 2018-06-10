@@ -24,14 +24,25 @@ public class TestUtils {
 		return prototypeConfig;
 	}
 
-	public static void shutdownServers(final Collection<ServerWhitness> cluster) {
+	public static void shutdownServers(final Collection<ServerWhitness> cluster, boolean leaderLast) {
+		ServerWhitness l = null;
 		for (ServerWhitness w: cluster) {
-			w.getServer().shutdown();
+			if (w.getServer().getClient().isCurrentLeader()) {
+				l = w;
+			} else {
+				w.getServer().shutdown();
+			}
+		}
+		if (l!=null) {
+			l.getServer().shutdown();
 		}
 		try {
 			Thread.sleep(1000l);			
 		} catch (Exception e) {
 		}
+	}
+	public static void shutdownServers(final Collection<ServerWhitness> cluster) {
+		shutdownServers(cluster, false);
 	}
 
 	public static Set<ServerWhitness> buildCluster(
@@ -82,6 +93,7 @@ public class TestUtils {
 		mapper.onPalletLoad(() -> pallets)
 			.onActivation(()->{})
 			.onDeactivation(()->{})
+			.onTransfer((a,b)->{})
 			.onLoad(()-> duties)
 			.onPalletRelease(p->o[0]=p)
 			.onPalletCapture(p->o[0]=p)
@@ -157,7 +169,7 @@ public class TestUtils {
 		}
 	}
 	
-	public static ServerWhitness giveMeAServer(final Collection<ServerWhitness> list, final boolean leader) {
+	public static ServerWhitness pickAServer(final Collection<ServerWhitness> list, final boolean leader) {
 		ServerWhitness ret = null;
 		for (ServerWhitness w: list) {
 			final boolean isL = w.getServer().getClient().isCurrentLeader();
