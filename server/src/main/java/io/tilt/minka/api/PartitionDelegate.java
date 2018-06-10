@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.domain;
+package io.tilt.minka.api;
 
 import java.io.Serializable;
 import java.util.Set;
@@ -22,8 +22,7 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
+import io.tilt.minka.domain.ConsumerDelegate;
 
 /**
  * Traditional repr. of the client implementation model's contract. 

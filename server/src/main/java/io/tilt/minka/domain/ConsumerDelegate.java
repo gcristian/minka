@@ -30,6 +30,7 @@ import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
+import io.tilt.minka.api.PartitionMaster;
 
 /**
  * Contract bridge to encapsulate delegate implementation at Minka  

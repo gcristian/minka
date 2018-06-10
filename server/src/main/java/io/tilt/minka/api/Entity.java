@@ -22,8 +22,6 @@ import java.util.Comparator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import io.tilt.minka.domain.PartitionDelegate;
-
 /**
  * An abstract entity that the host application uses to represent anything able to balance and distribute.  
  * the user MUST guarantee to TAKE and RELEASE responsibilities when the user's {@link PartitionDelegate} 

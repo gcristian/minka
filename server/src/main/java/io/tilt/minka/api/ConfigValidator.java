@@ -17,8 +17,6 @@
 package io.tilt.minka.api;
 
 import io.tilt.minka.api.Pallet.Storage;
-import io.tilt.minka.domain.PartitionDelegate;
-import io.tilt.minka.domain.PartitionMaster;
 
 public class ConfigValidator {
 

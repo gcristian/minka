@@ -4,6 +4,7 @@ import java.util.Set;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
+import io.tilt.minka.api.PartitionMaster;
 
 /** 
  * an always awaiting never ready delegate

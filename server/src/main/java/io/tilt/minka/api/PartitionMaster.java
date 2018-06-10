@@ -14,18 +14,15 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.domain;
+package io.tilt.minka.api;
 
 import java.io.Serializable;
 import java.util.Set;
 
-import io.tilt.minka.api.Client;
-import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
 import io.tilt.minka.core.task.Bootstrap;
+import io.tilt.minka.domain.ShardEntity;
 
 /**
  * Starting the {@linkplain Bootstrap} with this delegate will avoid Minka from 

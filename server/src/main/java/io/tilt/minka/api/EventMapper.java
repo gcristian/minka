@@ -13,7 +13,6 @@ import io.tilt.minka.domain.AwaitingDelegate;
 import io.tilt.minka.domain.ConsumerDelegate;
 import io.tilt.minka.domain.ConsumerDelegate.MappingEvent;
 import io.tilt.minka.domain.DependencyPlaceholder;
-import io.tilt.minka.domain.PartitionDelegate;
 
 /**
  * Mapper for Minka sharding events.<br> 

@@ -4,6 +4,9 @@ import java.io.Serializable;
 
 import org.apache.commons.lang.Validate;
 
+import io.tilt.minka.api.PartitionDelegate;
+import io.tilt.minka.api.PartitionMaster;
+
 /**
  * Value object for information that is held or provided by the client,
  * buy required after the spring context has started.

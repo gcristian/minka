@@ -32,8 +32,6 @@ import io.tilt.minka.api.config.SchedulerSettings;
 import io.tilt.minka.api.inspect.AdminEndpoint;
 import io.tilt.minka.domain.AwaitingDelegate;
 import io.tilt.minka.domain.DependencyPlaceholder;
-import io.tilt.minka.domain.PartitionDelegate;
-import io.tilt.minka.domain.PartitionMaster;
 import io.tilt.minka.domain.TCPShardIdentifier;
 import io.tilt.minka.utils.LogUtils;
 
