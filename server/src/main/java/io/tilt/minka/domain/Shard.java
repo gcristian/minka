@@ -110,16 +110,18 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		;
 	}
 	
-	public static class Change implements Comparator<Change>, Comparable<Change> {
+	public static class Change implements Comparator<Change>, Comparable<Change>, Serializable {
+		
+		private static final long serialVersionUID = -6140509862684397273L;
 		private final Cause cause;
 		private final ShardState state;
-		private Instant timestamp;
+		private final long timestamp;
 		
 		public Change(final Cause cause, final ShardState state) {
 			super();
 			this.cause = cause;
 			this.state = state;
-			this.timestamp = Instant.now();
+			this.timestamp = System.currentTimeMillis();
 		}
 		public Cause getCause() {
 			return cause;
@@ -127,13 +129,16 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		public ShardState getState() {
 			return state;
 		}
+		@JsonIgnore
 		public Instant getTimestamp() {
-			return timestamp;
+			return Instant.ofEpochMilli(timestamp);
 		}
+
 		@JsonProperty("timestamp")
 		public String getTimestamp_() {
-			return timestamp.toString();
+			return getTimestamp().toString();
 		}
+		
 		@Override
 		public int compare(Change o1, Change o2) {
 			if (o1==null) {
@@ -151,7 +156,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		@Override
 		public String toString() {
 			return new StringBuilder()
-					.append(getTimestamp_()).append(' ')
+					.append(getTimestamp()).append(' ')
 					.append(state).append(' ')
 					.append(cause)
 					.toString();
