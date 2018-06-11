@@ -16,7 +16,7 @@ public class BootstrapConfiguration {
 	 * @param tag  any user's meaningful value to the current Minka's location 
 	 * @return	the event mapper builder
 	 */
-	protected static final String SERVER_TAG = ("default-server-tag");
+	public static final String SERVER_TAG = "notatag";
 	private String serverTag;
 
 	protected static final long MAX_SERVICES_PER_MACHINE = 1;

@@ -88,7 +88,8 @@ public class LogUtils {
 		sb.append(nl).append(nl);
 		sb.append(logo);
 		sb.append("\tNamespace: ").append(namespace).append(nl);
-		sb.append("\tTCP Broker: ").append(id).append(nl);
+		sb.append("\tTCP Broker: ").append(id.getId()).append(nl);
+		sb.append("\tServer tag: ").append(id.getTag()).append(nl);
 		sb.append("\tHTTP server: ").append(webserverHostPort).append(nl).append(nl);
 		sb.append("\tRequest: ").append(webserverHostPort).append("/minka/admin/help").append(nl).append(nl);
 		sb.append(END_LINE);

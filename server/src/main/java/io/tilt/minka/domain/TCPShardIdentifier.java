@@ -21,6 +21,10 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
+import java.net.UnknownHostException;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoField;
 import java.util.Enumeration;
 import java.util.Random;
 
@@ -31,11 +35,13 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.Base64Utils;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.config.BootstrapConfiguration;
 import io.tilt.minka.core.follower.Follower;
 
 /**
@@ -82,7 +88,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 					.append("([hostname]:[port])")
 					.toString());
 		this.creation = new DateTime(DateTimeZone.UTC);
-		this.tag = config.getBootstrap().getServerTag();
+		
 		this.configuredPort = Integer.parseInt(brokerStr[1]);
 		this.port = configuredPort;
 		this.sourceHost = findLANAddress(brokerStr[0], config.getBroker().getNetworkInterfase());
@@ -90,6 +96,30 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		config.setResolvedShardId(this);
 		take(config.getBroker().isEnablePortFallback());
 		buildId(config);
+		
+		this.tag = buildTag(config.getBootstrap().getServerTag());
+		config.getBootstrap().setServerTag(this.tag);
+	}
+
+	/**
+	 * @param tag	the configured or default tag
+	 * @return		only when default: [second] [millis] @ [host name] 
+	 */
+	private String buildTag(final String tag) {
+		if (tag.equals(BootstrapConfiguration.SERVER_TAG)) {
+			
+			final StringBuilder tmp = currentSecondAndMillisecond()
+					.append('@');
+			try {
+				tmp.append(InetAddress.getLocalHost().getCanonicalHostName());
+			} catch (UnknownHostException e) {
+				logger.error("{}: Couldnt gather localhost name falling back to host address's name");
+				tmp.append(sourceHost.getCanonicalHostName());
+			}
+			return tmp.toString();
+		} else {
+			return tag;
+		}
 	}
 	
 	@JsonProperty("broker-connect")
@@ -113,13 +143,10 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		for (int search = 0; search < (findAnyPort ? PORT_SEARCHES_MAX : 1); this.port++, search++) {
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: {} port {}:{} (search no.{}/{}) ", logName,
-					search == 0 ? "Validating" : "Falling back", sourceHost, this.port, search, PORT_SEARCHES_MAX);
+					search == 0 ? "Testing" : "Trying fallback port", sourceHost, this.port, search, PORT_SEARCHES_MAX);
 			}
 			
 			try {
-				if (logger.isInfoEnabled()) {
-					logger.info("{}: Booking port {}", logName, this.port);
-				}
 				bookedSocket = bookAPort(this.port);
 				if (bookedSocket != null) {
 					return;
@@ -145,7 +172,9 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 			if (!socket.isBound()) {
 				return null;
 			}
-			logger.debug("{}: Testing host {} port {} OK", logName, sourceHost, testPort);
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Testing host {} port {} OK", logName, sourceHost, testPort);
+			}
 			return socket;
 		} catch (IOException e) {
 			IOUtils.closeQuietly(socket);
@@ -184,8 +213,19 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 			logger.warn("{}: Falling back with just a random shard ID", logName);
 			id = "-" + random.nextInt(9999);
 		}
-		this.id = id + ":" + port;
+		
+		// we need to add a restart-against variance so the leader doesn't get confused
+		final String rid = Base64Utils.encodeToString(
+				new byte[] {Integer.valueOf(currentSecondAndMillisecond().toString()).byteValue()});
+		this.id = id + ":" + port + ":" + rid;
+		
 		config.getBroker().setHostPort(this.id);
+	}
+
+	private StringBuilder currentSecondAndMillisecond() {
+		return new StringBuilder()
+			.append(LocalDateTime.now().getSecond())
+			.append(Instant.now().get(ChronoField.MILLI_OF_SECOND));
 	}
 
 	/** trying to find a LAN candidate address */
