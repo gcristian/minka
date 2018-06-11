@@ -284,8 +284,8 @@ public class SocketClient {
 
 		private boolean isLagTooHigh() {
 			final MessageMetadata eldest = queue.peek();
-			if ((System.currentTimeMillis() - eldest.getCreatedAt()) > maxLagBeforeDiscardingClientQueueBeats || queue
-					.size() == maxClientQueueSize) {
+			if ((System.currentTimeMillis() - eldest.getCreatedAt()) > maxLagBeforeDiscardingClientQueueBeats 
+					|| queue.size() == maxClientQueueSize) {
 				logger.error("{}: ({}) Clearing queue for LAG reached LIMIT - increment client connector threads size", 
 						getClass().getSimpleName(), loggingName);
 				return true;
