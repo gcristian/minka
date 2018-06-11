@@ -73,7 +73,7 @@ public class Bootstrap implements Service {
 	private final Agent bootLeadershipCandidate;
 	private final Agent readyAwareBooting;
 	private final Agent unconfidentLeader;
-	private final Agent coredumper;
+	private Agent coredumper;
 	
 	
 	private Date start;
@@ -115,8 +115,11 @@ public class Bootstrap implements Service {
 		this.bootLeadershipCandidate = createCandidate();
 		this.readyAwareBooting = createBootup();
 		this.unconfidentLeader = createUnconfident();
-		this.coredumper = createStateMonitor();
-		scheduler.schedule(coredumper);
+		
+		if (config.getBootstrap().isEnableCoreDump()) {
+			this.coredumper = createStateMonitor();
+			scheduler.schedule(coredumper);
+		}
 		
 		if (autoStart) {
 			start();
@@ -246,20 +249,20 @@ public class Bootstrap implements Service {
 	private boolean saveOnDiff(final String key, final Instant now, final String value) {
 		boolean ret = false;
 		final String last = lastJsons.get(key);
-		if (last==null || !last.equals(value)) {
+		if (last==null || !last.contentEquals(value)) {
 			lastJsons.put(key, value);
-			final String filepath = new StringBuilder()
+			final StringBuilder filepath = new StringBuilder()
 					.append(config.getBootstrap().getCoreDumpFilepath())
 					.append("/minka-")
 					.append(key)
 					.append("-")
-					.append(config.getBootstrap().getServerTag())
-					.append("-")
-					.append(now.toString())
-					.append(".json")
-					.toString();
+					.append(config.getBootstrap().getServerTag());
+			if (!config.getBootstrap().isCoreDumpSnapshot()) {
+				filepath.append("-").append(now.toString());
+			}
+			filepath.append(".json");
 			try {
-				FileUtils.writeStringToFile(new File(filepath), value, Charset.defaultCharset());
+				FileUtils.writeStringToFile(new File(filepath.toString()), value, Charset.defaultCharset());
 			} catch (IOException e) {
 			}
 			ret = true;
@@ -268,16 +271,18 @@ public class Bootstrap implements Service {
 	}
 	protected void stateMonitor() {
 		final Instant now = Instant.now();
+		saveOnDiff("config", now, config.toJson());
 		saveOnDiff("schedule", now, systemStateMonitor.scheduleToJson());
 		saveOnDiff("shards", now, systemStateMonitor.shardsToJson());
 		saveOnDiff("broker", now, systemStateMonitor.brokerToJson());
-		
-		saveOnDiff("plans", now, systemStateMonitor.plansToJson());
-		saveOnDiff("distro", now, systemStateMonitor.distributionToJson());
 		saveOnDiff("partition", now, systemStateMonitor.currentPartitionToJson());
 		
-		saveOnDiff("scheme", now, systemStateMonitor.schemeToJson(true));
-		saveOnDiff("pallets", now, systemStateMonitor.palletsToJson());
+		if (leader.inService()) {
+			saveOnDiff("plans", now, systemStateMonitor.plansToJson());
+			saveOnDiff("distro", now, systemStateMonitor.distributionToJson());
+			saveOnDiff("scheme", now, systemStateMonitor.schemeToJson(true));
+			saveOnDiff("pallets", now, systemStateMonitor.palletsToJson());
+		}
 	}
 
 	/**

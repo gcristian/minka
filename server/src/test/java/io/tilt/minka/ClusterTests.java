@@ -10,7 +10,6 @@ import static io.tilt.minka.TestUtils.prototypeConfig;
 import static io.tilt.minka.TestUtils.shutdownServers;
 import static java.lang.Thread.sleep;
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptySet;
 import static junit.framework.Assert.assertNotNull;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -152,8 +151,6 @@ public class ClusterTests {
 	public void test_cluster_size_increase_decrease() throws Exception {
 		int count = 1;
 		proto.getBootstrap().setNamespace("test_cluster_size_increase_decrease");
-		proto.getBootstrap().setEnableCoreDump(true);
-		proto.getBootstrap().setCoreDumpFilepath("/tmp/");
 		final Set<ServerWhitness> cluster = buildCluster(count, proto, pallets, duties);
 		
 		sleep(wait * 3); 
@@ -198,6 +195,19 @@ public class ClusterTests {
 		
 		shutdownServers(cluster, true);
 	}
-	
+
+	@Test
+	public void test_single_cluster() throws Exception {
+		final Config conf = prototypeConfig();
+		conf.getBootstrap().setNamespace("test_single_cluster");
+		conf.getBootstrap().setEnableCoreDump(true);
+		conf.getBootstrap().setCoreDumpDelayBeats(20);
+		conf.getBootstrap().setCoreDumpFilepath("/tmp/minka");
+		final Set<ServerWhitness> set = buildCluster(1, conf, pallets, duties);
+		sleep(wait * 3);
+		assertDistribution(set, duties);
+		shutdownServers(set);
+	}
+
 }
  

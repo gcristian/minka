@@ -61,6 +61,8 @@ public class BootstrapConfiguration {
 	private int coreDumpDelayBeats;
 	protected static final String CORE_DUMP_FILEPATH = "/tmp/";
 	private String coreDumpFilepath;
+	protected static final boolean CORE_DUMP_SNAPSHOT = true;
+	private boolean coreDumpSnapshot;
 	
 	
 	public String getNamespace() {
@@ -177,5 +179,11 @@ public class BootstrapConfiguration {
 	}
 	public String getCoreDumpFilepath() {
 		return coreDumpFilepath;
+	}
+	public boolean isCoreDumpSnapshot() {
+		return coreDumpSnapshot;
+	}
+	public void setCoreDumpSnapshot(boolean coreDumpSnapshot) {
+		this.coreDumpSnapshot = coreDumpSnapshot;
 	}
 }
