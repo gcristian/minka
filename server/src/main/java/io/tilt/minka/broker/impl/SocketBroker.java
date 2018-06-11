@@ -19,6 +19,7 @@ package io.tilt.minka.broker.impl;
 import static java.util.Objects.requireNonNull;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -310,11 +311,19 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	}
 	
 	public Map<BrokerChannel, Object> getSendMetrics() {
-		return (Map)this.clients;
+		if (clients!=null) {
+			return (Map)this.clients;
+		} else {
+			return Collections.emptyMap();
+		}
 	}
 	
 	public Map<String, Map> getReceptionMetrics() {
-		return (Map)this.server.getCountByTypeAndHost();
+		if (server!=null) {
+			return (Map)this.server.getCountByTypeAndHost();
+		} else {
+			return Collections.emptyMap();
+		}
 	}
 
 }
