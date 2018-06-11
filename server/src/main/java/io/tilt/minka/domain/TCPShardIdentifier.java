@@ -16,6 +16,8 @@
  */
 package io.tilt.minka.domain;
 
+import static java.nio.charset.Charset.defaultCharset;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -108,8 +110,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	private String buildTag(final String tag) {
 		if (tag.equals(BootstrapConfiguration.SERVER_TAG)) {
 			
-			final StringBuilder tmp = currentSecondAndMillisecond()
-					.append('@');
+			final StringBuilder tmp = currentSecondAndMillisecond().append('@');
 			try {
 				tmp.append(InetAddress.getLocalHost().getCanonicalHostName());
 			} catch (UnknownHostException e) {
@@ -215,14 +216,13 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		}
 		
 		// we need to add a restart-against variance so the leader doesn't get confused
-		final String rid = Base64Utils.encodeToString(
-				new byte[] {Integer.valueOf(currentSecondAndMillisecond().toString()).byteValue()});
+		final String rid = Base64Utils.encodeToString(currentSecondAndMillisecond().toString().getBytes(defaultCharset()));
 		this.id = id + ":" + port + ":" + rid;
 		
 		config.getBroker().setHostPort(this.id);
 	}
 
-	private StringBuilder currentSecondAndMillisecond() {
+	private static StringBuilder currentSecondAndMillisecond() {
 		return new StringBuilder()
 			.append(LocalDateTime.now().getSecond())
 			.append(Instant.now().get(ChronoField.MILLI_OF_SECOND));
