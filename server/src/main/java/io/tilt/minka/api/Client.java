@@ -30,7 +30,7 @@ import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.inspect.SystemState;
+import io.tilt.minka.api.inspect.SystemStateMonitor;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
@@ -68,7 +68,7 @@ public class Client<D extends Serializable, P extends Serializable> {
 	private final ShardIdentifier shardId;
 	private final Config config;
 	private final LeaderShardContainer leaderShardContainer;
-	private final SystemState state;
+	private final SystemStateMonitor state;
 	private final ShardedPartition partition;
 
 	protected Client(
@@ -78,7 +78,7 @@ public class Client<D extends Serializable, P extends Serializable> {
 			final ClientEventsHandler mediator, 
 			final ShardIdentifier shardId, 
 			final ZookeeperLeaderShardContainer leaderShardContainer, 
-			final SystemState state,
+			final SystemStateMonitor state,
 			final ShardedPartition partition) {
 		this.config = config;
 		this.leader = leader;

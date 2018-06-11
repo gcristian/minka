@@ -82,6 +82,10 @@ public class TestUtils {
 		ownConfig.getBootstrap().setNamespace(refConfig.getBootstrap().getNamespace());
 		ownConfig.getBootstrap().setBeatUnitMs(refConfig.getBootstrap().getBeatUnitMs());
 		ownConfig.getBootstrap().setDropVMLimit(true);
+		
+		ownConfig.getBootstrap().setEnableCoreDump(refConfig.getBootstrap().isEnableCoreDump());
+		ownConfig.getBootstrap().setCoreDumpDelayBeats(refConfig.getBootstrap().getCoreDumpDelayBeats());
+		ownConfig.getBootstrap().setCoreDumpFilepath(refConfig.getBootstrap().getCoreDumpFilepath());
 
 		final Set<Duty<String>> everCaptured = new HashSet<>();
 		final Set<Duty<String>> everReleased = new HashSet<>();

@@ -19,14 +19,20 @@ package io.tilt.minka.core.task;
 import static io.tilt.minka.api.config.BootstrapConfiguration.NAMESPACE_MASK_LEADER_LATCH;
 import static java.util.Objects.requireNonNull;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.Charset;
 import java.time.Instant;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
-import org.apache.commons.lang.Validate;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.ConfigValidator;
+import io.tilt.minka.api.inspect.SystemStateMonitor;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
@@ -39,7 +45,6 @@ import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.spectator.Locks;
 import io.tilt.minka.spectator.ServerCandidate;
-import io.tilt.minka.utils.LogUtils;
 
 /**
  * Last singleton loaded by the spring context, starter of all instances of {@linkplain Service}
@@ -49,8 +54,7 @@ import io.tilt.minka.utils.LogUtils;
  */
 public class Bootstrap implements Service {
 
-	private static final long REPUBLISH_LEADER_CANDIDATE_AFTER_LOST_MS = 1000l;
-
+	
 	public Logger logger = Leader.logger;
 	
 	private final Config config;
@@ -62,12 +66,14 @@ public class Bootstrap implements Service {
 	private final LeaderShardContainer leaderShardContainer;
 	private final ShardIdentifier shardId;
 	private final EventBroker eventBroker;
+	private final SystemStateMonitor systemStateMonitor;
 	private final SpectatorSupplier spectatorSupplier;
 	private final String leaderLatchPath;
 	
-	private Agent bootLeadershipCandidate;
-	private Agent readyAwareBooting;
-	private Agent unconfidentLeader;
+	private final Agent bootLeadershipCandidate;
+	private final Agent readyAwareBooting;
+	private final Agent unconfidentLeader;
+	private final Agent coredumper;
 	
 	
 	private Date start;
@@ -89,7 +95,8 @@ public class Bootstrap implements Service {
 			final Scheduler scheduler,
 			final LeaderShardContainer leaderShardContainer, 
 			final ShardIdentifier shardId, 
-			final EventBroker eventBroker) {
+			final EventBroker eventBroker,
+			final SystemStateMonitor systemStateMonitor) {
 
 		this.config = requireNonNull(config, "a unique service name is required (within the ZK ensemble)");
 		this.validator = requireNonNull(validator);
@@ -101,21 +108,24 @@ public class Bootstrap implements Service {
 		this.leaderShardContainer = requireNonNull(leaderShardContainer);
 		this.shardId = requireNonNull(shardId);
 		this.eventBroker = requireNonNull(eventBroker);
+		this.systemStateMonitor = requireNonNull(systemStateMonitor);
 
 		this.repostulationCounter = 0;
 
-		createCandidate(scheduler);
-		createBootup(config, scheduler);
-		createUnconfident(config, scheduler);
-
+		this.bootLeadershipCandidate = createCandidate();
+		this.readyAwareBooting = createBootup();
+		this.unconfidentLeader = createUnconfident();
+		this.coredumper = createStateMonitor();
+		scheduler.schedule(coredumper);
+		
 		if (autoStart) {
 			start();
 		}
 		this.leaderLatchPath = String.format(NAMESPACE_MASK_LEADER_LATCH, config.getBootstrap().getNamespace());
 	}
 
-	private void createBootup(final Config config, final Scheduler scheduler) {
-		this.readyAwareBooting = scheduler
+	private Agent createBootup() {
+		return scheduler
 				.getAgentFactory().create(
 						Action.BOOTSTRAP_BULLETPROOF_START, 
 						PriorityLock.HIGH_ISOLATED,
@@ -125,19 +135,30 @@ public class Bootstrap implements Service {
 				.build();
 	}
 
-	private void createCandidate(final Scheduler scheduler) {
-		this.bootLeadershipCandidate = scheduler
+	private Agent createCandidate() {
+		return scheduler
 				.getAgentFactory().create(
 						Action.BOOTSTRAP_LEADERSHIP_CANDIDATURE, 
 						PriorityLock.HIGH_ISOLATED,
 						Frequency.ONCE_DELAYED, 
 						() -> bootLeadershipCandidate())
-				.delayed(REPUBLISH_LEADER_CANDIDATE_AFTER_LOST_MS)
+				.delayed(config.beatToMs(config.getBootstrap().getRepublishLeaderCandidateAfterLostBeats()))
+				.build();
+	}
+	
+	private Agent createStateMonitor() {
+		return scheduler
+				.getAgentFactory().create(
+						Action.BOOTSTRAP_COREDUMP,
+						PriorityLock.HIGH_ISOLATED,
+						Frequency.PERIODIC, 
+						() -> stateMonitor())
+				.every(config.beatToMs(config.getBootstrap().getCoreDumpDelayBeats()))
 				.build();
 	}
 
-	private void createUnconfident(final Config config, final Scheduler scheduler) {
-		this.unconfidentLeader = scheduler
+	private Agent createUnconfident() {
+		return scheduler
 				.getAgentFactory().create(
 						Action.ANY, 
 						PriorityLock.HIGH_ISOLATED,
@@ -221,6 +242,44 @@ public class Bootstrap implements Service {
 		}
 	}
 	
+	private final Map<String, String> lastJsons = new HashMap<>();
+	private boolean saveOnDiff(final String key, final Instant now, final String value) {
+		boolean ret = false;
+		final String last = lastJsons.get(key);
+		if (last==null || !last.equals(value)) {
+			lastJsons.put(key, value);
+			final String filepath = new StringBuilder()
+					.append(config.getBootstrap().getCoreDumpFilepath())
+					.append("/minka-")
+					.append(config.getBootstrap().getServerTag())
+					.append("-")
+					.append(key)
+					.append("-")
+					.append(now.toString())
+					.append(".json")
+					.toString();
+			try {
+				FileUtils.writeStringToFile(new File(filepath), value, Charset.defaultCharset());
+			} catch (IOException e) {
+			}
+			ret = true;
+		}
+		return ret;
+	}
+	protected void stateMonitor() {
+		final Instant now = Instant.now();
+		saveOnDiff("schedule", now, systemStateMonitor.scheduleToJson());
+		saveOnDiff("shards", now, systemStateMonitor.shardsToJson());
+		saveOnDiff("broker", now, systemStateMonitor.brokerToJson());
+		
+		saveOnDiff("plans", now, systemStateMonitor.plansToJson());
+		saveOnDiff("distro", now, systemStateMonitor.distributionToJson());
+		saveOnDiff("partition", now, systemStateMonitor.currentPartitionToJson());
+		
+		saveOnDiff("scheme", now, systemStateMonitor.schemeToJson(true));
+		saveOnDiff("pallets", now, systemStateMonitor.palletsToJson());
+	}
+
 	/**
 	 * if config allows leadership candidate: 
 	 * postulate and keep retrying until postulation is accepted 

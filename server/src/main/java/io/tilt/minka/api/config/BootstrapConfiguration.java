@@ -31,11 +31,14 @@ public class BootstrapConfiguration {
 	private long leaderUnconfidentStartDelayBeats;
 	protected static final long LEADER_UNCONFIDENT_DELAY_BEATS = 10;
 	private long leaderUnconfidentDelayBeats;
-	protected static final long RESOURCE_RELwEASE_WAIT_BEATS = 10;
+	protected static final long RESOURCE_RELEASE_WAIT_BEATS = 10;
 	private long resourceReleaseWaitBeats;
 	
 	//protected static final long READYNESS_RETRY_DELAY_MS = 5000l;
 	//private long readynessRetryDelayMs;
+	protected static final int REPUBLISH_LEADER_CANDIDATE_AFTER_LOST_BEATS = 2;
+	private int republishLeaderCandidateAfterLostBeats;
+	
 	protected final static boolean PUBLISH_LEADER_CANDIDATURE = true;
 	private boolean publishLeaderCandidature;
 	protected static final boolean LEADER_SHARD_ALSO_FOLLOWS = true;
@@ -52,8 +55,13 @@ public class BootstrapConfiguration {
 	protected static final String WEB_SERVER_CONTEXT_PATH = "minka";
 	private String webServerContextPath;
 
-	protected static final boolean ENABLE_LOGGING = true;
-	private boolean enableLogging;
+	protected static final boolean ENABLE_CORE_DUMP = false;
+	private boolean enableCoreDump;
+	protected static final int CORE_DUMP_DELAY_BEATS = 5;
+	private int coreDumpDelayBeats;
+	protected static final String CORE_DUMP_FILEPATH = "/tmp/";
+	private String coreDumpFilepath;
+	
 	
 	public String getNamespace() {
 		return namespace;
@@ -109,7 +117,12 @@ public class BootstrapConfiguration {
 	public long getResourceReleaseWaitBeats() {
 		return resourceReleaseWaitBeats;
 	}
-	
+	public void setRepublishLeaderCandidateAfterLostBeats(int republishLeaderCandidateAfterLostBeats) {
+		this.republishLeaderCandidateAfterLostBeats = republishLeaderCandidateAfterLostBeats;
+	}
+	public int getRepublishLeaderCandidateAfterLostBeats() {
+		return republishLeaderCandidateAfterLostBeats;
+	}
 	public boolean isPublishLeaderCandidature() {
 		return this.publishLeaderCandidature;
 	}
@@ -147,11 +160,22 @@ public class BootstrapConfiguration {
 		this.webServerContextPath = webServerContextPath;
 	}
 
-	public boolean isEnableLogging() {
-		return enableLogging;
+	public void setEnableCoreDump(boolean enableCoreDump) {
+		this.enableCoreDump = enableCoreDump;
 	}
-
-	public void setEnableLogging(boolean enableLogging) {
-		this.enableLogging = enableLogging;
+	public boolean isEnableCoreDump() {
+		return enableCoreDump;
+	}
+	public void setCoreDumpDelayBeats(int coreDumpDelayBeats) {
+		this.coreDumpDelayBeats = coreDumpDelayBeats;
+	}
+	public int getCoreDumpDelayBeats() {
+		return coreDumpDelayBeats;
+	}
+	public void setCoreDumpFilepath(String coreDumpFilepath) {
+		this.coreDumpFilepath = coreDumpFilepath;
+	}
+	public String getCoreDumpFilepath() {
+		return coreDumpFilepath;
 	}
 }

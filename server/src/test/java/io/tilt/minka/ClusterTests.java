@@ -152,9 +152,11 @@ public class ClusterTests {
 	public void test_cluster_size_increase_decrease() throws Exception {
 		int count = 1;
 		proto.getBootstrap().setNamespace("test_cluster_size_increase_decrease");
+		proto.getBootstrap().setEnableCoreDump(true);
+		proto.getBootstrap().setCoreDumpFilepath("/tmp/");
 		final Set<ServerWhitness> cluster = buildCluster(count, proto, pallets, duties);
 		
-		Thread.sleep(wait * 3); 
+		sleep(wait * 3); 
 		
 		// then increase 1 server each period 
 		for (;count < 10; count++) {

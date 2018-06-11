@@ -195,12 +195,13 @@
     ===============================================================================================-->
     
     
-    <bean id="systemState" class="io.tilt.minka.api.inspect.SystemState">
+    <bean id="systemState" class="io.tilt.minka.api.inspect.SystemStateMonitor">
         <constructor-arg ref="leaderShardContainer"/>
         <constructor-arg ref="shardingScheme"/>
         <constructor-arg ref="partition"/>
         <constructor-arg ref="scheduler"/>
         <constructor-arg ref="eventBroker"/>
+        <constructor-arg ref="config"/>
     </bean>
     
     <!-- Integracion con el cliente  -->
@@ -230,6 +231,7 @@
         <constructor-arg ref="leaderShardContainer" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="eventBroker" />
+        <constructor-arg ref="systemState" />
     </bean>
     
 </beans>

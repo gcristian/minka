@@ -57,7 +57,7 @@ public class AdminEndpoint {
 	@Autowired
 	private ShardingScheme scheme;
 	@Autowired
-	private SystemState state;
+	private SystemStateMonitor state;
 	@Autowired
 	private Config config;
 

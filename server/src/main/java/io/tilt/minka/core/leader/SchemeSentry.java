@@ -115,7 +115,8 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 				changePlan.calculateState();
 				if (changePlan.getResult().isClosed()) {
 					if (logger.isInfoEnabled()) {
-						logger.info("{}: ChangePlan finished ! (promoted)", classname);
+						logger.info("{}: ChangePlan finished ! (promoted) duration: {}ms", classname, 
+								System.currentTimeMillis()-changePlan.getCreation().toEpochMilli());
 					}
 				} else if (logger.isInfoEnabled() && changePlan.hasUnlatched()) {
 					logger.info("{}: ChangePlan unlatched, fwd >> distributor agent ", classname);

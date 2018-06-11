@@ -43,6 +43,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
+import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
@@ -72,13 +73,14 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
  * @since Nov 6, 2016
  */
 @JsonPropertyOrder({"global", "shards", "pallets", "roadmaps"})
-public class SystemState {
+public class SystemStateMonitor {
 
 	private final LeaderShardContainer leaderShardContainer; 
 	private final ShardingScheme scheme;
 	private final ShardedPartition partition;
 	private final Scheduler scheduler;
 	private final EventBroker broker;
+	private final Config config;
 	
 	private final ChangePlan[] lastPlan = {null};
 	private final SlidingSortedSet<String> changePlanHistory;
@@ -97,18 +99,20 @@ public class SystemState {
 		mapper.configure(Feature.WRITE_NUMBERS_AS_STRINGS, true);
 	}
 
-	public SystemState(
+	public SystemStateMonitor(
 			final LeaderShardContainer leaderShardContainer, 
 			final ShardingScheme scheme,
 			final ShardedPartition partition,
 			final Scheduler scheduler,
-			final EventBroker broker) {
+			final EventBroker broker, 
+			final Config config) {
 		
 		this.leaderShardContainer = requireNonNull(leaderShardContainer);
-		this.scheduler = requireNonNull(scheduler);
 		this.scheme = requireNonNull(scheme);
-		this.broker = requireNonNull(broker);
+		this.scheduler = requireNonNull(scheduler);
 		this.partition = requireNonNull(partition);
+		this.broker = requireNonNull(broker);
+		this.config = requireNonNull(config);
 		
 		this.changePlanHistory = CollectionUtils.sliding(20);
 		this.planids = CollectionUtils.sliding(10);
@@ -239,8 +243,9 @@ public class SystemState {
 		return js;
 	}
 
-	private Map<String, Map> buildBroker() {
-		final Map<String, Map> global = new LinkedHashMap<>();
+	private Map<String, Object> buildBroker() {
+		final Map<String, Object> global = new LinkedHashMap<>();
+		global.put("myself", config.getBroker().getHostPort());
 		global.put("inbound", broker.getReceptionMetrics());
 		final Map<Channel, Map<String, Object>> clients = new LinkedHashMap<>();
 		for (Entry<BrokerChannel, Object> e: broker.getSendMetrics().entrySet()) {
@@ -264,6 +269,7 @@ public class SystemState {
 
 	private Map<String, Object> buildShards(final ShardingScheme scheme) {
 		final Map<String, Object> map = new LinkedHashMap<>();
+		map.put("namespace", config.getBootstrap().getNamespace());
 		map.put("leader", leaderShardContainer.getLeaderShardId());
 		map.put("previous", leaderShardContainer.getAllPreviousLeaders());
 		final Map<String, List<String>> tmp = new HashMap<>();
