@@ -66,24 +66,34 @@ public class ChangeDetector {
 	/** Finds sharding changes by matching entity journals for planned reallocations */
 	public boolean findPlannedChanges(
 			final Delivery delivery, 
-			final ChangePlan changePlan, 
+			final long pid, 
 			final Heartbeat beat, 
-			final Shard source,
+			final ShardIdentifier sourceid,
 			final BiConsumer<Log, ShardEntity> bicons) {
 		long lattestPlanId = 0;
 		boolean found = false;
 		if (beat.reportsDuties()) {
 			lattestPlanId = latestPlan(beat);
-			if (lattestPlanId==changePlan.getId()) {
-				found|=onFoundAttachments(source, beat.getReportedCapturedDuties(), delivery, bicons, changePlan.getId());
+			if (lattestPlanId==pid) {
+				found|=onFoundAttachments(
+						sourceid, 
+						beat.getReportedCapturedDuties(), 
+						delivery.getDuties(), 
+						bicons, 
+						pid);
 			}
 		}
-		found|=onFoundDetachments(source, beat.getReportedCapturedDuties(), delivery, bicons, changePlan.getId());
+		found|=onFoundDetachments(
+				sourceid, 
+				beat.getReportedCapturedDuties(), 
+				delivery.getDuties(), 
+				bicons, 
+				pid);
 
-		if (!found && lattestPlanId==changePlan.getId()) {
+		if (!found && lattestPlanId==pid) {
 			// delivery found, no change but expected ? 
 			logger.warn("{}: Ignoring shard's ({}) heartbeats with a previous Journal: {} (current: {})", 
-					getClass().getSimpleName(), source.getShardID().toString(), lattestPlanId, changePlan.getId());			
+					getClass().getSimpleName(), sourceid.toString(), lattestPlanId, pid);			
 		}
 		return found;
 	}
@@ -106,18 +116,18 @@ public class ChangeDetector {
 	 * @return if there were changes 
 	 */
 	private boolean onFoundAttachments(
-			final Shard shard, 
-			final List<ShardEntity> beatedDuties, 
-			final Delivery delivery,
+			final ShardIdentifier shardid, 
+			final List<ShardEntity> beatedDuties,
+			final List<ShardEntity> deliveryDuties,
 			final BiConsumer<Log, ShardEntity> c,
 			final long pid) {
 		Set<ShardEntity> sortedLogConfirmed = null;
 		Set<ShardEntity> sortedLogDirty = null;
 		boolean found = false;
 		for (final ShardEntity beated : beatedDuties) {
-			for (ShardEntity delivered : delivery.getDuties()) {
+			for (ShardEntity delivered : deliveryDuties) {
 				if (delivered.equals(beated)) {
-					final Log expected = findConfirmationPair(beated, delivered, shard.getShardID(), pid);
+					final Log expected = findConfirmationPair(beated, delivered, shardid, pid);
 					if (expected != null) {
 						found = true;
 						if (logger.isInfoEnabled()) {
@@ -143,12 +153,12 @@ public class ChangeDetector {
 		}
 		if (sortedLogConfirmed!=null) {
 			logger.info("{}: ShardID: {}, {} {} for Duties: {}", classname,
-					shard.getShardID(), ATTACH, CONFIRMED, 
+					shardid, ATTACH, CONFIRMED, 
 					ShardEntity.toStringIds(sortedLogConfirmed));
 		}
 		if (sortedLogDirty!=null) {
 			logger.warn("{}: ShardID: {}, Reporting DIRTY partition event for Duties: {}", classname,
-					shard.getShardID(), ShardEntity.toStringIds(sortedLogDirty));
+					shardid, ShardEntity.toStringIds(sortedLogDirty));
 		}
 		return found;
 	}
@@ -192,16 +202,16 @@ public class ChangeDetector {
 	/**
 	 * @return TRUE if there was a planned absence confirmed */
 	private boolean onFoundDetachments(
-			final Shard shard,
+			final ShardIdentifier shardid,
 			final List<ShardEntity> beatedDuties,
-			final Delivery delivery,
+			final List<ShardEntity> deliveryDuties,
 			final BiConsumer<Log, ShardEntity> c, 
 			final long pid) {
 		Set<ShardEntity> sortedLog = null;
 		boolean found = false;
-		for (ShardEntity prescripted : delivery.getDuties()) {
+		for (ShardEntity prescripted : deliveryDuties) {
 			if (!beatedDuties.contains(prescripted)) {
-				final Log changelog = prescripted.getJournal().find(pid, shard.getShardID(), DETACH, REMOVE);
+				final Log changelog = prescripted.getJournal().find(pid, shardid, DETACH, REMOVE);
 				if (changelog!=null && (changelog.getLastState()==PENDING || changelog.getLastState()==MISSING)) {
 					found = true;
 					if (logger.isInfoEnabled()) {
@@ -217,7 +227,7 @@ public class ChangeDetector {
 		
 		if (sortedLog!=null) {
 			logger.info("{}: ShardID: {}, {} {} for Duties: {}",
-					getClass().getSimpleName(), shard.getShardID(), DETACH, CONFIRMED, 
+					getClass().getSimpleName(), shardid, DETACH, CONFIRMED, 
 					ShardEntity.toStringIds(sortedLog));
 		}
 		return found;

@@ -87,7 +87,7 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 			final long sinceTimestamp);
 
 	@Override
-	public void subscribeEvents(
+	public void subscribe(
 			final BrokerChannel buildToTarget, 
 			final Consumer<Serializable> driver, 
 			final long sinceNow, 

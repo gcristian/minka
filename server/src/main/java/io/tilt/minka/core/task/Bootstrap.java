@@ -73,7 +73,7 @@ public class Bootstrap implements Service {
 	private final Agent bootLeadershipCandidate;
 	private final Agent readyAwareBooting;
 	private final Agent unconfidentLeader;
-	private Agent coredumper;
+	private final Agent coredumper;
 	
 	
 	private Date start;
@@ -115,11 +115,7 @@ public class Bootstrap implements Service {
 		this.bootLeadershipCandidate = createCandidate();
 		this.readyAwareBooting = createBootup();
 		this.unconfidentLeader = createUnconfident();
-		
-		if (config.getBootstrap().isEnableCoreDump()) {
-			this.coredumper = createStateMonitor();
-			scheduler.schedule(coredumper);
-		}
+		this.coredumper = createStateMonitor();
 		
 		if (autoStart) {
 			start();
@@ -185,6 +181,9 @@ public class Bootstrap implements Service {
 		// after booting to avoid booting's failure race condition with restart()
 		locks.setConnectionLostCallback(() -> restart());
 		eventBroker.start(); // enable the principal service
+		if (config.getBootstrap().isEnableCoreDump()) {
+			scheduler.schedule(coredumper);
+		}
 	}
 
 	@Override
@@ -257,7 +256,7 @@ public class Bootstrap implements Service {
 					.append(key)
 					.append("-")
 					.append(config.getBootstrap().getServerTag());
-			if (!config.getBootstrap().isCoreDumpSnapshot()) {
+			if (!config.getBootstrap().isCoreDumpOverwrite()) {
 				filepath.append("-").append(now.toString());
 			}
 			filepath.append(".json");

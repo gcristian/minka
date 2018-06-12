@@ -125,26 +125,6 @@ public class Proctor implements Service {
 		this.scheduler.stop(analyzer);
 	}
 
-	private void clearShards() {
-		try {
-			if (logger.isDebugEnabled()) {
-				logger.debug("{}: Blessing {} shards", getName(), shardingScheme.getScheme().shardsSize(null));
-			}
-			final DomainInfo dom = new DomainInfo();
-			final Set<ShardEntity> allPallets = new HashSet<>();
-			shardingScheme.getScheme().findPallets(allPallets::add);
-			dom.setDomainPallets(allPallets);
-			
-			shardingScheme.getScheme().findShards(ShardState.GONE.negative(), 
-					shard-> eventBroker.send(
-							shard.getBrokerChannel(), 
-							EVENT_SET, 
-							Clearance.create(shardId, dom)));
-		} catch (Exception e) {
-			logger.error("{}: Unexpected while blessing", getName(), e);
-		}
-	}
-	
 	private void shepherShards() {
 		try {
 			if (!leaderShardContainer.imLeader()) {
@@ -332,6 +312,26 @@ public class Proctor implements Service {
 			}
 		} catch (Exception e) {
 			logger.error("", e);
+		}
+	}
+	
+	private void clearShards() {
+		try {
+			if (logger.isDebugEnabled()) {
+				logger.debug("{}: Blessing {} shards", getName(), shardingScheme.getScheme().shardsSize(null));
+			}
+			final DomainInfo dom = new DomainInfo();
+			final Set<ShardEntity> allPallets = new HashSet<>();
+			shardingScheme.getScheme().findPallets(allPallets::add);
+			dom.setDomainPallets(allPallets);
+			
+			shardingScheme.getScheme().findShards(ShardState.GONE.negative(), 
+					shard-> eventBroker.send(
+							shard.getBrokerChannel(), 
+							EVENT_SET, 
+							Clearance.create(shardId, dom)));
+		} catch (Exception e) {
+			logger.error("{}: Unexpected while blessing", getName(), e);
 		}
 	}
 }

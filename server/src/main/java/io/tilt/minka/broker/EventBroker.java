@@ -111,7 +111,7 @@ public interface EventBroker extends Service {
 			Consumer<Serializable> driver,
 			long sinceTimestamp);
 
-	void subscribeEvents(
+	void subscribe(
 			BrokerChannel channel, 
 			Consumer<Serializable> driver, 
 			long sinceNowLapse, 

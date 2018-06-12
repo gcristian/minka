@@ -17,6 +17,7 @@
 package io.tilt.minka.utils;
 
 import java.nio.charset.Charset;
+import java.time.Instant;
 
 import org.springframework.util.StreamUtils;
 
@@ -80,16 +81,16 @@ public class LogUtils {
 			line.append(HYPHEN_CHAR);
 		return line.toString();
 	}
-
+	
 	public static String getGreetings(final ShardIdentifier id, final String namespace, final String webserverHostPort) {
 		final String nl = System.getProperty("line.separator");
 		StringBuilder sb = new StringBuilder(nl);
 		grossLine(GROSS_CHAR, LARGE * 2, sb);
 		sb.append(nl).append(nl);
 		sb.append(logo);
-		sb.append("\tNamespace: ").append(namespace).append(nl);
+		sb.append("\tNamespace: ").append(namespace).append(nl).append(nl);
 		sb.append("\tTCP Broker: ").append(id.getId()).append(nl);
-		sb.append("\tServer tag: ").append(id.getTag()).append(nl);
+		sb.append("\tTag: ").append(id.getTag()).append(nl);
 		sb.append("\tHTTP server: ").append(webserverHostPort).append(nl).append(nl);
 		sb.append("\tAPI: ").append(webserverHostPort).append("/minka/admin/help").append(nl).append(nl);
 		sb.append(END_LINE);

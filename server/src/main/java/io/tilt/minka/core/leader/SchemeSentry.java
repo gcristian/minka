@@ -108,11 +108,11 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		if (changePlan!=null && !changePlan.getResult().isClosed()) {
 			final Delivery delivery = changePlan.getDelivery(shard);
 			if (delivery!=null) {
-				if (changeDetector.findPlannedChanges(delivery, changePlan, beat, shard, 
+				if (changeDetector.findPlannedChanges(delivery, changePlan.getId(), beat, shard.getShardID(), 
 						(l,d)-> writesOnChange(shard, l, d))) {
 					delivery.calculateState(s->logger.info(s));
 				}
-				changePlan.calculateState();
+				changePlan.calculateState(); 
 				if (changePlan.getResult().isClosed()) {
 					if (logger.isInfoEnabled()) {
 						logger.info("{}: ChangePlan finished ! (promoted) duration: {}ms", classname, 
