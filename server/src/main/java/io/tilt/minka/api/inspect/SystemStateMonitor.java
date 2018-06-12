@@ -28,6 +28,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import org.apache.commons.lang.Validate;
@@ -57,6 +58,7 @@ import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Semaphore;
+import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Shard;
@@ -218,7 +220,7 @@ public class SystemStateMonitor {
 	 * @return			a String in json format
 	 */
 	public String schemeToJson(final boolean detail) {
-		Map<String, Object> m = new LinkedHashMap<>();
+		Map<String, Object> m = new LinkedHashMap<>(2);
 		m.put("scheme", buildDuties(detail));
 		m.put("backstage", buildBackstage(detail, scheme.getBackstage()));
 		return toJson(m);
@@ -244,16 +246,17 @@ public class SystemStateMonitor {
 	}
 
 	private Map<String, Object> buildBroker() {
-		final Map<String, Object> global = new LinkedHashMap<>();
+		final Map<String, Object> global = new LinkedHashMap<>(3);
 		global.put("myself", config.getBroker().getHostPort());
 		global.put("inbound", broker.getReceptionMetrics());
-		final Map<Channel, Map<String, Object>> clients = new LinkedHashMap<>();
-		for (Entry<BrokerChannel, Object> e: broker.getSendMetrics().entrySet()) {
+		final Set<Entry<BrokerChannel, Object>> entryset = broker.getSendMetrics().entrySet();
+		final Map<Channel, Map<String, Object>> clients = new LinkedHashMap<>(entryset.size());
+		for (Entry<BrokerChannel, Object> e: entryset) {
 			Map<String, Object> shardsByChannel = clients.get(e.getKey().getChannel());
 			if (shardsByChannel==null) {
 				clients.put(e.getKey().getChannel(), shardsByChannel=new LinkedHashMap<>());
 			}
-			final Map<String, String> brief = new LinkedHashMap<>();
+			final Map<String, String> brief = new LinkedHashMap<>(4);
 			if (e.getValue() instanceof SocketClient) {
 				final SocketClient sc = (SocketClient)e.getValue();				
 				brief.put("queue-size", String.valueOf(sc.getQueueSize()));
@@ -268,7 +271,7 @@ public class SystemStateMonitor {
 	}
 
 	private Map<String, Object> buildShards(final ShardingScheme scheme) {
-		final Map<String, Object> map = new LinkedHashMap<>();
+		final Map<String, Object> map = new LinkedHashMap<>(5);
 		map.put("namespace", config.getBootstrap().getNamespace());
 		map.put("leader", leaderShardContainer.getLeaderShardId());
 		map.put("previous", leaderShardContainer.getAllPreviousLeaders());
@@ -284,7 +287,7 @@ public class SystemStateMonitor {
 	}
 	
 	public Map<String, Object> buildDistribution() {
-		final Map<String, Object> map = new LinkedHashMap<>();
+		final Map<String, Object> map = new LinkedHashMap<>(2);
 		map.put("global", buildGlobal(scheme));
 		map.put("distribution", buildShardRep(scheme));
 		return map;
@@ -316,7 +319,7 @@ public class SystemStateMonitor {
 	}
 	
 	private Map<String, List<Object>> buildBackstage(final boolean detail, final Backstage stage) {
-		final Map<String, List<Object>> ret = new LinkedHashMap<>();		
+		final Map<String, List<Object>> ret = new LinkedHashMap<>(3);		
 		ret.put("crud", dutyBrief(stage.getDutiesCrud(), detail));
 		ret.put("dangling", dutyBrief(stage.getDutiesDangling(), detail));
 		ret.put("missing", dutyBrief(stage.getDutiesMissing(), detail));
@@ -325,7 +328,7 @@ public class SystemStateMonitor {
 
 	private List<Object> buildFollowerDuties(final ShardedPartition partition, boolean entities) {
 		Validate.notNull(partition);
-		final List<Object> ret = new ArrayList<>();
+		final List<Object> ret = new ArrayList<>(partition.getDuties().size());
 		for (ShardEntity e: partition.getDuties()) {
 			ret.add(entities ? e: e.getDuty());
 		}
@@ -333,9 +336,9 @@ public class SystemStateMonitor {
 	}
 		
 	private List<Map<String, Object>> buildPallets() {
-		final List<Map<String, Object>> ret = new ArrayList<>();
-		final Scheme.SchemeExtractor extractor = new Scheme.SchemeExtractor(scheme.getScheme());
 		
+		final Scheme.SchemeExtractor extractor = new Scheme.SchemeExtractor(scheme.getScheme());
+		final List<Map<String, Object>> ret = new ArrayList<>(extractor.getPallets().size());
 		for (final ShardEntity pallet: extractor.getPallets()) {
 			
 			final double[] dettachedWeight = {0};
@@ -405,7 +408,7 @@ public class SystemStateMonitor {
 
 	private static Map<String, Object> buildGlobal(final ShardingScheme table) {
 		Scheme.SchemeExtractor extractor = new Scheme.SchemeExtractor(table.getScheme());
-		final Map<String, Object> map = new LinkedHashMap<>();
+		final Map<String, Object> map = new LinkedHashMap<>(8);
 		map.put("size-shards", extractor.getShards().size());
 		map.put("size-pallets", extractor.getPallets().size());
 		map.put("size-scheme", extractor.getSizeTotal());
@@ -424,7 +427,7 @@ public class SystemStateMonitor {
 			final List<Map<String, Object>> pallets, 
 			final String status) {
 			
-		final Map<String, Object> map = new LinkedHashMap<>();
+		final Map<String, Object> map = new LinkedHashMap<>(4);
 		map.put("shard-id", shardId);
 		map.put("creation", creation.toString());
 		map.put("status", status);
@@ -437,12 +440,12 @@ public class SystemStateMonitor {
 			final String id, final double capacity, final int size, final double weight, 
 			final List<DutyView> duties) {
 
-		final Map<String , Object> map = new LinkedHashMap<>();
+		final Map<String , Object> map = new LinkedHashMap<>(5);
 		map.put("id", id);
 		map.put("size", size);
 		map.put("capacity", capacity);
 		map.put("weight", weight);
-		StringBuilder sb = new StringBuilder();
+		StringBuilder sb = new StringBuilder(duties.size() * (5 + 2));
 		duties.forEach(d->sb.append(d.id).append(", "));
 		map.put("duties",sb.toString());
 		return map;
@@ -463,7 +466,7 @@ public class SystemStateMonitor {
 			final double unstagedWeight, final DateTime creation, final BalancerMetadata meta, 
 			final List<DutyView> duties) {
 		
-		final Map<String, Object> map = new LinkedHashMap<>();
+		final Map<String, Object> map = new LinkedHashMap<>(12);
 		map.put("id", id);
 		map.put("size", unstagedSize + stagedSize);
 		map.put("cluster-capacity", capacity);
@@ -479,14 +482,15 @@ public class SystemStateMonitor {
 		map.put("creation", creation.toString());
 		map.put("balancer-metadata", meta); 
 		map.put("balancer", balancer);
-		StringBuilder sb = new StringBuilder();
+		StringBuilder sb = new StringBuilder(duties.size() * (5 + 2 + 5));
 		duties.forEach(d->sb.append(d.id).append(":").append(d.weight).append(","));
 		map.put("duties", sb.toString());
 		return map;
 	}
 	
 	private Map<String, Object> buildSchedule(final Scheduler schedule) {
-		final Map<String, Object> ret = new LinkedHashMap<>();
+		final Set<Entry<Action, Agent>> entrySet = schedule.getAgents().entrySet();
+		final Map<String, Object> ret = new LinkedHashMap<>(entrySet.size() + 4);
 		try {
 			final ScheduledThreadPoolExecutor executor = schedule.getExecutor();
 			final long now = System.currentTimeMillis();
@@ -495,10 +499,11 @@ public class SystemStateMonitor {
 			ret.put("tasks-count", executor.getTaskCount());
 			ret.put("tasks-completed", executor.getCompletedTaskCount());
 			
-			for (final Entry<Semaphore.Action, Scheduler.Agent> e: schedule.getAgents().entrySet()) {
+			
+			for (final Entry<Semaphore.Action, Scheduler.Agent> e: entrySet) {
 				final Agent sync = e.getValue();
 				
-				final Map<String, String> t = new LinkedHashMap<>();
+				final Map<String, String> t = new LinkedHashMap<>(9);
 				t.put("enum", e.getKey().name());
 				t.put("frequency", sync.getFrequency().name());
 				t.put("periodic-delay", String.valueOf(sync.getPeriodicDelay()));
