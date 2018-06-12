@@ -49,27 +49,6 @@ public interface Duty<T extends Serializable> extends Entity<T> {
 	/** @return not mandatory only for Client usage */ 
 	Pallet<?> getPallet();
 	
-	/**
-	 * @return whether or not the absence this duty in the delegate's report
-	 * must be interpreted as a normal finalization. 
-	 * Otherwise it will be missing and schedule for reattachment
-	 */
-	boolean isLazyFinalized();
-
-	/** 
-	 * @return whether or not this duty can migrate for balancing purposes.
-	 * Generally true if the Client doesn't link to local machine resources and
-	 * the duty can be paused and restarted at a different machine, 
-	 * for which it may require a distributed savepoints facility if depends of state
-	 * 
-	 * Minka doesnt yet support in-memory snapshot of the Duty representation for continuos state recording.
-	 * Such a feature depends on stronger partitiontable replication flows and wider CRUD consistency issues.  
-	 */
-	boolean isIdempotent();
-
-	/** @return whether of not this Duty cannot be balanced and it must cohabitat all Minka shards */
-	boolean isSynthetic();
-
 	static <T extends Serializable> DutyBuilder<T> builder(final String id, final String palletId) {
 		return DutyBuilder.builder(id, palletId);
 	}

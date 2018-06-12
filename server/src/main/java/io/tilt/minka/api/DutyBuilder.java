@@ -21,9 +21,6 @@ public class DutyBuilder<T extends Serializable> {
 
 	private T payload;
 	private double weight;
-	private boolean synthetic;
-	private boolean lazy;
-	private boolean idempotent = true;
 
 	private DutyBuilder(final String id, final String palletId) {
 		Validate.notNull(id, "A non null ID is required");
@@ -79,48 +76,16 @@ public class DutyBuilder<T extends Serializable> {
 		this.weight = weight;
 		return this;
 	}
-	/** 
-	 * lazy finalization allows a duty to be peacefully considered finished once it's presence 
-	 * ceases to be reported, otherwise the leader will keep trying to restart it, 
-	 * even flagging the shard as rebell if it rejects to take it and report it.
-	 * This's disabled by default
-	 * @return	the builder 
-	 * */
-	public DutyBuilder<T> withLazyFinalization() {
-		this.lazy = true;
-		return this;
-	}
-	/**
-	 * idempotency allows the duty to be rebalanced, often migrated (dettached from a shard, and attach at
-	 * a different one), so the distribution, balance and availability Minka policies can be guaranteed.
-	 * Stationary duties are never rebalanced, they're distributed and abandoned.
-	 * Used when duties cannot be paused once started or involve some static coupling to the shard. 
-	 * This's disabled by default.
-	 * @return	the builder
-	 */
-	public DutyBuilder<T> asStationary() {
-		this.idempotent = false;
-		return this;
-	}
-	/**
-	 * synthetic duties are distributed to all existing shards, without balancing, 
-	 * they're all the same for Minka, all CRUD operations still apply as the duty is only 1.
-	 * Useful for controlling and coordination purposes.
-	 * @return	the builder
-	 */
-	public DutyBuilder<T> asSynthetic() {
-		this.synthetic = true;;
-		return this;
-	}
+	
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public Duty<T> build() {
 		if (weight ==0) {
 			weight = 1;
 		}
 		if (payload == null) {
-			return new Task(id, id, weight, palletId, synthetic, lazy, idempotent);								
+			return new Task(id, id, weight, palletId);
 		} else {
-			return new Task<>(payload, id, weight, palletId, synthetic, lazy, idempotent);
+			return new Task<>(payload, id, weight, palletId);
 		}
 	}
 		
@@ -135,9 +100,6 @@ public class DutyBuilder<T extends Serializable> {
 		private final double load;
 		private final T payload;
 		private Class<T> type;
-		private final boolean synthetic;
-		private final boolean lazy;
-		private final boolean idempotent;
 		private final Instant timestamp;
 
 		@SuppressWarnings("unchecked")
@@ -145,18 +107,12 @@ public class DutyBuilder<T extends Serializable> {
 				final T payload, 
 				final String id, 
 				final double load,
-				final String palletId, 
-				final boolean synthetic, 
-				final boolean lazy, 
-				final boolean idempotent) {
+				final String palletId) {
 			this.id = id;
 			this.palletId = palletId;
 			this.load = load;
 			this.payload = payload;
 			this.type = (Class<T>) payload.getClass();
-			this.synthetic = synthetic;
-			this.lazy = lazy;
-			this.idempotent = idempotent;
 			this.timestamp = Instant.now();
 			validateBuiltParams(this);
 		}
@@ -233,21 +189,6 @@ public class DutyBuilder<T extends Serializable> {
 		@Override
 		public String getPalletId() {
 			return palletId;
-		}
-		
-		@Override
-		public boolean isLazyFinalized() {
-			return lazy;
-		}
-
-		@Override
-		public boolean isIdempotent() {
-			return idempotent;
-		}
-
-		@Override
-		public boolean isSynthetic() {
-			return synthetic;
 		}
 
 	}

@@ -37,7 +37,7 @@ public class DeadSimpleSample {
 		// create a dummy duty to check at last for it's reception
 		final Duty<String> helloWorld = Duty.<String>builder("helloworld", "group").build();
 
-		Duty.builder("123", "123").asStationary().build();
+		Duty.builder("123", "123").build();
 		
 		// to save those duties assigned by minka to this shard 
 		final Set<Duty<String>> myDuties = new TreeSet<>();
