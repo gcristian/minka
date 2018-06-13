@@ -260,6 +260,16 @@ public class Scheme {
 		}
 		return null;
 	}
+	public Shard findDutyLocation(final String dutyId) {
+		for (final Shard shard : partitionsByShard.keySet()) {
+			for (ShardEntity st : partitionsByShard.get(shard).getDuties()) {
+				if (st.getEntity().getId().equals(dutyId)) {
+					return shard;
+				}
+			}
+		}
+		return null;
+	}
 	
 	public Shard findDutyLocation(final Duty<?> duty) {
 		for (final Shard shard : partitionsByShard.keySet()) {

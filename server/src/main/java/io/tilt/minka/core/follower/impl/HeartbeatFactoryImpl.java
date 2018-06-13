@@ -39,6 +39,7 @@ import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
+import io.tilt.minka.domain.ShardReport;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.utils.LogUtils;
 
@@ -83,8 +84,8 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		// this's used only if there's nothing important to report (differences, absences, etc)
 		final Heartbeat.Builder builder = Heartbeat.builder(sequence.getAndIncrement(), partition.getId());
 		// add reported: as confirmed if previously assigned, dangling otherwise.
-		final List<ShardEntity> tmp = new ArrayList<>(partition.getDuties().size()); 
-		boolean issues = detectChangesOnReport(builder, tmp::add);
+		final List<ShardReport> tmp = new ArrayList<>(partition.getDuties().size()); 
+		boolean issues = detectChangesOnReport(builder, d->tmp.add(ShardReport.fromEntity(d)));
 		logBeat |=issues;
 		
 		boolean newLeader = false; 
@@ -112,9 +113,9 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		} else if (log.isInfoEnabled() && logBeat) {
 			logBeat = false;
 			log.info("{}: ({}) {} SeqID: {}, {}", 
-				getClass().getSimpleName(), hb.getShardId(),LogUtils.HB_CHAR, hb.getSequenceId(), 
+				getClass().getSimpleName(), hb.getShardId(), LogUtils.HB_CHAR, hb.getSequenceId(), 
 				hb.reportsDuties() ? new StringBuilder("Duties: (")
-					.append(ShardEntity.toStringIds(hb.getReportedCapturedDuties()))
+					.append(ShardReport.toStringIds(hb.getReportedCapturedDuties()))
 					.append(")").toString() : "");
 		}
 		return hb;
@@ -145,8 +146,8 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		if (found.getLastState()!=stamp) {
 			if (log.isInfoEnabled()) {
 				if (tmp.length()==0) {
-					tmp.append(String.format("%s: (%s) Changing %s to %s duties: ", classname, partition.getId(),
-					found.getLastState(), stamp));
+					tmp.append(String.format("%s: (%s) Changing %s to %s duties: ", 
+							classname, partition.getId(), found.getLastState(), stamp));
 				}
 				tmp.append(shardedDuty.getDuty().getId()).append(',');
 			}
@@ -182,24 +183,17 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	        return;
 	    }
 		final StringBuilder sb = new StringBuilder();
-		List<ShardEntity> sorted = hb.getReportedCapturedDuties();
+		List<ShardReport> sorted = hb.getReportedCapturedDuties();
 		if (!sorted.isEmpty()) {
 			sorted.sort(sorted.get(0));
 		}
 
-		long totalWeight = 0;
-		for (ShardEntity i : hb.getReportedCapturedDuties()) {
-			sb.append(i.getDuty().getId()).append("(").append(i.getDuty().getWeight()).append(")").append(", ");
-			totalWeight += i.getDuty().getWeight();
-		}
-
-		log.debug("{}: ({}) {} SeqID: {}, Duties: {}, Weight: {} = [ {}] {}", classname,
+		log.debug("{}: ({}) {} SeqID: {}, Duties: {} = [ {}] {}", classname,
 				hb.getShardId(), 
 				LogUtils.HB_CHAR, 
 				hb.getSequenceId(), 
 				hb.getReportedCapturedDuties().size(), 
-				totalWeight,
-				sb.toString(), 
+				ShardReport.toStringIds(hb.getReportedCapturedDuties()), 
 				hb.getReportedCapturedDuties().isEmpty() ? "" : "reportDuties"
 				);
 	}

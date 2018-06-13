@@ -47,7 +47,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 
 	private static final long serialVersionUID = 4828220405145911529L;
 
-	private List<ShardEntity> reportedCapturedDuties;
+	private List<ShardReport> reportedCapturedDuties;
 	private Map<Pallet<?>, Capacity> capacities;
 	private final NetworkShardIdentifier shardId;
 	private final DateTime creation;
@@ -67,7 +67,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	}
 
 	public static class Builder {
-		private List<ShardEntity> entities;
+		private List<ShardReport> entities;
 		private boolean warning;
 		private List<DutyDiff> differences;
 		
@@ -91,12 +91,12 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 			this.reportsCapturedDuties = true;
 			return this;
 		}
-		public Builder addReportedCapturedDuty(final ShardEntity duty) {
+		public Builder addReportedCapturedDuty(final ShardReport duty) {
 			Validate.notNull(duty);
 			if (this.entities ==null) {
 				this.entities = new ArrayList<>();
 			}
-			this.entities.add(duty);			
+			this.entities.add(duty);
 			return this;
 		}
 		public Builder reportsDuties() {
@@ -126,7 +126,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	}
 	
 	private Heartbeat(
-			final List<ShardEntity> duties, 
+			final List<ShardReport> duties, 
 			final boolean warning, 
 			final NetworkShardIdentifier id,
 			final long sequenceId, 
@@ -199,7 +199,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	}
 
 	@JsonIgnore
-	public List<ShardEntity> getReportedCapturedDuties() {
+	public List<ShardReport> getReportedCapturedDuties() {
 		return this.reportedCapturedDuties;
 	}
 	
@@ -240,9 +240,9 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 			if (hb.getReportedCapturedDuties().size() != getReportedCapturedDuties().size()) {
 				return false;
 			} else {
-				for (ShardEntity duty : getReportedCapturedDuties()) {
+				for (ShardReport duty : getReportedCapturedDuties()) {
 					boolean found = false;
-					for (ShardEntity other : hb.getReportedCapturedDuties()) {
+					for (ShardReport other : hb.getReportedCapturedDuties()) {
 						found |= duty.equals(other) 
 								&& duty.getLastState() == other.getLastState()
 								&& duty.getLastEvent() == other.getLastEvent();

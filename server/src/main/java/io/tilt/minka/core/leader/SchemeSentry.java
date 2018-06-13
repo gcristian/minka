@@ -51,6 +51,7 @@ import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardReport;
 /**
  * Single-point of write access to the {@linkplain Scheme}
  * Watches follower's heartbeats taking action on any update
@@ -129,7 +130,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		} else if (changePlan == null && beat.reportsDuties()) {
 			// changePlan is only NULL before 1st distribution
 			// there's been a change of leader: i'm initiating with older followers
-			for (ShardEntity e: beat.getReportedCapturedDuties()) {
+			for (ShardReport e: beat.getReportedCapturedDuties()) {
 				//L: prepared, L: pending, F: received, C: confirmed, L: ack.
 				if (!shardingScheme.getScheme().dutyExistsAt(e, shard)) {
 					if (shardingScheme.getScheme().write(e, shard, e.getLastEvent(), null)) {
@@ -182,7 +183,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	}
 	
 	/*this checks partition table looking for missing duties (not declared dangling, that's diff) */
-	private void detectUnexpectedChanges(final Shard shard, final List<ShardEntity> reportedDuties) {
+	private void detectUnexpectedChanges(final Shard shard, final List<ShardReport> reportedDuties) {
 		for (Map.Entry<EntityState, List<ShardEntity>> e: findAbsent(shard, reportedDuties).entrySet()) {
 			boolean done = false;
 			if (e.getKey()==DANGLING) { 
@@ -203,13 +204,13 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-	private Map<EntityState, List<ShardEntity>> findAbsent(final Shard shard, final List<ShardEntity> reportedDuties) {
+	private Map<EntityState, List<ShardEntity>> findAbsent(final Shard shard, final List<ShardReport> reportedDuties) {
 		Map<EntityState, List<ShardEntity>> lost = null;
 		for (final ShardEntity duty : shardingScheme.getScheme().getDutiesByShard(shard)) {
 			boolean found = false;
 			boolean foundAsDangling = false;
-			for (ShardEntity reportedDuty : reportedDuties) {
-				if (duty.equals(reportedDuty)) {
+			for (ShardReport reportedDuty : reportedDuties) {
+				if (duty.getEntity().getId().equals(reportedDuty.getId())) {
 					final EntityState lastState = reportedDuty.getLastState();
 					switch (lastState) {
 					case CONFIRMED:
@@ -249,13 +250,13 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	}
 	
 
-	private void detectInvalidShards(final Shard sourceShard, final List<ShardEntity> reportedCapturedDuties) {
-		for (final ShardEntity e : reportedCapturedDuties) {
-			final Shard should = shardingScheme.getScheme().findDutyLocation(e);
+	private void detectInvalidShards(final Shard sourceShard, final List<ShardReport> reportedCapturedDuties) {
+		for (final ShardReport e : reportedCapturedDuties) {
+			final Shard should = shardingScheme.getScheme().findDutyLocation(e.getId());
 			if (should==null) {
-				logger.error("unexisting duty: " + e.toBrief() + " reported by shard: " + sourceShard);
+				logger.error("unexisting duty: " + e.toString() + " reported by shard: " + sourceShard);
 			} else if (!should.equals(sourceShard)) {
-				logger.error("relocated duty: " + e.toBrief() + " being reported by shard: " + sourceShard);
+				logger.error("relocated duty: " + e.toString() + " being reported by shard: " + sourceShard);
 			}
 		}
 	}

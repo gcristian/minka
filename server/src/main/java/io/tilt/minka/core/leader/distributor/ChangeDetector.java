@@ -40,6 +40,7 @@ import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
+import io.tilt.minka.domain.ShardReport;
 
 /**
  * Contains the mechanism and knowledge for determining reallocation changes <br>
@@ -101,7 +102,7 @@ public class ChangeDetector {
 	/* latest entity's journal plan ID among the beat */
 	private long latestPlan(final Heartbeat beat) {
 		long lattestPlanId = 0;
-		for (ShardEntity e: beat.getReportedCapturedDuties()) {
+		for (ShardReport e: beat.getReportedCapturedDuties()) {
 			final long pid = e.getJournal().getLast().getPlanId();
 			if (pid > lattestPlanId) {
 				lattestPlanId = pid;
@@ -117,14 +118,14 @@ public class ChangeDetector {
 	 */
 	private boolean onFoundAttachments(
 			final ShardIdentifier shardid, 
-			final List<ShardEntity> beatedDuties,
+			final List<ShardReport> beatedDuties,
 			final List<ShardEntity> deliveryDuties,
 			final BiConsumer<Log, ShardEntity> c,
 			final long pid) {
-		Set<ShardEntity> sortedLogConfirmed = null;
-		Set<ShardEntity> sortedLogDirty = null;
+		Set<ShardReport> sortedLogConfirmed = null;
+		Set<ShardReport> sortedLogDirty = null;
 		boolean found = false;
-		for (final ShardEntity beated : beatedDuties) {
+		for (final ShardReport beated : beatedDuties) {
 			for (ShardEntity delivered : deliveryDuties) {
 				if (delivered.equals(beated)) {
 					final Log expected = findConfirmationPair(beated, delivered, shardid, pid);
@@ -154,18 +155,18 @@ public class ChangeDetector {
 		if (sortedLogConfirmed!=null) {
 			logger.info("{}: ShardID: {}, {} {} for Duties: {}", classname,
 					shardid, ATTACH, CONFIRMED, 
-					ShardEntity.toStringIds(sortedLogConfirmed));
+					ShardReport.toStringIds(sortedLogConfirmed));
 		}
 		if (sortedLogDirty!=null) {
 			logger.warn("{}: ShardID: {}, Reporting DIRTY partition event for Duties: {}", classname,
-					shardid, ShardEntity.toStringIds(sortedLogDirty));
+					shardid, ShardReport.toStringIds(sortedLogDirty));
 		}
 		return found;
 	}
 
 	/** @return the expected delivered event matching the beated logs */
 	private Log findConfirmationPair(
-			final ShardEntity beated,
+			final ShardReport beated,
 			final ShardEntity delivered,
 			final ShardIdentifier shardid, 
 			final long pid) {
@@ -203,14 +204,16 @@ public class ChangeDetector {
 	 * @return TRUE if there was a planned absence confirmed */
 	private boolean onFoundDetachments(
 			final ShardIdentifier shardid,
-			final List<ShardEntity> beatedDuties,
+			final List<ShardReport> beatedDuties,
 			final List<ShardEntity> deliveryDuties,
 			final BiConsumer<Log, ShardEntity> c, 
 			final long pid) {
 		Set<ShardEntity> sortedLog = null;
 		boolean found = false;
 		for (ShardEntity prescripted : deliveryDuties) {
-			if (!beatedDuties.contains(prescripted)) {
+			if (!beatedDuties.stream()
+				.filter(r->r.getId().equals(prescripted.getEntity().getId()))
+				.findFirst().isPresent()) {
 				final Log changelog = prescripted.getJournal().find(pid, shardid, DETACH, REMOVE);
 				if (changelog!=null && (changelog.getLastState()==PENDING || changelog.getLastState()==MISSING)) {
 					found = true;
