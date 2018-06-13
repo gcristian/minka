@@ -66,12 +66,10 @@ public class DutyDiff {
 				init();
 				diffs.put(CLASS_TYPES, "duty1.getClassType().equals() fails:" + e.getMessage());
 			}
-			ret |=! hashAndMethod(duty1.get(), duty2.get(), PAYLOAD);
 			ret |=! duty1.getPalletId().equals(duty2.getPalletId());
 			if (!ret && init()) {
 				diffs.put(PALLET_ID, duty1.getPalletId() + DIFF + duty2.getPalletId());
 			}
-			ret |=! hashAndMethod(duty1.get(), duty2.get(), PALLET_PAYLOAD);
 		}
 		return ret;
 	}

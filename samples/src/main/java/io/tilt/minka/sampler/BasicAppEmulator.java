@@ -188,7 +188,7 @@ public class BasicAppEmulator {
 		for (Duty d: entities) {
 			sb.append("p").append(d.getPalletId())
 				.append("d").append(d.getId())
-				.append("(").append(d.get()).append(", ");
+				.append(", ");
 		}
 		return sb.toString();
 	}

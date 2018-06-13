@@ -124,7 +124,6 @@ public class DutyBuilder<T extends Serializable> {
 			Validate.notNull(duty.getPalletId(), id + "a Pallet is mandatory");
 			Validate.isTrue(duty.getPalletId().length() < 128, "an entity Id maximum length of 128 chars is required");
 			Validate.notNull(duty.getClassType(), id + "You must specify param's class or use overload builder");
-			Validate.notNull(duty.get(), id + "You must specify payload param or use overload builder");
 			Validate.isTrue(duty.getWeight() > 0,
 					id + "A number greater than 0 expected for workload representing the duty");
 		}
@@ -159,7 +158,6 @@ public class DutyBuilder<T extends Serializable> {
 			return type;
 		}
 
-		@Override
 		public T get() {
 			return payload;
 		}

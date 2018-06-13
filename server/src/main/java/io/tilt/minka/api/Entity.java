@@ -42,21 +42,6 @@ public abstract interface Entity<T extends Serializable> extends Comparable<Enti
 	Class<T> getClassType();
 
 	/**
-	 * Duties have a payload as Pallets do.
-	 * 
-	 * Pallets may have their own payload, to be accesible and shared by their conforming duties.  
-	 * They will be carried to shards only the first time they appear in the shard's life-cycle. 
-	 * Unless they change thru {@linkplain Client}, ending up {@linkplain PartitionDelegate} being called.
-	 * 
-	 * In case of large objects, you should only build the return object when the method is call.
-	 * It will be kept useless in memory until you use it again, 
-	 * as Minka only calls this method but at the time of shard transportation.   
-	 * 
-	 * @return  any data that can be transported thru TCP-IP
-	 */
-	@JsonIgnore T get();
-
-	/**
 	* Type erasure bans the chance to call a useful equals() on the impl.
 	* 128 characters limited string length. 
 	* @return	the id

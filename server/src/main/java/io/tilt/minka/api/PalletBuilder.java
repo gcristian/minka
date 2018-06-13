@@ -146,7 +146,6 @@ public class PalletBuilder<P extends Serializable> {
 			return type;
 		}
 
-		@Override
 		public P get() {
 			return value;
 		}
