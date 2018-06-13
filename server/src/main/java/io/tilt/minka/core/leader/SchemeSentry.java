@@ -132,11 +132,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			// there's been a change of leader: i'm initiating with older followers
 			for (ShardReport e: beat.getReportedCapturedDuties()) {
 				//L: prepared, L: pending, F: received, C: confirmed, L: ack.
-				if (!shardingScheme.getScheme().dutyExistsAt(e, shard)) {
-					if (shardingScheme.getScheme().write(e, shard, e.getLastEvent(), null)) {
-						logger.info("{}: Scheme learning from Followers: {}", classname, e);
-					}
-				}
+				shardingScheme.getScheme().learnPreviousDistribution(e, shard);
 			}
 		}
 	}

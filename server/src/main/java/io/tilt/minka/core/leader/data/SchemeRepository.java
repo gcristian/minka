@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -53,17 +54,6 @@ public class SchemeRepository {
 		return tmp;
 	}
 
-	private ShardEntity toEntity(final Entity<?> e) {
-		final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
-		final ShardEntity entity = builder.build();
-		entity.getJournal().addEvent(
-				EntityEvent.CREATE, 
-				EntityState.PREPARED, 
-				this.shardId,
-				ChangePlan.PLAN_WITHOUT);
-		return entity;
-	}
-
 	////////////////////////// DUTIES
 
 	public void removeAllDuties(final Collection<ShardEntity> coll, final Consumer<Reply> callback) {
@@ -89,7 +79,25 @@ public class SchemeRepository {
 	}
 
 	public void saveAllDutiesRaw(final Collection<Duty<?>> coll, final Consumer<Reply> callback) {
-		saveAllDuties(coll.stream().map(x-> toEntity(x)).collect(Collectors.toList()), callback);
+		final Set<ShardEntity> rawSet = coll.stream().map(x-> toEntity(x)).collect(Collectors.toSet());
+		// check learning scheme
+		scheme.getScheme().patchOnPreviousDistribution(rawSet);
+		saveAllDuties(rawSet, callback);
+	}
+
+	private ShardEntity toEntity(final Entity<?> e) {
+		final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
+		if (e instanceof Duty) {
+			ShardEntity pallet = scheme.getScheme().getPalletById(((Duty<?>)e).getPalletId());
+			builder.withRelatedEntity(pallet);
+		}
+		final ShardEntity entity = builder.build();
+		entity.getJournal().addEvent(
+				EntityEvent.CREATE, 
+				EntityState.PREPARED, 
+				this.shardId,
+				ChangePlan.PLAN_WITHOUT);
+		return entity;
 	}
 	
 	public void tryCallback(final Consumer<Reply> callback, final Reply reply) {

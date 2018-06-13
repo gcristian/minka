@@ -127,7 +127,7 @@ public class ChangeDetector {
 		boolean found = false;
 		for (final ShardReport beated : beatedDuties) {
 			for (ShardEntity delivered : deliveryDuties) {
-				if (delivered.equals(beated)) {
+				if (delivered.getEntity().getId().equals(beated.getId())) {
 					final Log expected = findConfirmationPair(beated, delivered, shardid, pid);
 					if (expected != null) {
 						found = true;

@@ -2,8 +2,10 @@ package io.tilt.minka.core.leader.data;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -19,11 +21,12 @@ import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardIdentifier;
-import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.domain.Shard.Change;
 import io.tilt.minka.domain.Shard.ShardState;
+import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardIdentifier;
+import io.tilt.minka.domain.ShardReport;
+import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 
@@ -138,6 +141,48 @@ public class Scheme {
 		}
 	}
 	
+	private final Map<ShardIdentifier, Set<ShardReport>> previousScheme = new HashMap<>();
+	
+	public void patchOnPreviousDistribution(final Set<ShardEntity> duties) {
+		if (!previousScheme.isEmpty()) {
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Patching scheme with previous distribution journals", getClass().getSimpleName());
+			}
+			for (Map.Entry<ShardIdentifier, Set<ShardReport>> e: previousScheme.entrySet()) {
+				boolean found = false;
+				for (ShardReport r: e.getValue()) {
+					for (ShardEntity d: duties) {
+						if (d.getDuty().getId().equals(r.getId())) {
+							found = true;
+							d.replaceJournal(r.getJournal());
+							write(d, findShard(s->s.getShardID().equals(e.getKey())), EntityEvent.ATTACH, null);
+							break;
+						}
+					}
+					if (!found) {
+						logger.error("{}: Shard {} reported an invalid duty: {}", getClass().getSimpleName(), e.getKey(), r.getId());
+					}
+				}
+			}
+			this.previousScheme.clear();
+		}
+	}
+	
+	/** guard the report to take it as truth once distribution runs and ShardEntity is loaded */
+	public boolean learnPreviousDistribution(final ShardReport duty, final Shard where) {
+		Set<ShardReport> list = previousScheme.get(where.getShardID());
+		if (list==null) {
+			previousScheme.put(where.getShardID(), list = new HashSet<>());
+		}
+		
+		if (list.add(duty)) {
+			stealthChange = true; 
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Learning {} at [{}]", getClass().getSimpleName(), duty, where);
+			}
+		}
+		return true;
+	}
 	/**
 	 * Account the end of the duty movement operation.
 	 * Only access-point to adding and removing duties.

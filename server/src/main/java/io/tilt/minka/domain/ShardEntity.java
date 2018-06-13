@@ -22,8 +22,6 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Stream;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
@@ -31,8 +29,6 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.DutyBuilder;
@@ -104,7 +100,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		public ShardEntity build() {
 			if (from!=null) {
 				final ShardEntity t = new ShardEntity(from.getEntity(), from.getType());
-				t.setJournal(from.getJournal());
+				t.replaceJournal(from.getJournal());
 				if (userPayload==null) {
 					t.setUserPayload(from.getUserPayload());
 				}
@@ -272,8 +268,8 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
         return this.journal.getStringHistory();
     }
 	
-	private void setJournal(final EntityJournal track) {
-	    this.journal = track;
+	public void replaceJournal(final EntityJournal journal) {
+	    this.journal = journal;
 	}
 	
 	public int hashCode() {
