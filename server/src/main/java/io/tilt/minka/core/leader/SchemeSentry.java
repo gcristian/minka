@@ -108,12 +108,12 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		final ChangePlan changePlan = shardingScheme.getCurrentPlan();
 		if (changePlan!=null && !changePlan.getResult().isClosed()) {
 			final Delivery delivery = changePlan.getDelivery(shard);
-			if (delivery!=null) {
+			if (delivery!=null && delivery.getStep()==Delivery.Step.PENDING) {
 				if (changeDetector.findPlannedChanges(delivery, changePlan.getId(), beat, shard.getShardID(), 
 						(l,d)-> writesOnChange(shard, l, d))) {
 					delivery.calculateState(s->logger.info(s));
 				}
-				changePlan.calculateState(); 
+				changePlan.calculateState();
 				if (changePlan.getResult().isClosed()) {
 					if (logger.isInfoEnabled()) {
 						logger.info("{}: ChangePlan finished ! (promoted) duration: {}ms", classname, 
@@ -123,9 +123,9 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 					logger.info("{}: ChangePlan unlatched, fwd >> distributor agent ", classname);
 					//scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
 				}
-			} else if (logger.isDebugEnabled()){
-				logger.debug("{}: no pending Delivery for heartbeat's shard: {}", 
-						getClass().getSimpleName(), shard.getShardID().toString());
+			} else if (logger.isDebugEnabled()) {
+				logger.debug("{}: no {} Delivery for heartbeat's shard: {}", getClass().getSimpleName(), 
+						Delivery.Step.PENDING, shard.getShardID().toString());
 			}			
 		} else if (changePlan == null && beat.reportsDuties()) {
 			// changePlan is only NULL before 1st distribution

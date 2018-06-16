@@ -17,15 +17,12 @@ public class DutyDiff {
 	private static final String DUTY2 = "-duty2";
 	private static final String DUTY1 = "-duty1";
 	private static final String HASH_CODES = "hash-codes";
-	private static final String PALLET_PAYLOAD = "pallet-payload";
-	private static final String PAYLOAD = "payload";
 	private static final String CLASS_TYPES = "class-types";
 	private static final String DIFF = "<!=>";
 	private static final String PALLET_ID = "palletId";
 	private static final String DUTY = "duty";
 	private static final String NULL = "null";
 	private static final String NOTNULL = "notnull";
-	private static final String DUTY12 = "duty1";
 	
 	private final Duty<?> duty1;
 	private final Duty<?> duty2;

@@ -19,7 +19,6 @@ package io.tilt.minka.api;
 import java.io.Serializable;
 import java.util.Comparator;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
@@ -46,7 +45,8 @@ public abstract interface Entity<T extends Serializable> extends Comparable<Enti
 	* 128 characters limited string length. 
 	* @return	the id
 	*/
-	@JsonProperty("id") String getId();
+	@JsonProperty("id") 
+	String getId();
 
 	@Override
 	default public int compareTo(Entity<T> o) {

@@ -233,32 +233,6 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 		return res;
 	}
 
-	public boolean equalsInContent(final Heartbeat hb) {
-		if (hb == null || !hb.getShardId().equals(getShardId())) {
-			return false;
-		} else {
-			if (hb.getReportedCapturedDuties().size() != getReportedCapturedDuties().size()) {
-				return false;
-			} else {
-				for (ShardReport duty : getReportedCapturedDuties()) {
-					boolean found = false;
-					for (ShardReport other : hb.getReportedCapturedDuties()) {
-						found |= duty.equals(other) 
-								&& duty.getLastState() == other.getLastState()
-								&& duty.getLastEvent() == other.getLastEvent();
-						if (found) {
-							break;
-						}
-					}
-					if (!found) {
-						return false;
-					}
-				}
-			}
-		}
-		return true;
-	}
-
 	@Override
 	public boolean equals(Object obj) {
 		if (obj instanceof Heartbeat) {

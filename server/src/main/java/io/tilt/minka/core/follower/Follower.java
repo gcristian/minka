@@ -167,7 +167,7 @@ public class Follower implements Service {
 					getClass().getSimpleName(), config.getLoggingShardId(),
 					clear != null ? clear.getCreation() : "null", maxAbsenceMs, delta);
 				leaderEventsHandler.getPartitionManager().releaseAllOnPolicies();
-			} else if (!lost) {
+			} else if (!lost && logger.isDebugEnabled()) {
 				logger.debug("{}: ({}) Clearence certified #{} from Leader: {}", classname,
 						config.getLoggingShardId(), clear.getSequenceId(), clear.getLeaderShardId());
 			}

@@ -202,7 +202,7 @@ public class PartitionManagerImpl implements PartitionManager {
 			partition.addAllDuties(duties);
 			return true;
 		} catch (Exception e) {
-			logger.error("{}: ({}) Delegate thrown an Exception while Taking", getClass().getSimpleName(), 
+			logger.error("{}: ({}) Client thrown an Exception while capturing duties", getClass().getSimpleName(), 
 					partition.getId(), e);
 		}
 		return false;

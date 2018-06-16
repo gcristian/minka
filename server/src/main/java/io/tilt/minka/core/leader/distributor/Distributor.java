@@ -391,7 +391,7 @@ public class Distributor implements Service {
 	private Consumer<Reply> logger(final String type) {
 		return (reply)-> {
 			if (!reply.isSuccess()) {
-				logger.info("{}: Skipping {} CRUD already in scheme: {}", getName(), type, reply.getEntity());
+				logger.info("{}: Skipping {} CRUD {} cause: {}", getName(), type, reply.getEntity(), reply.getValue());
 			}
 		};
 	}

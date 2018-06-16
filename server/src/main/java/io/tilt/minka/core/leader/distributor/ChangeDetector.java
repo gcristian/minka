@@ -91,16 +91,16 @@ public class ChangeDetector {
 				bicons, 
 				pid);
 
-		if (!found && lattestPlanId==pid) {
+		if (lattestPlanId<pid && !found) {
 			// delivery found, no change but expected ? 
 			logger.warn("{}: Ignoring shard's ({}) heartbeats with a previous Journal: {} (current: {})", 
-					getClass().getSimpleName(), sourceid.toString(), lattestPlanId, pid);			
+				getClass().getSimpleName(), sourceid.toString(), lattestPlanId, pid);
 		}
 		return found;
 	}
 
 	/* latest entity's journal plan ID among the beat */
-	private long latestPlan(final Heartbeat beat) {
+	private static long latestPlan(final Heartbeat beat) {
 		long lattestPlanId = 0;
 		for (ShardReport e: beat.getReportedCapturedDuties()) {
 			final long pid = e.getJournal().getLast().getPlanId();
