@@ -130,6 +130,10 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		} else if (changePlan == null && beat.reportsDuties()) {
 			// changePlan is only NULL before 1st distribution
 			// there's been a change of leader: i'm initiating with older followers
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Learning {} at [{}]", getClass().getSimpleName(), 
+						ShardReport.toStringIds(beat.getReportedCapturedDuties()), shard);
+			}
 			for (ShardReport e: beat.getReportedCapturedDuties()) {
 				//L: prepared, L: pending, F: received, C: confirmed, L: ack.
 				shardingScheme.getScheme().learnPreviousDistribution(e, shard);

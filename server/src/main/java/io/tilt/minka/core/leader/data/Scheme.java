@@ -169,7 +169,7 @@ public class Scheme {
 	}
 	
 	/** guard the report to take it as truth once distribution runs and ShardEntity is loaded */
-	public boolean learnPreviousDistribution(final ShardReport duty, final Shard where) {
+	public void learnPreviousDistribution(final ShardReport duty, final Shard where) {
 		Set<ShardReport> list = previousScheme.get(where.getShardID());
 		if (list==null) {
 			previousScheme.put(where.getShardID(), list = new HashSet<>());
@@ -177,11 +177,7 @@ public class Scheme {
 		
 		if (list.add(duty)) {
 			stealthChange = true; 
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: Learning {} at [{}]", getClass().getSimpleName(), duty, where);
-			}
 		}
-		return true;
 	}
 	/**
 	 * Account the end of the duty movement operation.
