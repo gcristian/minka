@@ -16,6 +16,10 @@
  */
 package io.tilt.minka.core.follower;
 
+import static java.util.Objects.requireNonNull;
+
+import java.time.Instant;
+
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
@@ -23,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
+import io.tilt.minka.core.task.LeaderShardContainer;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
@@ -63,7 +68,8 @@ public class Follower implements Service {
 	private final HeartbeatFactory heartbeatFactory;
 	private final Agent follow;
 	private final ShardedPartition partition;
-
+	private final LeaderShardContainer leaderShardContainer;
+	
 	public Follower(
 			final Config config, 
 			final Heartpump heartpump, 
@@ -71,18 +77,20 @@ public class Follower implements Service {
 			final EventBroker eventBroker, 
 			final Scheduler scheduler, 
 			final HeartbeatFactory heartbeatFactory,
-			final ShardedPartition partition) {
+			final ShardedPartition partition,
+			final LeaderShardContainer leaderShardContainer) {
 		super();
 
 		this.alive = true;
-		this.heartpump = heartpump;
-		this.heartbeatFactory = heartbeatFactory;
-		this.leaderEventsHandler = leaderConsumer;
-		this.config = config;
-		this.eventBroker = eventBroker;
+		this.heartpump = requireNonNull(heartpump);
+		this.heartbeatFactory = requireNonNull(heartbeatFactory);
+		this.leaderEventsHandler = requireNonNull(leaderConsumer);
+		this.config = requireNonNull(config);
+		this.eventBroker = requireNonNull(eventBroker);
 		this.creation = new DateTime(DateTimeZone.UTC);
-		this.scheduler = scheduler;
-		this.partition = partition;
+		this.scheduler = requireNonNull(scheduler);
+		this.partition = requireNonNull(partition);
+		this.leaderShardContainer = requireNonNull(leaderShardContainer);
 		
 		this.follow = scheduler.getAgentFactory()
 				.create(Action.HEARTBEAT_REPORT, 
@@ -153,7 +161,8 @@ public class Follower implements Service {
 		final Clearance clear = leaderEventsHandler.getLastClearance();
 		long delta = 0;
 		final long hbdelay = config.beatToMs(config.getFollower().getHeartbeatDelayBeats());
-		final int maxAbsenceMs = (int)hbdelay * config.getProctor().getMinAbsentHeartbeatsBeforeShardGone();
+		int maxAbsenceMs = (int)hbdelay * config.getProctor().getMinAbsentHeartbeatsBeforeShardGone();
+		maxAbsenceMs*=eventualMultiplier();
 		final int minToJoinMs = (int)hbdelay * (int)config.beatToMs(config.getProctor().getMaxShardJoiningStateBeats());
 		
 		final DateTime now = new DateTime(DateTimeZone.UTC);
@@ -173,6 +182,16 @@ public class Follower implements Service {
 			}
 		}
 		return !lost;
+	}
+
+	/** @return give an aditional breath when leader has recently changed */
+	private int eventualMultiplier() {
+		int breath = 1;
+		final Instant leaderChanged = leaderShardContainer.getLastLeaderChange();
+		if (leaderChanged!=null && leaderChanged.isAfter(Instant.now().minusMillis(1000l))) {
+			breath = 2;
+		}
+		return breath;
 	}
 
 	/** 

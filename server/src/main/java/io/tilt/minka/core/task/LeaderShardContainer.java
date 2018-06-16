@@ -16,6 +16,7 @@
  */
 package io.tilt.minka.core.task;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -49,5 +50,8 @@ public interface LeaderShardContainer extends Service {
 
 	/* whether the current shard is also the leader */
 	boolean imLeader();
+
+	/** @return the last moment a new leader was reelected */
+	Instant getLastLeaderChange();
 
 }

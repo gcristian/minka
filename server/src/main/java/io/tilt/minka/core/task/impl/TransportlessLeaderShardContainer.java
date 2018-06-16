@@ -16,6 +16,7 @@
  */
 package io.tilt.minka.core.task.impl;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -45,6 +46,7 @@ public class TransportlessLeaderShardContainer implements LeaderShardContainer {
 
 	private NetworkShardIdentifier leaderShardId;
 	private NetworkShardIdentifier lastLeaderShardId;
+	private Instant lastLeaderChange;
 	private Queue<NetworkShardIdentifier> previousLeaders;
 	private Set<Consumer<NetworkShardIdentifier>> observers;
 
@@ -78,6 +80,8 @@ public class TransportlessLeaderShardContainer implements LeaderShardContainer {
 	@Override
 	public void setNewLeader(final NetworkShardIdentifier newLeader) {
 		Validate.notNull(newLeader, "Cannot set a Null leader !");
+		this.lastLeaderChange = Instant.now();
+		
 		try {
 			boolean firstLeader = lastLeaderShardId == null;
 			if (!firstLeader && lastLeaderShardId.equals(newLeader)) {
@@ -119,6 +123,11 @@ public class TransportlessLeaderShardContainer implements LeaderShardContainer {
 	@Override
 	public final List<NetworkShardIdentifier> getAllPreviousLeaders() {
 		return new ArrayList<>(previousLeaders);
+	}
+	
+	@Override
+	public Instant getLastLeaderChange() {
+		return lastLeaderChange;
 	}
 
 	@Override

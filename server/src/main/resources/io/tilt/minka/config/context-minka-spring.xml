@@ -108,6 +108,7 @@
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="heartbeatFactory" />
         <constructor-arg ref="partition" />
+        <constructor-arg ref="leaderShardContainer" />
     </bean>
         
     <!-- ============================================================================================
