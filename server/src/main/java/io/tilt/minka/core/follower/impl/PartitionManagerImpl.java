@@ -191,10 +191,11 @@ public class PartitionManagerImpl implements PartitionManager {
 			logger.info("{}: ({}) # +{} TAKE: {}", getClass().getSimpleName(), partition.getId(),
 				duties.size(), ShardEntity.toStringBrief(duties));
 		}
+		// TODO si falla el cliente no nos importa... ? rollbackeamos todo ? entrariamos en un ciclo...
+		final Set<Pallet<?>> pallets = new HashSet<>();
+		duties.stream().filter(d->partition.add(d))
+			.forEach(d->pallets.add(d.getRelatedEntity().getPallet()));
 		try {
-			final Set<Pallet<?>> pallets = new HashSet<>();
-			duties.stream().filter(d->partition.add(d))
-				.forEach(d->pallets.add(d.getRelatedEntity().getPallet()));
 			if (!pallets.isEmpty()) {
 				dependencyPlaceholder.getDelegate().capturePallet(pallets);
 			}
