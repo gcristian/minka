@@ -30,6 +30,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.BiConsumer;
 
 import org.slf4j.Logger;
@@ -109,9 +111,14 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		if (changePlan!=null && !changePlan.getResult().isClosed()) {
 			final Delivery delivery = changePlan.getDelivery(shard);
 			if (delivery!=null && delivery.getStep()==Delivery.Step.PENDING) {
+				final Map<EntityEvent, StringBuilder> logging = new HashMap<>(4);
 				if (changeDetector.findPlannedChanges(delivery, changePlan.getId(), beat, shard.getShardID(), 
-						(l,d)-> writesOnChange(shard, l, d))) {
+						(l,d)-> writesOnChange(shard, l, d, logging))) {
 					delivery.calculateState(s->logger.info(s));
+				}
+				if (logging.size()>0 && logger.isInfoEnabled()) {
+					logging.entrySet().forEach(e-> logger.info("{}: Written expected change {} at [{}] on: {}", 
+							getClass().getSimpleName(), e.getKey().name(), shard, e.getValue().toString()));
 				}
 				changePlan.calculateState();
 				if (changePlan.getResult().isClosed()) {
@@ -130,19 +137,31 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		} else if (changePlan == null && beat.reportsDuties()) {
 			// changePlan is only NULL before 1st distribution
 			// there's been a change of leader: i'm initiating with older followers
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: Learning {} at [{}]", getClass().getSimpleName(), 
-						ShardReport.toStringIds(beat.getReportedCapturedDuties()), shard);
-			}
+			final StringBuilder log = new StringBuilder();
 			for (ShardReport e: beat.getReportedCapturedDuties()) {
 				//L: prepared, L: pending, F: received, C: confirmed, L: ack.
-				shardingScheme.getScheme().learnPreviousDistribution(e, shard);
+				boolean learnt = shardingScheme.getScheme().learnPreviousDistribution(e, shard);
+				if (learnt && logger.isInfoEnabled()) {
+					log.append(e.getId()).append(',');
+				}
+			}
+			if (log.length()>0) {
+				logger.info("{}: Learnt at [{}] {}", getClass().getSimpleName(), shard, log.toString());
 			}
 		}
 	}
 
-	private void writesOnChange(final Shard shard, final Log changelog, final ShardEntity entity) {
+	private void writesOnChange(final Shard shard, final Log changelog, final ShardEntity entity, 
+			final Map<EntityEvent, StringBuilder> logging) {
 		if (shardingScheme.getScheme().write(entity, shard, changelog.getEvent(), ()-> {
+			if (logger.isInfoEnabled()) {
+				StringBuilder sb = logging.get(changelog.getEvent());
+				if (sb==null) {
+					logging.put(changelog.getEvent(), sb = new StringBuilder());
+				}
+				sb.append(entity.getEntity().getId()).append(',');
+			}
+
 			// copy the found situation to the instance we care
 			entity.getJournal().addEvent(changelog.getEvent(),
 					CONFIRMED,
@@ -184,7 +203,10 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	
 	/*this checks partition table looking for missing duties (not declared dangling, that's diff) */
 	private void detectUnexpectedChanges(final Shard shard, final List<ShardReport> reportedDuties) {
-		for (Map.Entry<EntityState, List<ShardEntity>> e: findAbsent(shard, reportedDuties).entrySet()) {
+		final Set<Entry<EntityState, List<ShardEntity>>> entrySet = findAbsent(shard, reportedDuties).entrySet();
+		StringBuilder log = new StringBuilder();
+		
+		for (Map.Entry<EntityState, List<ShardEntity>> e: entrySet) {
 			boolean done = false;
 			if (e.getKey()==DANGLING) { 
 				done = shardingScheme.getBackstage().addDangling(e.getValue());
@@ -193,6 +215,9 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			}
 			// copy the event so it's marked for later consideration
 			if (done) {
+				if (logger.isInfoEnabled()) {
+					log.append(ShardEntity.toStringIds(e.getValue()));
+				}
 				e.getValue().forEach(d->shardingScheme.getScheme().write(d, shard, REMOVE, ()->{
 					d.getJournal().addEvent(
 							d.getLastEvent(),
@@ -201,6 +226,10 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 							d.getJournal().getLast().getPlanId());
 				}));
 			}
+		}
+		if (log.length()>0) {
+			logger.info("{}: Written unexpected absents ({}) at [{}] on: {}", getClass().getSimpleName(), 
+					REMOVE.name(), shard, ShardReport.toStringIds(reportedDuties));
 		}
 	}
 

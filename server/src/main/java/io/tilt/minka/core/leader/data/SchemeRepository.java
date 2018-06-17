@@ -138,10 +138,11 @@ public class SchemeRepository {
 			}
 		}
 		
+		final StringBuilder sb = new StringBuilder(tmp.size() * 5+1);
 		scheme.getBackstage().addAllCrudDuty(tmp, (duty, added)-> {
 			if (added) {
 				if (logger.isInfoEnabled()) {
-					logger.info("{}: Adding New Duty: {}", classname, duty);
+					sb.append(duty).append(',');
 				}
 				tryCallback(callback, new Reply(ReplyValue.SUCCESS, duty, PREPARED, CREATE, null));
 			} else {
@@ -149,6 +150,9 @@ public class SchemeRepository {
 						EntityEvent.CREATE, String.format("%s: Added already !: %s", classname, duty)));
 			}
 		});
+		if (sb.length()>0) {
+			logger.info("{}: Added New Duties: {}", classname, sb.toString());
+		}
 	}
 
 	private void copyOrigin(ShardEntity source, final ShardEntity target) {

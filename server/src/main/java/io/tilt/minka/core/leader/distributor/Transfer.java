@@ -72,7 +72,7 @@ class Transfer {
 		}
 		
 		if (Migrator.log.isInfoEnabled()) {
-			Migrator.log.info("{}: Shipping transfer from: {} to: {}, Duty: {}",
+			Migrator.log.info("{}: Shipping from: {} to: {}, Duty: {}",
 				getClass().getSimpleName(),
 				source != null ? source.getShardID() : "[new]",
 				target.getShardID(),

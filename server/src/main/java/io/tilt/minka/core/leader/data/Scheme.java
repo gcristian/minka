@@ -39,6 +39,7 @@ public class Scheme {
 
 	private static final Logger logger = LoggerFactory.getLogger(Scheme.class);
 
+	private final Map<ShardIdentifier, Set<ShardReport>> previousScheme = new HashMap<>();
 	private final Map<ShardIdentifier, Shard> shardsByID;
 	private final Map<Shard, ShardedPartition> partitionsByShard;
 	final Map<String, ShardEntity> palletsById;
@@ -141,26 +142,27 @@ public class Scheme {
 		}
 	}
 	
-	private final Map<ShardIdentifier, Set<ShardReport>> previousScheme = new HashMap<>();
-	
 	public void patchOnPreviousDistribution(final Set<ShardEntity> duties) {
 		if (!previousScheme.isEmpty()) {
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: Patching scheme with previous distribution journals", getClass().getSimpleName());
-			}
+			final EntityEvent event = EntityEvent.ATTACH;
 			for (Map.Entry<ShardIdentifier, Set<ShardReport>> e: previousScheme.entrySet()) {
 				boolean found = false;
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: Patching scheme ({}) w/prev. distribution journals: {}", getClass().getSimpleName(), 
+							event, ShardReport.toStringIds(e.getValue()));
+				}
 				for (ShardReport r: e.getValue()) {
 					for (ShardEntity d: duties) {
 						if (d.getDuty().getId().equals(r.getId())) {
 							found = true;
 							d.replaceJournal(r.getJournal());
-							write(d, findShard(s->s.getShardID().equals(e.getKey())), EntityEvent.ATTACH, null);
+							write(d, findShard(s->s.getShardID().equals(e.getKey())), event, null);
 							break;
 						}
 					}
 					if (!found) {
-						logger.error("{}: Shard {} reported an invalid duty: {}", getClass().getSimpleName(), e.getKey(), r.getId());
+						logger.error("{}: Shard {} reported an unloaded duty from previous distribution: {}", 
+								getClass().getSimpleName(), e.getKey(), r.getId());
 					}
 				}
 			}
@@ -169,15 +171,17 @@ public class Scheme {
 	}
 	
 	/** guard the report to take it as truth once distribution runs and ShardEntity is loaded */
-	public void learnPreviousDistribution(final ShardReport duty, final Shard where) {
+	public boolean learnPreviousDistribution(final ShardReport duty, final Shard where) {
+		boolean ret = false;
 		Set<ShardReport> list = previousScheme.get(where.getShardID());
 		if (list==null) {
 			previousScheme.put(where.getShardID(), list = new HashSet<>());
 		}
 		
-		if (list.add(duty)) {
+		if (ret = list.add(duty)) {
 			stealthChange = true; 
 		}
+		return ret;
 	}
 	/**
 	 * Account the end of the duty movement operation.
@@ -198,9 +202,6 @@ public class Scheme {
 			stealthChange = true; 
 			if (callback!=null) {
 				callback.run();
-			}
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: Written {} on: {} at [{}]", getClass().getSimpleName(), event.name(), duty, where);
 			}
 		} else {
 			throw new ConsistencyException("Attach failure. Confirmed attach/creation already exists");
