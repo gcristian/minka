@@ -2,6 +2,7 @@ package io.tilt.minka;
 
 import static com.google.common.collect.Sets.newHashSet;
 import static io.tilt.minka.TestUtils.assertDistribution;
+import static io.tilt.minka.TestUtils.balancers;
 import static io.tilt.minka.TestUtils.buildCluster;
 import static io.tilt.minka.TestUtils.createServer;
 import static io.tilt.minka.TestUtils.duties;
@@ -24,9 +25,10 @@ import org.junit.Test;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
+import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 
 
-public class ClusterTests {
+public class ClusterResilienceTest {
 
 	private final Pallet<String> p = Pallet.<String>builder("p-huc").build();
 	private final Set<Pallet<String>> pallets = newHashSet(p);
@@ -64,13 +66,21 @@ public class ClusterTests {
 		}
 		leader.getServer().shutdown();
 	}
-	
+		
 	@Test
+	public void test_cluster_falling_apart_all_balancers() throws Exception {
+		for (BalancerMetadata meta: balancers()) {
+			test_cluster_falling_apart(meta);
+		}
+	}
+	
+	
 	/**
 	 * proves a decaying cluster of all its members but the leader
 	 * while all duties still kept distributed
 	 */
-	public void test_cluster_falling_apart() throws Exception {
+	public void test_cluster_falling_apart(final BalancerMetadata meta) throws Exception {
+		
 		proto.getBootstrap().setNamespace("test_cluster_falling_apart");
 		final Set<ServerWhitness> set = buildCluster(5, proto, pallets, duties);
 		sleep(wait * 3);
@@ -143,12 +153,21 @@ public class ClusterTests {
 	}
 	
 	@Test
+	public void test_cluster_size_increase_decrease_all_balancers() throws Exception {
+		for (BalancerMetadata meta: balancers()) {
+			test_cluster_size_increase_decrease(meta);
+		}
+	}
+	
 	/**
 	 * proves the cluster increases and decreases members
 	 * but all duties are always distributed
 	 * proves the distribution is never suspended 
 	 */
-	public void test_cluster_size_increase_decrease() throws Exception {
+	public void test_cluster_size_increase_decrease(final BalancerMetadata meta) throws Exception {
+		final Pallet<String> p = Pallet.<String>builder("p-huc").with(meta).build();
+		final Set<Pallet<String>> pallets = newHashSet(p);
+
 		int count = 1;
 		proto.getBootstrap().setNamespace("test_cluster_size_increase_decrease");
 		final Set<ServerWhitness> cluster = buildCluster(count, proto, pallets, duties);

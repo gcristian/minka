@@ -32,7 +32,7 @@ public class Backstage {
 	private static final Logger logger = LoggerFactory.getLogger(Backstage.class);
 
     // creations and removes willing to be attached or detached to/from shards.
-	final Map<Pallet<?>, ShardEntity> palletCrud;
+	private final Map<Pallet<?>, ShardEntity> palletCrud;
 	final Map<Duty<?>, ShardEntity> dutyCrud;
 	// absences in shards's reports
 	private Map<Duty<?>, ShardEntity> dutyMissings;
@@ -221,13 +221,6 @@ public class Backstage {
 			added |= dutyMissings.put(d.getDuty(), d) == null;
 		}
 		evalStealth(added);
-		return true;
-	}
-
-	public boolean addMissing(final ShardEntity duty) {
-		checkNotOnSnap();
-		final boolean replaced = this.dutyMissings.put(duty.getDuty(), duty) !=null;
-		evalStealth(replaced);
 		return true;
 	}
 

@@ -33,7 +33,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 
 
-public class ClientTests {
+public class ClientCRUDTest {
 	
 	@Test
     public void test_start_full_then_remove_add() throws Exception {

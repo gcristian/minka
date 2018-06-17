@@ -99,7 +99,6 @@ public class EvenSizeBalancer implements Balancer {
 		// split shards into receptors and emisors while calculating new fair distribution 
 		final Set<NetworkLocation> receptors = new HashSet<>(shardsSize);
 		final Set<NetworkLocation> emisors = new HashSet<>(shardsSize);
-		//deletions.addAll(dangling);]
 		final Map<NetworkLocation, Integer> deltas = checkDeltas(pallet, scheme, evenSize, receptors, emisors, deletions);
 		if (deltas.isEmpty()) {
 			logger.info("{}: Evenly distributed already (no sharding deltas out of threshold)", getClass().getSimpleName());

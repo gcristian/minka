@@ -3,8 +3,7 @@ package io.tilt.minka;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -16,6 +15,10 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.EventMapper;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Server;
+import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
+import io.tilt.minka.core.leader.balancer.EvenSizeBalancer;
+import io.tilt.minka.core.leader.balancer.EvenWeightBalancer;
+import io.tilt.minka.core.leader.balancer.FairWeightBalancer;
 
 public class TestUtils {
 
@@ -45,6 +48,13 @@ public class TestUtils {
 	}
 	public static void shutdownServers(final Collection<ServerWhitness> cluster) {
 		shutdownServers(cluster, false);
+	}
+
+	public static Collection<BalancerMetadata> balancers() {
+		return Arrays.asList(
+				new EvenSizeBalancer.Metadata(), 
+				new FairWeightBalancer.Metadata(),
+				new EvenWeightBalancer.Metadata());
 	}
 
 	public static Set<ServerWhitness> buildCluster(

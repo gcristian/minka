@@ -179,8 +179,7 @@ public class Proctor implements Service {
 		if (health != shardingScheme.getShardsHealth()) {
 			shardingScheme.setShardsHealth(health);
 			logger.warn("{}: Cluster back to: {} ({}, min unchanged analyses: {})", getName(),
-					shardingScheme.getShardsHealth(), lastUnstableAnalysisId,
-					threshold);
+					shardingScheme.getShardsHealth(), lastUnstableAnalysisId, threshold);
 		}
 	}
 	
