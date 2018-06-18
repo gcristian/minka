@@ -22,12 +22,12 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.broker.impl.SocketBroker;
-import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.impl.SchedulerImpl;
 import io.tilt.minka.core.task.impl.SpectatorSupplier;
 import io.tilt.minka.core.task.impl.SynchronizedAgentFactoryImpl;
 import io.tilt.minka.core.task.impl.SynchronizedFactoryImpl;
-import io.tilt.minka.core.task.impl.TransportlessLeaderShardContainer;
+import io.tilt.minka.core.task.impl.TransportlessLeaderAware;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.TCPShardIdentifier;
 import junit.framework.Assert;
@@ -63,7 +63,7 @@ public class BrokerTester {
 		final Config configF2 = buidConfig(22002);
 		final TCPShardIdentifier shardF2 = new TCPShardIdentifier(configF2);
 
-		final LeaderShardContainer container = new TransportlessLeaderShardContainer(shardL);
+		final LeaderAware container = new TransportlessLeaderAware(shardL);
 		container.setNewLeader(shardL);
 
 		final EventBroker brokerL = buildBroker(consumer, container, configL, shardL);
@@ -108,7 +108,7 @@ public class BrokerTester {
 
 	@Test
 	public void test_n_brokers_full_communication() throws Exception {
-		LeaderShardContainer container = null;
+		LeaderAware container = null;
 		final List<MetaBroker> brokers = new ArrayList<>();
 		final Random rnd = new Random();
 		int brokerSize = rnd.nextInt(MIN_BROKERS);
@@ -125,7 +125,7 @@ public class BrokerTester {
 			final Config config = buidConfig(port);
 			final TCPShardIdentifier shard = new TCPShardIdentifier(config);
 			if (container == null) {
-				container = new TransportlessLeaderShardContainer(shard);
+				container = new TransportlessLeaderAware(shard);
 			}
 			brokers.add(new MetaBroker(config, shard, buildBroker(consumer, container, config, shard)));
 			if (rnd.nextBoolean() && container.getLeaderShardId() == null
@@ -161,7 +161,7 @@ public class BrokerTester {
 
 	protected EventBroker buildBroker(
 			final Consumer<Serializable> driver,
-			final LeaderShardContainer container, 
+			final LeaderAware container, 
 			final Config config, 
 			final NetworkShardIdentifier shard) {
 

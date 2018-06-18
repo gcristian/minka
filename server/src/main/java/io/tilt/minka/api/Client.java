@@ -37,8 +37,8 @@ import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.leader.ClientEventsHandler;
 import io.tilt.minka.core.leader.Leader;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
-import io.tilt.minka.core.task.LeaderShardContainer;
-import io.tilt.minka.core.task.impl.ZookeeperLeaderShardContainer;
+import io.tilt.minka.core.task.LeaderAware;
+import io.tilt.minka.core.task.impl.ZookeeperLeaderAware;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
@@ -67,7 +67,7 @@ public class Client<D extends Serializable, P extends Serializable> {
 	private final ClientEventsHandler clientMediator;
 	private final ShardIdentifier shardId;
 	private final Config config;
-	private final LeaderShardContainer leaderShardContainer;
+	private final LeaderAware leaderAware;
 	private final SystemStateMonitor state;
 	private final ShardedPartition partition;
 
@@ -77,7 +77,7 @@ public class Client<D extends Serializable, P extends Serializable> {
 			final EventBroker eventBroker,
 			final ClientEventsHandler mediator, 
 			final ShardIdentifier shardId, 
-			final ZookeeperLeaderShardContainer leaderShardContainer, 
+			final ZookeeperLeaderAware leaderAware, 
 			final SystemStateMonitor state,
 			final ShardedPartition partition) {
 		this.config = config;
@@ -85,7 +85,7 @@ public class Client<D extends Serializable, P extends Serializable> {
 		this.eventBroker = eventBroker;
 		this.clientMediator = mediator;
 		this.shardId = shardId;
-		this.leaderShardContainer = leaderShardContainer;
+		this.leaderAware = leaderAware;
 		this.state = state;
 		this.partition = partition;
 	}
@@ -127,6 +127,9 @@ public class Client<D extends Serializable, P extends Serializable> {
 	 * A list of duties currently captured by the server shard, 
 	 * Contents will differ since the call of this method, if new distributions occurr,
 	 * i.e. calling this method twice may not return the same contents.
+	 * Although difference may not exist if:
+	 * 	1) no CRUD operations occurr
+	 *  2) no shard falls down
 	 * 
 	 * @return			a list of captured duties
 	 */
@@ -214,10 +217,10 @@ public class Client<D extends Serializable, P extends Serializable> {
 		int tries = 10;
 		boolean[] sent = {false};
 		while (!sent[0] && tries-->0) {
-			if (leaderShardContainer.getLeaderShardId()!=null) {
+			if (leaderAware.getLeaderShardId()!=null) {
 				final BrokerChannel channel = eventBroker.buildToTarget(config, 
 						Channel.CLITOLEAD,
-						leaderShardContainer.getLeaderShardId());
+						leaderAware.getLeaderShardId());
 				sent[0] = eventBroker.send(channel, (List)tmp);
 			} else {
 				try {

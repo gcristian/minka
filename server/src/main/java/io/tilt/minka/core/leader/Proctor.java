@@ -45,7 +45,7 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.core.leader.data.ShardingScheme.ClusterHealth;
-import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
@@ -77,7 +77,7 @@ public class Proctor implements Service {
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
 	private final NetworkShardIdentifier shardId;
-	private final LeaderShardContainer leaderShardContainer;
+	private final LeaderAware leaderAware;
 	private final Agent analyzer;
 
 	private int analysisCounter;
@@ -92,7 +92,7 @@ public class Proctor implements Service {
 			final EventBroker eventBroker, 
 			final Scheduler scheduler, 
 			final NetworkShardIdentifier shardId, 
-			final LeaderShardContainer leaderShardContainer) {
+			final LeaderAware leaderAware) {
 
 		this.config = requireNonNull(config);
 		this.shardingScheme = requireNonNull(shardingScheme);
@@ -100,7 +100,7 @@ public class Proctor implements Service {
 		this.eventBroker = requireNonNull(eventBroker);
 		this.scheduler = requireNonNull(scheduler);
 		this.shardId = requireNonNull(shardId);
-		this.leaderShardContainer = requireNonNull(leaderShardContainer);
+		this.leaderAware = requireNonNull(leaderAware);
 
 		this.analyzer = scheduler.getAgentFactory()
 				.create(Action.PROCTOR, 
@@ -127,7 +127,7 @@ public class Proctor implements Service {
 
 	private void shepherShards() {
 		try {
-			if (!leaderShardContainer.imLeader()) {
+			if (!leaderAware.imLeader()) {
 				return;
 			}
 			final int size = shardingScheme.getScheme().shardsSize();

@@ -28,7 +28,7 @@ import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.utils.CollectionUtils;
@@ -38,7 +38,7 @@ import io.tilt.minka.utils.CollectionUtils;
  * @since Feb 2, 2016
  *
  */
-public class TransportlessLeaderShardContainer implements LeaderShardContainer {
+public class TransportlessLeaderAware implements LeaderAware {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -50,7 +50,7 @@ public class TransportlessLeaderShardContainer implements LeaderShardContainer {
 	private Queue<NetworkShardIdentifier> previousLeaders;
 	private Set<Consumer<NetworkShardIdentifier>> observers;
 
-	public TransportlessLeaderShardContainer(final ShardIdentifier myShardId) {
+	public TransportlessLeaderAware(final ShardIdentifier myShardId) {
         this.myShardId = myShardId;
 		this.previousLeaders = new CollectionUtils.SynchronizedSlidingQueue<NetworkShardIdentifier>(10);
 		this.observers = new HashSet<>();
@@ -108,7 +108,7 @@ public class TransportlessLeaderShardContainer implements LeaderShardContainer {
 				lastLeaderShardId = newLeader;
 			}
 		} catch (Exception e) {
-			logger.error("{}: ({}) LeaderShardContainer: unexpected error", getName(), myShardId, e);
+			logger.error("{}: ({}) LeaderAware: unexpected error", getName(), myShardId, e);
 		}
 	}
 

@@ -41,8 +41,8 @@
     </bean>
         
     <!-- contenedor del lider cambiante -->
-    <bean id="leaderShardContainer"
-        class="io.tilt.minka.core.task.impl.ZookeeperLeaderShardContainer">
+    <bean id="leaderAware"
+        class="io.tilt.minka.core.task.impl.ZookeeperLeaderAware">
         <constructor-arg ref="config" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="spectatorSupplier" />
@@ -52,7 +52,7 @@
     <bean id="eventBroker" class="io.tilt.minka.broker.impl.SocketBroker">
         <constructor-arg ref="config" />
         <constructor-arg ref="shardId" />
-        <constructor-arg ref="leaderShardContainer" />
+        <constructor-arg ref="leaderAware" />
         <constructor-arg ref="scheduler" />
     </bean>
     
@@ -70,21 +70,21 @@
         <constructor-arg ref="config" />
         <constructor-arg ref="clientHolder" />
         <constructor-arg ref="partition" />
-        <constructor-arg ref="leaderShardContainer" />
+        <constructor-arg ref="leaderAware" />
     </bean>
     <!-- Emite heartbeats para el Lider -->
     <bean id="heartpump" class="io.tilt.minka.core.follower.impl.HeartpumpImpl">
         <constructor-arg ref="config" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="partition" />
-        <constructor-arg ref="leaderShardContainer" />
+        <constructor-arg ref="leaderAware" />
     </bean>
     
     <bean id="partitionManager" class="io.tilt.minka.core.follower.impl.PartitionManagerImpl">        
         <constructor-arg ref="clientHolder" />
         <constructor-arg ref="partition" />
         <constructor-arg ref="scheduler" />
-        <constructor-arg ref="leaderShardContainer" />
+        <constructor-arg ref="leaderAware" />
         <constructor-arg ref="heartbeatFactory" />
     </bean>
     
@@ -96,7 +96,7 @@
         <constructor-arg ref="partitionManager" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="scheduler" />
-        <constructor-arg ref="leaderShardContainer" />
+        <constructor-arg ref="leaderAware" />
     </bean>
     
     <!-- simplemente bootstrapea los servicios -->
@@ -108,7 +108,7 @@
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="heartbeatFactory" />
         <constructor-arg ref="partition" />
-        <constructor-arg ref="leaderShardContainer" />
+        <constructor-arg ref="leaderAware" />
     </bean>
         
     <!-- ============================================================================================
@@ -136,7 +136,7 @@
         <constructor-arg ref="shardId" />
         <constructor-arg ref="entityDao" />
         <constructor-arg ref="clientHolder" />
-        <constructor-arg ref="leaderShardContainer" />
+        <constructor-arg ref="leaderAware" />
     </bean>
 
     <!-- acceso write-only a la tabla -->
@@ -153,7 +153,7 @@
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="shardId" />
-        <constructor-arg ref="leaderShardContainer" />
+        <constructor-arg ref="leaderAware" />
     </bean>
 
     <!-- Pastorea los followers -->
@@ -185,7 +185,7 @@
         <constructor-arg ref="clientEventsHandler" />        
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="shardId" />
-        <constructor-arg ref="leaderShardContainer" />
+        <constructor-arg ref="leaderAware" />
         <constructor-arg ref="eventBroker" />
     </bean>
     
@@ -197,7 +197,7 @@
     
     
     <bean id="systemState" class="io.tilt.minka.api.inspect.SystemStateMonitor">
-        <constructor-arg ref="leaderShardContainer"/>
+        <constructor-arg ref="leaderAware"/>
         <constructor-arg ref="shardingScheme"/>
         <constructor-arg ref="partition"/>
         <constructor-arg ref="scheduler"/>
@@ -212,7 +212,7 @@
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="clientEventsHandler" />
         <constructor-arg ref="shardId" />
-        <constructor-arg ref="leaderShardContainer" />
+        <constructor-arg ref="leaderAware" />
         <constructor-arg ref="systemState" />
         <constructor-arg ref="partition" />
     </bean>
@@ -229,7 +229,7 @@
         <constructor-arg ref="follower" />
         <constructor-arg ref="clientHolder" />
         <constructor-arg ref="scheduler" />
-        <constructor-arg ref="leaderShardContainer" />
+        <constructor-arg ref="leaderAware" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="systemState" />

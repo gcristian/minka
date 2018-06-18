@@ -39,7 +39,7 @@ import io.tilt.minka.spectator.Wells;
  * @since Feb 2, 2016
  *
  */
-public class ZookeeperLeaderShardContainer extends TransportlessLeaderShardContainer implements Service {
+public class ZookeeperLeaderAware extends TransportlessLeaderAware implements Service {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -48,7 +48,7 @@ public class ZookeeperLeaderShardContainer extends TransportlessLeaderShardConta
 	private final Consumer<MessageMetadata> callbackConsumer;
 	private final String zookeeperPath;
 
-	public ZookeeperLeaderShardContainer(
+	public ZookeeperLeaderAware(
 	        final Config config, 
 	        final ShardIdentifier myShardId,
 			final Supplier<Spectator> supplier) {

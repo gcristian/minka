@@ -29,7 +29,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.HeartbeatFactory;
 import io.tilt.minka.core.follower.PartitionManager;
-import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Scheduler.Synchronized;
@@ -55,7 +55,7 @@ public class PartitionManagerImpl implements PartitionManager {
 			final DependencyPlaceholder dependencyPlaceholder, 
 			final ShardedPartition partition, 
 			final Scheduler scheduler, 
-			final LeaderShardContainer leaderShardContainer, 
+			final LeaderAware leaderAware, 
 			final HeartbeatFactory heartbeatFactory) {
 		
 		super();

@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
@@ -68,7 +68,7 @@ public class Follower implements Service {
 	private final HeartbeatFactory heartbeatFactory;
 	private final Agent follow;
 	private final ShardedPartition partition;
-	private final LeaderShardContainer leaderShardContainer;
+	private final LeaderAware leaderAware;
 	
 	public Follower(
 			final Config config, 
@@ -78,7 +78,7 @@ public class Follower implements Service {
 			final Scheduler scheduler, 
 			final HeartbeatFactory heartbeatFactory,
 			final ShardedPartition partition,
-			final LeaderShardContainer leaderShardContainer) {
+			final LeaderAware leaderAware) {
 		super();
 
 		this.alive = true;
@@ -90,7 +90,7 @@ public class Follower implements Service {
 		this.creation = new DateTime(DateTimeZone.UTC);
 		this.scheduler = requireNonNull(scheduler);
 		this.partition = requireNonNull(partition);
-		this.leaderShardContainer = requireNonNull(leaderShardContainer);
+		this.leaderAware = requireNonNull(leaderAware);
 		
 		this.follow = scheduler.getAgentFactory()
 				.create(Action.HEARTBEAT_REPORT, 
@@ -187,7 +187,7 @@ public class Follower implements Service {
 	/** @return give an aditional breath when leader has recently changed */
 	private int eventualMultiplier() {
 		int breath = 1;
-		final Instant leaderChanged = leaderShardContainer.getLastLeaderChange();
+		final Instant leaderChanged = leaderAware.getLastLeaderChange();
 		if (leaderChanged!=null && leaderChanged.isAfter(Instant.now().minusMillis(1000l))) {
 			breath = 2;
 		}

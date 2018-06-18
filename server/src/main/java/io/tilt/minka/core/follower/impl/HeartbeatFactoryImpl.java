@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.follower.HeartbeatFactory;
-import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.DomainInfo;
@@ -57,7 +57,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final ShardedPartition partition;
 	private final AtomicLong sequence;
-	private final LeaderShardContainer leaderShardContainer;
+	private final LeaderAware leaderAware;
 	private final long includeFrequency;
 	
 	private DomainInfo domain; 
@@ -69,12 +69,12 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			final Config config, 
 			final DependencyPlaceholder holder, 
 			final ShardedPartition partition, 
-			final LeaderShardContainer leaderShardContainer) {
+			final LeaderAware leaderAware) {
 		super();
 		this.dependencyPlaceholder = requireNonNull(holder);
 		this.partition = requireNonNull(partition);
 		this.sequence = new AtomicLong();
-		this.leaderShardContainer = requireNonNull(leaderShardContainer);
+		this.leaderAware = requireNonNull(leaderAware);
 		this.includeFrequency = config.beatToMs(50);
 	}
 
@@ -89,7 +89,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		logBeat |=issues;
 		
 		boolean newLeader = false; 
-		final NetworkShardIdentifier leader = leaderShardContainer.getLeaderShardId();
+		final NetworkShardIdentifier leader = leaderAware.getLeaderShardId();
 		if (leader!=null && !leader.equals(lastLeader)) {
 			this.lastLeader = leader;
 			newLeader = true;

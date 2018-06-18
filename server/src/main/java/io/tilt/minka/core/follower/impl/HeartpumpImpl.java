@@ -25,7 +25,7 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.follower.Heartpump;
-import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.ShardedPartition;
@@ -37,7 +37,7 @@ public class HeartpumpImpl implements Heartpump {
 	private final Config config;
 	private final EventBroker eventBroker;
 	private final ShardedPartition partition;
-	private final LeaderShardContainer leaderShardContainer;
+	private final LeaderAware leaderAware;
 	private final String classname = getClass().getSimpleName();
 	
 	private DateTime lastHeartbeatTimestamp;
@@ -46,13 +46,13 @@ public class HeartpumpImpl implements Heartpump {
 			final Config config, 
 			final EventBroker eventBroker, 
 			final ShardedPartition partition,
-			final LeaderShardContainer leaderShardContainer) {
+			final LeaderAware leaderAware) {
 
 		super();
 		this.config = config;
 		this.eventBroker = eventBroker;
 		this.partition = partition;
-		this.leaderShardContainer = leaderShardContainer;
+		this.leaderAware = leaderAware;
 	}
 
 	public DateTime getLastBeat() {
@@ -61,7 +61,7 @@ public class HeartpumpImpl implements Heartpump {
 
 	public boolean emit(final Heartbeat arg) {
 		try {
-			if (leaderShardContainer.getLeaderShardId() == null) {
+			if (leaderAware.getLeaderShardId() == null) {
 				logger.warn("{}: Still without an acknowledged Leader shard !", classname,
 						config.getLoggingShardId());
 				return false;
@@ -70,7 +70,7 @@ public class HeartpumpImpl implements Heartpump {
 					eventBroker.buildToTarget(
 							config, 
 							Channel.FOLLTOLEAD,
-							leaderShardContainer.getLeaderShardId()), 
+							leaderAware.getLeaderShardId()), 
 					arg)) {
 				this.lastHeartbeatTimestamp = new DateTime(DateTimeZone.UTC);
 				return true;

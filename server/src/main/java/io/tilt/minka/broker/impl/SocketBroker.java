@@ -37,7 +37,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
@@ -66,7 +66,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 
 	private final Config config;
     private final Scheduler scheduler;
-	private final LeaderShardContainer leaderShardContainer;
+	private final LeaderAware leaderAware;
 	private final Agent discarderAgent;
 	
 	private SocketServer server;
@@ -75,13 +75,13 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	public SocketBroker(
 			final Config config, 
 			final NetworkShardIdentifier shardId, 
-			final LeaderShardContainer leaderContainerShard,
+			final LeaderAware leaderAware,
 			final Scheduler scheduler) {
 
 		super(shardId);
 		this.config = requireNonNull(config);
 		this.scheduler = requireNonNull(scheduler);
-		this.leaderShardContainer = requireNonNull(leaderContainerShard);
+		this.leaderAware = requireNonNull(leaderAware);
 		this.clients = new HashMap<>(5);
 		
 		this.discarderAgent = scheduler.getAgentFactory()
@@ -112,7 +112,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 					(int)config.beatToMs(config.getBroker().getRetryDelayMiliBeats()/1000),
 					config.getBroker().getMaxRetries(), 
 					getShardId().toString());
-			this.leaderShardContainer.observeForChange((s) -> onLeaderChange(s));
+			this.leaderAware.observeForChange((s) -> onLeaderChange(s));
 		}
 	}
 
@@ -149,7 +149,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	private void onLeaderChange(final NetworkShardIdentifier newLeader) {
 		start();
 		// close outbound connections if leader really changed
-		final ShardIdentifier previous = leaderShardContainer.getPreviousLeaderShardId();
+		final ShardIdentifier previous = leaderAware.getPreviousLeaderShardId();
 		if (previous == null || !previous.equals(newLeader)) {
 			logger.info("{}: ({}) Closing client connections to previous leader: {}, cause new leader is: {}",
 					getName(), super.getShardId(), previous, newLeader);

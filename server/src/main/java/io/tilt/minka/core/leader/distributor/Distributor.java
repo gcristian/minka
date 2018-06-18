@@ -47,7 +47,7 @@ import io.tilt.minka.core.leader.data.SchemeRepository;
 import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.core.leader.data.ShardingScheme.ClusterHealth;
 import io.tilt.minka.core.leader.distributor.ChangePlan.Result;
-import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
@@ -83,7 +83,7 @@ public class Distributor implements Service {
 	private final ShardIdentifier shardId;
 	private final EntityDao entityDao;
 	private final DependencyPlaceholder dependencyPlaceholder;
-	private final LeaderShardContainer leaderShardContainer;
+	private final LeaderAware leaderAware;
     private final Agent distributor;
 
 	private boolean initialAdding;
@@ -102,7 +102,7 @@ public class Distributor implements Service {
 			final ShardIdentifier shardId,
 			final EntityDao dutyDao, 
 			final DependencyPlaceholder dependencyPlaceholder, 
-			final LeaderShardContainer leaderShardContainer) {
+			final LeaderAware leaderAware) {
 
 		this.config = config;
 		this.scheduler = scheduler;
@@ -111,7 +111,7 @@ public class Distributor implements Service {
 		this.schemeRepository = schemeRepo;
 		this.shardId = shardId;
 		this.entityDao = dutyDao;
-		this.leaderShardContainer = leaderShardContainer;
+		this.leaderAware = leaderAware;
 
 		if (config.getConsistency().getDutyStorage() == Storage.CLIENT_DEFINED) {
 			Validate.notNull(dependencyPlaceholder, "When Minka not in Storage mode: a Partition Master is required");
@@ -154,7 +154,7 @@ public class Distributor implements Service {
 	private void distribute() {
 		try {
 			// also if this's a de-frozening thread
-			if (!leaderShardContainer.imLeader()) {
+			if (!leaderAware.imLeader()) {
 				logger.warn("{}: ({}) Suspending distribution: not leader anymore ! ", getName(), shardId);
 				return;
 			}

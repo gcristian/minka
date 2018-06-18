@@ -30,7 +30,7 @@ import io.tilt.minka.domain.NetworkShardIdentifier;
  * @since Feb 2, 2016
  *
  */
-public interface LeaderShardContainer extends Service {
+public interface LeaderAware extends Service {
 
 	void setNewLeader(NetworkShardIdentifier newLeader);
 

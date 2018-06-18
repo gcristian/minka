@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.distributor.Distributor;
-import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
@@ -52,7 +52,7 @@ public class Leader implements Service {
 	private final ClientEventsHandler clientEventsHandler;
 	private final Scheduler scheduler;
 	private final NetworkShardIdentifier shardId;
-	private final LeaderShardContainer leaderShardContainer;
+	private final LeaderAware leaderAware;
 
 	private boolean served;
 	private Date start;
@@ -66,7 +66,7 @@ public class Leader implements Service {
 			final ClientEventsHandler clientEventsHandler,
 			final Scheduler scheduler, 
 			final NetworkShardIdentifier shardId,
-			final LeaderShardContainer leaderShardContainer, 
+			final LeaderAware leaderAware, 
 			final EventBroker eventBroker) {
 
 		super();
@@ -77,7 +77,7 @@ public class Leader implements Service {
 		this.clientEventsHandler = clientEventsHandler;
 		this.scheduler = scheduler;
 		this.shardId = shardId;
-		this.leaderShardContainer = leaderShardContainer;
+		this.leaderAware = leaderAware;
 	}
 
 	public NetworkShardIdentifier getShardId() {
@@ -104,7 +104,7 @@ public class Leader implements Service {
 					if (stop==null) {
 						final long w = System.currentTimeMillis() - start.getTime();
 						logger.info("{}: Registering as Leader at well after waiting {} msecs", getName(), w);
-						leaderShardContainer.setNewLeader(shardId);
+						leaderAware.setNewLeader(shardId);
 						final long e = DateTime.now().getMillis() - config.loadTime.getMillis();
 						logger.info("{}: {} msec since load till leader election", getName(), e);
 						// start analyzing the shards and distribute duties

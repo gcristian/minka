@@ -54,7 +54,7 @@ import io.tilt.minka.core.leader.data.Backstage;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
-import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Semaphore;
@@ -77,7 +77,7 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 @JsonPropertyOrder({"global", "shards", "pallets", "roadmaps"})
 public class SystemStateMonitor {
 
-	private final LeaderShardContainer leaderShardContainer; 
+	private final LeaderAware leaderAware; 
 	private final ShardingScheme scheme;
 	private final ShardedPartition partition;
 	private final Scheduler scheduler;
@@ -102,14 +102,14 @@ public class SystemStateMonitor {
 	}
 
 	public SystemStateMonitor(
-			final LeaderShardContainer leaderShardContainer, 
+			final LeaderAware leaderAware, 
 			final ShardingScheme scheme,
 			final ShardedPartition partition,
 			final Scheduler scheduler,
 			final EventBroker broker, 
 			final Config config) {
 		
-		this.leaderShardContainer = requireNonNull(leaderShardContainer);
+		this.leaderAware = requireNonNull(leaderAware);
 		this.scheme = requireNonNull(scheme);
 		this.scheduler = requireNonNull(scheduler);
 		this.partition = requireNonNull(partition);
@@ -273,8 +273,8 @@ public class SystemStateMonitor {
 	private Map<String, Object> buildShards(final ShardingScheme scheme) {
 		final Map<String, Object> map = new LinkedHashMap<>(5);
 		map.put("namespace", config.getBootstrap().getNamespace());
-		map.put("leader", leaderShardContainer.getLeaderShardId());
-		map.put("previous", leaderShardContainer.getAllPreviousLeaders());
+		map.put("leader", leaderAware.getLeaderShardId());
+		map.put("previous", leaderAware.getAllPreviousLeaders());
 		final Map<String, List<String>> tmp = new HashMap<>();
 		scheme.getScheme().getGoneShards().entrySet().forEach(e-> {
 			tmp.put(e.getKey().getId(), e.getValue().values().stream().map(c->c.toString()).collect(toList()));

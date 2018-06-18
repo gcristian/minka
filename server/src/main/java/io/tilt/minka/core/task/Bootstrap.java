@@ -63,7 +63,7 @@ public class Bootstrap implements Service {
 	private final Follower follower;
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final Scheduler scheduler;
-	private final LeaderShardContainer leaderShardContainer;
+	private final LeaderAware leaderAware;
 	private final ShardIdentifier shardId;
 	private final EventBroker eventBroker;
 	private final SystemStateMonitor systemStateMonitor;
@@ -93,7 +93,7 @@ public class Bootstrap implements Service {
 			final Follower follower,
 			final DependencyPlaceholder dependencyPlaceholder, 
 			final Scheduler scheduler,
-			final LeaderShardContainer leaderShardContainer, 
+			final LeaderAware leaderAware, 
 			final ShardIdentifier shardId, 
 			final EventBroker eventBroker,
 			final SystemStateMonitor systemStateMonitor) {
@@ -105,7 +105,7 @@ public class Bootstrap implements Service {
 		this.follower = requireNonNull(follower);
 		this.dependencyPlaceholder = requireNonNull(dependencyPlaceholder);
 		this.scheduler = requireNonNull(scheduler);
-		this.leaderShardContainer = requireNonNull(leaderShardContainer);
+		this.leaderAware = requireNonNull(leaderAware);
 		this.shardId = requireNonNull(shardId);
 		this.eventBroker = requireNonNull(eventBroker);
 		this.systemStateMonitor = requireNonNull(systemStateMonitor);
@@ -174,7 +174,7 @@ public class Bootstrap implements Service {
 		// check configuration is valid and not unstable-prone
 		validator.validate(config, dependencyPlaceholder.getMaster());
 		scheduler.start();
-		leaderShardContainer.start(); // all latter services will use it
+		leaderAware.start(); // all latter services will use it
 		
 		locks = new Locks(spectatorSupplier.get());
 		readyAwareBooting(); // start the real thing
@@ -198,7 +198,7 @@ public class Bootstrap implements Service {
 			if (config.getBootstrap().isPublishLeaderCandidature() && leader.inService()) {
 				leader.stop();
 			}
-			leaderShardContainer.stop();
+			leaderAware.stop();
 			eventBroker.stop();
 
 			// close the task controller at last
@@ -223,9 +223,9 @@ public class Bootstrap implements Service {
 			leader.stop();
 		}
 		// ignore container's current held refs. and start it over
-		leaderShardContainer.stop();
+		leaderAware.stop();
 		spectatorSupplier.renew();
-		leaderShardContainer.start();
+		leaderAware.start();
 		bootLeadershipCandidate();
 	}
 

@@ -33,7 +33,7 @@ import io.tilt.minka.api.EntityPayload;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.core.task.LeaderShardContainer;
+import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Scheduler.Synchronized;
@@ -64,7 +64,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 	private final PartitionManager partitionManager;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
-	private final LeaderShardContainer leaderContainer;
+	private final LeaderAware leaderContainer;
 	
 	private Clearance lastClearance;
 	private BrokerChannel channel;
@@ -76,7 +76,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 			final PartitionManager partitionManager, 
 			final EventBroker eventBroker,
 			final Scheduler scheduler, 
-			final LeaderShardContainer leaderContainer) {
+			final LeaderAware leaderContainer) {
 
 		super();
 		this.config = config;
