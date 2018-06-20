@@ -1,5 +1,8 @@
 package io.tilt.minka.api;
 
+import static io.tilt.minka.api.config.SchedulerSettings.THREAD_NAME_WEBSERVER_KERNEL;
+import static io.tilt.minka.api.config.SchedulerSettings.THREAD_NAME_WEBSERVER_WORKER;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
@@ -17,6 +20,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
 import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.grizzly.http.server.NetworkListener;
+import org.glassfish.grizzly.nio.transport.TCPNIOTransport;
 import org.glassfish.grizzly.threadpool.GrizzlyExecutorService;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
@@ -28,7 +32,6 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import io.tilt.minka.api.config.BootstrapConfiguration;
 import io.tilt.minka.api.config.BrokerConfiguration;
-import io.tilt.minka.api.config.SchedulerSettings;
 import io.tilt.minka.api.inspect.AdminEndpoint;
 import io.tilt.minka.domain.AwaitingDelegate;
 import io.tilt.minka.domain.DependencyPlaceholder;
@@ -270,16 +273,18 @@ public class Server<D extends Serializable, P extends Serializable> {
 				.setCorePoolSize(1)
 				.setMaxPoolSize(1);
 		
-		
 		final Iterator<NetworkListener> it = webServer.getListeners().iterator();
 		while (it.hasNext()) {
 			final NetworkListener listener = it.next();
 			logger.info("{}: {} Reconfiguring webserver listener {}", name, tenant.getConnectReference(), listener);
-			listener.getTransport().setSelectorRunnersCount(1);
-			((GrizzlyExecutorService)listener.getTransport().getWorkerThreadPool()).reconfigure(
-					config.copy().setPoolName(SchedulerSettings.THREAD_NAME_WEBSERVER_WORKER));
-			((GrizzlyExecutorService)listener.getTransport().getKernelThreadPool()).reconfigure(
-					config.copy().setPoolName(SchedulerSettings.THREAD_NAME_WEBSERVER_KERNEL));
+			final TCPNIOTransport transport = listener.getTransport();
+			transport.setSelectorRunnersCount(1);
+			((GrizzlyExecutorService)transport.getWorkerThreadPool())
+				.reconfigure(config.copy().setPoolName(THREAD_NAME_WEBSERVER_WORKER));
+			((GrizzlyExecutorService)transport.getKernelThreadPool())
+				.reconfigure(config.copy().setPoolName(THREAD_NAME_WEBSERVER_KERNEL));
+			// note the transport class has an inner channel connector disabled to configure
+			// as an instance private field which sizes the kernel pool to 10, unmodifiable.
 		}
 		
         // TODO disable ssl etc
