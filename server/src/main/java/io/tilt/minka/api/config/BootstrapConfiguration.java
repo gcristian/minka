@@ -25,19 +25,17 @@ public class BootstrapConfiguration {
 	// this sets the pace of all time-synchronized processes
 	protected static final long BEAT_UNIT_MS = 500;
 	private long beatUnitMs;		
-	protected static final long READYNESS_RETRY_DELAY_BEATS = 5;
-	private long readynessRetryDelayBeats;
-	protected static final long LEADER_UNCONFIDENT_START_DELAY_BEATS = 20;
-	private long leaderUnconfidentStartDelayBeats;
-	protected static final long LEADER_UNCONFIDENT_DELAY_BEATS = 10;
-	private long leaderUnconfidentDelayBeats;
-	protected static final long RESOURCE_RELEASE_WAIT_BEATS = 10;
-	private long resourceReleaseWaitBeats;
+	protected static final long READYNESS_RETRY_FREQUENCY = 5;
+	private long readynessRetryFrequency;
+	protected static final long LEADER_UNCONFIDENT_START_DELAY = 20;
+	private long leaderUnconfidentStartDelay;
+	protected static final long LEADER_UNCONFIDENT_FREQUENCY = 10;
+	private long leaderUnconfidentFrequency;
+	protected static final long RESOURCE_RELEASE_WAIT = 10;
+	private long resourceReleaseWait;
 	
-	//protected static final long READYNESS_RETRY_DELAY_MS = 5000l;
-	//private long readynessRetryDelayMs;
-	protected static final int REPUBLISH_LEADER_CANDIDATE_AFTER_LOST_BEATS = 2;
-	private int republishLeaderCandidateAfterLostBeats;
+	protected static final int REPUBLISH_LEADER_CANDIDATE_AFTER_LOST = 2;
+	private int republishLeaderCandidateAfterLost;
 	
 	protected final static boolean PUBLISH_LEADER_CANDIDATURE = true;
 	private boolean publishLeaderCandidature;
@@ -57,8 +55,8 @@ public class BootstrapConfiguration {
 
 	protected static final boolean ENABLE_CORE_DUMP = false;
 	private boolean enableCoreDump;
-	protected static final int CORE_DUMP_DELAY_BEATS = 5;
-	private int coreDumpDelayBeats;
+	protected static final int CORE_DUMP_FREQUENCY = 5;
+	private int coreDumpFrequency;
 	protected static final String CORE_DUMP_FILEPATH = "/tmp/";
 	private String coreDumpFilepath;
 	protected static final boolean CORE_DUMP_OVERWRITE = true;
@@ -92,38 +90,38 @@ public class BootstrapConfiguration {
 	public long getBeatUnitMs() {
 		return beatUnitMs;
 	}
-	public long getReadynessRetryDelayBeats() {
-		return readynessRetryDelayBeats;
+	public long getReadynessRetryFrequency() {
+		return readynessRetryFrequency;
 	}
-	public long getLeaderUnconfidentDelayBeats() {
-		return leaderUnconfidentDelayBeats;
+	public long getLeaderUnconfidentFrequency() {
+		return leaderUnconfidentFrequency;
 	}
-	public void setLeaderUnconfidentDelayBeats(long leaderUnconfidentDelayBeats) {
-		this.leaderUnconfidentDelayBeats = leaderUnconfidentDelayBeats;
+	public void setLeaderUnconfidentFrequency(long leaderUnconfidentFrequency) {
+		this.leaderUnconfidentFrequency = leaderUnconfidentFrequency;
 	}
-	public long getLeaderUnconfidentStartDelayBeats() {
-		return leaderUnconfidentStartDelayBeats;
+	public long getLeaderUnconfidentStartDelay() {
+		return leaderUnconfidentStartDelay;
 	}
-	public void setLeaderUnconfidentStartDelayBeats(long leaderUnconfidentStartDelayBeats) {
-		this.leaderUnconfidentStartDelayBeats = leaderUnconfidentStartDelayBeats;
+	public void setLeaderUnconfidentStartDelay(long leaderUnconfidentStartDelay) {
+		this.leaderUnconfidentStartDelay = leaderUnconfidentStartDelay;
 	}
 	public void setBeatUnitMs(long beatUnitMs) {
 		this.beatUnitMs = beatUnitMs;
 	}
-	public void setReadynessRetryDelayBeats(long readynessRetryDelayBeats) {
-		this.readynessRetryDelayBeats = readynessRetryDelayBeats;
+	public void setReadynessRetryFrequency(long readynessRetryFrequency) {
+		this.readynessRetryFrequency = readynessRetryFrequency;
 	}
-	public void setResourceReleaseWaitBeats(long resourceReleaseWaitBeats) {
-		this.resourceReleaseWaitBeats = resourceReleaseWaitBeats;
+	public void setResourceReleaseWait(long resourceReleaseWaits) {
+		this.resourceReleaseWait = resourceReleaseWaits;
 	}
-	public long getResourceReleaseWaitBeats() {
-		return resourceReleaseWaitBeats;
+	public long getResourceReleaseWait() {
+		return resourceReleaseWait;
 	}
-	public void setRepublishLeaderCandidateAfterLostBeats(int republishLeaderCandidateAfterLostBeats) {
-		this.republishLeaderCandidateAfterLostBeats = republishLeaderCandidateAfterLostBeats;
+	public void setRepublishLeaderCandidateAfterLost(int republishLeaderCandidateAfterLost) {
+		this.republishLeaderCandidateAfterLost = republishLeaderCandidateAfterLost;
 	}
-	public int getRepublishLeaderCandidateAfterLostBeats() {
-		return republishLeaderCandidateAfterLostBeats;
+	public int getRepublishLeaderCandidateAfterLost() {
+		return republishLeaderCandidateAfterLost;
 	}
 	public boolean isPublishLeaderCandidature() {
 		return this.publishLeaderCandidature;
@@ -168,11 +166,11 @@ public class BootstrapConfiguration {
 	public boolean isEnableCoreDump() {
 		return enableCoreDump;
 	}
-	public void setCoreDumpDelayBeats(int coreDumpDelayBeats) {
-		this.coreDumpDelayBeats = coreDumpDelayBeats;
+	public void setCoreDumpFrequency(int coreDumpFrequency) {
+		this.coreDumpFrequency = coreDumpFrequency;
 	}
-	public int getCoreDumpDelayBeats() {
-		return coreDumpDelayBeats;
+	public int getCoreDumpFrequency() {
+		return coreDumpFrequency;
 	}
 	public void setCoreDumpFilepath(String coreDumpFilepath) {
 		this.coreDumpFilepath = coreDumpFilepath;

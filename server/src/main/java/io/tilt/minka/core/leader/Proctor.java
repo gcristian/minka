@@ -107,8 +107,8 @@ public class Proctor implements Service {
 						PriorityLock.MEDIUM_BLOCKING, 
 						Frequency.PERIODIC, 
 						() -> shepherShards())
-				.delayed(config.beatToMs(config.getProctor().getStartDelayBeats()))
-				.every(config.beatToMs(config.getProctor().getDelayBeats()))
+				.delayed(config.beatToMs(config.getProctor().getStartDelay()))
+				.every(config.beatToMs(config.getProctor().getPhaseFrequency()))
 				.build();
 		this.lastAnalysys = now();
 	}
@@ -171,7 +171,7 @@ public class Proctor implements Service {
 	}
 
 	private void calculateHealth(final int size, final int sizeOnline) {
-		final int threshold = config.getProctor().getClusterHealthStabilityDelayPeriods();
+		final int threshold = config.getProctor().getClusterHealthStabilityDelayPhases();
 		ClusterHealth health = UNSTABLE;
 		if (sizeOnline == size && analysisCounter - lastUnstableAnalysisId >= threshold) {
 			health = STABLE;
@@ -185,8 +185,8 @@ public class Proctor implements Service {
 	
 	private Shard.Change evaluateStateThruHeartbeats(final Shard shard, final Consumer<String> cons) {
 		final long now = System.currentTimeMillis();
-		final long normalDelay = config.beatToMs(config.getFollower().getHeartbeatDelayBeats());
-		final long configuredLapse = config.beatToMs(config.getProctor().getHeartbeatLapseBeats());
+		final long normalDelay = config.beatToMs(config.getFollower().getHeartbeatFrequency());
+		final long configuredLapse = config.beatToMs(config.getProctor().getHeartbeatLapse());
 		final long lapseStart = now - configuredLapse;
 		//long minMandatoryHBs = configuredLapse / normalDelay;
 
@@ -200,7 +200,7 @@ public class Proctor implements Service {
 		final int maxSickToGoQuarantine = config.getProctor().getMaxSickHeartbeatsBeforeShardQuarantine();
 
 		if (shard.getHeartbeats().size() < minToBeGone) {
-			final long max = config.beatToMs(config.getProctor().getMaxShardJoiningStateBeats());
+			final long max = config.beatToMs(config.getProctor().getMaxShardJoiningState());
 			if (shard.getLastStatusChange().plusMillis(max).isBefore(Instant.now())) {
 				cause = Shard.Cause.JOINING_STARVED;
 				newState = GONE;

@@ -128,8 +128,8 @@ public class Distributor implements Service {
 						PriorityLock.MEDIUM_BLOCKING, 
 						Frequency.PERIODIC, 
 						() -> distribute())
-				.delayed(config.beatToMs(config.getDistributor().getStartDelayBeats()))
-				.every(config.beatToMs(config.getDistributor().getDelayBeats()))
+				.delayed(config.beatToMs(config.getDistributor().getStartDelay()))
+				.every(config.beatToMs(config.getDistributor().getPhaseFrequency()))
 				.build();
 
 		this.factory = new ChangePlanFactory(config);
@@ -173,12 +173,12 @@ public class Distributor implements Service {
 				return;
 			} else if (changes && noPlan) {
 				if (shardingScheme.getBackstage().isStealthChange()) {
-					final long threshold = config.beatToMs(config.getDistributor().getStealthHoldThresholdBeats());
+					final long threshold = config.beatToMs(config.getDistributor().getStealthHoldThreshold());
 					if (!shardingScheme.getBackstage().stealthOverThreshold(threshold)) {						
 						if (lastStealthBlocked==null) {
 							lastStealthBlocked = Instant.now();
 						} else if (System.currentTimeMillis() - lastStealthBlocked.toEpochMilli() > 
-							config.beatToMs(config.getDistributor().getDelayBeats() * 5)) {
+							config.beatToMs(config.getDistributor().getPhaseFrequency() * 5)) {
 							lastStealthBlocked = null;
 							logger.warn("{}: Phase release: threshold ", getName());
 						} else {
@@ -345,7 +345,7 @@ public class Distributor implements Service {
 	/** @return if distribution can continue, read from storage only first time */
 	private boolean loadFromClientWhenAllOnlines() {
 	    final boolean reload = !initialAdding && (config.getDistributor().isReloadDutiesFromStorage()
-                && config.getDistributor().getReloadDutiesFromStorageEachPeriods() == counterForReloads++);
+                && config.getDistributor().getDutiesReloadFromStoragePhaseFrequency() == counterForReloads++);
 	    
 		if (initialAdding || reload) {
 		    counterForReloads = 0;

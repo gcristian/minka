@@ -99,7 +99,7 @@ public class SocketClient {
 		this.scheduler = requireNonNull(scheduler);
 
 		this.clientHandler = new SocketClientHandler(
-				config.beatToMs(config.getBroker().getMaxLagBeforeDiscardingClientQueueBeats()), 
+				config.beatToMs(config.getBroker().getMaxLagBeforeDiscardingClientQueue()), 
 				config.getBroker().getMaxClientQueueSize());
 		this.antiflapper = new AtomicBoolean(true);
 		this.alive = new AtomicBoolean();
@@ -115,8 +115,8 @@ public class SocketClient {
 		scheduler.schedule(connector);
 		this.creation = System.currentTimeMillis();
 		this.clientExpiration = Math.max(
-				requireNonNull(config).beatToMs(config.getProctor().getDelayBeats()), 
-				config.beatToMs(config.getFollower().getClearanceMaxAbsenceBeats() * 2));
+				requireNonNull(config).beatToMs(config.getProctor().getPhaseFrequency()), 
+				config.beatToMs(config.getFollower().getClearanceMaxAbsence() * 2));
 		this.maxQueueThreshold = config.getBroker().getConnectionHandlerThreads();
 	}
 
@@ -356,8 +356,8 @@ public class SocketClient {
 			}
 			this.alive.set(false);
 			clientGroup.shutdownGracefully(
-					config.beatToMs(config.getBroker().getShutdownQuietBeats()), 
-					config.beatToMs(config.getBroker().getShutdownTimeoutBeats()), 
+					config.beatToMs(config.getBroker().getShutdownQuiet()), 
+					config.beatToMs(config.getBroker().getShutdownTimeout()), 
 					TimeUnit.MILLISECONDS);
 		} else {
 			logger.error("{}: ({}) Invalid state to close client: {}", classname, loggingName,

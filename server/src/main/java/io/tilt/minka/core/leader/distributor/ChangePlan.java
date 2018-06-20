@@ -385,7 +385,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	
 	protected long secsToExpire(final Config config) {
 		final Instant st = started.plusMillis(
-				config.beatToMs(config.getDistributor().getPlanExpirationBeats()));
+				config.beatToMs(config.getDistributor().getPlanExpiration()));
 		return (st.toEpochMilli() - System.currentTimeMillis()) / 1000;
 	}
 	

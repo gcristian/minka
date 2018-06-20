@@ -220,7 +220,7 @@ public class ClusterResilienceTest {
 		final Config conf = prototypeConfig();
 		conf.getBootstrap().setNamespace("test_single_cluster");
 		conf.getBootstrap().setEnableCoreDump(true);
-		conf.getBootstrap().setCoreDumpDelayBeats(20);
+		conf.getBootstrap().setCoreDumpFrequency(20);
 		conf.getBootstrap().setCoreDumpFilepath("/tmp/minka");
 		final Set<ServerWhitness> set = buildCluster(1, conf, pallets, duties);
 		sleep(wait * 3);

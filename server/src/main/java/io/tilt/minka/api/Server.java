@@ -360,7 +360,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 				return true;
 			} catch (IOException ioe) {
 				try {
-					Thread.sleep(c.beatToMs(c.getBootstrap().getResourceReleaseWaitBeats()));
+					Thread.sleep(c.beatToMs(c.getBootstrap().getResourceReleaseWait()));
 				} catch (InterruptedException e) {
 				}
 			}

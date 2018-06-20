@@ -5,13 +5,13 @@ public class ProctorSettings {
 	public static final int MAX_HEARBEATS_TO_EVALUATE = 10;
 	public final static int MAX_SHARD_CHANGES_TO_HOLD = 5;
 	
-	protected final static long START_DELAY_BEATS = 1;
-	private long startDelayBeats;
+	protected final static long START_DELAY = 1;
+	private long startDelay;
 	
-	protected final static long DELAY_BEATS = 3; // i jhad it on 2000
-	private long delayBeats;
-	protected static final int MAX_SHARD_JOINING_STATE_BEATS = 15;
-	private int maxShardJoiningStateBeats;
+	protected final static long PHASE_FREQUENCY = 3; // i jhad it on 2000
+	private long phaseFrequency;
+	protected static final int MAX_SHARD_JOINING_STATE = 15;
+	private int maxShardJoiningState;
 	
 	protected static final int MIN_HEALTHLY_HEARTBEATS_FOR_SHARD_ONLINE = 2;
 	private int minHealthlyHeartbeatsForShardOnline;
@@ -25,39 +25,39 @@ public class ProctorSettings {
 	private int minShardsOnlineBeforeSharding;
 	protected static final double HEARTBEAT_MAX_BIGGEST_DISTANCE_FACTOR = 2.5d;
 	private double heartbeatMaxBiggestDistanceFactor;
-	protected static final int HEARTBEAT_LAPSE_BEATS = 30;
-	private int heartbeatLapseBeats;
+	protected static final int HEARTBEAT_LAPSE = 30;
+	private int heartbeatLapse;
 	protected static final double HEARTBEAT_MAX_DISTANCE_STANDARD_DEVIATION = 4;
 	private double heartbeatMaxDistanceStandardDeviation;
-	protected static final int CLUSTER_HEALTH_STABILITY_DELAY_PERIODS = 1;
-	private int clusterHealthStabilityDelayPeriods;
+	protected static final int CLUSTER_HEALTH_STABILITY_DELAY_PHASES = 1;
+	private int clusterHealthStabilityDelayPhases;
 	
 	public int getMinHealthlyHeartbeatsForShardOnline() {
 		return this.minHealthlyHeartbeatsForShardOnline;
 	}
-	public long getStartDelayBeats() {
-		return startDelayBeats;
+	public long getStartDelay() {
+		return startDelay;
 	}
 	public void setStartDelayBeats(long startDelayBeats) {
-		this.startDelayBeats = startDelayBeats;
+		this.startDelay = startDelayBeats;
 	}
-	public long getDelayBeats() {
-		return delayBeats;
+	public long getPhaseFrequency() {
+		return phaseFrequency;
 	}
-	public void setDelayBeats(long delayBeats) {
-		this.delayBeats = delayBeats;
+	public void setPhaseFrequency(long frequency) {
+		this.phaseFrequency = frequency;
 	}
-	public int getMaxShardJoiningStateBeats() {
-		return maxShardJoiningStateBeats;
+	public int getMaxShardJoiningState() {
+		return maxShardJoiningState;
 	}
-	public void setMaxShardJoiningStateBeats(int maxShardJoiningStateBeats) {
-		this.maxShardJoiningStateBeats = maxShardJoiningStateBeats;
+	public void setMaxShardJoiningState(int maxShardJoiningState) {
+		this.maxShardJoiningState = maxShardJoiningState;
 	}
-	public int getHeartbeatLapseBeats() {
-		return heartbeatLapseBeats;
+	public int getHeartbeatLapse() {
+		return heartbeatLapse;
 	}
-	public void setHeartbeatLapseBeats(int heartbeatLapseBeats) {
-		this.heartbeatLapseBeats = heartbeatLapseBeats;
+	public void setHeartbeatLapse(int heartbeatLapse) {
+		this.heartbeatLapse = heartbeatLapse;
 	}
 	public void setMinHealthlyHeartbeatsForShardOnline(int minHealthlyHeartbeatsForShardOnline) {
 		this.minHealthlyHeartbeatsForShardOnline = minHealthlyHeartbeatsForShardOnline;
@@ -98,11 +98,11 @@ public class ProctorSettings {
 	public void setHeartbeatMaxDistanceStandardDeviation(double heartbeatMaxDistanceStandardDeviation) {
 		this.heartbeatMaxDistanceStandardDeviation = heartbeatMaxDistanceStandardDeviation;
 	}
-	public int getClusterHealthStabilityDelayPeriods() {
-		return this.clusterHealthStabilityDelayPeriods;
+	public int getClusterHealthStabilityDelayPhases() {
+		return this.clusterHealthStabilityDelayPhases;
 	}
-	public void setClusterHealthStabilityDelayPeriods(int clusterHealthStabilityDelayPeriods) {
-		this.clusterHealthStabilityDelayPeriods = clusterHealthStabilityDelayPeriods;
+	public void setClusterHealthStabilityDelayPhases(int clusterHealthStabilityDelayPhases) {
+		this.clusterHealthStabilityDelayPhases = clusterHealthStabilityDelayPhases;
 	}
 
 }

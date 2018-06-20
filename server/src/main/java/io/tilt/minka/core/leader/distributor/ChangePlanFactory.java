@@ -76,7 +76,7 @@ class ChangePlanFactory {
 		
 		final Backstage snapshot = scheme.getBackstage().snapshot();
 		ChangePlan changePlan = new ChangePlan(
-				config.beatToMs(config.getDistributor().getPlanExpirationBeats()), 
+				config.beatToMs(config.getDistributor().getPlanExpiration()), 
 				config.getDistributor().getPlanMaxRetries());
 		
 		final Set<ShardEntity> creations = collectAsCreates(scheme, previous, snapshot, changePlan);		

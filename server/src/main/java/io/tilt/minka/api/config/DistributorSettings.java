@@ -7,19 +7,19 @@ public class DistributorSettings {
 	private boolean runConsistencyCheck;
 	protected static final boolean RUN_ON_STEALTH_MODE = true;
 	private boolean runOnStealthMode;
-	protected static final long STEALTH_HOLD_THRESHOLD_BEATS = 5;
-	private long stealthHoldThresholdBeats;
+	protected static final long STEALTH_HOLD_THRESHOLD = 5;
+	private long stealthHoldThreshold;
 	protected static final boolean RELOAD_DUTIES_FROM_STORAGE = false;
 	private boolean reloadDutiesFromStorage;
-	protected static final int RELOAD_DUTIES_FROM_STORAGE_EACH_PERIODS = 10;
-	private int reloadDutiesFromStorageEachPeriods;
+	protected static final int DUTIES_RELOAD_FROM_STORAGE_PHASE_FREQUENCY = 10;
+	private int dutiesReloadFromStoragePhaseFrequency;
 	/* 10 seconds to let the Proctor discover all Followers before distributing */
-	protected final static long START_DELAY_BEATS = 1;
-	private long startDelayBeats;
-	protected final static long DELAY_BEATS = 2;
-	private long delayBeats;
-	protected static final int PLAN_EXPIRATION_BEATS = 10;
-	private int planExpirationBeats;
+	protected final static long START_DELAY = 1;
+	private long startDelay;
+	protected final static long PHASE_FREQUENCY = 2;
+	private long phaseFrequency;
+	protected static final int PLAN_EXPIRATION = 10;
+	private int planExpiration;
 	
 	protected static final int PLAN_MAX_RETRIES = 3;
 	private int planMaxRetries;
@@ -37,11 +37,11 @@ public class DistributorSettings {
 	public void setRunOnStealthMode(boolean runOnStealthMode) {
 		this.runOnStealthMode = runOnStealthMode;
 	}
-	public long getStealthHoldThresholdBeats() {
-		return stealthHoldThresholdBeats;
+	public long getStealthHoldThreshold() {
+		return stealthHoldThreshold;
 	}
-	public void setStealthHoldThresholdBeats(long stealthHoldThresholdBeats) {
-		this.stealthHoldThresholdBeats = stealthHoldThresholdBeats;
+	public void setStealthHoldThreshold(long stealthHoldThreshold) {
+		this.stealthHoldThreshold = stealthHoldThreshold;
 	}
 	public boolean isReloadDutiesFromStorage() {
 		return this.reloadDutiesFromStorage;
@@ -49,32 +49,32 @@ public class DistributorSettings {
 	public void setReloadDutiesFromStorage(boolean reloadDutiesFromStorage) {
 		this.reloadDutiesFromStorage = reloadDutiesFromStorage;
 	}
-	public int getReloadDutiesFromStorageEachPeriods() {
-		return this.reloadDutiesFromStorageEachPeriods;
+	public int getDutiesReloadFromStoragePhaseFrequency() {
+		return this.dutiesReloadFromStoragePhaseFrequency;
 	}
-	public void setReloadDutiesFromStorageEachPeriods(int reloadDutiesFromStorageEachPeriods) {
-		this.reloadDutiesFromStorageEachPeriods = reloadDutiesFromStorageEachPeriods;
+	public void setDutiesReloadFromStoragePhaseFrequency(int dutiesReloadFromStoragePhaseFrequency) {
+		this.dutiesReloadFromStoragePhaseFrequency = dutiesReloadFromStoragePhaseFrequency;
 	}	
 	public int getPlanMaxRetries() {
 		return this.planMaxRetries;
 	}
-	public long getStartDelayBeats() {
-		return startDelayBeats;
+	public long getStartDelay() {
+		return startDelay;
 	}
-	public void setStartDelayBeats(long startDelayBeats) {
-		this.startDelayBeats = startDelayBeats;
+	public void setStartDelay(long startDelay) {
+		this.startDelay = startDelay;
 	}
-	public long getDelayBeats() {
-		return delayBeats;
+	public long getPhaseFrequency() {
+		return phaseFrequency;
 	}
-	public void setDelayBeats(long delayBeats) {
-		this.delayBeats = delayBeats;
+	public void setPhaseFrequency(long frequency) {
+		this.phaseFrequency = frequency;
 	}
-	public int getPlanExpirationBeats() {
-		return planExpirationBeats;
+	public int getPlanExpiration() {
+		return planExpiration;
 	}
-	public void setPlanExpirationBeats(int planExpirationBeats) {
-		this.planExpirationBeats = planExpirationBeats;
+	public void setPlanExpiration(int planExpiration) {
+		this.planExpiration = planExpiration;
 	}
 	public void setPlanMaxRetries(int planMaxRetries) {
 		this.planMaxRetries = planMaxRetries;

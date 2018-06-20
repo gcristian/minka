@@ -94,7 +94,7 @@ public class TestUtils {
 		ownConfig.getBootstrap().setDropVMLimit(true);
 		
 		ownConfig.getBootstrap().setEnableCoreDump(refConfig.getBootstrap().isEnableCoreDump());
-		ownConfig.getBootstrap().setCoreDumpDelayBeats(refConfig.getBootstrap().getCoreDumpDelayBeats());
+		ownConfig.getBootstrap().setCoreDumpFrequency(refConfig.getBootstrap().getCoreDumpFrequency());
 		ownConfig.getBootstrap().setCoreDumpFilepath(refConfig.getBootstrap().getCoreDumpFilepath());
 
 		final Set<Duty<String>> everCaptured = new HashSet<>();

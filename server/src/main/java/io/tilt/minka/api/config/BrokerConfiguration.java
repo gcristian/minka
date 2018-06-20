@@ -13,8 +13,8 @@ public class BrokerConfiguration {
 	private int maxRetries;
 	protected final static int RETRY_DELAY_MILI_BEATS = 300;
 	private long retryDelayMiliBeats;
-	protected final static int MAX_LAG_BEFORE_DISCARDING_CLIENT_QUEUE_BEATS = 10;
-	private long maxLagBeforeDiscardingClientQueueBeats;
+	protected final static int MAX_LAG_BEFORE_DISCARDING_CLIENT_QUEUE = 10;
+	private long maxLagBeforeDiscardingClientQueue;
 	protected final static int MAX_CLIENT_QUEUE_SIZE = 50;
 	private int maxClientQueueSize;
 	//protected final static int RETRY_DELAY_MS = 300;
@@ -29,10 +29,10 @@ public class BrokerConfiguration {
 	protected static final String NETWORK_INTERFASE = "lo";
 	private String networkInterfase;
 	
-	protected final static long SHUTDOWN_QUIET_BEATS = 5;
-	private long shutdownQuietBeats;
-	protected final static long SHUTDOWN_TIMEOUT_BEATS = SHUTDOWN_QUIET_BEATS * 3;
-	private long shutdownTimeoutBeats;
+	protected final static long SHUTDOWN_QUIET = 5;
+	private long shutdownQuiet;
+	protected final static long SHUTDOWN_TIMEOUT = SHUTDOWN_QUIET * 3;
+	private long shutdownTimeout;
 	
 	public String getHostPort() {
 		return this.hostPort;
@@ -58,11 +58,11 @@ public class BrokerConfiguration {
 	public void setRetryDelayMiliBeats(int retryDelayMiliBeats) {
 		this.retryDelayMiliBeats = retryDelayMiliBeats;
 	}
-	public long getMaxLagBeforeDiscardingClientQueueBeats() {
-		return maxLagBeforeDiscardingClientQueueBeats;
+	public long getMaxLagBeforeDiscardingClientQueue() {
+		return maxLagBeforeDiscardingClientQueue;
 	}
-	public void setMaxLagBeforeDiscardingClientQueueBeats(long maxLagBeforeDiscardingClientQueueBeats) {
-		this.maxLagBeforeDiscardingClientQueueBeats = maxLagBeforeDiscardingClientQueueBeats;
+	public void setMaxLagBeforeDiscardingClientQueue(long maxLagBeforeDiscardingClientQueue) {
+		this.maxLagBeforeDiscardingClientQueue = maxLagBeforeDiscardingClientQueue;
 	}
 	public boolean isEnablePortFallback() {
 		return this.enablePortFallback;
@@ -95,16 +95,16 @@ public class BrokerConfiguration {
 	public void setMaxClientQueueSize(final int maxClientQueueSize) {
 		this.maxClientQueueSize = maxClientQueueSize;
 	}
-	public long getShutdownQuietBeats() {
-		return shutdownQuietBeats;
+	public long getShutdownQuiet() {
+		return shutdownQuiet;
 	}
-	public void setShutdownQuietBeats(long shutdownQuietBeats) {
-		this.shutdownQuietBeats = shutdownQuietBeats;
+	public void setShutdownQuiet(long shutdownQuiet) {
+		this.shutdownQuiet = shutdownQuiet;
 	}
-	public long getShutdownTimeoutBeats() {
-		return shutdownTimeoutBeats;
+	public long getShutdownTimeout() {
+		return shutdownTimeout;
 	}
-	public void setShutdownTimeoutBeats(long shutdownTimeoutBeats) {
-		this.shutdownTimeoutBeats = shutdownTimeoutBeats;
+	public void setShutdownTimeout(long shutdownTimeout) {
+		this.shutdownTimeout = shutdownTimeout;
 	}
 }

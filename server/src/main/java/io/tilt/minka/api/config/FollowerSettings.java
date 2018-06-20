@@ -12,18 +12,18 @@ public class FollowerSettings {
 	/*
 	 * How many beats delay to start sending heartbeats 
 	 */
-	protected static final long HEARTBEAT_START_DELAY_BEATS = 1;
-	private long heartbeatDelayBeats;
+	protected static final long HEARTBEAT_START_DELAY = 1;
+	private long heartbeatStartDelay;
 	/*
 	 * Frequency for sending heartbeats
 	 */
-	protected static final long HEARTBEAT_DELAY_BEATS = 2;
-	private long heartbeatStartDelayBeats;				
+	protected static final long HEARTBEAT_FREQUENCY = 2;
+	private long heartbeatFrequency;
 	/* 10 seconds old max for clearance before releasing duties */
-	protected static final int CLEARANCE_MAX_ABSENCE_BEATS = 10;
-	private int clearanceMaxAbsenceBeats;
-	protected static final long MAX_HEARTBEAT_ABSENCE_FOR_RELEASE_BEATS = 10;
-	private long maxHeartbeatAbsenceForReleaseBeats;
+	protected static final int CLEARANCE_MAX_ABSENCE = 10;
+	private int clearanceMaxAbsence;
+	protected static final long MAX_HEARTBEAT_ABSENCE_FOR_RELEASE = 10;
+	private long maxHeartbeatAbsenceForRelease;
 	
 	/* 10 errors tolerant for building HBs from followers */
 	protected static final int MAX_HEARTBEAT_BUILD_FAILS_BEFORE_RELEASING = 1;
@@ -32,29 +32,29 @@ public class FollowerSettings {
 	public int getMaxHeartbeatBuildFailsBeforeReleasing() {
 		return this.maxHeartbeatBuildFailsBeforeReleasing;
 	}
-	public long getHeartbeatDelayBeats() {
-		return heartbeatDelayBeats;
+	public long getHeartbeatFrequency() {
+		return heartbeatFrequency;
 	}
-	public void setHeartbeatDelayBeats(long heartbeatDelayBeats) {
-		this.heartbeatDelayBeats = heartbeatDelayBeats;
+	public void setHeartbeatFrequency(long heartbeatFrequency) {
+		this.heartbeatFrequency = heartbeatFrequency;
 	}
-	public long getHeartbeatStartDelayBeats() {
-		return heartbeatStartDelayBeats;
+	public long getHeartbeatStartDelay() {
+		return heartbeatStartDelay;
 	}
-	public void setHeartbeatStartDelayBeats(long heartbeatStartDelayBeats) {
-		this.heartbeatStartDelayBeats = heartbeatStartDelayBeats;
+	public void setHeartbeatStartDelay(long heartbeatStartDelay) {
+		this.heartbeatStartDelay = heartbeatStartDelay;
 	}
-	public int getClearanceMaxAbsenceBeats() {
-		return clearanceMaxAbsenceBeats;
+	public int getClearanceMaxAbsence() {
+		return clearanceMaxAbsence;
 	}
-	public void setClearanceMaxAbsenceBeats(int clearanceMaxAbsenceBeats) {
-		this.clearanceMaxAbsenceBeats = clearanceMaxAbsenceBeats;
+	public void setClearanceMaxAbsence(int clearanceMaxAbsence) {
+		this.clearanceMaxAbsence = clearanceMaxAbsence;
 	}
-	public long getMaxHeartbeatAbsenceForReleaseBeats() {
-		return maxHeartbeatAbsenceForReleaseBeats;
+	public long getMaxHeartbeatAbsenceForRelease() {
+		return maxHeartbeatAbsenceForRelease;
 	}
-	public void setMaxHeartbeatAbsenceForReleaseBeats(long maxHeartbeatAbsenceForReleaseBeats) {
-		this.maxHeartbeatAbsenceForReleaseBeats = maxHeartbeatAbsenceForReleaseBeats;
+	public void setMaxHeartbeatAbsenceForRelease(long maxHeartbeatAbsenceForRelease) {
+		this.maxHeartbeatAbsenceForRelease = maxHeartbeatAbsenceForRelease;
 	}
 	public void setMaxHeartbeatBuildFailsBeforeReleasing(int maxHeartbeatBuildFailsBeforeReleasing) {
 		this.maxHeartbeatBuildFailsBeforeReleasing = maxHeartbeatBuildFailsBeforeReleasing;

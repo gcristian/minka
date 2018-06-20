@@ -23,13 +23,13 @@ public class SchedulerSettings {
 		this.maxConcurrency = maxConcurrency;
 	}
 
-	public static long SEMAPHORE_UNLOCK_RETRY_DELAY_MS = 100l; //50l;
-	private int semaphoreUnlockRetryDelayMs;
-	public int getSemaphoreUnlockRetryDelayMs() {
-		return this.semaphoreUnlockRetryDelayMs;
+	public static long SEMAPHORE_UNLOCK_RETRY_FREQUENCY_MS = 100l; //50l;
+	private int semaphoreUnlockRetryFrequencyMs;
+	public int getSemaphoreUnlockRetryFrequencyMs() {
+		return this.semaphoreUnlockRetryFrequencyMs;
 	}
-	public void setSemaphoreUnlockRetryDelayMs(int semaphoreUnlockRetryDelayMs) {
-		this.semaphoreUnlockRetryDelayMs = semaphoreUnlockRetryDelayMs;
+	public void setSemaphoreUnlockRetryFrequencyMs(int semaphoreUnlockRetryFrequencyMs) {
+		this.semaphoreUnlockRetryFrequencyMs = semaphoreUnlockRetryFrequencyMs;
 	}
 	
 	public static int SEMAPHORE_UNLOCK_MAX_RETRIES = 30;

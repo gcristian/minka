@@ -97,8 +97,8 @@ public class Follower implements Service {
 						PriorityLock.MEDIUM_BLOCKING, 
 						Frequency.PERIODIC,
 						() -> follow())
-				.delayed(config.beatToMs(config.getFollower().getHeartbeatStartDelayBeats()))
-				.every(config.beatToMs(config.getFollower().getHeartbeatDelayBeats()))
+				.delayed(config.beatToMs(config.getFollower().getHeartbeatStartDelay()))
+				.every(config.beatToMs(config.getFollower().getHeartbeatFrequency()))
 				.build();
 	}
 
@@ -160,10 +160,10 @@ public class Follower implements Service {
 		boolean lost = false;
 		final Clearance clear = leaderEventsHandler.getLastClearance();
 		long delta = 0;
-		final long hbdelay = config.beatToMs(config.getFollower().getHeartbeatDelayBeats());
+		final long hbdelay = config.beatToMs(config.getFollower().getHeartbeatFrequency());
 		int maxAbsenceMs = (int)hbdelay * config.getProctor().getMinAbsentHeartbeatsBeforeShardGone();
 		maxAbsenceMs*=eventualMultiplier();
-		final int minToJoinMs = (int)hbdelay * (int)config.beatToMs(config.getProctor().getMaxShardJoiningStateBeats());
+		final int minToJoinMs = (int)hbdelay * (int)config.beatToMs(config.getProctor().getMaxShardJoiningState());
 		
 		final DateTime now = new DateTime(DateTimeZone.UTC);
 		// it's OK if there's no clearance because just entering.. 
@@ -201,7 +201,7 @@ public class Follower implements Service {
 	private boolean checkBeatsOrDrop() {
 		if (heartpump.getLastBeat() != null) {
 			final DateTime expiracy = heartpump.getLastBeat().plus(
-					config.beatToMs(config.getFollower().getMaxHeartbeatAbsenceForReleaseBeats()));
+					config.beatToMs(config.getFollower().getMaxHeartbeatAbsenceForRelease()));
 			if (expiracy.isBefore(new DateTime(DateTimeZone.UTC))) {
 				if (!partition.getDuties().isEmpty()) {
 					logger.warn("{}: ({}) Executing Heartattack policy (last HB: {}): releasing delegate's held duties",

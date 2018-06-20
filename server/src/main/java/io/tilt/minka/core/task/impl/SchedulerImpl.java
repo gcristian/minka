@@ -204,7 +204,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 						}
 						// TODO: WTF -> LockSupport.parkUntil(Config.SEMAPHORE_UNLOCK_RETRY_DELAY_MS);
 						try {
-							Thread.sleep(getConfig().getScheduler().getSemaphoreUnlockRetryDelayMs());
+							Thread.sleep(getConfig().getScheduler().getSemaphoreUnlockRetryFrequencyMs());
 							continue;
 						} catch (InterruptedException e) {
 							logger.error("{}: ({}) While sleeping for unlock delay", getName(), logName, e);

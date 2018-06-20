@@ -130,7 +130,7 @@ public class Bootstrap implements Service {
 						PriorityLock.HIGH_ISOLATED,
 						Frequency.ONCE_DELAYED, 
 						() -> readyAwareBooting())
-				.delayed(config.beatToMs(config.getBootstrap().getReadynessRetryDelayBeats()))
+				.delayed(config.beatToMs(config.getBootstrap().getReadynessRetryFrequency()))
 				.build();
 	}
 
@@ -141,7 +141,7 @@ public class Bootstrap implements Service {
 						PriorityLock.HIGH_ISOLATED,
 						Frequency.ONCE_DELAYED, 
 						() -> bootLeadershipCandidate())
-				.delayed(config.beatToMs(config.getBootstrap().getRepublishLeaderCandidateAfterLostBeats()))
+				.delayed(config.beatToMs(config.getBootstrap().getRepublishLeaderCandidateAfterLost()))
 				.build();
 	}
 	
@@ -152,7 +152,7 @@ public class Bootstrap implements Service {
 						PriorityLock.HIGH_ISOLATED,
 						Frequency.PERIODIC, 
 						() -> stateMonitor())
-				.every(config.beatToMs(config.getBootstrap().getCoreDumpDelayBeats()))
+				.every(config.beatToMs(config.getBootstrap().getCoreDumpFrequency()))
 				.build();
 	}
 
@@ -163,8 +163,8 @@ public class Bootstrap implements Service {
 						PriorityLock.HIGH_ISOLATED,
 						Frequency.PERIODIC, 
 						() -> checkReceivingBeats())
-				.every(config.beatToMs(config.getBootstrap().getLeaderUnconfidentStartDelayBeats()))
-				.delayed(config.beatToMs(config.getBootstrap().getLeaderUnconfidentDelayBeats()))
+				.every(config.beatToMs(config.getBootstrap().getLeaderUnconfidentStartDelay()))
+				.delayed(config.beatToMs(config.getBootstrap().getLeaderUnconfidentFrequency()))
 				.build();
 	}
 	
