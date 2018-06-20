@@ -37,7 +37,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonGenerator.Feature;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -74,7 +73,6 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
  * @author Cristian Gonzalez
  * @since Nov 6, 2016
  */
-@JsonPropertyOrder({"global", "shards", "pallets", "roadmaps"})
 public class SystemStateMonitor {
 
 	private final LeaderAware leaderAware; 
@@ -194,8 +192,8 @@ public class SystemStateMonitor {
 	 * Shows the duties captured by the shard.
 	 * @return			a String in json format
 	 */
-	public String currentPartitionToJson() {
-		return toJson(buildFollowerDuties(partition, true));
+	public String currentPartitionToJson(boolean detailed) {
+		return toJson(buildFollowerDuties(partition, detailed));
 	}
 	
 	public String palletsToJson() {

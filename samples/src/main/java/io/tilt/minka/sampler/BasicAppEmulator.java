@@ -72,7 +72,6 @@ public class BasicAppEmulator {
 		final Set<Duty<String>> duties = new TreeSet<>(loader.loadDuties());
 		final Set<Pallet<String>> pallets = new TreeSet<>(loader.loadPallets());
 
-		config.getBootstrap().setServerTag(server.getClient().getShardIdentity() +"-eltag");
 		config.getBootstrap().setNamespace("basic-app-emulator");
 		server = new Server<>(config);
 

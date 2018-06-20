@@ -274,7 +274,7 @@ public class Bootstrap implements Service {
 		saveOnDiff("schedule", now, systemStateMonitor.scheduleToJson());
 		saveOnDiff("shards", now, systemStateMonitor.shardsToJson());
 		saveOnDiff("broker", now, systemStateMonitor.brokerToJson());
-		saveOnDiff("partition", now, systemStateMonitor.currentPartitionToJson());
+		saveOnDiff("partition", now, systemStateMonitor.currentPartitionToJson(false));
 		
 		if (leader.inService()) {
 			saveOnDiff("plans", now, systemStateMonitor.plansToJson());
