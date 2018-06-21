@@ -32,8 +32,6 @@
 		<developer>
 			<name>Cristian A. Gonzalez</name>
 			<email>gcristian@gmail.com</email>
-			<organization>Flowics</organization>
-			<organizationUrl>http://www.flowics.com</organizationUrl>
 		</developer>
 	</developers>
 	<scm>
