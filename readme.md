@@ -3,6 +3,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="https://stackedit.io/res-min/themes/base.css" />
+<!--
 <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"></script>
 <script>e
   (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
@@ -12,6 +13,7 @@
   ga('create', 'UA-88637530-1', 'auto');
   ga('send', 'pageview');
 </script>
+-->
 </head>
 
 <body><div class="container" width="70%"><p></p><center><img src="https://k61.kn3.net/4/6/F/B/B/2/02D.png" alt="" title=""> </center><p></p>
