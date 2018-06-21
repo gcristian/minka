@@ -17,7 +17,6 @@
 package io.tilt.minka.spectator;
 
 import java.io.Serializable;
-import java.net.InetAddress;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;

@@ -6,9 +6,6 @@ import java.util.concurrent.locks.LockSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.spectator.Locks;
-import io.tilt.minka.spectator.ServerCandidate;
-
 /* clase tonta para darle nombre a un lider - solo para testear */
 public class Candidate implements ServerCandidate {
     

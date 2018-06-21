@@ -18,9 +18,9 @@ import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.SchemeSentry;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.EntityJournal.Log;
 
 /** 
  * Temporal state of modifications willing to be added to the {@linkplain Scheme}

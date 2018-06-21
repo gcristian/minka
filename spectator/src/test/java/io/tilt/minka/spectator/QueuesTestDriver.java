@@ -10,10 +10,6 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.spectator.MessageMetadata;
-import io.tilt.minka.spectator.Queues;
-import io.tilt.minka.spectator.Wells;
-
 /**
  * Tests para validar todas las funciones en modo single-node
  * 
