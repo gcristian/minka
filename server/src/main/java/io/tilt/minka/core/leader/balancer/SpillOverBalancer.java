@@ -124,7 +124,7 @@ public class SpillOverBalancer implements Balancer {
 	public void balance(
 			final Pallet<?> pallet,
 			final Map<NetworkLocation, Set<Duty<?>>> scheme,
-			final Map<EntityEvent, Set<Duty<?>>> backstage,
+			final Map<EntityEvent, Set<Duty<?>>> stage,
 			final Migrator migrator) {
 
 		final Metadata meta = (Metadata)pallet.getMetadata();
@@ -133,7 +133,7 @@ public class SpillOverBalancer implements Balancer {
 			logger.info("{}: For Unbounded duties (max = -1) found Shard receptor: {}", getClass().getSimpleName(),
 					receptor);
 			//creations.addAll(dangling);
-			moveAllToOne(scheme, backstage, migrator, receptor);
+			moveAllToOne(scheme, stage, migrator, receptor);
 		} else {
 			logger.info("{}: Computing Spilling strategy: {} with a Max Value: {}", getClass().getSimpleName(), meta.getMaxUnit(), 
 				meta.getMaxUnit() == MaxUnit.USE_CAPACITY ? "{shard's capacity}" : meta.getMaxValue());
@@ -147,7 +147,7 @@ public class SpillOverBalancer implements Balancer {
 				logger.info("{}: Shard with space for allocating Duties: {}", getClass().getSimpleName(), spaceByReceptor);
 				final List<Duty<?>> unfitting = new ArrayList<>();
 				final List<Duty<?>> dutiesForBalance = new ArrayList<>();
-				dutiesForBalance.addAll(backstage.get(EntityEvent.CREATE)); // priority for new comers
+				dutiesForBalance.addAll(stage.get(EntityEvent.CREATE)); // priority for new comers
 				//dutiesForBalance.addAll(dangling);
 				if (loadStrat) {
 					// so we can get the biggest accomodation of duties instead of the heaviest
@@ -296,7 +296,7 @@ public class SpillOverBalancer implements Balancer {
 
 	private void moveAllToOne(
 			final Map<NetworkLocation, Set<Duty<?>>> scheme,
-			final Map<EntityEvent, Set<Duty<?>>> backstage,
+			final Map<EntityEvent, Set<Duty<?>>> stage,
 			final Migrator migrator,
 			final NetworkLocation receptor) {
 		for (final NetworkLocation shard : scheme.keySet()) {
@@ -304,7 +304,7 @@ public class SpillOverBalancer implements Balancer {
 				Set<Duty<?>> dutiesByShard = scheme.get(shard);
 				if (!dutiesByShard.isEmpty()) {
 					for (final Duty<?> duty : dutiesByShard) {
-						if (!backstage.get(EntityEvent.REMOVE).contains(duty)) {
+						if (!stage.get(EntityEvent.REMOVE).contains(duty)) {
 							migrator.transfer(shard, receptor, duty);
 							logger.info("{}: Hoarding from Shard: {} to Shard: {}, Duty: {}", getClass().getSimpleName(),
 								shard, receptor, duty);
@@ -313,7 +313,7 @@ public class SpillOverBalancer implements Balancer {
 				}
 			}
 		}
-		for (Duty<?> creation: backstage.get(EntityEvent.CREATE)) {
+		for (Duty<?> creation: stage.get(EntityEvent.CREATE)) {
 			migrator.transfer(receptor, creation);
 		}
 	}

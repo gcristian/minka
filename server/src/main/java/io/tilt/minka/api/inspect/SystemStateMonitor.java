@@ -49,7 +49,7 @@ import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.broker.impl.SocketClient;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
-import io.tilt.minka.core.leader.data.Backstage;
+import io.tilt.minka.core.leader.data.Stage;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
@@ -220,7 +220,7 @@ public class SystemStateMonitor {
 	public String schemeToJson(final boolean detail) {
 		Map<String, Object> m = new LinkedHashMap<>(2);
 		m.put("scheme", buildDuties(detail));
-		m.put("backstage", buildBackstage(detail, scheme.getBackstage()));
+		m.put("stage", buildStage(detail, scheme.getStage()));
 		return toJson(m);
 	}
 
@@ -316,7 +316,7 @@ public class SystemStateMonitor {
 		return ret;
 	}
 	
-	private Map<String, List<Object>> buildBackstage(final boolean detail, final Backstage stage) {
+	private Map<String, List<Object>> buildStage(final boolean detail, final Stage stage) {
 		final Map<String, List<Object>> ret = new LinkedHashMap<>(3);		
 		ret.put("crud", dutyBrief(stage.getDutiesCrud(), detail));
 		ret.put("dangling", dutyBrief(stage.getDutiesDangling(), detail));
@@ -341,7 +341,7 @@ public class SystemStateMonitor {
 			
 			final double[] dettachedWeight = {0};
 			final int[] crudSize = new int[1];
-			scheme.getBackstage().findDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, e-> {
+			scheme.getStage().findDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, e-> {
 				if (e.getDuty().getPalletId().equals(pallet.getPallet().getId())) {
 					crudSize[0]++;
 					dettachedWeight[0]+=e.getDuty().getWeight();
@@ -410,10 +410,10 @@ public class SystemStateMonitor {
 		map.put("size-shards", extractor.getShards().size());
 		map.put("size-pallets", extractor.getPallets().size());
 		map.put("size-scheme", extractor.getSizeTotal());
-		map.put("size-crud", table.getBackstage().getDutiesCrud().size());
-		map.put("size-missings", table.getBackstage().getDutiesMissing().size());
-		map.put("size-dangling", table.getBackstage().getDutiesDangling().size());
-		map.put("stage-change", table.getBackstage().isStealthChange());
+		map.put("size-crud", table.getStage().getDutiesCrud().size());
+		map.put("size-missings", table.getStage().getDutiesMissing().size());
+		map.put("size-dangling", table.getStage().getDutiesDangling().size());
+		map.put("stage-change", table.getStage().isStealthChange());
 		map.put("scheme-change", table.getScheme().isStealthChange());
 		return map;
 	}

@@ -62,14 +62,14 @@ public interface Balancer {
 	 * 
 	 * @param scheme		map repr. the partition table's duties assigned to shards
 	 * 						all shards included, with or without attached duties.
-	 * @param backstage   	map repr. set of CRUD duties that must be distibuted and doesnt exist in table object
+	 * @param stage   	map repr. set of CRUD duties that must be distibuted and doesnt exist in table object
 	 * 						including also recycled duties like danglings and missings which are not new
 	 * 						and a set of deletions that will cease to exist in the table (already marked)
 	 * @param migrator		a facility to request modifications for duty assignation for the next distribution		
 	 */
 	void balance(final Pallet<?> pallet,
 			final Map<NetworkLocation, Set<Duty<?>>> scheme,
-			final Map<EntityEvent, Set<Duty<?>>> backstage,
+			final Map<EntityEvent, Set<Duty<?>>> stage,
 			final Migrator migrator);
 	
 	/** safety read-only Shard's decorator for balancers to use */

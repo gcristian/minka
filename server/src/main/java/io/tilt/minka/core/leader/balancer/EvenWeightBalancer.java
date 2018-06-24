@@ -84,14 +84,14 @@ public class EvenWeightBalancer implements Balancer {
 	public final void balance(
 			final Pallet<?> pallet,
 			final Map<NetworkLocation, Set<Duty<?>>> scheme,
-			final Map<EntityEvent, Set<Duty<?>>> backstage,
+			final Map<EntityEvent, Set<Duty<?>>> stage,
 			final Migrator migrator) {
 		// order new ones and current ones in order to get a fair distro 
 		final Comparator comparator = ((Metadata)pallet.getMetadata()).getPresort().getComparator();
 		final Set<Duty<?>> duties = new TreeSet<>(comparator);
-		duties.addAll(backstage.get(EntityEvent.CREATE)); // newcomers have ++priority than table
+		duties.addAll(stage.get(EntityEvent.CREATE)); // newcomers have ++priority than table
 		scheme.values().forEach(duties::addAll);		
-		duties.removeAll(backstage.get(EntityEvent.REMOVE)); // delete those marked for deletion
+		duties.removeAll(stage.get(EntityEvent.REMOVE)); // delete those marked for deletion
 		final List<Duty<?>> dutiesSorted = new ArrayList<>(duties);
 		logger.debug("{}: Before Balance: {} ({})", getClass().getSimpleName(), toDutyStringIds(dutiesSorted));
 		final List<NetworkLocation> availShards = scheme.keySet().stream().filter(s->s.getCapacities()

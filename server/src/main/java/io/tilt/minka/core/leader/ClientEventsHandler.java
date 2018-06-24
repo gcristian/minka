@@ -36,7 +36,7 @@ import io.tilt.minka.api.ReplyValue;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.core.leader.data.SchemeRepository;
+import io.tilt.minka.core.leader.data.StageRepository;
 import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
@@ -63,7 +63,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	private final Config config;
 	private final ShardingScheme shardingScheme;
 	private final Scheduler scheduler;
-	private final SchemeRepository repo;
+	private final StageRepository stageRepo;
 	private final EventBroker eventBroker;
 	private final NetworkShardIdentifier shardId;
 
@@ -73,14 +73,14 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 			final Config config, 
 			final ShardingScheme shardingScheme, 
 			final Scheduler scheduler,
-			final SchemeRepository repo,
+			final StageRepository stageRepo,
 			final EventBroker eventBroker, 
 			final NetworkShardIdentifier shardId) {
 
 		this.config = config;
 		this.shardingScheme = shardingScheme;
 		this.scheduler = scheduler;
-		this.repo = repo;
+		this.stageRepo = stageRepo;
 		this.eventBroker = eventBroker;
 		this.shardId = shardId;
 	}
@@ -189,15 +189,15 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 		} else {
 		    if (first.getType()==ShardEntity.Type.DUTY) {
 				if (first.is(EntityEvent.CREATE)) {
-					repo.saveAllDuties(entities, callback);
+					stageRepo.saveAllDuties(entities, callback);
 				} else {
-				    repo.removeAllDuties(entities, callback);
+				    stageRepo.removeAllDuties(entities, callback);
 				}
 			} else {
 				if (first.is(EntityEvent.CREATE)) {
-					repo.saveAllPallets(entities, callback);
+					stageRepo.saveAllPallets(entities, callback);
 				} else {
-					repo.removeAllPallet(entities, callback);
+					stageRepo.removeAllPallet(entities, callback);
 				}				
 			}
 		}

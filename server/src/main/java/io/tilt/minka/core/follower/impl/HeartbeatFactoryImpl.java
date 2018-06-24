@@ -39,7 +39,7 @@ import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
-import io.tilt.minka.domain.ShardReport;
+import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.utils.LogUtils;
 
@@ -84,8 +84,8 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		// this's used only if there's nothing important to report (differences, absences, etc)
 		final Heartbeat.Builder builder = Heartbeat.builder(sequence.getAndIncrement(), partition.getId());
 		// add reported: as confirmed if previously assigned, dangling otherwise.
-		final List<ShardReport> tmp = new ArrayList<>(partition.getDuties().size()); 
-		boolean issues = detectChangesOnReport(builder, d->tmp.add(ShardReport.fromEntity(d)));
+		final List<EntityRecord> tmp = new ArrayList<>(partition.getDuties().size()); 
+		boolean issues = detectChangesOnReport(builder, d->tmp.add(EntityRecord.fromEntity(d)));
 		logBeat |=issues;
 		
 		boolean newLeader = false; 
@@ -115,7 +115,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			log.info("{}: ({}) {} SeqID: {}, {}", 
 				getClass().getSimpleName(), hb.getShardId(), LogUtils.HB_CHAR, hb.getSequenceId(), 
 				hb.reportsDuties() ? new StringBuilder("Duties: (")
-					.append(ShardReport.toStringIds(hb.getReportedCapturedDuties()))
+					.append(EntityRecord.toStringIds(hb.getReportedCapturedDuties()))
 					.append(")").toString() : "");
 		}
 		return hb;
@@ -183,7 +183,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	        return;
 	    }
 		final StringBuilder sb = new StringBuilder();
-		List<ShardReport> sorted = hb.getReportedCapturedDuties();
+		List<EntityRecord> sorted = hb.getReportedCapturedDuties();
 		if (!sorted.isEmpty()) {
 			sorted.sort(sorted.get(0));
 		}
@@ -193,7 +193,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 				LogUtils.HB_CHAR, 
 				hb.getSequenceId(), 
 				hb.getReportedCapturedDuties().size(), 
-				ShardReport.toStringIds(hb.getReportedCapturedDuties()), 
+				EntityRecord.toStringIds(hb.getReportedCapturedDuties()), 
 				hb.getReportedCapturedDuties().isEmpty() ? "" : "reportDuties"
 				);
 	}

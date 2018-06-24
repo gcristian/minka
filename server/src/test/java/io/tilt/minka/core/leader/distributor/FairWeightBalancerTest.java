@@ -96,24 +96,24 @@ public class FairWeightBalancerTest {
 				.with(new FairWeightBalancer.Metadata())
 				.build();
 		
-		// only creations at backstage
-		final Map<EntityEvent, Set<Duty<?>>> backstage = new HashMap<>();
-		backstage.put(EntityEvent.CREATE, duties);
-		backstage.put(EntityEvent.REMOVE, Collections.emptySet());
+		// only creations at stage
+		final Map<EntityEvent, Set<Duty<?>>> stage = new HashMap<>();
+		stage.put(EntityEvent.CREATE, duties);
+		stage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
 		final ShardingScheme table = emptyTableWithShards(p1, 5000, 5000);
 		
 		final Set<Shard> shards = new HashSet<>();
 		table.getScheme().findShards(null, shards::add);
 		final Migrator migra1 = MigratorTest.migrator(shards, ents, p1);
-		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, migra1);		
+		new FairWeightBalancer().balance(p1, stageFromTable(table), stage, migra1);		
 		final Override v1o1 = migra1.getOverrides().get(0);
 		final Override v1o2 = migra1.getOverrides().get(1);
 
 		final Set<Shard> shardss = new HashSet<>();
 		table.getScheme().findShards(null, shardss::add);
 		final Migrator migra2 = MigratorTest.migrator(shardss, ents, p1);
-		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, migra2);
+		new FairWeightBalancer().balance(p1, stageFromTable(table), stage, migra2);
 		final Override v2o1 = migra2.getOverrides().get(0);
 		final Override v2o2 = migra2.getOverrides().get(1);
 
@@ -136,16 +136,16 @@ public class FairWeightBalancerTest {
 				.build();
 		
 		// only creations at backstage
-		final Map<EntityEvent, Set<Duty<?>>> backstage = new HashMap<>();
-		backstage.put(EntityEvent.CREATE, duties);
-		backstage.put(EntityEvent.REMOVE, Collections.emptySet());
+		final Map<EntityEvent, Set<Duty<?>>> stage = new HashMap<>();
+		stage.put(EntityEvent.CREATE, duties);
+		stage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
 		// only empty shards at scheme
 		final ShardingScheme table = emptyTableWithShards(p1, 5000, 5000, 5000);
 		final Set<Shard> shards = new HashSet<>();
 		table.getScheme().findShards(null, shards::add);
 		final Migrator m = MigratorTest.migrator(shards, ents, p1);
-		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, m);		
+		new FairWeightBalancer().balance(p1, stageFromTable(table), stage, m);		
 		if (m.getOverrides().size()!=3) {
 			int u = 0;
 		}
@@ -177,15 +177,15 @@ public class FairWeightBalancerTest {
 				.build();
 		
 		// only creations at backstage
-		final Map<EntityEvent, Set<Duty<?>>> backstage = new HashMap<>();
-		backstage.put(EntityEvent.CREATE, duties);
-		backstage.put(EntityEvent.REMOVE, Collections.emptySet());
+		final Map<EntityEvent, Set<Duty<?>>> stage = new HashMap<>();
+		stage.put(EntityEvent.CREATE, duties);
+		stage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
 		final ShardingScheme table = emptyTableWithShards(p1, 4000, 500, 10);
 		final Set<Shard> shards = new HashSet<>();
 		table.getScheme().findShards(null, shards::add);
 		final Migrator migra = MigratorTest.migrator(shards, ents, p1);
-		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, migra);		
+		new FairWeightBalancer().balance(p1, stageFromTable(table), stage, migra);		
 		assertTrue(migra.getOverrides().size()==3);
 		
 		// Using Dispersion.EVEN
@@ -231,16 +231,16 @@ public class FairWeightBalancerTest {
 				.build();
 		
 		// only creations at backstage
-		final Map<EntityEvent, Set<Duty<?>>> backstage = new HashMap<>();
-		backstage.put(EntityEvent.CREATE, duties);
-		backstage.put(EntityEvent.REMOVE, Collections.emptySet());
+		final Map<EntityEvent, Set<Duty<?>>> stage = new HashMap<>();
+		stage.put(EntityEvent.CREATE, duties);
+		stage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
 		final ShardingScheme table = emptyTableWithShards(p1, 2900, 500, 12);
 		
 		final Set<Shard> shards = new HashSet<>();
 		table.getScheme().findShards(null, shards::add);
 		final Migrator migra = MigratorTest.migrator(shards, ents, p1);
-		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, migra);		
+		new FairWeightBalancer().balance(p1, stageFromTable(table), stage, migra);		
 		assertTrue(migra.getOverrides().size()==3);
 		
 		// this case shows cluster capacity slightly over total duty weight
@@ -305,16 +305,16 @@ public class FairWeightBalancerTest {
 				.build();
 		
 		// only creations at backstage
-		final Map<EntityEvent, Set<Duty<?>>> backstage = new HashMap<>();
-		backstage.put(EntityEvent.CREATE, duties);
-		backstage.put(EntityEvent.REMOVE, Collections.emptySet());
+		final Map<EntityEvent, Set<Duty<?>>> stage = new HashMap<>();
+		stage.put(EntityEvent.CREATE, duties);
+		stage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
 		final ShardingScheme table = emptyTableWithShards(p1, 10, 10, 10, 10);
 		
 		final Set<Shard> shards = new HashSet<>();
 		table.getScheme().findShards(null, shards::add);
 		final Migrator migra = MigratorTest.migrator(shards, ents, p1);
-		new FairWeightBalancer().balance(p1, stageFromTable(table), backstage, migra);		
+		new FairWeightBalancer().balance(p1, stageFromTable(table), stage, migra);		
 		assertTrue(migra.getOverrides().size()>=3);
 		
 		// this case shows cluster capacity slightly over total duty weight

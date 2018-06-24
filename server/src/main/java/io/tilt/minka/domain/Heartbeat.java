@@ -47,7 +47,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 
 	private static final long serialVersionUID = 4828220405145911529L;
 
-	private List<ShardReport> reportedCapturedDuties;
+	private List<EntityRecord> reportedCapturedDuties;
 	private Map<Pallet<?>, Capacity> capacities;
 	private final NetworkShardIdentifier shardId;
 	private final DateTime creation;
@@ -67,7 +67,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	}
 
 	public static class Builder {
-		private List<ShardReport> entities;
+		private List<EntityRecord> entities;
 		private boolean warning;
 		private List<DutyDiff> differences;
 		
@@ -91,7 +91,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 			this.reportsCapturedDuties = true;
 			return this;
 		}
-		public Builder addReportedCapturedDuty(final ShardReport duty) {
+		public Builder addReportedCapturedDuty(final EntityRecord duty) {
 			Validate.notNull(duty);
 			if (this.entities ==null) {
 				this.entities = new ArrayList<>();
@@ -126,7 +126,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	}
 	
 	private Heartbeat(
-			final List<ShardReport> duties, 
+			final List<EntityRecord> duties, 
 			final boolean warning, 
 			final NetworkShardIdentifier id,
 			final long sequenceId, 
@@ -199,7 +199,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	}
 
 	@JsonIgnore
-	public List<ShardReport> getReportedCapturedDuties() {
+	public List<EntityRecord> getReportedCapturedDuties() {
 		return this.reportedCapturedDuties;
 	}
 	

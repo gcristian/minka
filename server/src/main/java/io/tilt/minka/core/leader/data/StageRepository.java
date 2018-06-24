@@ -28,7 +28,11 @@ import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
 
-public class SchemeRepository {
+/**
+ * Entry point for outter clients of the {@linkplain Stage}
+ * Validations and consistency considerations for {@linkplain Client} usage
+ */
+public class StageRepository {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
@@ -36,7 +40,7 @@ public class SchemeRepository {
 	private final ShardingScheme scheme;
 	private final ShardIdentifier shardId;
 
-	public SchemeRepository(final ShardingScheme shardingScheme, final ShardIdentifier shardId) {
+	public StageRepository(final ShardingScheme shardingScheme, final ShardIdentifier shardId) {
 		super();
 		this.scheme = shardingScheme;
 		this.shardId = shardId;
@@ -68,7 +72,7 @@ public class SchemeRepository {
 			}
 		}
 
-		scheme.getBackstage().addAllCrudDuty(tmp, (duty, added) -> {
+		scheme.getStage().addAllCrudDuty(tmp, (duty, added) -> {
 			if (added) {
 				tryCallback(callback, new Reply(ReplyValue.SUCCESS, duty, PREPARED, REMOVE, null));
 			} else {
@@ -107,7 +111,7 @@ public class SchemeRepository {
 			logger.warn("{}: reply consumer throwed exception: ", classname, e.getMessage());
 		}
 	}
-	
+		
 	public void saveAllDuties(final Collection<ShardEntity> coll, final Consumer<Reply> callback) {
 		final List<ShardEntity> tmp = new ArrayList<>(coll.size());
 		for (final ShardEntity duty: coll) {
@@ -139,7 +143,7 @@ public class SchemeRepository {
 		}
 		
 		final StringBuilder sb = new StringBuilder(tmp.size() * 5+1);
-		scheme.getBackstage().addAllCrudDuty(tmp, (duty, added)-> {
+		scheme.getStage().addAllCrudDuty(tmp, (duty, added)-> {
 			if (added) {
 				if (logger.isInfoEnabled()) {
 					sb.append(duty).append(',');

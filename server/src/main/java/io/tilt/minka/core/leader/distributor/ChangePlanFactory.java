@@ -42,7 +42,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
-import io.tilt.minka.core.leader.data.Backstage;
+import io.tilt.minka.core.leader.data.Stage;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.domain.Capacity;
@@ -74,7 +74,7 @@ class ChangePlanFactory {
 	/** @return a plan if there're changes to apply or NULL if not */
 	final ChangePlan create(final ShardingScheme scheme, final ChangePlan previous) {
 		
-		final Backstage snapshot = scheme.getBackstage().snapshot();
+		final Stage snapshot = scheme.getStage().snapshot();
 		ChangePlan changePlan = new ChangePlan(
 				config.beatToMs(config.getDistributor().getPlanExpiration()), 
 				config.getDistributor().getPlanMaxRetries());
@@ -89,7 +89,7 @@ class ChangePlanFactory {
 		final Map<String, List<ShardEntity>> schemeByPallets = ents.stream()
 				.collect(Collectors.groupingBy(e -> e.getDuty().getPalletId()));
 		if (schemeByPallets.isEmpty()) {
-			logger.warn("{}: Scheme and Backstage are empty. Nothing to balance (C:{}, R:{})", 
+			logger.warn("{}: Scheme and Stage are empty. Nothing to balance (C:{}, R:{})", 
 					name, creations.size(), deletions.size());
 			changePlan = null;
 		} else {
@@ -109,8 +109,8 @@ class ChangePlanFactory {
 					}
 				}
 				// only when everything went well otherwise'd be lost
-				scheme.getBackstage().clearAllocatedMissing();
-				scheme.getBackstage().cleanAllocatedDanglings();
+				scheme.getStage().clearAllocatedMissing();
+				scheme.getStage().cleanAllocatedDanglings();
 				if (!changes && deletions.isEmpty()) {
 					changePlan = null;
 				}
@@ -119,20 +119,20 @@ class ChangePlanFactory {
 		    	logger.error("{}: Cancelling ChangePlan building", name, e);
 			}
 		}
-		scheme.getBackstage().dropSnapshot();
+		scheme.getStage().dropSnapshot();
 		return changePlan;
 	}
 
 	private Set<ShardEntity> collectAsRemoves(
 			final ShardingScheme scheme,
 			final ChangePlan previousChange,
-			final Backstage snapshot,
+			final Stage snapshot,
 			final ChangePlan changePlan, 
 			final Set<ShardEntity> dutyCreations) {
 		
 		final Set<ShardEntity> dutyDeletions = new HashSet<>();
 		snapshot.findDutiesCrud(REMOVE::equals, null, crud-> {
-			// as a CRUD a deletion lives in backstage as a mark within an Opaque ShardEntity
+			// as a CRUD a deletion lives in stage as a mark within an Opaque ShardEntity
 			// we must now search for the real one
 			final ShardEntity schemed = scheme.getScheme().getByDuty(crud.getDuty());
 			if (schemed!=null) {
@@ -160,7 +160,7 @@ class ChangePlanFactory {
 
 	private Set<ShardEntity> collectAsCreates(final ShardingScheme scheme,
 			final ChangePlan previousChange,
-			final Backstage snapshot,
+			final Stage snapshot,
 			final ChangePlan changePlan) {
 		// recently fallen shards
 		addMissingAsCrud(scheme, changePlan);
@@ -207,10 +207,10 @@ class ChangePlanFactory {
 		sourceRefs.addAll(removes);
 		sourceRefs.addAll(adds);
 		final Migrator migrator = new Migrator(partition, pallet, sourceRefs);
-		final Map<EntityEvent, Set<Duty<?>>> backstage = new HashMap<>(2);
-		backstage.put(CREATE, refs(adds));
-		backstage.put(REMOVE, refs(removes));
-		balancer.balance(pallet, scheme, backstage, migrator);
+		final Map<EntityEvent, Set<Duty<?>>> stage = new HashMap<>(2);
+		stage.put(CREATE, refs(adds));
+		stage.put(REMOVE, refs(removes));
+		balancer.balance(pallet, scheme, stage, migrator);
 		return migrator;
 	}
 
@@ -221,7 +221,7 @@ class ChangePlanFactory {
 	}
 	
 	private void addMissingAsCrud(final ShardingScheme partition, final ChangePlan changePlan) {
-	    final Collection<ShardEntity> missing = partition.getBackstage().snapshot().getDutiesMissing();
+	    final Collection<ShardEntity> missing = partition.getStage().snapshot().getDutiesMissing();
 		for (final ShardEntity missed : missing) {
 			final Shard lazy = partition.getScheme().findDutyLocation(missed);
 			if (logger.isDebugEnabled()) {
@@ -236,7 +236,7 @@ class ChangePlanFactory {
 				});
 			}
 			missed.getJournal().addEvent(CREATE, PREPARED,null,changePlan.getId());
-			partition.getBackstage().snapshot().addCrudDuty(missed);
+			partition.getStage().snapshot().addCrudDuty(missed);
 		}
 		if (!missing.isEmpty()) {
 			if (logger.isInfoEnabled()) {

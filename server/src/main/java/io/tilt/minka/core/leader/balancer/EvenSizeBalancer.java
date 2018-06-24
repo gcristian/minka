@@ -80,12 +80,12 @@ public class EvenSizeBalancer implements Balancer {
 	public void balance(
 			final Pallet<?> pallet,
 			final Map<NetworkLocation, Set<Duty<?>>> scheme,
-			final Map<EntityEvent, Set<Duty<?>>> backstage,
+			final Map<EntityEvent, Set<Duty<?>>> stage,
 			final Migrator migrator) {
 		// get a fair distribution
 		
-		final Set<Duty<?>> deletions = backstage.get(EntityEvent.REMOVE);
-		final Set<Duty<?>> creations = backstage.get(EntityEvent.CREATE);
+		final Set<Duty<?>> deletions = stage.get(EntityEvent.REMOVE);
+		final Set<Duty<?>> creations = stage.get(EntityEvent.CREATE);
 		final AtomicInteger recount = new AtomicInteger();
 		scheme.values().forEach(v->recount.addAndGet(v.size()));
 		final double sum = recount.get() + creations.size() - deletions.size(); // dangling.size() +

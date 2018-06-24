@@ -25,11 +25,11 @@ import io.tilt.minka.domain.ShardEntity;
 /** 
  * Temporal state of modifications willing to be added to the {@linkplain Scheme}
  * including inconsistencies detected by the sentry
- * Only maintainers: {@linkplain SchemeSentry} and {@linkplain SchemeRepository}
+ * Only maintainers: {@linkplain SchemeSentry} and {@linkplain StageRepository}
  * */
-public class Backstage {
+public class Stage {
 
-	private static final Logger logger = LoggerFactory.getLogger(Backstage.class);
+	private static final Logger logger = LoggerFactory.getLogger(Stage.class);
 
     // creations and removes willing to be attached or detached to/from shards.
 	private final Map<Pallet<?>, ShardEntity> palletCrud;
@@ -40,18 +40,18 @@ public class Backstage {
 	private Map<Duty<?>, ShardEntity> dutyDangling;
 	private Instant snaptake;
 	
-	// read-only snapshot for ChangePlanBuilder thread (not to be modified, backstage remains MASTER)
-	private Backstage snapshot;
+	// read-only snapshot for ChangePlanBuilder thread (not to be modified, stage remains MASTER)
+	private Stage snapshot;
 	private boolean stealthChange;
 	private boolean snap = false;
 	private Instant lastStealthChange;
 	
-	/** @return a frozen state of Backstage, so message-events threads 
+	/** @return a frozen state of stage, so message-events threads 
 	 * (threadpool-size independently) can still modify the instance for further change plans */
-	public synchronized Backstage snapshot() {
+	public synchronized Stage snapshot() {
 		checkNotOnSnap();
 		if (snapshot==null) {
-			final Backstage tmp = new Backstage();
+			final Stage tmp = new Stage();
 			tmp.dutyCrud.putAll(this.dutyCrud);
 			tmp.dutyDangling.putAll(this.dutyDangling);
 			tmp.dutyMissings.putAll(this.dutyMissings);
@@ -83,7 +83,7 @@ public class Backstage {
 		return last==null || snaptake.toEpochMilli() >=last.getHead().getTime();
 	}
 
-	public Backstage() {
+	public Stage() {
 		this.palletCrud = new HashMap<>();
 		this.dutyCrud = new HashMap<>();
 		this.dutyMissings = new HashMap<>();
@@ -104,7 +104,7 @@ public class Backstage {
 		}
 		this.stealthChange = value;
 	}
-	/** @return true when the backstage has changes worthy of distribution phase run  */
+	/** @return true when the stage has changes worthy of distribution phase run  */
 	public boolean isStealthChange() {
 		checkNotOnSnap();
 		return this.stealthChange;

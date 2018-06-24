@@ -34,9 +34,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.tilt.minka.api.EntityPayload;
 
 /**
- * Follower's report on {@linkplain ShardedPartition} packed in {@linkplain Heartbeats}
+ * Follower's report on {@linkplain ShardedPartition} packed in {@linkplain Heartbeats}.
+ * And leader's in-memory version held after distribution. 
  */
-public class ShardReport implements Comparable<ShardReport>, Comparator<ShardReport>, EntityPayload, Serializable {
+public class EntityRecord implements Comparable<EntityRecord>, Comparator<EntityRecord>, EntityPayload, Serializable {
 
 	@JsonIgnore
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -46,15 +47,15 @@ public class ShardReport implements Comparable<ShardReport>, Comparator<ShardRep
 	private final ShardEntity.Type type;
 	private EntityJournal journal;
 	
-	private ShardReport(final String id, final ShardEntity.Type type, final EntityJournal journal) {
+	private EntityRecord(final String id, final ShardEntity.Type type, final EntityJournal journal) {
 		this.id = requireNonNull(id);
 		this.type = requireNonNull(type);
 		this.journal = requireNonNull(journal);
 	}
 	
-	public static ShardReport fromEntity(final ShardEntity entity) {
+	public static EntityRecord fromEntity(final ShardEntity entity) {
 		Validate.notNull(entity);
-		return new ShardReport(entity.getEntity().getId(), entity.getType(), entity.getJournal());
+		return new EntityRecord(entity.getEntity().getId(), entity.getType(), entity.getJournal());
 		
 	}
 
@@ -62,7 +63,7 @@ public class ShardReport implements Comparable<ShardReport>, Comparator<ShardRep
 		return id;
 	}	
 	
-	public static String toStringIds(final Collection<ShardReport> duties) {
+	public static String toStringIds(final Collection<EntityRecord> duties) {
 		if (duties!=null && duties.size()>0) {
 			final StringBuilder sb = new StringBuilder(duties.size()*10);
 			duties.forEach(i -> sb.append(i.getId()).append(", "));
@@ -86,7 +87,7 @@ public class ShardReport implements Comparable<ShardReport>, Comparator<ShardRep
 	}
 
 	@Override
-	public int compareTo(final ShardReport o) {
+	public int compareTo(final EntityRecord o) {
 		return compare(this, o);
 	}
 
@@ -114,19 +115,19 @@ public class ShardReport implements Comparable<ShardReport>, Comparator<ShardRep
 
 	@Override
 	public boolean equals(Object obj) {
-		if (obj==null || !(obj instanceof ShardReport)) {
+		if (obj==null || !(obj instanceof EntityRecord)) {
 			return false;
 		} else if (obj == this) {
 			return true;
 		} else {
-			final ShardReport o = (ShardReport) obj;
+			final EntityRecord o = (EntityRecord) obj;
 			return getType()==o.getType()
 					&& getId().equals(o.getId());
 		}
 	}
 
 	@Override
-	public int compare(ShardReport o1, ShardReport o2) {
+	public int compare(EntityRecord o1, EntityRecord o2) {
 		return o1.getId().compareTo(o2.getId());
 	}
 

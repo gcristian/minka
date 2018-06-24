@@ -84,7 +84,7 @@ public class AdminEndpoint {
 		ret.put("/broker", "show event broker stats");
 		ret.put("/pallets", "show pallets in scheme");
 		ret.put("/shards", "show cluster members");
-		ret.put("/scheme", "show available and backstage duties");
+		ret.put("/scheme", "show available and stage duties");
 		ret.put("/partition", "show duty partition on current shard");
 		ret.put("/plans", "show distribution change plans");
 		ret.put("/log/text", "capture logging on demand");

@@ -38,7 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.data.Backstage;
+import io.tilt.minka.core.leader.data.Stage;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.core.leader.distributor.ChangeDetector;
@@ -53,12 +53,12 @@ import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardReport;
+import io.tilt.minka.domain.EntityRecord;
 /**
  * Single-point of write access to the {@linkplain Scheme}
  * Watches follower's heartbeats taking action on any update
  * Beats with changes are delegated to a {@linkplain ChangeDetector} 
- * Anomalies and CRUD ops. are recorded into {@linkplain Backstage}
+ * Anomalies and CRUD ops. are recorded into {@linkplain Stage}
  * 
  * @author Cristian Gonzalez
  * @since Jan 4, 2016
@@ -138,7 +138,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			// changePlan is only NULL before 1st distribution
 			// there's been a change of leader: i'm initiating with older followers
 			final StringBuilder log = new StringBuilder();
-			for (ShardReport e: beat.getReportedCapturedDuties()) {
+			for (EntityRecord e: beat.getReportedCapturedDuties()) {
 				//L: prepared, L: pending, F: received, C: confirmed, L: ack.
 				boolean learnt = shardingScheme.getScheme().learnPreviousDistribution(e, shard);
 				if (learnt && logger.isInfoEnabled()) {
@@ -168,7 +168,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 					shard.getShardID(),
 					changelog.getPlanId());
 			})) {
-			updateBackstage(changelog, entity);
+			updateStage(changelog, entity);
 		}
 		// REMOVES go this way:
 		if (changelog.getEvent()==EntityEvent.DETACH) {
@@ -181,19 +181,19 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-	private void updateBackstage(final Log changelog, final ShardEntity entity) {
-		// remove it from the backstage
-		final ShardEntity crud = shardingScheme.getBackstage().getCrudByDuty(entity.getDuty());
+	private void updateStage(final Log changelog, final ShardEntity entity) {
+		// remove it from the stage
+		final ShardEntity crud = shardingScheme.getStage().getCrudByDuty(entity.getDuty());
 		if (crud!=null) {
 			final Instant lastEventOnCrud = crud.getJournal().getLast().getHead().toInstant();
 			boolean previousThanCrud = changelog.getHead().toInstant().isBefore(lastEventOnCrud);
 			// if the update corresponds to the last CRUD OR they're both the same event (duplicated operation)
 			if (!previousThanCrud || changelog.getEvent().getRootCause()==crud.getLastEvent()) {
-				if (!shardingScheme.getBackstage().removeCrud(entity)) {
+				if (!shardingScheme.getStage().removeCrud(entity)) {
 					logger.warn("{} Backstage CRUD didnt existed: {}", classname, entity);
 				}
 			} else {
-				logger.warn("{}: Avoiding Backstage removal of CRUD as it's different and after the last event", 
+				logger.warn("{}: Avoiding Stage removal of CRUD as it's different and after the last event", 
 						classname, entity);
 			}
 		} else {
@@ -202,16 +202,16 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	}
 	
 	/*this checks partition table looking for missing duties (not declared dangling, that's diff) */
-	private void detectUnexpectedChanges(final Shard shard, final List<ShardReport> reportedDuties) {
+	private void detectUnexpectedChanges(final Shard shard, final List<EntityRecord> reportedDuties) {
 		final Set<Entry<EntityState, List<ShardEntity>>> entrySet = findAbsent(shard, reportedDuties).entrySet();
 		StringBuilder log = new StringBuilder();
 		
 		for (Map.Entry<EntityState, List<ShardEntity>> e: entrySet) {
 			boolean done = false;
 			if (e.getKey()==DANGLING) { 
-				done = shardingScheme.getBackstage().addDangling(e.getValue());
+				done = shardingScheme.getStage().addDangling(e.getValue());
 			} else {
-				done = shardingScheme.getBackstage().addMissing(e.getValue());
+				done = shardingScheme.getStage().addMissing(e.getValue());
 			}
 			// copy the event so it's marked for later consideration
 			if (done) {
@@ -229,16 +229,16 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 		if (log.length()>0) {
 			logger.info("{}: Written unexpected absents ({}) at [{}] on: {}", getClass().getSimpleName(), 
-					REMOVE.name(), shard, ShardReport.toStringIds(reportedDuties));
+					REMOVE.name(), shard, EntityRecord.toStringIds(reportedDuties));
 		}
 	}
 
-	private Map<EntityState, List<ShardEntity>> findAbsent(final Shard shard, final List<ShardReport> reportedDuties) {
+	private Map<EntityState, List<ShardEntity>> findAbsent(final Shard shard, final List<EntityRecord> reportedDuties) {
 		Map<EntityState, List<ShardEntity>> lost = null;
 		for (final ShardEntity duty : shardingScheme.getScheme().getDutiesByShard(shard)) {
 			boolean found = false;
 			boolean foundAsDangling = false;
-			for (ShardReport reportedDuty : reportedDuties) {
+			for (EntityRecord reportedDuty : reportedDuties) {
 				if (duty.getEntity().getId().equals(reportedDuty.getId())) {
 					final EntityState lastState = reportedDuty.getLastState();
 					switch (lastState) {
@@ -271,7 +271,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 			}
 		}
 		if (lost!=null) {
-			logger.error("{}: ShardID: {}, absent duties in Heartbeat: {},{} (backing up to backstage)",
+			logger.error("{}: ShardID: {}, absent duties in Heartbeat: {},{} (backing up to stage)",
 				getClass().getSimpleName(), shard.getShardID(), ShardEntity.toStringIds(lost.get(DANGLING)), 
 				ShardEntity.toStringIds(lost.get(MISSING)));
 		}			
@@ -279,8 +279,8 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	}
 	
 
-	private void detectInvalidShards(final Shard sourceShard, final List<ShardReport> reportedCapturedDuties) {
-		for (final ShardReport e : reportedCapturedDuties) {
+	private void detectInvalidShards(final Shard sourceShard, final List<EntityRecord> reportedCapturedDuties) {
+		for (final EntityRecord e : reportedCapturedDuties) {
 			final Shard should = shardingScheme.getScheme().findDutyLocation(e.getId());
 			if (should==null) {
 				logger.error("unexisting duty: " + e.toString() + " reported by shard: " + sourceShard);
@@ -322,7 +322,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 				dangling.size(), ShardEntity.toStringIds(dangling));
 		}
 		for (ShardEntity e: dangling) {
-			if (shardingScheme.getBackstage().addDangling(e)) {
+			if (shardingScheme.getStage().addDangling(e)) {
 				e.getJournal().addEvent(
 						DETACH, 
 						CONFIRMED, 

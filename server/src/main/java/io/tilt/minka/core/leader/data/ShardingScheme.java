@@ -37,7 +37,7 @@ import io.tilt.minka.domain.ShardEntity;
  * 
  * Contains the relations between {@linkplain Shard} and {@linkplain Duty}.
  * Continuously checked truth in {@linkplain Scheme}.
- * Client CRUD requests and detected problems in {@linkplain Backstage}
+ * Client CRUD requests and detected problems in {@linkplain Stage}
  * Built at leader promotion.
  * 
  * @author Cristian Gonzalez
@@ -51,7 +51,7 @@ public class ShardingScheme {
 	private ClusterHealth distributionHealth;
 	
 	private final Scheme scheme;
-	private final Backstage backstage;
+	private final Stage stage;
 	private ChangePlan currentPlan;
 	private List<Runnable> observers;
 	
@@ -86,7 +86,7 @@ public class ShardingScheme {
 		this.visibilityHealth = ClusterHealth.STABLE;
 		this.distributionHealth = ClusterHealth.STABLE;
 		this.scheme = new Scheme();
-		this.backstage = new Backstage();
+		this.stage = new Stage();
 	}
 	
 	public ChangePlan getCurrentPlan() {
@@ -109,8 +109,8 @@ public class ShardingScheme {
 		}
 	}
 
-	public Backstage getBackstage() {
-		return this.backstage;
+	public Stage getStage() {
+		return this.stage;
 	}
 	
 	public Scheme getScheme() {
@@ -144,14 +144,14 @@ public class ShardingScheme {
 				.append("Shards: ")
 				.append(getScheme().shardsSize())
 				.append(" Crud Duties: ")
-				.append(getBackstage().dutyCrud.size());
+				.append(getStage().dutyCrud.size());
 		//.append(" Change: ").append(change.getGroupedIssues().size());
 		return sb.toString();
 	}
 
 	public void logStatus() {
 		getScheme().logStatus();
-		getBackstage().logStatus();
+		getStage().logStatus();
 		logger.info("{}: Health: {}", getClass().getSimpleName(), getDistributionHealth());
 	}
 

@@ -27,21 +27,20 @@ import io.tilt.minka.domain.Shard.Change;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
-import io.tilt.minka.domain.ShardReport;
+import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 
 /**
- * Repr. of distribution scheme after proper confirmation of the followers 
- * Holds the sharding registry of duties.
+ * Representation of the known confirmed status of distribution of duties.
  * Only maintainer: {@linkplain SchemeSentry}
  */
 public class Scheme {
 
 	private static final Logger logger = LoggerFactory.getLogger(Scheme.class);
 
-	private final Map<ShardIdentifier, Set<ShardReport>> previousScheme = new HashMap<>();
+	private final Map<ShardIdentifier, Set<EntityRecord>> previousScheme = new HashMap<>();
 	private final Map<ShardIdentifier, Shard> shardsByID;
 	private final Map<Shard, ShardedPartition> partitionsByShard;
 	final Map<String, ShardEntity> palletsById;
@@ -151,13 +150,13 @@ public class Scheme {
 	public void patchOnPreviousDistribution(final Set<ShardEntity> duties) {
 		if (!previousScheme.isEmpty()) {
 			final EntityEvent event = EntityEvent.ATTACH;
-			for (Map.Entry<ShardIdentifier, Set<ShardReport>> e: previousScheme.entrySet()) {
+			for (Map.Entry<ShardIdentifier, Set<EntityRecord>> e: previousScheme.entrySet()) {
 				boolean found = false;
 				if (logger.isInfoEnabled()) {
 					logger.info("{}: Patching scheme ({}) w/prev. distribution journals: {}", getClass().getSimpleName(), 
-							event, ShardReport.toStringIds(e.getValue()));
+							event, EntityRecord.toStringIds(e.getValue()));
 				}
-				for (ShardReport r: e.getValue()) {
+				for (EntityRecord r: e.getValue()) {
 					for (ShardEntity d: duties) {
 						if (d.getDuty().getId().equals(r.getId())) {
 							found = true;
@@ -177,9 +176,9 @@ public class Scheme {
 	}
 	
 	/** guard the report to take it as truth once distribution runs and ShardEntity is loaded */
-	public boolean learnPreviousDistribution(final ShardReport duty, final Shard where) {
+	public boolean learnPreviousDistribution(final EntityRecord duty, final Shard where) {
 		boolean ret = false;
-		Set<ShardReport> list = previousScheme.get(where.getShardID());
+		Set<EntityRecord> list = previousScheme.get(where.getShardID());
 		if (list==null) {
 			previousScheme.put(where.getShardID(), list = new HashSet<>());
 		}

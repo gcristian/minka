@@ -43,7 +43,7 @@ import io.tilt.minka.api.Reply;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.balancer.Balancer;
-import io.tilt.minka.core.leader.data.SchemeRepository;
+import io.tilt.minka.core.leader.data.StageRepository;
 import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.core.leader.data.ShardingScheme.ClusterHealth;
 import io.tilt.minka.core.leader.distributor.ChangePlan.Result;
@@ -79,7 +79,7 @@ public class Distributor implements Service {
 	private final Scheduler scheduler;
 	private final EventBroker eventBroker;
 	private final ShardingScheme shardingScheme;
-	private final SchemeRepository schemeRepository;
+	private final StageRepository stageRepository;
 	private final ShardIdentifier shardId;
 	private final EntityDao entityDao;
 	private final DependencyPlaceholder dependencyPlaceholder;
@@ -98,7 +98,7 @@ public class Distributor implements Service {
 			final Scheduler scheduler, 
 			final EventBroker eventBroker,
 			final ShardingScheme shardingScheme, 
-			final SchemeRepository schemeRepo,
+			final StageRepository stageRepo,
 			final ShardIdentifier shardId,
 			final EntityDao dutyDao, 
 			final DependencyPlaceholder dependencyPlaceholder, 
@@ -108,7 +108,7 @@ public class Distributor implements Service {
 		this.scheduler = scheduler;
 		this.eventBroker = eventBroker;
 		this.shardingScheme = shardingScheme;
-		this.schemeRepository = schemeRepo;
+		this.stageRepository = stageRepo;
 		this.shardId = shardId;
 		this.entityDao = dutyDao;
 		this.leaderAware = leaderAware;
@@ -160,7 +160,7 @@ public class Distributor implements Service {
 			}
 			final boolean changes = config.getDistributor().isRunOnStealthMode() &&
 					(shardingScheme.getScheme().isStealthChange() 
-					|| shardingScheme.getBackstage().isStealthChange());
+					|| shardingScheme.getStage().isStealthChange());
 			// skip if unstable unless a plan in progress or expirations will occurr and dismiss
 			final ChangePlan currPlan = shardingScheme.getCurrentPlan();
 			
@@ -172,9 +172,9 @@ public class Distributor implements Service {
 			} else if (!changes && noPlan) {
 				return;
 			} else if (changes && noPlan) {
-				if (shardingScheme.getBackstage().isStealthChange()) {
+				if (shardingScheme.getStage().isStealthChange()) {
 					final long threshold = config.beatToMs(config.getDistributor().getStealthHoldThreshold());
-					if (!shardingScheme.getBackstage().stealthOverThreshold(threshold)) {						
+					if (!shardingScheme.getStage().stealthOverThreshold(threshold)) {						
 						if (lastStealthBlocked==null) {
 							lastStealthBlocked = Instant.now();
 						} else if (System.currentTimeMillis() - lastStealthBlocked.toEpochMilli() > 
@@ -182,7 +182,7 @@ public class Distributor implements Service {
 							lastStealthBlocked = null;
 							logger.warn("{}: Phase release: threshold ", getName());
 						} else {
-							logger.info("{}: Phase hold: backstage's stealth-change over time distance threshold", getName());
+							logger.info("{}: Phase hold: stage's stealth-change over time distance threshold", getName());
 							return;
 						}
 					}					
@@ -251,7 +251,7 @@ public class Distributor implements Service {
 			shardingScheme.setPlan(changePlan);
 			this.shardingScheme.setDistributionHealth(ClusterHealth.UNSTABLE);
 			changePlan.prepare();
-			shardingScheme.getBackstage().dropSnapshot();
+			shardingScheme.getStage().dropSnapshot();
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Balancer generated issues on ChangePlan: {}", getName(), changePlan.getId());
 			}
@@ -262,7 +262,7 @@ public class Distributor implements Service {
 				logger.info("{}: Distribution in Balance ", getName(), LogUtils.BALANCED_CHAR);
 			}			
 			shardingScheme.getScheme().stealthChange(false);
-			shardingScheme.getBackstage().setStealthChange(false);
+			shardingScheme.getStage().setStealthChange(false);
 			return null;
 		}
 	}
@@ -359,7 +359,7 @@ public class Distributor implements Service {
 				logger.warn("{}: EventMapper user's supplier hasn't return any pallets {}",getName(), master,  pallets);
 				initialAdding = false;
 			} else {				
-				schemeRepository.saveAllPalletsRaw(pallets, logger("Pallet"));
+				stageRepository.saveAllPalletsRaw(pallets, logger("Pallet"));
 			}
 			
 			if (duties == null || duties.isEmpty()) {
@@ -372,11 +372,11 @@ public class Distributor implements Service {
 					logger.error("{}: Distribution suspended - Duty Built construction problem: ", getName(), e);
 					return false;
 				}
-				schemeRepository.saveAllDutiesRaw(duties, logger("Duty"));
+				stageRepository.saveAllDutiesRaw(duties, logger("Duty"));
 				initialAdding = false;
 			}
 
-			if (shardingScheme.getBackstage().getDutiesCrud().isEmpty()) {
+			if (shardingScheme.getStage().getDutiesCrud().isEmpty()) {
 				logger.warn("{}: Aborting first distribution (no CRUD duties)", getName());
 				return false;
 			} else {
@@ -410,7 +410,7 @@ public class Distributor implements Service {
 			if (!sorted.isEmpty()) {
 				logger.error("{}: Consistency check: Absent duties going as Missing [ {}]", getName(),
 						ShardEntity.toStringIds(sorted));
-				shardingScheme.getBackstage().addMissing(sorted);
+				shardingScheme.getStage().addMissing(sorted);
 			}
 		}
 	}
@@ -448,7 +448,7 @@ public class Distributor implements Service {
 	}
 
 	private void communicateUpdates() {
-		final Set<ShardEntity> updates = shardingScheme.getBackstage().getDutiesCrud().stream()
+		final Set<ShardEntity> updates = shardingScheme.getStage().getDutiesCrud().stream()
 				.filter(i -> i.getJournal().getLast().getEvent() == EntityEvent.UPDATE 
 					&& i.getJournal().getLast().getLastState() == EntityState.PREPARED)
 				.collect(Collectors.toCollection(HashSet::new));
