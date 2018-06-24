@@ -1,5 +1,7 @@
 package io.tilt.minka.core.leader.data;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -63,18 +65,22 @@ public class Scheme {
 	
 	public void findShards(final Predicate<Shard> test, final Consumer<Shard> consumer) {
 		for (Shard sh: shardsByID.values()) {
-			if (test == null || test.test(sh) || test == null) {
+			if (test == null || test.test(sh)) {
 				consumer.accept(sh);
 			}
 		}
 	}
 	public Shard findShard(final Predicate<Shard> test) {
 		for (Shard sh: shardsByID.values()) {
-			if (test == null || test.test(sh) || test == null) {
+			if (test == null || test.test(sh)) {
 				return sh;
 			}
 		}
 		return null;
+	}
+	
+	public Shard findShard(final String id) {
+		return findShard(s->requireNonNull(id).equals(s.getShardID().getId()));
 	}
 
 	/** @return true if any shard passed the predicate */

@@ -26,7 +26,7 @@ public enum EntityEvent {
 	/* user creates a duty from Client */
 	CREATE('c', true, "Creating"),
 	/* user prompts to delete as a kill state */
-	REMOVE('r', true, "Removing"),
+	REMOVE('d', true, "Removing"),
 	/* user updates something related to the duty that leader must notify the shard */
 	UPDATE('u', true, "Updating"),
 	/* unrelated to the entity, just a message to it's delegate */

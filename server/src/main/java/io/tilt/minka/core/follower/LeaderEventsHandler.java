@@ -111,56 +111,54 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
 	public void accept(final Serializable event) {
 		if (event instanceof ShardCommand) {
 			logger.debug("{}: ({}) Receiving: {}", getName(), config.getLoggingShardId(), event);
-		} else if (event instanceof ShardEntity) {
-			if (logger.isDebugEnabled()) {
-				logger.debug("{}: ({}) Receiving # 1: {}", getName(), config.getLoggingShardId(), event);
-			}
-			scheduler.run(
-			        scheduler.getFactory().build(
-			                Action.INSTRUCT_DELEGATE, 
-			                PriorityLock.MEDIUM_BLOCKING,
-			                () -> handleDuty(Collections.singletonList((ShardEntity) event)))
-			        );
 		} else if (event instanceof ArrayList) {
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: ({}) Receiving {}: {}", getName(), config.getLoggingShardId(), 
-						((ArrayList<ShardEntity>) event).size(), event);
-			}
-			final List<ShardEntity> list = (ArrayList<ShardEntity>) event;
-			if (list.isEmpty()) {
-				throw new IllegalStateException("leader is sending an empty duty list");
-			}
-			final Synchronized handler = scheduler.getFactory().build(
-					Action.INSTRUCT_DELEGATE,
-					PriorityLock.MEDIUM_BLOCKING, 
-					() -> handleDuty(list));
-			scheduler.run(handler);
+			onCollection(event);
 		} else if (event instanceof Clearance) {
-			final Clearance clear = ((Clearance) event);
-			if (clear.getLeaderShardId().equals(leaderContainer.getLeaderShardId())) {
-				if (logger.isDebugEnabled()) {
-					logger.debug("{}: ({}) Accepting clearance from: {} (id:{})", getName(), config.getLoggingShardId(),
-							clear.getLeaderShardId(), clear.getSequenceId());
-				}
-				this.lastClearance = clear;
-				partitionManager.acknowledge(clear.getInfo());
-			} else if (clear.getLeaderShardId().equals(leaderContainer.getPreviousLeaderShardId())) {
-				logger.warn("{}: ({}) Ignoring remaining clearance from previous leader: {} (current is: {})",
-						getName(), config.getLoggingShardId(), clear.getLeaderShardId(),
-						leaderContainer.getLeaderShardId());
-			} else {
-				logger.warn("{}: ({}) Ignoring clearance from unacknowledged leader: {} (my container says: {})",
-						getName(), config.getLoggingShardId(), clear.getLeaderShardId(),
-						leaderContainer.getLeaderShardId());
-			}
+			onClearance(event);
 		} else {
 			logger.error("{}: ({}) Unknown event!: {} ", getName(), config.getLoggingShardId(), 
 					event.getClass().getSimpleName());
 		}
+	}
+
+	private void onClearance(final Serializable event) {
+		final Clearance clear = ((Clearance) event);
+		if (clear.getLeaderShardId().equals(leaderContainer.getLeaderShardId())) {
+			if (logger.isDebugEnabled()) {
+				logger.debug("{}: ({}) Accepting clearance from: {} (id:{})", getName(), config.getLoggingShardId(),
+						clear.getLeaderShardId(), clear.getSequenceId());
+			}
+			this.lastClearance = clear;
+			partitionManager.acknowledge(clear.getInfo());
+		} else if (clear.getLeaderShardId().equals(leaderContainer.getPreviousLeaderShardId())) {
+			logger.warn("{}: ({}) Ignoring remaining clearance from previous leader: {} (current is: {})",
+					getName(), config.getLoggingShardId(), clear.getLeaderShardId(),
+					leaderContainer.getLeaderShardId());
+		} else {
+			logger.warn("{}: ({}) Ignoring clearance from unacknowledged leader: {} (my container says: {})",
+					getName(), config.getLoggingShardId(), clear.getLeaderShardId(),
+					leaderContainer.getLeaderShardId());
+		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	private void onCollection(final Serializable event) {
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: ({}) Receiving {}: {}", getName(), config.getLoggingShardId(), 
+					((ArrayList<ShardEntity>) event).size(), event);
+		}
+		final List<ShardEntity> list = (ArrayList<ShardEntity>) event;
+		if (list.isEmpty()) {
+			throw new IllegalStateException("leader is sending an empty duty list");
+		}
+		final Synchronized handler = scheduler.getFactory().build(
+				Action.INSTRUCT_DELEGATE,
+				PriorityLock.MEDIUM_BLOCKING, 
+				() -> handleDuty(list));
+		scheduler.run(handler);
 	}
 
 	private void handleDuty(final List<ShardEntity> duties) {
@@ -168,6 +166,11 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 			for (final Entry<EntityEvent, List<ShardEntity>> e : duties.stream()
 					.collect(groupingBy(d -> d.getJournal().find(partition.getId()).getEvent())).entrySet()) {
 				switch (e.getKey()) {
+				case CREATE:
+					break;
+				case REMOVE:
+					//partitionManager.finalized(e.getValue());
+					break;
 				case ATTACH:
 					if (partitionManager.attach(e.getValue())) {
 						received(e);
@@ -181,9 +184,6 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 				case TRANSFER:
 				case UPDATE:
 					partitionManager.update(e.getValue());
-					break;
-				case REMOVE:
-					partitionManager.finalized(e.getValue());
 					break;
 				default:
 					logger.error("{}: ({}) Not allowed: {}", e.getKey(), config.getLoggingShardId());

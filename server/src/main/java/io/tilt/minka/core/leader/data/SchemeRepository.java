@@ -100,7 +100,7 @@ public class SchemeRepository {
 		return entity;
 	}
 	
-	public void tryCallback(final Consumer<Reply> callback, final Reply reply) {
+	private void tryCallback(final Consumer<Reply> callback, final Reply reply) {
 		try {
 			callback.accept(reply);
 		} catch (Exception e) {
