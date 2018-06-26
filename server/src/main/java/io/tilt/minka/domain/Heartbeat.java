@@ -20,7 +20,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -48,7 +47,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	private static final long serialVersionUID = 4828220405145911529L;
 
 	private List<EntityRecord> reportedCapturedDuties;
-	private Map<Pallet<?>, Capacity> capacities;
+	private Map<Pallet, Capacity> capacities;
 	private final NetworkShardIdentifier shardId;
 	private final DateTime creation;
 	private DateTime reception;
@@ -56,7 +55,6 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	private final boolean warning;
 	private final long sequenceId;
 	private final boolean reportsDuties;
-	private List<DutyDiff> differences;
 	
 	/* only set when change is owned by follower */
 	private Shard.Change stateChange;
@@ -69,27 +67,17 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	public static class Builder {
 		private List<EntityRecord> entities;
 		private boolean warning;
-		private List<DutyDiff> differences;
 		
 		private boolean reportsCapturedDuties;		
 		private final long sequenceId;
 		private final DateTime creation;
 		private final NetworkShardIdentifier shardId;
-		private final Map<Pallet<?>, Capacity> capacities = new HashMap<>();
+		private final Map<Pallet, Capacity> capacities = new HashMap<>();
 
 		private Builder(final long sequenceId, final NetworkShardIdentifier shardId) {
 			this.shardId = shardId;
 			this.sequenceId = sequenceId;
 			this.creation = new DateTime(DateTimeZone.UTC);
-		}
-		public Builder addDifference(final DutyDiff duty) {
-			Validate.notNull(duty);
-			if (this.differences==null) {
-				this.differences = new LinkedList<>();
-			}
-			this.differences.add(duty);
-			this.reportsCapturedDuties = true;
-			return this;
 		}
 		public Builder addReportedCapturedDuty(final EntityRecord duty) {
 			Validate.notNull(duty);
@@ -103,7 +91,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 			this.reportsCapturedDuties = true;
 			return this;
 		}
-		public Builder addCapacity(final Pallet<?> pallet, final Capacity capacity) {
+		public Builder addCapacity(final Pallet pallet, final Capacity capacity) {
 			Validate.notNull(pallet);
 			Validate.notNull(capacity);
 			this.capacities.put(pallet, capacity); 
@@ -115,7 +103,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 		}
 		public Heartbeat build() {
 			return new Heartbeat(entities, warning, shardId, sequenceId, capacities, 
-					reportsCapturedDuties, this.creation, differences);
+					reportsCapturedDuties, this.creation);
 		}
 	}
 
@@ -130,10 +118,9 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 			final boolean warning, 
 			final NetworkShardIdentifier id,
 			final long sequenceId, 
-			final Map<Pallet<?>, Capacity> capacities, 
+			final Map<Pallet, Capacity> capacities, 
 			final boolean reportsDuties, 
-			final DateTime creation, 
-			final List<DutyDiff> differences) {
+			final DateTime creation) {
 		this.reportedCapturedDuties = duties == null ? Collections.emptyList() : duties;
 		this.warning = warning;
 		this.shardId = id;
@@ -141,7 +128,6 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 		this.sequenceId = sequenceId;
 		this.capacities = capacities;
 		this.reportsDuties = reportsDuties;
-		this.differences = differences;
 	}
 
 	@JsonProperty(index=7, value="reports-duties")
@@ -150,16 +136,6 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 		return this.reportsDuties;
 	}
 	
-	@JsonProperty(index=6, value="has-differences")
-	/** @return is there were differences of integrity between reported and earliest duty version */
-	public boolean hasDifferences() {
-		return this.differences!=null;
-	}
-	@JsonIgnore
-	public List<DutyDiff> getDifferences() {
-		return this.differences;
-	}
-
 	@JsonIgnore
 	public DateTime getCreation() {
 		return this.creation;
@@ -260,9 +236,6 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 		if (hasWarning()) {
 			sb.append(" - w/Warn ");
 		}
-		if (hasDifferences()) {
-			sb.append(" - w/Diff ");
-		}
 		sb.append(" - Duties: ")
 			.append(reportsDuties() ? getReportedCapturedDuties().size() : "<single>")
 		;
@@ -275,7 +248,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	}
 
 	@JsonIgnore
-	public Map<Pallet<?>, Capacity> getCapacities() {
+	public Map<Pallet, Capacity> getCapacities() {
 		return this.capacities;
 	}
 }

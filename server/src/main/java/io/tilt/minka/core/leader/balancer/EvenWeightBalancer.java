@@ -82,17 +82,17 @@ public class EvenWeightBalancer implements Balancer {
 	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public final void balance(
-			final Pallet<?> pallet,
-			final Map<NetworkLocation, Set<Duty<?>>> scheme,
-			final Map<EntityEvent, Set<Duty<?>>> stage,
+			final Pallet pallet,
+			final Map<NetworkLocation, Set<Duty>> scheme,
+			final Map<EntityEvent, Set<Duty>> stage,
 			final Migrator migrator) {
 		// order new ones and current ones in order to get a fair distro 
 		final Comparator comparator = ((Metadata)pallet.getMetadata()).getPresort().getComparator();
-		final Set<Duty<?>> duties = new TreeSet<>(comparator);
+		final Set<Duty> duties = new TreeSet<>(comparator);
 		duties.addAll(stage.get(EntityEvent.CREATE)); // newcomers have ++priority than table
 		scheme.values().forEach(duties::addAll);		
 		duties.removeAll(stage.get(EntityEvent.REMOVE)); // delete those marked for deletion
-		final List<Duty<?>> dutiesSorted = new ArrayList<>(duties);
+		final List<Duty> dutiesSorted = new ArrayList<>(duties);
 		logger.debug("{}: Before Balance: {} ({})", getClass().getSimpleName(), toDutyStringIds(dutiesSorted));
 		final List<NetworkLocation> availShards = scheme.keySet().stream().filter(s->s.getCapacities()
 				.get(pallet)!=null).collect(Collectors.toList());
@@ -100,17 +100,17 @@ public class EvenWeightBalancer implements Balancer {
 			logger.error("{}: Still no shard reported capacity for pallet: {}!", getClass().getSimpleName(), pallet);
 			return;
 		}
-		final List<List<Duty<?>>> clusters = formClusters(availShards, duties, dutiesSorted);
+		final List<List<Duty>> clusters = formClusters(availShards, duties, dutiesSorted);
 		if (clusters.isEmpty()) {
 			logger.error("{}: Cluster Partitioneer return empty distro !", getClass().getSimpleName());
 			return;
 		}
-		final Iterator<List<Duty<?>>> itCluster = clusters.iterator();
+		final Iterator<List<Duty>> itCluster = clusters.iterator();
 		final Iterator<NetworkLocation> itShards = availShards.iterator();
 		while(itCluster.hasNext()) {
 			final NetworkLocation loc = itShards.next();
-			final List<Duty<?>> selection = itCluster.next();
-			final Bascule<NetworkLocation, Duty<?>> bascule = new Bascule(loc, loc.getCapacities().get(pallet).getTotal());
+			final List<Duty> selection = itCluster.next();
+			final Bascule<NetworkLocation, Duty> bascule = new Bascule(loc, loc.getCapacities().get(pallet).getTotal());
 			selection.forEach(d->bascule.tryLift(d, d.getWeight()));
 			migrator.override(bascule.getOwner(), bascule.getCargo());
 			if (!bascule.getDiscarded().isEmpty()) {
@@ -122,12 +122,12 @@ public class EvenWeightBalancer implements Balancer {
 	}
 
 
-	private List<List<Duty<?>>> formClusters(
+	private List<List<Duty>> formClusters(
 			final List<NetworkLocation> availableShards, 
-			final Set<Duty<?>> duties,
-			final List<Duty<?>> dutiesSorted) {
+			final Set<Duty> duties,
+			final List<Duty> dutiesSorted) {
 
-		List<List<Duty<?>>> clusters = null;
+		List<List<Duty>> clusters = null;
 		// sort the shards by first time seen so duties are spread into a stable shard arrange
 		//Collections.reverseOrder();
 		Collections.sort(availableShards, Collections.reverseOrder(new Shard.DateComparer()));
@@ -144,7 +144,7 @@ public class EvenWeightBalancer implements Balancer {
 					getClass().getSimpleName(), availableShards.size(), dutiesSorted.size());
 			// then simply prepare as many "clusters" as Duties, so they'll be assigned
 			clusters = new ArrayList<>();
-			for (final Duty<?> duty : duties) {
+			for (final Duty duty : duties) {
 				clusters.add(Arrays.asList(duty));
 			}
 		}
@@ -168,11 +168,11 @@ public class EvenWeightBalancer implements Balancer {
 
 		private final Logger logger = LoggerFactory.getLogger(EvenWeightBalancer.class);
 		
-		public List<List<Duty<?>>> split(final int shards, final List<Duty<?>> weightedDuties) {
+		public List<List<Duty>> split(final int shards, final List<Duty> weightedDuties) {
 			Validate.isTrue(shards > 1);
 			Validate.noNullElements(weightedDuties);
 			final int[] indexes = buildIndexes(weightedDuties, shards);
-			final List<List<Duty<?>>> distro = new ArrayList<>();
+			final List<List<Duty>> distro = new ArrayList<>();
 			int fromIdx = 0;
 			for (int idx : indexes) {
 				distro.add(discoverFormedGroups(weightedDuties, fromIdx, idx));
@@ -185,10 +185,10 @@ public class EvenWeightBalancer implements Balancer {
 			return distro;
 		}
 		
-		protected void logDistributionResult(final List<List<Duty<?>>> distro) {
+		protected void logDistributionResult(final List<List<Duty>> distro) {
 			int i = 0;
-			for (List<Duty<?>> group : distro) {
-				for (Duty<?> duty : group) {
+			for (List<Duty> group : distro) {
+				for (Duty duty : group) {
 					if (logger.isDebugEnabled()) {
 						logger.debug("{}: Duty: {} Weighting: {} in Group: {} ", getClass().getSimpleName(),
 								duty.getId(), duty.getWeight(), i);
@@ -198,15 +198,15 @@ public class EvenWeightBalancer implements Balancer {
 			}
 		}
 
-		private List<Duty<?>> discoverFormedGroups(final List<Duty<?>> duties, int fromIdx, int idx) {
-			final List<Duty<?>> group = new ArrayList<>();
+		private List<Duty> discoverFormedGroups(final List<Duty> duties, int fromIdx, int idx) {
+			final List<Duty> group = new ArrayList<>();
 			for (int i = fromIdx; i < idx; i++) {
 				group.add(duties.get(i));
 			}
 			return group;
 		}
 
-		private int[] buildIndexes(final List<Duty<?>> sortedDuties, final int partitions) {
+		private int[] buildIndexes(final List<Duty> sortedDuties, final int partitions) {
 			final int size = sortedDuties.size();
 			Validate.isTrue(partitions > 0 && size >= partitions);
 
@@ -232,7 +232,7 @@ public class EvenWeightBalancer implements Balancer {
 			return dividers;
 		}
 
-		private double accessWeight(final List<Duty<?>> sortedDuties, final int i) {
+		private double accessWeight(final List<Duty> sortedDuties, final int i) {
 			try {
 				return sortedDuties.get(i).getWeight();
 			} catch (Exception e) {
@@ -277,12 +277,12 @@ public class EvenWeightBalancer implements Balancer {
 		}
 	}
 
-	private void logDebug(final List<List<Duty<?>>> clusters) {
+	private void logDebug(final List<List<Duty>> clusters) {
 		if (logger.isDebugEnabled()) {
 			final AtomicInteger ai = new AtomicInteger();
-			for (final List<Duty<?>> cluster : clusters) {
+			for (final List<Duty> cluster : clusters) {
 				int n = ai.incrementAndGet();
-				for (final Duty<?> sh : cluster) {
+				for (final Duty sh : cluster) {
 					logger.debug("{}: Cluster {} = {} ({})", getClass().getSimpleName(), n, sh.getId(), sh.getWeight());
 				}
 			}

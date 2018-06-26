@@ -46,9 +46,9 @@ public class BasicAppEmulator {
 	private static final Logger logger = LoggerFactory.getLogger(BasicAppEmulator.class);
 
 	// TreeSet() to enter them in the default minka order: comparator by id   
-	private final Set<Duty<String>> runningDuties = new TreeSet<>();
+	private final Set<Duty> runningDuties = new TreeSet<>();
 
-	private Server<String, String> server;
+	private Server server;
 	private final Config config;
 	private String shardId = "{NN}";
 	
@@ -62,18 +62,18 @@ public class BasicAppEmulator {
 		this.config = new Config();
 	}
 	
-	public Server<String, String> getServer() {
+	public Server getServer() {
 		return this.server;
 	}
 	
 	public void launch(final DummyDataProvider loader) throws Exception {
 		java.util.Objects.requireNonNull(loader);
 
-		final Set<Duty<String>> duties = new TreeSet<>(loader.loadDuties());
-		final Set<Pallet<String>> pallets = new TreeSet<>(loader.loadPallets());
+		final Set<Duty> duties = new TreeSet<>(loader.loadDuties());
+		final Set<Pallet> pallets = new TreeSet<>(loader.loadPallets());
 
 		config.getBootstrap().setNamespace("basic-app-emulator");
-		server = new Server<>(config);
+		server = new Server(config);
 
 		// data only needed for logging
 		this.shardId = config.getResolvedShardId().getId();
@@ -82,14 +82,14 @@ public class BasicAppEmulator {
 		server.getEventMapper()
 			.onPalletLoad(() -> pallets)
 			.onLoad(()-> duties)
-			.onCapture((final Set<Duty<String>> d) -> {
+			.onCapture((final Set<Duty> d) -> {
 				// start tasks
 				logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "taking"));
 				logger.info("{} # {}+ ({})", shardId, d.size(), toStringIds(d));
 				runningDuties.addAll(d);
 			})
 			.onPalletCapture((p)->logger.info("Taking pallet: {}", p.toString()))
-			.onRelease((final Set<Duty<String>> d)-> {
+			.onRelease((final Set<Duty> d)-> {
 				// stop tasks previously started
 				logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "releasing"));
 				logger.info("{} # -{} ({})", shardId, d.size(), toStringIds(d));
@@ -105,7 +105,7 @@ public class BasicAppEmulator {
 			.done()
 			;
 			
-		for (final Pallet<String> pallet: pallets) {
+		for (final Pallet pallet: pallets) {
 			server.getEventMapper().setCapacity(pallet, loader.loadShardCapacity(pallet, duties, server.getClient().getShardIdentity()));			
 		}
 		
@@ -117,27 +117,27 @@ public class BasicAppEmulator {
 		
 	}
 
-	private void afterLoad(final Set<Pallet<String>> pallets) throws InterruptedException {
+	private void afterLoad(final Set<Pallet> pallets) throws InterruptedException {
 		Thread.sleep(20000);
 		
 		int i = 0;
-		final List<Duty<String>> newones = new ArrayList<>();
-		for (final Pallet<?> p: pallets) {
-			final Duty<String> x = Duty.<String>builder("QK-" + i++, p.getId()).with("karajo-" + i).build();
+		final List<Duty> newones = new ArrayList<>();
+		for (final Pallet p: pallets) {
+			final Duty x = Duty.builder("QK-" + i++, p.getId()).build();
 			newones.add(x);
 			server.getClient().add(x);
 		}
 		
 		Thread.sleep(10000);
-		for (Duty<String> d: newones) {
+		for (Duty d: newones) {
 			server.getClient().remove(d);
 		}
 		newones.clear();
 		
 		Thread.sleep(15000);
-		final Pallet<String> p = pallets.iterator().next();
+		final Pallet p = pallets.iterator().next();
 		for (int k = 0 ; k < 10; k++) {
-			final Duty<String> x = Duty.<String>builder("BF-" + k, p.getId()).with("BFart-" + k).build();
+			final Duty x = Duty.builder("BF-" + k, p.getId()).build();
 			newones.add(x);
 			server.getClient().add(x);
 		}
@@ -146,7 +146,7 @@ public class BasicAppEmulator {
 		newones.forEach(d->server.getClient().remove(d));
 	}
 	
-	public Client<String, String> getClient() {
+	public Client getClient() {
 		if (this.server != null) {
 			return this.server.getClient();
 		}
@@ -168,7 +168,7 @@ public class BasicAppEmulator {
 		}
 	}
 	
-	private String toStringGroupByPallet(Set<Duty<String>> entities) {
+	private String toStringGroupByPallet(Set<Duty> entities) {
 		final StringBuilder sb = new StringBuilder();
 		entities.stream()
 			.collect(Collectors.groupingBy(t -> t.getPalletId()))
@@ -182,7 +182,7 @@ public class BasicAppEmulator {
 		return sb.toString();
 	}
 
-	private static String toStringIds(Collection<Duty<String>> entities) {
+	private static String toStringIds(Collection<Duty> entities) {
 		final StringBuilder sb = new StringBuilder();
 		for (Duty d: entities) {
 			sb.append("p").append(d.getPalletId())

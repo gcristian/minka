@@ -34,12 +34,12 @@ import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
-import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.utils.LogUtils;
 

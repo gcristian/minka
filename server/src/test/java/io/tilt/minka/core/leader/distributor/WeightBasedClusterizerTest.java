@@ -20,8 +20,8 @@ import io.tilt.minka.domain.ShardEntity;
  */
 public class WeightBasedClusterizerTest {
 
-	public static Duty<String> buildDutyWithWeight(long weight, String idi) {
-		return Duty.<String>
+	public static Duty buildDutyWithWeight(long weight, String idi) {
+		return Duty.
 			builder(idi,  "1")
 				.with(weight)
 				.build();
@@ -31,7 +31,7 @@ public class WeightBasedClusterizerTest {
 	public void testBalance() {
 
 		final int shards = 4;
-		final List<Duty<?>> list = new ArrayList<>();
+		final List<Duty> list = new ArrayList<>();
 		list.add(ShardEntity.Builder.builder(buildDutyWithWeight(10l, "1")).build().getDuty());
 		list.add(ShardEntity.Builder.builder(buildDutyWithWeight(100l, "2")).build().getDuty());
 		list.add(ShardEntity.Builder.builder(buildDutyWithWeight(200l, "3")).build().getDuty());
@@ -41,11 +41,11 @@ public class WeightBasedClusterizerTest {
 		list.add(ShardEntity.Builder.builder(buildDutyWithWeight(1500l, "7")).build().getDuty());
 
 		final EvenWeightBalancer.WeightBasedClusterizer p = new EvenWeightBalancer.WeightBasedClusterizer();
-		List<List<Duty<?>>> distro = p.split(shards, list);
+		List<List<Duty>> distro = p.split(shards, list);
 		Assert.isTrue(distro.size() == 4);
 		assertDistribution(distro);
 
-		List<List<Duty<?>>> distro2 = p.split(shards, list);
+		List<List<Duty>> distro2 = p.split(shards, list);
 		Assert.isTrue(distro2.size() == 4);
 		assertDistribution(distro2);
 
@@ -56,11 +56,11 @@ public class WeightBasedClusterizerTest {
 
 	}
 
-	private void assertDistribution(List<List<Duty<?>>> distro) {
+	private void assertDistribution(List<List<Duty>> distro) {
 		int i = 0;
-		for (List<Duty<?>> group : distro) {
+		for (List<Duty> group : distro) {
 			int sum = 0;
-			for (Duty<?> duty : group) {
+			for (Duty duty : group) {
 				System.out.println("Group " + i + " with Duty: " + duty.getId() + " Weighting: "
 						+ duty.getWeight());
 				sum += duty.getWeight();

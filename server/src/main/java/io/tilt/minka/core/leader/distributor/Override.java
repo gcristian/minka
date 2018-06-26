@@ -34,12 +34,12 @@ import io.tilt.minka.domain.ShardEntity;
  */
 public class Override {
 
-	private final Pallet<?> pallet;
+	private final Pallet pallet;
 	private final Shard shard;
 	private final Set<ShardEntity> entities;
 	private final double remainingCap;
 	
-	Override(final Pallet<?> pallet, final Shard shard, final Set<ShardEntity> entities, final double remainingCap) {
+	Override(final Pallet pallet, final Shard shard, final Set<ShardEntity> entities, final double remainingCap) {
 		super();
 		this.pallet = pallet;
 		this.shard = shard;

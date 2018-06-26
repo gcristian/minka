@@ -16,7 +16,6 @@
  */
 package io.tilt.minka.api;
 
-import java.io.Serializable;
 import java.util.Set;
 
 import io.tilt.minka.core.follower.Follower;
@@ -38,7 +37,7 @@ import io.tilt.minka.domain.ShardEntity;
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
  */
-public interface PartitionMaster<D extends Serializable, P extends Serializable> extends PartitionDelegate<D, P> {
+public interface PartitionMaster extends PartitionDelegate {
 
 	/**
 	* This is a hint for the {@link Leader} to know in forehand the size
@@ -48,8 +47,8 @@ public interface PartitionMaster<D extends Serializable, P extends Serializable>
 	* this will be called profusely only to check there's no duty unnassigned or lost.
 	* @return	a master (complete) list of duties from the storage
 	*/
-	Set<Duty<D>> loadDuties();
+	Set<Duty> loadDuties();
 
-	Set<Pallet<P>> loadPallets();
+	Set<Pallet> loadPallets();
 
 }

@@ -1,7 +1,8 @@
 package io.tilt.minka.api;
 
-import java.io.Serializable;
+import java.io.InputStream;
 import java.time.Instant;
+import java.util.function.Supplier;
 
 import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;
@@ -15,11 +16,11 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
  * @param <T>	A bytes serializable payload to carry along the wire from the intake point 
  * at <code> Client.getInstance().add(...) </code> to the Shard where the host app will process it 
  */
-public class DutyBuilder<T extends Serializable> {
+public class DutyBuilder {
 	private final String id;
 	private final String palletId;
 
-	private T payload;
+	private Supplier<InputStream> payload;
 	private double weight;
 
 	private DutyBuilder(final String id, final String palletId) {
@@ -36,9 +37,9 @@ public class DutyBuilder<T extends Serializable> {
 	 * @param <T> the payload type 
 	 * @return a builder for first class citizen duty
 	 */
-	protected static <T extends Serializable> DutyBuilder<T> builder(final String palletId) {
+	protected static DutyBuilder builder(final String palletId) {
 		final Instant now = Instant.now();
-		return new DutyBuilder<>(
+		return new DutyBuilder(
 				new StringBuilder()
 					.append(now.getEpochSecond())
 					.append(now.getNano())
@@ -52,17 +53,17 @@ public class DutyBuilder<T extends Serializable> {
 	 * @param <T> the payload type 
 	 * @return a builder for first class citizen duty
 	 */
-	protected static <T extends Serializable> DutyBuilder<T> builder(final String id, final String palletId) {
-		return new DutyBuilder<>(id, palletId);
+	protected static DutyBuilder builder(final String id, final String palletId) {
+		return new DutyBuilder(id, palletId);
 	}
 	/**
 	 * In case is not provided, type and payload become String and param id, respectedly. 
 	 * @param payload	must implement Serializable
 	 * @return	the builder
 	 */
-	public DutyBuilder<T> with(final T payload) {
+	public DutyBuilder with(final Supplier<InputStream> is) {
 		Validate.notNull(payload, id + ": You must specify payload param or use overload builder");
-		this.payload = payload;
+		this.payload = is;
 		return this;
 	}
 	/**
@@ -71,40 +72,33 @@ public class DutyBuilder<T extends Serializable> {
 	 * @param weight  a value in the same scale than its pallet's shard capacity when reported by the host app.
 	 * @return	the builder 
 	 */
-	public DutyBuilder<T> with(final double weight) {
+	public DutyBuilder with(final double weight) {
 		Validate.isTrue(weight > 0, id + "A number greater than 0 expected for workload representing the duty");
 		this.weight = weight;
 		return this;
 	}
 	
-	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public Duty<T> build() {
+	public Duty build() {
 		if (weight ==0) {
 			weight = 1;
 		}
-		if (payload == null) {
-			return new Task(id, id, weight, palletId);
-		} else {
-			return new Task<>(payload, id, weight, palletId);
-		}
+		return new Task(payload, id, weight, palletId);
 	}
 		
-	public static class Task<T extends Serializable> implements Duty<T>, EntityPayload {
+	public static class Task implements Duty, EntityPayload {
 
 		private static final long serialVersionUID = 4976043821619752116L;
 
 		private final String id;
 		private final String palletId;
 		/* courtesy: at client assignation the duty has the pallet embedded*/
-		private Pallet<?> pallet;
+		private Pallet pallet;
 		private final double load;
-		private final T payload;
-		private Class<T> type;
+		private final Supplier<InputStream> payload;
 		private final Instant timestamp;
 
-		@SuppressWarnings("unchecked")
 		protected Task(
-				final T payload, 
+				final Supplier<InputStream> payload, 
 				final String id, 
 				final double load,
 				final String palletId) {
@@ -112,18 +106,16 @@ public class DutyBuilder<T extends Serializable> {
 			this.palletId = palletId;
 			this.load = load;
 			this.payload = payload;
-			this.type = (Class<T>) payload.getClass();
 			this.timestamp = Instant.now();
 			validateBuiltParams(this);
 		}
 
-		public static void validateBuiltParams(final Duty<?> duty) {
+		public static void validateBuiltParams(final Duty duty) {
 			Validate.notNull(duty.getId(), "A non null ID is required");
 			Validate.isTrue(duty.getId().length() < 128, "an entity Id maximum length of 128 chars is required");
 			final String id = new StringBuilder("Duty:").append(duty.getId()).append(" - ").toString();
 			Validate.notNull(duty.getPalletId(), id + "a Pallet is mandatory");
 			Validate.isTrue(duty.getPalletId().length() < 128, "an entity Id maximum length of 128 chars is required");
-			Validate.notNull(duty.getClassType(), id + "You must specify param's class or use overload builder");
 			Validate.isTrue(duty.getWeight() > 0,
 					id + "A number greater than 0 expected for workload representing the duty");
 		}
@@ -135,7 +127,7 @@ public class DutyBuilder<T extends Serializable> {
 					return true;
 				} else {
 					@SuppressWarnings("unchecked")
-					Entity<T> entity = (Entity<T>) obj;
+					Entity entity = (Entity) obj;
 					return getId().equals(entity.getId());
 				}
 			} else {
@@ -152,16 +144,7 @@ public class DutyBuilder<T extends Serializable> {
 		public String toString() {
 			return getId();
 		}
-
-		@Override
-		public Class<T> getClassType() {
-			return type;
-		}
-
-		public T get() {
-			return payload;
-		}
-
+		
 		public Instant getTimestamp() {
 			return timestamp;
 		}
@@ -176,11 +159,11 @@ public class DutyBuilder<T extends Serializable> {
 			return id;
 		}
 
-		protected void setPallet(Pallet<?> pallet) {
+		protected void setPallet(Pallet pallet) {
 			this.pallet = pallet;
 		}
 		@Override
-		public Pallet<?> getPallet() {
+		public Pallet getPallet() {
 			return pallet;
 		}
 

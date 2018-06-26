@@ -16,7 +16,9 @@
  */
 package io.tilt.minka.api;
 
+import java.io.InputStream;
 import java.io.Serializable;
+import java.util.function.Supplier;
 
 import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;
@@ -33,13 +35,13 @@ import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
  * @param <P>	A bytes serializable payload to carry along the wire from the intake point 
  * at <code> Client.getInstance().add(...) </code> to the Shard where the host app will process it 
  */
-public class PalletBuilder<P extends Serializable> {
+public class PalletBuilder {
 
 	private final String id;
 
 	private BalancerMetadata meta;
 	private Storage storage;
-	private P payload;
+	private Supplier<InputStream> payload;
 
 	private PalletBuilder(final String id) {
 		super();
@@ -54,15 +56,15 @@ public class PalletBuilder<P extends Serializable> {
 	 * @param palletId	must be unique across the user's domain
 	 * @return		Builder to enter duties to Minka
 	 */
-	protected static <P extends Serializable> PalletBuilder<P> builder(final String palletId) {
-		return new PalletBuilder<>(palletId);
+	protected static PalletBuilder builder(final String palletId) {
+		return new PalletBuilder(palletId);
 	}
 
 	/** 
 	 * @param meta a configuration for a {@linkplain Balancer} strategy
 	 * @return the builder to keep building  
 	 * */
-	public PalletBuilder<P> with(final BalancerMetadata meta) {
+	public PalletBuilder with(final BalancerMetadata meta) {
 		Validate.notNull(meta);
 		this.meta = meta;
 		return this;
@@ -72,31 +74,32 @@ public class PalletBuilder<P extends Serializable> {
 	 * @param payload	 a bytes seriaizable payload 
 	 * @return the builder to keep building
 	 * */
-	public PalletBuilder<P> with(final P payload) {
+	public PalletBuilder with(final Supplier<InputStream> payload) {
 		Validate.notNull(payload);
 		this.payload = payload;
 		return this;
 	}
 
-	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public Pallet<P> build() {
+	public Pallet build() {
 		return new Group(id, meta == null ? Balancer.Strategy.EVEN_SIZE.getBalancerMetadata() : meta,
 				storage == null ? Storage.CLIENT_DEFINED : storage, 
-				payload == null ? id : payload);
+				payload);
 	}
 
-	public static class Group<P extends Serializable> implements Pallet<P>, Serializable {
+	public static class Group implements Pallet, Serializable {
 
 		private static final long serialVersionUID = 4519763920222729635L;
 
 		private final BalancerMetadata meta;
 		private final Storage storage;
-		private final P value;
-		private final Class<P> type;
+		private final Supplier<InputStream> value;
 		private final String id;
 
-		@SuppressWarnings("unchecked")
-		private Group(final String id, final BalancerMetadata meta, final Pallet.Storage storage, final P payload) {
+		private Group(
+		        final String id, 
+		        final BalancerMetadata meta, 
+		        final Pallet.Storage storage, 
+		        final Supplier<InputStream> payload) {
 			super();
 			Validate.notNull(id);
 			Validate.notNull(storage);
@@ -104,7 +107,6 @@ public class PalletBuilder<P extends Serializable> {
 			this.storage = storage;
 			this.value = payload;
 			this.id = id;
-			this.type = (Class<P>) payload.getClass();
 		}
 
 		@Override
@@ -112,13 +114,12 @@ public class PalletBuilder<P extends Serializable> {
 			return new HashCodeBuilder().append(getId()).toHashCode();
 		}
 		@Override
-		@SuppressWarnings({ "unchecked", "rawtypes" })
 		public boolean equals(Object obj) {
 			if (obj != null && obj instanceof Entity) {
 				if (obj == this) {
 					return true;
 				} else {
-					Entity<P> entity = (Entity) obj;
+					Entity entity = (Entity) obj;
 					return getId().equals(entity.getId());
 				}
 			} else {
@@ -140,16 +141,7 @@ public class PalletBuilder<P extends Serializable> {
 		public String getId() {
 			return id;
 		}
-
-		@Override
-		public Class<P> getClassType() {
-			return type;
-		}
-
-		public P get() {
-			return value;
-		}
-
+		
 		@Override
 		public String toString() {
 			return id;

@@ -22,11 +22,8 @@ import io.tilt.minka.domain.DependencyPlaceholder;
  * Usually client will map capturing and releasing events for duties, and set server capacities for each pallet.
  * <br>
  * Declaring shard capacities are required if client uses a balancer that depends on duty weights. <br> <br>
- * @param <D>	duty payload type
- * @param <P>	pallet payload type
  */
-@SuppressWarnings("unchecked")
-public class EventMapper<D extends Serializable, P extends Serializable> {
+public class EventMapper {
 
 	private Server.Tenant tenant;
 
@@ -41,7 +38,7 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	private synchronized void initConsumerDelegate() {
 		DependencyPlaceholder holder = getDepPlaceholder();
 		if (holder.getMaster() == null || holder.getMaster() instanceof AwaitingDelegate) {
-			final ConsumerDelegate<Serializable, Serializable> delegate = new ConsumerDelegate<>(tenant.getConfig());
+			final ConsumerDelegate delegate = new ConsumerDelegate(tenant.getConfig());
 			holder.setDelegate(delegate);
 			holder.setMaster(delegate);
 		} else {
@@ -58,9 +55,9 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	 * @param supplier	to be called only at shard's election as Leader  
 	 * @return	the event mapper builder
 	 */
-	public EventMapper<D, P> onLoad(final Supplier<Set<Duty<D>>> supplier) {
+	public EventMapper onLoad(final Supplier<Set<Duty>> supplier) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getMaster()).putSupplier(MappingEvent.loadduties, supplier);
+		((ConsumerDelegate)getDepPlaceholder().getMaster()).putSupplier(MappingEvent.loadduties, supplier);
 		return this;
 	}
 	/**
@@ -69,9 +66,9 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	 * @param supplier	to be called only at shard's election as Leader
 	 * @return	the event mapper builder
 	 */
-	public EventMapper<D, P> onPalletLoad(final Supplier<Set<Pallet<P>>> supplier) {
+	public EventMapper onPalletLoad(final Supplier<Set<Pallet>> supplier) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getMaster()).setPalletSupplier(supplier);
+		((ConsumerDelegate)getDepPlaceholder().getMaster()).setPalletSupplier(supplier);
 		return this;
 	}
 	/**
@@ -80,9 +77,9 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
 	 * @return	the event mapper builder
 	 */
-	public EventMapper<D, P> onCapture(final Consumer<Set<Duty<D>>> consumer) {
+	public EventMapper onCapture(final Consumer<Set<Duty>> consumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).putConsumer(consumer, MappingEvent.capture);
+		((ConsumerDelegate)getDepPlaceholder().getDelegate()).putConsumer(consumer, MappingEvent.capture);
 		return this;
 	}
 	/**
@@ -91,9 +88,9 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
 	 * @return	the event mapper builder
 	 */
-	public EventMapper<D, P> onPalletCapture(final Consumer<Set<Pallet<P>>> consumer) {
+	public EventMapper onPalletCapture(final Consumer<Set<Pallet>> consumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).putConsumerPallet(consumer, MappingEvent.capturePallet);
+		((ConsumerDelegate)getDepPlaceholder().getDelegate()).putConsumerPallet(consumer, MappingEvent.capturePallet);
 		return this;
 	}	
 	/**
@@ -102,9 +99,9 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
 	 * @return	the event mapper builder
 	 */
-	public EventMapper<D, P> onRelease(final Consumer<Set<Duty<D>>> consumer) {
+	public EventMapper onRelease(final Consumer<Set<Duty>> consumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).putConsumer(consumer, MappingEvent.release);
+		((ConsumerDelegate)getDepPlaceholder().getDelegate()).putConsumer(consumer, MappingEvent.release);
 		return this;
 	}
 	/**
@@ -113,9 +110,9 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	 * @param consumer	to be called anytime a distribution and balance runs in the leader shard
 	 * @return	the event mapper builder
 	 */
-	public EventMapper<D, P> onPalletRelease(final Consumer<Set<Pallet<P>>> consumer) {
+	public EventMapper onPalletRelease(final Consumer<Set<Pallet>> consumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).putConsumerPallet(consumer, MappingEvent.releasePallet);
+		((ConsumerDelegate)getDepPlaceholder().getDelegate()).putConsumerPallet(consumer, MappingEvent.releasePallet);
 		return this;
 	}
 	/**
@@ -123,9 +120,9 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	 * @param consumer	to be called only on client's call thru Client.update(..)
 	 * @return	the event mapper builder
 	 */
-	public EventMapper<D, P> onUpdate(final Consumer<Duty<D>> consumer) {
+	public EventMapper onUpdate(final Consumer<Duty> consumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).setConsumerUpdate(consumer);
+		((ConsumerDelegate)getDepPlaceholder().getDelegate()).setConsumerUpdate(consumer);
 		return this;
 	}
 	/**
@@ -133,9 +130,9 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	 * @param consumer	to be called only on client's call thru MinkaClient.update(..)
 	 * @return	the event mapper builder
 	 */
-	public EventMapper<D, P> onPalletUpdate(final Consumer<Pallet<P>> consumer) {
+	public EventMapper onPalletUpdate(final Consumer<Pallet> consumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).setConsumerUpdatePallet(consumer);
+		((ConsumerDelegate)getDepPlaceholder().getDelegate()).setConsumerUpdatePallet(consumer);
 		return this;
 	}
 	/**
@@ -144,14 +141,14 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	 * @param biconsumer	to be called only on client's call thru MinkaClient.deliver(...)
 	 * @return	the event mapper builder
 	 */
-	public EventMapper<D, P> onTransfer(final BiConsumer<Duty<D>, Serializable> biconsumer) {
+	public EventMapper onTransfer(final BiConsumer<Duty, Serializable> biconsumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).setBiConsumerTransfer(biconsumer);
+		((ConsumerDelegate)getDepPlaceholder().getDelegate()).setBiConsumerTransfer(biconsumer);
 		return this;
 	}
-	public EventMapper<D, P> onPalletTransfer(final BiConsumer<Pallet<P>, Serializable> biconsumer) {
+	public EventMapper onPalletTransfer(final BiConsumer<Pallet, Serializable> biconsumer) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).setBiConsumerTransferPallet(biconsumer);
+		((ConsumerDelegate)getDepPlaceholder().getDelegate()).setBiConsumerTransferPallet(biconsumer);
 		return this;
 	}
 	/**
@@ -159,7 +156,7 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	 * @param balancer	to use at balancing phase
 	 * @return	the event mapper builder
 	 */
-	public EventMapper<D, P> onBalance(final Balancer balancer) {
+	public EventMapper onBalance(final Balancer balancer) {
 		Validate.notNull(balancer);
 		Balancer.Directory.addCustomBalancer(balancer);
 		return this;
@@ -169,9 +166,9 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	 * @param runnable callback to run at event dispatch
 	 * @return	the event mapper builder
 	 */
-	public EventMapper<D, P> onActivation(final Runnable runnable) {
+	public EventMapper onActivation(final Runnable runnable) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).putRunnable(MappingEvent.activation, runnable);
+		((ConsumerDelegate)getDepPlaceholder().getDelegate()).putRunnable(MappingEvent.activation, runnable);
 		return this;
 	}
 	/**
@@ -179,9 +176,9 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	 * @param runnable	callback to run at event dispatch
 	 * @return	the event mapper builder
 	 */
-	public EventMapper<D, P> onDeactivation(final Runnable runnable) {
+	public EventMapper onDeactivation(final Runnable runnable) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).putRunnable(MappingEvent.deactivation, runnable);
+		((ConsumerDelegate)getDepPlaceholder().getDelegate()).putRunnable(MappingEvent.deactivation, runnable);
 		return this;
 	}
 	/**
@@ -192,9 +189,9 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	 * @param pallet	the pallet to report capacity about
 	 * @return	the event mapper builder
 	 */
-	public EventMapper<D, P> setCapacity(final Pallet<P> pallet, final double weight) {
+	public EventMapper setCapacity(final Pallet pallet, final double weight) {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).putCapacity(pallet, weight);
+		((ConsumerDelegate)getDepPlaceholder().getDelegate()).putCapacity(pallet, weight);
 		return this;
 	}
 
@@ -204,9 +201,9 @@ public class EventMapper<D extends Serializable, P extends Serializable> {
 	 * Not required when mapping all events, which will release the bootstrap by itself.
 	 * @return	the event mapper builder
 	 */
-	public EventMapper<D, P> done() {
+	public EventMapper done() {
 		initConsumerDelegate();
-		((ConsumerDelegate<D, P>)getDepPlaceholder().getDelegate()).setExplicitlyReady();
+		((ConsumerDelegate)getDepPlaceholder().getDelegate()).setExplicitlyReady();
 		return this;
 	}
 

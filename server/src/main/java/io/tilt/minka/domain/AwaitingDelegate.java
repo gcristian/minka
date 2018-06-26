@@ -10,7 +10,7 @@ import io.tilt.minka.api.PartitionMaster;
  * an always awaiting never ready delegate
  * the intention is to allow Minka context loading and holding follower initialization 
  * */
-public class AwaitingDelegate implements PartitionMaster<String, String> {
+public class AwaitingDelegate implements PartitionMaster {
 
 	private final static String MESSAGE = "this's a transitional delegate: should not end up here";
 	@Override
@@ -19,37 +19,37 @@ public class AwaitingDelegate implements PartitionMaster<String, String> {
 	}
 
 	@Override
-	public void capture(Set<Duty<String>> duties) {
+	public void capture(Set<Duty> duties) {
 		throw new IllegalStateException(MESSAGE);
 	}
 
 	@Override
-	public void release(Set<Duty<String>> duties) {
+	public void release(Set<Duty> duties) {
 		throw new IllegalStateException(MESSAGE);
 	}
 
 	@Override
-	public Set<Duty<String>> loadDuties() {
+	public Set<Duty> loadDuties() {
 		throw new IllegalStateException(MESSAGE);
 	}
 
 	@Override
-	public Set<Pallet<String>> loadPallets() {
+	public Set<Pallet> loadPallets() {
 		throw new IllegalStateException(MESSAGE);
 	}
 
 	@Override
-	public double getTotalCapacity(Pallet<String> pallet) {
+	public double getTotalCapacity(Pallet pallet) {
 		throw new IllegalStateException(MESSAGE);
 	}
 
 	@Override
-	public void capturePallet(Set<Pallet<String>> pallets) {
+	public void capturePallet(Set<Pallet> pallets) {
 		throw new IllegalStateException(MESSAGE);
 	}
 
 	@Override
-	public void releasePallet(Set<Pallet<String>> pallets) {
+	public void releasePallet(Set<Pallet> pallets) {
 		throw new IllegalStateException(MESSAGE);
 	}
 

@@ -122,9 +122,9 @@ public class SpillOverBalancer implements Balancer {
 
 	@Override
 	public void balance(
-			final Pallet<?> pallet,
-			final Map<NetworkLocation, Set<Duty<?>>> scheme,
-			final Map<EntityEvent, Set<Duty<?>>> stage,
+			final Pallet pallet,
+			final Map<NetworkLocation, Set<Duty>> scheme,
+			final Map<EntityEvent, Set<Duty>> stage,
 			final Migrator migrator) {
 
 		final Metadata meta = (Metadata)pallet.getMetadata();
@@ -140,13 +140,13 @@ public class SpillOverBalancer implements Balancer {
 			
 			boolean loadStrat = meta.getMaxUnit() == MaxUnit.DUTY_WEIGHT || meta.getMaxUnit() == MaxUnit.USE_CAPACITY;
 			final Map<NetworkLocation, AtomicDouble> spaceByReceptor = new HashMap<>(scheme.size());
-			final SetMultimap<NetworkLocation, Duty<?>> trans = collectTransceivers(pallet, scheme, loadStrat, spaceByReceptor, meta);
+			final SetMultimap<NetworkLocation, Duty> trans = collectTransceivers(pallet, scheme, loadStrat, spaceByReceptor, meta);
 			if (trans==null || (spaceByReceptor.isEmpty() && !trans.isEmpty())) {
 				logger.warn("{}: Couldnt find receptors to spill over to", getClass().getSimpleName());
 			} else {
 				logger.info("{}: Shard with space for allocating Duties: {}", getClass().getSimpleName(), spaceByReceptor);
-				final List<Duty<?>> unfitting = new ArrayList<>();
-				final List<Duty<?>> dutiesForBalance = new ArrayList<>();
+				final List<Duty> unfitting = new ArrayList<>();
+				final List<Duty> dutiesForBalance = new ArrayList<>();
 				dutiesForBalance.addAll(stage.get(EntityEvent.CREATE)); // priority for new comers
 				//dutiesForBalance.addAll(dangling);
 				if (loadStrat) {
@@ -165,11 +165,11 @@ public class SpillOverBalancer implements Balancer {
 	private void registerNewcomers(
 			final boolean loadStrat,
 			final Map<NetworkLocation, AtomicDouble> spaceByReceptor, 
-			final List<Duty<?>> unfitting,
-			final List<Duty<?>> dutiesForBalance,
+			final List<Duty> unfitting,
+			final List<Duty> dutiesForBalance,
 			final Migrator migrator) {
 
-		for (final Duty<?> newcomer : dutiesForBalance) {
+		for (final Duty newcomer : dutiesForBalance) {
 			final NetworkLocation receptor = makeSpaceIntoReceptors(loadStrat, newcomer, spaceByReceptor);
 			if (receptor != null) {
 				migrator.transfer(receptor, newcomer);				
@@ -183,16 +183,16 @@ public class SpillOverBalancer implements Balancer {
 	}
 
 	private void registerMigrations(
-			final Pallet<?> pallet,
+			final Pallet pallet,
 			final Migrator migrator, 
 			final boolean loadStrat,
 			final Map<NetworkLocation, AtomicDouble> spaceByReceptor, 
-			final List<Duty<?>> unfitting,
-			final SetMultimap<NetworkLocation, Duty<?>> trans) {
+			final List<Duty> unfitting,
+			final SetMultimap<NetworkLocation, Duty> trans) {
 
 		for (final NetworkLocation emisor : trans.keys()) {
-			final Set<Duty<?>> emitting = trans.get(emisor);
-			for (final Duty<?> emitted : emitting) {
+			final Set<Duty> emitting = trans.get(emisor);
+			for (final Duty emitted : emitting) {
 				final NetworkLocation receptor = makeSpaceIntoReceptors(loadStrat, emitted, spaceByReceptor);
 				if (receptor == null) {
 					migrator.stuck(emitted, emisor);
@@ -208,14 +208,14 @@ public class SpillOverBalancer implements Balancer {
 
 
 	/* elect duties from emisors and compute receiving size at receptors */
-	private SetMultimap<NetworkLocation, Duty<?>> collectTransceivers(
-			final Pallet<?> pallet,
-			final Map<NetworkLocation, Set<Duty<?>>> scheme,
+	private SetMultimap<NetworkLocation, Duty> collectTransceivers(
+			final Pallet pallet,
+			final Map<NetworkLocation, Set<Duty>> scheme,
 	        final boolean loadStrat, 
 			final Map<NetworkLocation, AtomicDouble> spaceByReceptor, 
 			final Metadata meta) {
 
-		final SetMultimap<NetworkLocation, Duty<?>> transmitting = HashMultimap.create();
+		final SetMultimap<NetworkLocation, Duty> transmitting = HashMultimap.create();
 		
 		final List<NetworkLocation> sorted = new ArrayList<>(scheme.keySet());
 		final Comparator<NetworkLocation> comp = meta.getShardPresort() == ShardPresort.BY_WEIGHT_CAPACITY ? 
@@ -237,8 +237,8 @@ public class SpillOverBalancer implements Balancer {
 				maxValue = meta.getMaxValue();
 			}
 
-			final Set<Duty<?>> dutiesByShard = scheme.get(location);
-			final List<Duty<?>> checkingDuties = new ArrayList<>(dutiesByShard);
+			final Set<Duty> dutiesByShard = scheme.get(location);
+			final List<Duty> checkingDuties = new ArrayList<>(dutiesByShard);
 			if (loadStrat) {
 				// order it so we can obtain sequentially granulated reductions of the transmitting shard
 				Collections.sort(checkingDuties, new ShardEntity.WeightComparer());
@@ -255,7 +255,7 @@ public class SpillOverBalancer implements Balancer {
 					}
 				} else if (loadStrat) {
 					double liftAccumulated = 0;
-					for (final Duty<?> takeMe : dutiesByShard) {
+					for (final Duty takeMe : dutiesByShard) {
 						double load = takeMe.getWeight();
 						if ((liftAccumulated += load) <= totalWeight - maxValue) {
 							transmitting.put(location, takeMe);
@@ -275,7 +275,7 @@ public class SpillOverBalancer implements Balancer {
 	
 	private NetworkLocation makeSpaceIntoReceptors(
 			final boolean loadStrat, 
-			final Duty<?> duty,
+			final Duty duty,
 			final Map<NetworkLocation, AtomicDouble> spaceByReceptor) {
 
 		for (final NetworkLocation receptor : spaceByReceptor.keySet()) {
@@ -295,15 +295,15 @@ public class SpillOverBalancer implements Balancer {
 	}
 
 	private void moveAllToOne(
-			final Map<NetworkLocation, Set<Duty<?>>> scheme,
-			final Map<EntityEvent, Set<Duty<?>>> stage,
+			final Map<NetworkLocation, Set<Duty>> scheme,
+			final Map<EntityEvent, Set<Duty>> stage,
 			final Migrator migrator,
 			final NetworkLocation receptor) {
 		for (final NetworkLocation shard : scheme.keySet()) {
 			if (shard != receptor) {
-				Set<Duty<?>> dutiesByShard = scheme.get(shard);
+				Set<Duty> dutiesByShard = scheme.get(shard);
 				if (!dutiesByShard.isEmpty()) {
-					for (final Duty<?> duty : dutiesByShard) {
+					for (final Duty duty : dutiesByShard) {
 						if (!stage.get(EntityEvent.REMOVE).contains(duty)) {
 							migrator.transfer(shard, receptor, duty);
 							logger.info("{}: Hoarding from Shard: {} to Shard: {}, Duty: {}", getClass().getSimpleName(),
@@ -313,14 +313,14 @@ public class SpillOverBalancer implements Balancer {
 				}
 			}
 		}
-		for (Duty<?> creation: stage.get(EntityEvent.CREATE)) {
+		for (Duty creation: stage.get(EntityEvent.CREATE)) {
 			migrator.transfer(receptor, creation);
 		}
 	}
 
-	private NetworkLocation getAnyReceptor(final Map<NetworkLocation, Set<Duty<?>>> schemeDistro) {
+	private NetworkLocation getAnyReceptor(final Map<NetworkLocation, Set<Duty>> schemeDistro) {
 		for (NetworkLocation shard: schemeDistro.keySet()) {
-			Set<Duty<?>> dutiesByShard = schemeDistro.get(shard);
+			Set<Duty> dutiesByShard = schemeDistro.get(shard);
 			if (!dutiesByShard.isEmpty()) {
 				return shard;
 			}

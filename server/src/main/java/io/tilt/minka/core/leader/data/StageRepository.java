@@ -46,14 +46,14 @@ public class StageRepository {
 		this.shardId = shardId;
 	}
 
-	public Collection<Duty<?>> getDuties() {
-		final List<Duty<?>> tmp = new LinkedList<>();
+	public Collection<Duty> getDuties() {
+		final List<Duty> tmp = new LinkedList<>();
 		this.scheme.getScheme().findDuties(d->tmp.add(d.getDuty()));
 		return tmp;
 	}
 
-	public Collection<Pallet<?>> getPallets() {
-		final List<Pallet<?>> tmp = new LinkedList<>();
+	public Collection<Pallet> getPallets() {
+		final List<Pallet> tmp = new LinkedList<>();
 		this.scheme.getScheme().findDuties(d->tmp.add(d.getPallet()));
 		return tmp;
 	}
@@ -82,17 +82,17 @@ public class StageRepository {
 		});
 	}
 
-	public void saveAllDutiesRaw(final Collection<Duty<?>> coll, final Consumer<Reply> callback) {
+	public void saveAllDutiesRaw(final Collection<Duty> coll, final Consumer<Reply> callback) {
 		final Set<ShardEntity> rawSet = coll.stream().map(x-> toEntity(x)).collect(Collectors.toSet());
 		// check learning scheme
 		scheme.getScheme().patchOnPreviousDistribution(rawSet);
 		saveAllDuties(rawSet, callback);
 	}
 
-	private ShardEntity toEntity(final Entity<?> e) {
+	private ShardEntity toEntity(final Entity e) {
 		final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
 		if (e instanceof Duty) {
-			ShardEntity pallet = scheme.getScheme().getPalletById(((Duty<?>)e).getPalletId());
+			ShardEntity pallet = scheme.getScheme().getPalletById(((Duty)e).getPalletId());
 			builder.withRelatedEntity(pallet);
 		}
 		final ShardEntity entity = builder.build();
@@ -199,7 +199,7 @@ public class StageRepository {
     		}
 	    }
 	}
-	public void saveAllPalletsRaw(final Collection<Pallet<?>> coll, final Consumer<Reply> callback) {
+	public void saveAllPalletsRaw(final Collection<Pallet> coll, final Consumer<Reply> callback) {
 		saveAllPallets(coll.stream().map(x-> toEntity(x)).collect(Collectors.toList()), callback);
 	}
 	public void saveAllPallets(final Collection<ShardEntity> coll, final Consumer<Reply> callback) {

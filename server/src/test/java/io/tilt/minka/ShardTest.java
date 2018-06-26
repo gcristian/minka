@@ -41,7 +41,7 @@ import io.tilt.minka.domain.TCPShardIdentifier;
 
 public class ShardTest {
 
-	private Pallet<String> p = Pallet.<String>builder("1").build();;
+	private Pallet p = Pallet.<String>builder("1").build();;
 
 	@Test
 	public void test_shard_comparers() throws Exception {
@@ -74,20 +74,20 @@ public class ShardTest {
 	}
 	
 	
-	public static Shard buildShard(final Pallet<String> p, final double cap) throws Exception {
+	public static Shard buildShard(final Pallet p, final double cap) throws Exception {
 		return buildShard(p, cap, null);
 	}
 	
 	public static final Random rnd = new Random();
 	
-	public static Shard buildShard(final Pallet<String> p, final double cap, final Integer id) throws Exception {
+	public static Shard buildShard(final Pallet p, final double cap, final Integer id) throws Exception {
 		final TCPShardIdentifier mockedShardID = mock(TCPShardIdentifier.class);
 		final String idi = String.valueOf(id==null ? rnd.nextInt(5000): id);
 		when(mockedShardID.getId()).thenReturn(idi);
 		when(mockedShardID.getCreation()).thenReturn(new DateTime());
 		when(mockedShardID.toString()).thenReturn(idi);
 		final Shard s1 = new Shard(Mockito.mock(BrokerChannel.class), mockedShardID);
-		final Map<Pallet<?>, Capacity> c = new HashMap<>();
+		final Map<Pallet, Capacity> c = new HashMap<>();
 		c.put(p, new Capacity(p, cap));
 		s1.setCapacities(c);
 		return s1;

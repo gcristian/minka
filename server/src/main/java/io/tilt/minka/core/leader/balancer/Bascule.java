@@ -60,7 +60,7 @@ public class Bascule<O, C> {
 	/**
 	 * @param duty a testing entity 
 	 * @return whether or not this bascule is able to lift the duty's weight */
-	public boolean fits(final Duty<?> duty) {
+	public boolean fits(final Duty duty) {
 		Validate.notNull(duty);
 		validOperation();
 		return duty.getWeight()<=maxRealCapacity;

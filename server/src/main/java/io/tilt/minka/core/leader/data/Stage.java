@@ -1,6 +1,5 @@
 package io.tilt.minka.core.leader.data;
 
-import java.io.Serializable;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
@@ -32,12 +31,12 @@ public class Stage {
 	private static final Logger logger = LoggerFactory.getLogger(Stage.class);
 
     // creations and removes willing to be attached or detached to/from shards.
-	private final Map<Pallet<?>, ShardEntity> palletCrud;
-	final Map<Duty<?>, ShardEntity> dutyCrud;
+	private final Map<Pallet, ShardEntity> palletCrud;
+	final Map<Duty, ShardEntity> dutyCrud;
 	// absences in shards's reports
-	private Map<Duty<?>, ShardEntity> dutyMissings;
+	private Map<Duty, ShardEntity> dutyMissings;
 	// fallen shards's duties
-	private Map<Duty<?>, ShardEntity> dutyDangling;
+	private Map<Duty, ShardEntity> dutyDangling;
 	private Instant snaptake;
 	
 	// read-only snapshot for ChangePlanBuilder thread (not to be modified, stage remains MASTER)
@@ -152,10 +151,10 @@ public class Stage {
 		}
 	}
 	private void remove(
-			final Map<? extends Entity<? extends Serializable>, ShardEntity> deletes, 
-			final Map<? extends Entity<? extends Serializable>, ShardEntity> target, 
+			final Map<? extends Entity, ShardEntity> deletes, 
+			final Map<? extends Entity, ShardEntity> target, 
 			final Predicate<ShardEntity> test) {
-		for (Map.Entry<? extends Entity<? extends Serializable>, ShardEntity> e: deletes.entrySet()) {
+		for (Map.Entry<? extends Entity, ShardEntity> e: deletes.entrySet()) {
 			if (test.test(e.getValue())) {
 				target.remove(e.getKey());
 			}
@@ -176,7 +175,7 @@ public class Stage {
 		return added;
 	}
 
-	public void addAllCrudDuty(final Collection<ShardEntity> coll, final BiConsumer<Duty<?>, Boolean> callback) {
+	public void addAllCrudDuty(final Collection<ShardEntity> coll, final BiConsumer<Duty, Boolean> callback) {
 		// the uniqueness of it's wrapped object doesnt define the uniqueness of the wrapper
 		// updates and transfer go in their own manner
 		boolean added = false; 
@@ -257,7 +256,7 @@ public class Stage {
 				&& (statePredicate == null || (statePredicate.test(e.getJournal().getLast().getLastState()))))
 			.forEach(consumer);
 	}
-	public ShardEntity getCrudByDuty(final Duty<?> duty) {
+	public ShardEntity getCrudByDuty(final Duty duty) {
 		return this.dutyCrud.get(duty);
 	}
 

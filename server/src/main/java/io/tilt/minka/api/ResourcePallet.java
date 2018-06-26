@@ -20,9 +20,7 @@ import java.io.Serializable;
 
 import org.apache.commons.lang.Validate;
 
-import io.tilt.minka.api.ResourcePallet.Resource;
-
-public interface ResourcePallet extends Pallet<Resource> {
+public interface ResourcePallet extends Pallet {
 
 	/** @return only informative and user usage: the finite resource (mostly physical) being used */
 	default Resource getResource() {

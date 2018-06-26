@@ -15,7 +15,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 public interface EntityPayload extends Serializable {
 	
 	@JsonIgnore
-	default boolean hasStreamPayload() {
+	default boolean isStream() {
 		return false;
 	}
 

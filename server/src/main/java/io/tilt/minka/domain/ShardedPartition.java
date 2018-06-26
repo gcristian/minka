@@ -42,8 +42,8 @@ public class ShardedPartition {
 	// the where
 	private final NetworkShardIdentifier id;
 	// the what
-	private Map<Duty<?>, ShardEntity> duties;
-	private Map<Pallet<?>, ShardEntity> pallets;
+	private Map<Duty, ShardEntity> duties;
+	private Map<Pallet, ShardEntity> pallets;
 	private long lastUpdateTimestamp;
 	private long recentUpdateThreshold = 10 *1000l;
 
@@ -62,13 +62,13 @@ public class ShardedPartition {
 	public double getWeight() {
 		return getWeight_(null);
 	}
-	public double getWeight(final Pallet<?> pallet) {
+	public double getWeight(final Pallet pallet) {
 		Validate.notNull(pallet);
 		return getWeight_(pallet);
 	}
-	private double getWeight_(final Pallet<?> p) {
+	private double getWeight_(final Pallet p) {
 		double weight = 0;
-		for (final Duty<?> duty : duties.keySet()) {
+		for (final Duty duty : duties.keySet()) {
 			if (p==null || p.getId().equals(duty.getPalletId())) {
 				weight += duty.getWeight();
 			}
@@ -96,8 +96,8 @@ public class ShardedPartition {
 		return sb.toString();
 	}
 
-	public ShardEntity getFromRawDuty(final Duty<?> t) {
-		for (Duty<?> d : duties.keySet()) {
+	public ShardEntity getFromRawDuty(final Duty t) {
+		for (Duty d : duties.keySet()) {
 			if (d.getId().equals(t.getId())) {
 				return duties.get(d);
 			}
@@ -105,7 +105,7 @@ public class ShardedPartition {
 		return null;
 	}
 	
-	public ShardEntity getByDuty(final Duty<?> duty) {
+	public ShardEntity getByDuty(final Duty duty) {
 		return this.duties.get(duty);
 	}
 	
@@ -116,7 +116,7 @@ public class ShardedPartition {
 	public Collection<ShardEntity> getPallets() {
 		return unmodifiableCollection(pallets.values());
 	}
-	public long getDutiesSize(final Pallet<?> pallet) {
+	public long getDutiesSize(final Pallet pallet) {
 		return this.duties.keySet().stream()
 				.filter(d->d.getPalletId().equals(pallet.getId()))
 				.count();

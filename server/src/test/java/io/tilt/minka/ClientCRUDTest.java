@@ -38,9 +38,9 @@ public class ClientCRUDTest {
 	@Test
     public void test_start_full_then_remove_add() throws Exception {
 
-		final Pallet<String> p = Pallet.<String>builder("p-tsftra").build();
-		final Set<Pallet<String>> pallets = newHashSet(p);
-		final Set<Duty<String>> duties = duties(p, 12);
+		final Pallet p = Pallet.builder("p-tsftra").build();
+		final Set<Pallet> pallets = newHashSet(p);
+		final Set<Duty> duties = duties(p, 12);
 
 		final Config proto = prototypeConfig();
 		proto.getBootstrap().setNamespace("test_start_full_then_remove_add");
@@ -54,7 +54,7 @@ public class ClientCRUDTest {
 		// =======================================================================
 		
 		// remove unexisting pallet
-		final Client<String, String> leaderCli = lead.getServer().getClient();
+		final Client leaderCli = lead.getServer().getClient();
 		assertEquals(SUCCESS, leaderCli.remove(p).getValue());
 		// add new pallet
 		assertEquals(SUCCESS, leaderCli.add(p).getValue());
@@ -80,9 +80,9 @@ public class ClientCRUDTest {
 	@Test
     public void test_start_empty_then_add_and_remove() throws Exception {
 		
-		final Pallet<String> p = Pallet.<String>builder("p-tsetaar").build();
-		final Set<Pallet<String>> pallets = newHashSet(p);
-		final Set<Duty<String>> duties = duties(p, 12);
+		final Pallet p = Pallet.builder("p-tsetaar").build();
+		final Set<Pallet> pallets = newHashSet(p);
+		final Set<Duty> duties = duties(p, 12);
 		
 		final Config proto = prototypeConfig();
 		proto.getBootstrap().setNamespace("test_start_empty_then_add_and_remove");
@@ -95,7 +95,7 @@ public class ClientCRUDTest {
 		// =======================================================================
 		
 		// remove unexisting pallet
-		final Client<String, String> leaderCli = lead.getServer().getClient();
+		final Client leaderCli = lead.getServer().getClient();
 		assertEquals(ERROR_ENTITY_NOT_FOUND, leaderCli.remove(p).getValue());
 		// add new pallet
 		assertEquals(SUCCESS, leaderCli.add(p).getValue());
@@ -130,7 +130,7 @@ public class ClientCRUDTest {
 	@Test
 	public void test_distributed_additions_and_servers_decay() throws Exception {
 		
-		final Pallet<String> p = Pallet.<String>builder("p-tdaasd").build();
+		final Pallet p = Pallet.builder("p-tdaasd").build();
 		final int serverSize = 4;
 		final int dutySizeLoop = 10;
 		final int loops = 4;
@@ -148,7 +148,7 @@ public class ClientCRUDTest {
 		for (int j=0; j<loops; j++) {
 			for (ServerWhitness sw: cluster) {
 				for (int i = 0 ; i < dutySizeLoop; i ++) {
-					final Client<String, String> cli = sw.getServer().getClient();
+					final Client cli = sw.getServer().getClient();
 					assertEquals(
 							cli.isCurrentLeader() ? SUCCESS : SUCCESS_SENT,
 							cli.add(duty(p, id.incrementAndGet())).getValue());
@@ -219,9 +219,9 @@ public class ClientCRUDTest {
 	@Test
     public void test_start_empty_then_repeat_add_and_removes() throws Exception {
 		
-		final Pallet<String> p = Pallet.<String>builder("p-tsetraar").build();
-		final Set<Pallet<String>> pallets = newHashSet(p);
-		final Set<Duty<String>> duties = duties(p, 12);
+		final Pallet p = Pallet.<String>builder("p-tsetraar").build();
+		final Set<Pallet> pallets = newHashSet(p);
+		final Set<Duty> duties = duties(p, 12);
 		
 		final Config proto = prototypeConfig();
 		proto.getBootstrap().setNamespace("test_start_empty_then_repeat_add_and_removes");
@@ -235,7 +235,7 @@ public class ClientCRUDTest {
 		// =======================================================================
 		
 		// remove unexisting pallet
-		final Client<String, String> leaderCli = lead.getServer().getClient();
+		final Client leaderCli = lead.getServer().getClient();
 		assertEquals(ERROR_ENTITY_NOT_FOUND, leaderCli.remove(p).getValue());
 		// add new pallet
 		assertEquals(SUCCESS, leaderCli.add(p).getValue());

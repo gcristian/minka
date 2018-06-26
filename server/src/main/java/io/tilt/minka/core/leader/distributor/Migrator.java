@@ -64,15 +64,15 @@ public class Migrator {
 	protected static final Logger log = LoggerFactory.getLogger(Migrator.class);
 	
 	private final ShardingScheme scheme;
-	private final Pallet<?> pallet;
+	private final Pallet pallet;
 	private Boolean isWeightedPallet;
 	private List<Override> overrides;
 	private List<Transfer> transfers;
 	
-	private Map<Duty<?>, ShardEntity> sourceRefs;
+	private Map<Duty, ShardEntity> sourceRefs;
 	
 	
-	protected Migrator(final ShardingScheme scheme, final Pallet<?> pallet, final Set<ShardEntity> duties) {
+	protected Migrator(final ShardingScheme scheme, final Pallet pallet, final Set<ShardEntity> duties) {
 		super();
 		this.scheme = requireNonNull(scheme);
 		this.pallet = requireNonNull(pallet);
@@ -90,7 +90,7 @@ public class Migrator {
 	 * @param target		where the duty is going to be attached
 	 * @param duty			the duty to be attached
 	 */
-	public final void transfer(final NetworkLocation target, final Duty<?> duty) {
+	public final void transfer(final NetworkLocation target, final Duty duty) {
 		requireNonNull(target);
 		requireNonNull(duty);
 		transfer_(null, target, duty);
@@ -107,13 +107,13 @@ public class Migrator {
 	 * @param source		where the duty is going to be dettached first
 	 * @param duty			the duty to be attached
 	 */
-	public final void transfer(final NetworkLocation source, final NetworkLocation target, final Duty<?> duty) {
+	public final void transfer(final NetworkLocation source, final NetworkLocation target, final Duty duty) {
 		requireNonNull(source);
 		requireNonNull(target);
 		requireNonNull(duty);
 		transfer_(source, target, duty);
 	}
-	private final void transfer_(final NetworkLocation source, final NetworkLocation target, final Duty<?> duty) throws BalancingException {
+	private final void transfer_(final NetworkLocation source, final NetworkLocation target, final Duty duty) throws BalancingException {
 		if (this.transfers == null ) {
 			this.transfers = new ArrayList<>(scheme.getScheme().shardsSize());
 		}
@@ -131,12 +131,12 @@ public class Migrator {
 	}
 	
 	/** @return facility for balancers to access the entity change and distribution history */
-	public List<EntityJournal.Log> getJournal(final Duty<?> duty) {
+	public List<EntityJournal.Log> getJournal(final Duty duty) {
 	    return requireNonNull(sourceRefs.get(duty)).getJournal().getLogs();
 	}
 	
 	/** leave a reason for distribution exclusion */
-	public final void stuck(final Duty<?> duty, final NetworkLocation location) {
+	public final void stuck(final Duty duty, final NetworkLocation location) {
 		requireNonNull(duty);
 		final ShardEntity e = sourceRefs.get(duty);
 		final ShardIdentifier shard = location.getId();
@@ -158,7 +158,7 @@ public class Migrator {
 	 * @param shard		the target destination where duties will be attached
 	 * @param cluster	the duties to be attached.
 	 */
-	public final void override(final NetworkLocation shard, final Set<Duty<?>> cluster) {
+	public final void override(final NetworkLocation shard, final Set<Duty> cluster) {
 		requireNonNull(shard);
 		requireNonNull(cluster);
 		if (this.overrides == null) {
@@ -181,7 +181,7 @@ public class Migrator {
 		return scheme.getScheme().findShard(shard->shard.getShardID().equals(location.getId())); 
 	}
 	
-	private double validateOverride(final Shard target, final Set<Duty<?>> cluster) {
+	private double validateOverride(final Shard target, final Set<Duty> cluster) {
 		for (Override ov: overrides) {
 			if (ov.getShard().equals(target)) {
 				throw new BalancingException("bad override: this shard: %s has already being overrided !", target);
@@ -190,7 +190,7 @@ public class Migrator {
 		return checkSuitable(target, cluster);
 	}
 
-	private double checkSuitable(final Shard target, final Set<Duty<?>> cluster) {
+	private double checkSuitable(final Shard target, final Set<Duty> cluster) {
 		double remainingCap = 0;
 		if (isWeightedPallet()) {
 			final double[] accum = {0};

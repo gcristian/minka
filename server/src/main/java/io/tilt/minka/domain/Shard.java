@@ -170,7 +170,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	private final SlidingSortedSet<Change> changes;
 	
 	private ShardState serviceState;
-	private Map<Pallet<?>, Capacity> capacities;
+	private Map<Pallet, Capacity> capacities;
 
 	public Shard(
 			final BrokerChannel channel, 
@@ -209,18 +209,18 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		return this.shardId;
 	}
 	
-	public void setCapacities(Map<Pallet<?>, Capacity> capacities) {
+	public void setCapacities(Map<Pallet, Capacity> capacities) {
 		this.capacities = capacities;
 	}
 	
 	@JsonIgnore
-	public Map<Pallet<?>, Capacity> getCapacities() {
+	public Map<Pallet, Capacity> getCapacities() {
 		return this.capacities;
 	}
 	@JsonProperty("capacities")
 	public Map<String, Double> briefCapacities() {
 		final Map<String, Double> ret = new LinkedHashMap<>();
-		for (final Map.Entry<Pallet<?>, Capacity> e: capacities.entrySet()) {
+		for (final Map.Entry<Pallet, Capacity> e: capacities.entrySet()) {
 			ret.put(e.getKey().getId(), e.getValue().getTotal());
 		}
 		return ret;
@@ -298,8 +298,8 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	/* is important to maintain a predictable order to avoid migration churning */
 	public static class CapacityComparer implements Comparator<NetworkLocation>, Serializable {
 		private static final long serialVersionUID = 2191475545082914908L;
-		private final Pallet<?> pallet;
-		public CapacityComparer(Pallet<?> pallet) {
+		private final Pallet pallet;
+		public CapacityComparer(Pallet pallet) {
 			super();
 			this.pallet = pallet;
 		}

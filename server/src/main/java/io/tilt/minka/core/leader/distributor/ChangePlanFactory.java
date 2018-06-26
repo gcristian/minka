@@ -42,9 +42,9 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
-import io.tilt.minka.core.leader.data.Stage;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.ShardingScheme;
+import io.tilt.minka.core.leader.data.Stage;
 import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
@@ -95,7 +95,7 @@ class ChangePlanFactory {
 		} else {
 			try {
 				for (final Map.Entry<String, List<ShardEntity>> e : schemeByPallets.entrySet()) {
-					final Pallet<?> pallet = scheme.getScheme().getPalletById(e.getKey()).getPallet();
+					final Pallet pallet = scheme.getScheme().getPalletById(e.getKey()).getPallet();
 					final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
 					logStatus(scheme, creations, deletions, e.getValue(), pallet, balancer);
 					if (balancer != null) {
@@ -179,7 +179,7 @@ class ChangePlanFactory {
 
 	private static final Migrator balancePallet(
 			final ShardingScheme partition, 
-			final Pallet<?> pallet, 
+			final Pallet pallet, 
 			final Balancer balancer,
 			final Set<ShardEntity> dutyCreations, 
 			final Set<ShardEntity> dutyDeletions) {
@@ -192,11 +192,11 @@ class ChangePlanFactory {
 				.collect(Collectors.toSet());
 
 		final Set<ShardEntity> sourceRefs = new HashSet<>(removes.size() + adds.size());
-		final Map<NetworkLocation, Set<Duty<?>>> scheme = new TreeMap<>();
+		final Map<NetworkLocation, Set<Duty>> scheme = new TreeMap<>();
 		
 		// add the currently distributed duties
 		partition.getScheme().findShards(ShardState.ONLINE.filter(), shard-> {
-			final Set<Duty<?>> located = new HashSet<>();
+			final Set<Duty> located = new HashSet<>();
 			partition.getScheme().findDuties(shard, pallet, d-> {
 				located.add(d.getDuty());
 				sourceRefs.add(d);
@@ -207,15 +207,15 @@ class ChangePlanFactory {
 		sourceRefs.addAll(removes);
 		sourceRefs.addAll(adds);
 		final Migrator migrator = new Migrator(partition, pallet, sourceRefs);
-		final Map<EntityEvent, Set<Duty<?>>> stage = new HashMap<>(2);
+		final Map<EntityEvent, Set<Duty>> stage = new HashMap<>(2);
 		stage.put(CREATE, refs(adds));
 		stage.put(REMOVE, refs(removes));
 		balancer.balance(pallet, scheme, stage, migrator);
 		return migrator;
 	}
 
-	private static final Set<Duty<?>> refs(final Set<ShardEntity> entities) {
-		final Set<Duty<?>> ret = new HashSet<>(entities.size());
+	private static final Set<Duty> refs(final Set<ShardEntity> entities) {
+		final Set<Duty> ret = new HashSet<>(entities.size());
 		entities.forEach(e -> ret.add(e.getDuty()));
 		return ret;
 	}
@@ -291,7 +291,7 @@ class ChangePlanFactory {
 			final Set<ShardEntity> dutyCreations, 
 			final Set<ShardEntity> dutyDeletions,
 			final List<ShardEntity> duties,
-			final Pallet<?> pallet, 
+			final Pallet pallet, 
 			final Balancer balancer) {
 		
 		if (!logger.isInfoEnabled()) {

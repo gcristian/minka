@@ -30,9 +30,9 @@ import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 
 public class ClusterResilienceTest {
 
-	private final Pallet<String> p = Pallet.<String>builder("p-huc").build();
-	private final Set<Pallet<String>> pallets = newHashSet(p);
-	private final Set<Duty<String>> duties = duties(p, 50);
+	private final Pallet p = Pallet.builder("p-huc").build();
+	private final Set<Pallet> pallets = newHashSet(p);
+	private final Set<Duty> duties = duties(p, 50);
 	private final Config proto = prototypeConfig();
 	private final long wait = proto.beatToMs(10);
 
@@ -165,8 +165,8 @@ public class ClusterResilienceTest {
 	 * proves the distribution is never suspended 
 	 */
 	public void test_cluster_size_increase_decrease(final BalancerMetadata meta) throws Exception {
-		final Pallet<String> p = Pallet.<String>builder("p-huc").with(meta).build();
-		final Set<Pallet<String>> pallets = newHashSet(p);
+		final Pallet p = Pallet.builder("p-huc").with(meta).build();
+		final Set<Pallet> pallets = newHashSet(p);
 
 		int count = 1;
 		proto.getBootstrap().setNamespace("test_cluster_size_increase_decrease");
@@ -183,7 +183,7 @@ public class ClusterResilienceTest {
 		sleep(wait * 3);
 		
 		// all duties must be uniquely distributed
-		final Set<Duty<String>> current = new HashSet<>();
+		final Set<Duty> current = new HashSet<>();
 		for (ServerWhitness sw: cluster) {
 			assertTrue(sw.getEverCaptured().size()>0);
 			current.addAll(sw.getCurrent());

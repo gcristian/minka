@@ -105,32 +105,32 @@ public class FairWeightBalancer implements Balancer {
 	 * this algorithm makes the best effort allocating all duties over it's fairness formula
 	 * also fixing division remainders, but without overwhelming shards. 
 	 */
-	public void balance(final Pallet<?> pallet, 
-			final Map<NetworkLocation, Set<Duty<?>>> scheme, 
-			final Map<EntityEvent, Set<Duty<?>>> stage,
+	public void balance(final Pallet pallet, 
+			final Map<NetworkLocation, Set<Duty>> scheme, 
+			final Map<EntityEvent, Set<Duty>> stage,
 			final Migrator migrator) {
 
 		final Metadata meta = (Metadata)pallet.getMetadata();
 		// order new ones and current ones in order to get a fair distro 
-		final Set<Duty<?>> duties = new TreeSet<>(meta.getPresort().getComparator());
+		final Set<Duty> duties = new TreeSet<>(meta.getPresort().getComparator());
 		duties.addAll(stage.get(EntityEvent.CREATE));
 		scheme.values().forEach(duties::addAll);
 		duties.removeAll(stage.get(EntityEvent.REMOVE)); // delete those marked for deletion
 		if (meta.getDispersion()==Dispersion.EVEN) {
-			final Set<Bascule<NetworkLocation, Duty<?>>> bascules = buildBascules(pallet, scheme.keySet(), duties);
+			final Set<Bascule<NetworkLocation, Duty>> bascules = buildBascules(pallet, scheme.keySet(), duties);
 			if (bascules==null) {
 				return;
 			} else if (bascules.isEmpty()) {
-				// for (final Iterator<Duty<?>> itDuties = duties.iterator();itDuties.hasNext();
+				// for (final Iterator<Duty> itDuties = duties.iterator();itDuties.hasNext();
 				// migrator.stuck(itDuties.next(), null));
 				return;
 			}
-			final Iterator<Bascule<NetworkLocation, Duty<?>>> itBascs = bascules.iterator();
-			final Iterator<Duty<?>> itDuties = duties.iterator();
-			Duty<?> duty = null;
+			final Iterator<Bascule<NetworkLocation, Duty>> itBascs = bascules.iterator();
+			final Iterator<Duty> itDuties = duties.iterator();
+			Duty duty = null;
 			boolean lifted = true;
 			while (itBascs.hasNext()) {
-				final Bascule<NetworkLocation, Duty<?>> bascule = itBascs.next();
+				final Bascule<NetworkLocation, Duty> bascule = itBascs.next();
 				while (itDuties.hasNext() || !lifted) {
 					if (lifted) {
 						duty = itDuties.next();
@@ -170,14 +170,14 @@ public class FairWeightBalancer implements Balancer {
 		}
 	}
 
-	private final Set<Bascule<NetworkLocation, Duty<?>>> buildBascules(
-			final Pallet<?> pallet, 
+	private final Set<Bascule<NetworkLocation, Duty>> buildBascules(
+			final Pallet pallet, 
 			final Set<NetworkLocation> onlineShards, 
-			final Set<Duty<?>> duties) {
+			final Set<Duty> duties) {
 
-		final Bascule<NetworkLocation, Duty<?>> brute = new Bascule<>();
+		final Bascule<NetworkLocation, Duty> brute = new Bascule<>();
 		duties.forEach(d->brute.lift(d.getWeight()));
-		Set<Bascule<NetworkLocation, Duty<?>>> bascules = new LinkedHashSet<>();
+		Set<Bascule<NetworkLocation, Duty>> bascules = new LinkedHashSet<>();
 		final List<NetworkLocation> sorted = new ArrayList<>(onlineShards);
 		Collections.sort(sorted, new CapacityComparer(pallet));
 		for (final NetworkLocation shard: sorted) {
@@ -186,7 +186,7 @@ public class FairWeightBalancer implements Balancer {
 				bascules.add(new Bascule<>(shard, cap.getTotal()));
 			}
 		}
-		double clusterCap = bascules.isEmpty() ? 0 :Bascule.<NetworkLocation, Duty<?>>getMaxRealCapacity(bascules);
+		double clusterCap = bascules.isEmpty() ? 0 :Bascule.<NetworkLocation, Duty>getMaxRealCapacity(bascules);
 		if (clusterCap <=0) {
 			logger.error("{}: No available or reported capacity for Pallet: {}", getClass().getSimpleName(), pallet);
 			bascules = null;
@@ -195,7 +195,7 @@ public class FairWeightBalancer implements Balancer {
 				logger.error("{}: Pallet: {} with Inssuficient/Almost cluster capacity (max: {}, required load: {})", 
 					getClass().getSimpleName(), pallet, clusterCap, brute.totalLift());
 			}
-			for (final Bascule<NetworkLocation, Duty<?>> b: bascules) {
+			for (final Bascule<NetworkLocation, Duty> b: bascules) {
 				// fairness thru shard's capacities flattening according total weight
 				// so total bascule's fair value ends up close to equal the total weight
 				final double fair = Math.min(brute.totalLift() * (b.getMaxRealCapacity() / clusterCap), b.getMaxRealCapacity());

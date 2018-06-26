@@ -50,7 +50,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	private static final long serialVersionUID = 4519763920222729635L;
 	@JsonIgnore
-	private final Entity<?> from;
+	private final Entity from;
 	private final Type type;
 	private EntityJournal journal;
 	private EntityPayload userPayload;
@@ -61,7 +61,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	}
 
 	
-	private ShardEntity(final Entity<?> entity, Type type) {
+	private ShardEntity(final Entity entity, Type type) {
 		this.from = entity;
 		this.type = type;
 		this.journal = new EntityJournal();
@@ -72,18 +72,18 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		
 		private EntityPayload userPayload;
 		private ShardEntity relatedEntity;
-		private final Duty<?> duty;
-		private final Pallet<?> pallet;
+		private final Duty duty;
+		private final Pallet pallet;
 		private ShardEntity from;
 
-		private Builder(final Entity<?> entity) {
+		private Builder(final Entity entity) {
 			Validate.notNull(entity);
 			if (entity instanceof Duty) {
-				this.duty = (Duty<?>) entity;
+				this.duty = (Duty) entity;
 				this.pallet = null;
 			} else {
 				this.duty = null;
-				this.pallet = (Pallet<?>) entity;
+				this.pallet = (Pallet) entity;
 			}
 		}
 		public Builder withRelatedEntity(final ShardEntity relatedEntity) {
@@ -122,7 +122,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 			return ret;
 		}
 		
-		public static Builder builder(final Entity<?> entity) {
+		public static Builder builder(final Entity entity) {
 			return new Builder(entity);
 		}
 	}
@@ -137,31 +137,31 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	}
 	
 	@JsonIgnore
-	public Pallet<?> getPallet() {
-		if (this.from instanceof Pallet<?>) {
-			return (Pallet<?>) this.from;
+	public Pallet getPallet() {
+		if (this.from instanceof Pallet) {
+			return (Pallet) this.from;
 		}
 		throw new IllegalArgumentException("This entity doesnt hold a Pallet !");
 	}
 
 	@JsonIgnore
-	public Entity<?> getEntity() {
+	public Entity getEntity() {
 		return this.from;
 
 	}
 
 	@JsonProperty("id")
 	private String getId_() {
-		if (this.from instanceof Duty<?>) {
+		if (this.from instanceof Duty) {
 			return getDuty().getId();
 		}
 		return "[pallet]";
 	}
 	
 	@JsonIgnore
-	public Duty<?> getDuty() {
-		if (this.from instanceof Duty<?>) {
-			return (Duty<?>) this.from;
+	public Duty getDuty() {
+		if (this.from instanceof Duty) {
+			return (Duty) this.from;
 		}
 		throw new IllegalArgumentException("This entity doesnt hold a Duty !");
 	}
@@ -184,7 +184,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		return this.userPayload;
 	}
 
-	public static String toDutyStringIds(final Collection<Duty<?>> duties) {
+	public static String toDutyStringIds(final Collection<Duty> duties) {
 		if (duties!=null && duties.size()>0) {
 			final StringBuilder sb = new StringBuilder(duties.size() * 10);
 			duties.forEach(i -> sb.append(i.getId()).append(", "));
@@ -217,17 +217,16 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	@Override
 	public String toString() {
 		try {
-			final String ttype = getEntity().getClassType().getSimpleName();
 			final String id = getEntity().toString();
 
-			StringBuilder sb = new StringBuilder(ttype.length() + id.length() + 30);
+			StringBuilder sb = new StringBuilder(id.length() + 30);
 
 			if (type == Type.DUTY) {
 				sb.append("p:").append(getDuty().getPalletId());
 			}
 			sb.append(type == Type.DUTY ? " d:" : "p:").append(id);
 			if (type == Type.DUTY) {
-				sb.append(" w:").append(((Duty<?>) getEntity()).getWeight());
+				sb.append(" w:").append(((Duty) getEntity()).getWeight());
 			}
 			return sb.toString();
 		} catch (Exception e) {
@@ -304,10 +303,10 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	}
 
 	
-	public static class WeightComparer implements Comparator<Duty<?>>, Serializable {
+	public static class WeightComparer implements Comparator<Duty>, Serializable {
 		private static final long serialVersionUID = 2191475545082914908L;
 		@Override
-		public int compare(final Duty<?> o1, final Duty<?> o2) {
+		public int compare(final Duty o1, final Duty o2) {
 			if (o1 == null || o2 == null) {
 				return compareNulls(o1, o2);
 			} else {
@@ -321,10 +320,10 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		}
 	}
 	
-	public static class HashComparer implements Comparator<Duty<?>>, Serializable {
+	public static class HashComparer implements Comparator<Duty>, Serializable {
 		private static final long serialVersionUID = 3709876521530551544L;
 		@Override
-		public int compare(final Duty<?> o1, final Duty<?> o2) {
+		public int compare(final Duty o1, final Duty o2) {
 			if (o1 == null || o2 == null) {
 				return compareNulls(o1, o2);
 			} else {
@@ -337,10 +336,10 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		}
 	}
 	
-	public static class DateComparer implements Comparator<Duty<?>>, Serializable {
+	public static class DateComparer implements Comparator<Duty>, Serializable {
 		private static final long serialVersionUID = 3709876521530551544L;
 		@Override
-		public int compare(final Duty<?> o1, final Duty<?> o2) {
+		public int compare(final Duty o1, final Duty o2) {
 			int i = 0;
 			if (o1 == null || o2 == null) {
 				return compareNulls(o1, o2);
@@ -356,11 +355,11 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		}
 	}
 
-	static int compareNulls(final Duty<?> o1, final Duty<?> o2) {
+	static int compareNulls(final Duty o1, final Duty o2) {
 		return o1==null && o1!=o2 ? -1 : o1!=o2 ? 1 : 0;
 	}
 
-	static int compareTieBreak(final Duty<?> o1, final Duty<?> o2) {
+	static int compareTieBreak(final Duty o1, final Duty o2) {
 		int i = o1.getPalletId().compareTo(o2.getPalletId());
 		if (i == 0) {
 			i = Integer.compare(o1.hashCode(), o2.hashCode());

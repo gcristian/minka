@@ -1,7 +1,5 @@
 package io.tilt.minka.domain;
 
-import java.io.Serializable;
-
 import org.apache.commons.lang.Validate;
 
 import io.tilt.minka.api.PartitionDelegate;
@@ -15,22 +13,22 @@ import io.tilt.minka.api.PartitionMaster;
 public class DependencyPlaceholder {
 
 	// default fallback until client is ready to deliver
-	private PartitionDelegate<? extends Serializable, ? extends Serializable> awaitingFallbackDelegate;
-	private PartitionMaster<? extends Serializable, ? extends Serializable> awaitingFallbackMaster;
+	private PartitionDelegate awaitingFallbackDelegate;
+	private PartitionMaster awaitingFallbackMaster;
 
 	// client's implementation 
-	private PartitionDelegate<? extends Serializable, ? extends Serializable> delegate;
-	private PartitionMaster<? extends Serializable, ? extends Serializable> master;
+	private PartitionDelegate delegate;
+	private PartitionMaster master;
 
-	private PartitionDelegate<? extends Serializable, ? extends Serializable> consumerDelegate;
+	private PartitionDelegate consumerDelegate;
 	
 	public DependencyPlaceholder() {
 		initDefault();
 	}
 
 	public DependencyPlaceholder(
-			final PartitionDelegate<? extends Serializable, ? extends Serializable> delegate, 
-			final PartitionMaster<? extends Serializable, ? extends Serializable> master) {
+			final PartitionDelegate delegate, 
+			final PartitionMaster master) {
 		// NO Validar
 		this();
 		this.delegate = delegate;
@@ -38,29 +36,27 @@ public class DependencyPlaceholder {
 	}
 
 	private void initDefault() {
-		this.awaitingFallbackDelegate = (PartitionDelegate<? extends Serializable, 
-				? extends Serializable>) new AwaitingDelegate();
-		this.awaitingFallbackMaster = (PartitionMaster<? extends Serializable, 
-				? extends Serializable>) new AwaitingDelegate();
+		this.awaitingFallbackDelegate = (PartitionDelegate) new AwaitingDelegate();
+		this.awaitingFallbackMaster = (PartitionMaster) new AwaitingDelegate();
 	}
 
-	public void setDelegate(PartitionDelegate<? extends Serializable, ? extends Serializable> delegate) {
+	public void setDelegate(PartitionDelegate delegate) {
 		Validate.notNull(delegate);
 		this.delegate = delegate;
 	}
 
-	public void setMaster(PartitionMaster<? extends Serializable, ? extends Serializable> master) {
+	public void setMaster(PartitionMaster master) {
 		Validate.notNull(master);
 		this.master = master;
 	}
 	
-	public void setConsumerDelegate(final PartitionDelegate<? extends Serializable, ? extends Serializable> consumer) {
+	public void setConsumerDelegate(final PartitionDelegate consumer) {
 		Validate.notNull(consumer);
 		Validate.isTrue(delegate==null, "You're trying a consumer delegate on an already PartitionDelegate implementation set, context");
 		this.consumerDelegate = consumer;
 	}
 
-	public PartitionDelegate<? extends Serializable, ? extends Serializable> getConsumerDelegate() {
+	public PartitionDelegate getConsumerDelegate() {
 		return this.consumerDelegate;
 	}
 

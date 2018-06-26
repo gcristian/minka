@@ -37,7 +37,7 @@ import io.tilt.minka.api.PartitionMaster;
  * @author Cristian Gonzalez
  * @since Nov 8, 2016
  */
-public class ConsumerDelegate<D extends Serializable, P extends Serializable> implements PartitionMaster<D, P> {
+public class ConsumerDelegate implements PartitionMaster {
 
 	private static final String UNMAPPED_EVENT = "{}: {} Unmapped event: {}";
 	private static final Logger log = LoggerFactory.getLogger(Client.class);
@@ -77,16 +77,16 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		}
 	}
 	
-	private Consumer<Duty<D>> consumerUpdate;
-	private Consumer<Pallet<P>> consumerPalletUpdate;
-	private BiConsumer<Duty<D>, Serializable> biconsumerTransfer;
-	private BiConsumer<Pallet<P>, Serializable> biconsumerPalletTransfer;
-	private final Map<MappingEvent, Consumer<Set<Pallet<P>>>> consumersPallets;
-	private final Map<MappingEvent, Consumer<Set<Duty<D>>>> consumers;
-	private final Map<MappingEvent, Supplier<Set<Duty<D>>>> suppliers;
-	private Supplier<Set<Pallet<P>>> palletSupplier;
+	private Consumer<Duty> consumerUpdate;
+	private Consumer<Pallet> consumerPalletUpdate;
+	private BiConsumer<Duty, Serializable> biconsumerTransfer;
+	private BiConsumer<Pallet, Serializable> biconsumerPalletTransfer;
+	private final Map<MappingEvent, Consumer<Set<Pallet>>> consumersPallets;
+	private final Map<MappingEvent, Consumer<Set<Duty>>> consumers;
+	private final Map<MappingEvent, Supplier<Set<Duty>>> suppliers;
+	private Supplier<Set<Pallet>> palletSupplier;
 	private final Map<MappingEvent, Runnable> runnables;
-	private final Map<Pallet<P>, Double> capacities;
+	private final Map<Pallet, Double> capacities;
 	private final String connectReference;
 	
 	private boolean explicitlyReady;
@@ -101,11 +101,11 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		this.connectReference = config.getResolvedShardId().toString();
 	}
 	
-	public void putConsumer(final Consumer<Set<Duty<D>>> consumer, final MappingEvent event) {
+	public void putConsumer(final Consumer<Set<Duty>> consumer, final MappingEvent event) {
 		Validate.notNull(consumer);
 		this.consumers.put(event, consumer);
 	}
-	public void putConsumerPallet(final Consumer<Set<Pallet<P>>> consumer, final MappingEvent event) {
+	public void putConsumerPallet(final Consumer<Set<Pallet>> consumer, final MappingEvent event) {
 		Validate.notNull(consumer);
 		this.consumersPallets.put(event, consumer);
 	}
@@ -113,29 +113,29 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		Validate.notNull(runnable);
 		this.runnables.put(event, runnable);
 	}
-	public  void setPalletSupplier(final Supplier<Set<Pallet<P>>> supplier) {
+	public  void setPalletSupplier(final Supplier<Set<Pallet>> supplier) {
 		Validate.notNull(supplier);
 		this.palletSupplier = supplier;
 	}
-	public void putSupplier(final MappingEvent event, final Supplier<Set<Duty<D>>> supplier) {
+	public void putSupplier(final MappingEvent event, final Supplier<Set<Duty>> supplier) {
 		Validate.notNull(supplier);
 		this.suppliers.put(event, supplier);
 	}
-	public void putCapacity(final Pallet<P> pallet, final Double weight) {
+	public void putCapacity(final Pallet pallet, final Double weight) {
 		Validate.notNull(pallet);
 		Validate.notNull(weight);
 		this.capacities.put(pallet, weight);
 	}
-	public void setBiConsumerTransfer(final BiConsumer<Duty<D>, Serializable> biconsumerTransfer) {
+	public void setBiConsumerTransfer(final BiConsumer<Duty, Serializable> biconsumerTransfer) {
 		this.biconsumerTransfer = biconsumerTransfer;
 	}
-	public void setBiConsumerTransferPallet(final BiConsumer<Pallet<P>, Serializable> biconsumerTransferPallet) {
+	public void setBiConsumerTransferPallet(final BiConsumer<Pallet, Serializable> biconsumerTransferPallet) {
 		this.biconsumerPalletTransfer = biconsumerTransferPallet;
 	}
-	public void setConsumerUpdate(final Consumer<Duty<D>> consumerUpdate) {
+	public void setConsumerUpdate(final Consumer<Duty> consumerUpdate) {
 		this.consumerUpdate = consumerUpdate;
 	}	
-	public void setConsumerUpdatePallet(final Consumer<Pallet<P>> consumerUpdate) {
+	public void setConsumerUpdatePallet(final Consumer<Pallet> consumerUpdate) {
 		this.consumerPalletUpdate = consumerUpdate;
 	}	
 
@@ -176,8 +176,8 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		return ready;
 	}
 
-	public Set<Duty<D>> loadDuties() {
-		Supplier<Set<Duty<D>>> s = suppliers.get(loadduties);
+	public Set<Duty> loadDuties() {
+		Supplier<Set<Duty>> s = suppliers.get(loadduties);
 		if (s!=null) {
 			return s.get();
 		} else {
@@ -186,7 +186,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		}
 	}
 
-	public Set<Pallet<P>> loadPallets() {
+	public Set<Pallet> loadPallets() {
 		if (palletSupplier!=null) {
 			return palletSupplier.get();
 		} else {
@@ -225,7 +225,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 					getClass().getSimpleName());
 			return true;
 		} else {
-			for (final Pallet<P> p: loadPallets()) {
+			for (final Pallet p: loadPallets()) {
 				if (!capacities.containsKey(p)) {
 					log.error("{}: {} Unset pallet capacity: {}", getClass().getSimpleName(), connectReference, p);
 					return false;
@@ -235,8 +235,8 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		return true;
 	}
 	@Override
-	public void capture(final Set<Duty<D>> duties) {
-		final Consumer<Set<Duty<D>>> c = this.consumers.get(capture);
+	public void capture(final Set<Duty> duties) {
+		final Consumer<Set<Duty>> c = this.consumers.get(capture);
 		if (c!=null) {
 			c.accept(duties);
 		} else {
@@ -244,8 +244,8 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		}
 	}
 	@Override
-	public void capturePallet(final Set<Pallet<P>> pallets) {
-		final Consumer<Set<Pallet<P>>> c = this.consumersPallets.get(capturePallet);
+	public void capturePallet(final Set<Pallet> pallets) {
+		final Consumer<Set<Pallet>> c = this.consumersPallets.get(capturePallet);
 		if (c!=null) {
 			c.accept(pallets);
 		} else {
@@ -253,8 +253,8 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		}
 	}
 	@Override
-	public void release(final Set<Duty<D>> duties) {
-		final Consumer<Set<Duty<D>>> c = this.consumers.get(release);
+	public void release(final Set<Duty> duties) {
+		final Consumer<Set<Duty>> c = this.consumers.get(release);
 		if (c!=null) {
 			c.accept(duties);
 		} else {
@@ -262,8 +262,8 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		}
 	}
 	@Override
-	public void releasePallet(final Set<Pallet<P>> pallets) {
-		final Consumer<Set<Pallet<P>>> c = this.consumersPallets.get(releasePallet);
+	public void releasePallet(final Set<Pallet> pallets) {
+		final Consumer<Set<Pallet>> c = this.consumersPallets.get(releasePallet);
 		if (c!=null) {
 			c.accept(pallets);
 		} else {
@@ -272,7 +272,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 	}
 	
 	@Override
-	public void update(final Duty<D> duties) {
+	public void update(final Duty duties) {
 		if (this.consumerUpdate!=null) {
 			this.consumerUpdate.accept(duties);
 		} else {
@@ -280,7 +280,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		}
 	}
 	@Override
-	public void transfer(final Duty<D> duty, Serializable clientPayload) {
+	public void transfer(final Duty duty, Serializable clientPayload) {
 		if (this.biconsumerTransfer!=null) {
 			this.biconsumerTransfer.accept(duty, clientPayload);
 		} else {
@@ -288,7 +288,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		}
 	}
 	@Override
-	public void update(final Pallet<P> pallet) {
+	public void update(final Pallet pallet) {
 		if (this.consumerPalletUpdate!=null) {
 			this.consumerPalletUpdate.accept(pallet);
 		} else {
@@ -296,7 +296,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		}
 	}
 	@Override
-	public void transfer(final Pallet<P> pallet, Serializable clientPayload) {
+	public void transfer(final Pallet pallet, Serializable clientPayload) {
 		if (this.biconsumerPalletTransfer!=null) {
 			this.biconsumerPalletTransfer.accept(pallet, clientPayload);
 		} else {
@@ -322,7 +322,7 @@ public class ConsumerDelegate<D extends Serializable, P extends Serializable> im
 		}
 	}
 	@Override
-	public double getTotalCapacity(final Pallet<P> pallet) {
+	public double getTotalCapacity(final Pallet pallet) {
 		Double d = this.capacities.get(pallet);
 		if (d!=null) {
 			return d;

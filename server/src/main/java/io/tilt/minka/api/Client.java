@@ -18,7 +18,6 @@ package io.tilt.minka.api;
 
 import static java.util.Collections.singletonList;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -58,7 +57,7 @@ import io.tilt.minka.domain.ShardedPartition;
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
  */
-public class Client<D extends Serializable, P extends Serializable> {
+public class Client {
 
 	private static final Logger logger = LoggerFactory.getLogger(Client.class);
 
@@ -111,14 +110,14 @@ public class Client<D extends Serializable, P extends Serializable> {
 	* @param duty	    a duty sharded or to be sharded in the cluster
 	* @return whether or not the operation succeed
 	*/
-	public Reply remove(final Duty<D> duty) {
+	public Reply remove(final Duty duty) {
 		return push(singletonList(duty), EntityEvent.REMOVE, null, null);
 	}
-	public void removeAll(final Collection<Entity<?>> coll, final Consumer<Reply> callback) {
+	public void removeAll(final Collection<Entity> coll, final Consumer<Reply> callback) {
 		push(coll, EntityEvent.REMOVE, null, callback);
 	}
 
-	public Reply remove(final Pallet<P> pallet) {
+	public Reply remove(final Pallet pallet) {
 		return push(singletonList(pallet), EntityEvent.REMOVE, null, null);
 	}
 
@@ -133,9 +132,9 @@ public class Client<D extends Serializable, P extends Serializable> {
 	 * 
 	 * @return			a list of captured duties
 	 */
-	public List<Duty<D>> captured() {
+	public List<Duty> captured() {
 		return this.partition.getDuties().stream()
-				.map(d->(Duty<D>)d.getDuty())
+				.map(d->(Duty)d.getDuty())
 				.collect(Collectors.toList());
 	}
 	
@@ -150,14 +149,14 @@ public class Client<D extends Serializable, P extends Serializable> {
 	* @param duty      a duty sharded or to be sharded in the cluster
 	* @return whether or not the operation succeed
 	*/
-	public Reply add(final Duty<D> duty) {
+	public Reply add(final Duty duty) {
 		return push(singletonList(duty), EntityEvent.CREATE, null, null);
 	}
-	public void addAll(final Collection<Entity<?>> duty, final Consumer<Reply> callback) {
+	public void addAll(final Collection<Entity> duty, final Consumer<Reply> callback) {
 		push(duty, EntityEvent.CREATE, null, callback); 
 	}
 
-	public Reply add(final Pallet<P> pallet) {
+	public Reply add(final Pallet pallet) {
 		return push(singletonList(pallet), EntityEvent.CREATE, null, null);
 	}
 
@@ -166,20 +165,20 @@ public class Client<D extends Serializable, P extends Serializable> {
 	* @param duty the duty to update
 	* @return whether or not the operation succeed
 	*/
-	public Reply update(final Duty<D> duty) {
+	public Reply update(final Duty duty) {
 		return push(singletonList(duty), EntityEvent.UPDATE, null, null);
 	}
-	public Reply update(final Pallet<P> pallet) {
+	public Reply update(final Pallet pallet) {
 		return push(singletonList(pallet), EntityEvent.UPDATE, null, null);
 	}
-	public Reply transfer(final Duty<D> duty, final EntityPayload userPayload) {
+	public Reply transfer(final Duty duty, final EntityPayload userPayload) {
 		return push(singletonList(duty), EntityEvent.TRANSFER, userPayload, null);
 	}
-	public Reply transfer(final Pallet<P> pallet, final EntityPayload userPayload) {
+	public Reply transfer(final Pallet pallet, final EntityPayload userPayload) {
 		return push(singletonList(pallet), EntityEvent.TRANSFER, userPayload, null);
 	}
 	
-	private Reply push(final Collection<Entity<?>> raws, 
+	private Reply push(final Collection<Entity> raws, 
 			final EntityEvent event, 
 			final EntityPayload userPayload, 
 			final Consumer<Reply> callback) {
@@ -251,12 +250,12 @@ public class Client<D extends Serializable, P extends Serializable> {
 	}
 
 	private List<ShardEntity> toEntities(
-			final Collection<Entity<?>> raws, 
+			final Collection<Entity> raws, 
 			final EntityEvent event,
 			final EntityPayload userPayload) {
 		
 		final List<ShardEntity> tmp = new ArrayList<>();
-		for (final Entity<?> e: raws) {
+		for (final Entity e: raws) {
 			final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
 			if (userPayload != null) {
 				builder.withPayload(userPayload);

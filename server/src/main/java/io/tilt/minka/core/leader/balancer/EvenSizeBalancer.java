@@ -78,14 +78,14 @@ public class EvenSizeBalancer implements Balancer {
 	 * no reporto ninguna perdida
 	 */
 	public void balance(
-			final Pallet<?> pallet,
-			final Map<NetworkLocation, Set<Duty<?>>> scheme,
-			final Map<EntityEvent, Set<Duty<?>>> stage,
+			final Pallet pallet,
+			final Map<NetworkLocation, Set<Duty>> scheme,
+			final Map<EntityEvent, Set<Duty>> stage,
 			final Migrator migrator) {
 		// get a fair distribution
 		
-		final Set<Duty<?>> deletions = stage.get(EntityEvent.REMOVE);
-		final Set<Duty<?>> creations = stage.get(EntityEvent.CREATE);
+		final Set<Duty> deletions = stage.get(EntityEvent.REMOVE);
+		final Set<Duty> creations = stage.get(EntityEvent.CREATE);
 		final AtomicInteger recount = new AtomicInteger();
 		scheme.values().forEach(v->recount.addAndGet(v.size()));
 		final double sum = recount.get() + creations.size() - deletions.size(); // dangling.size() +
@@ -106,18 +106,18 @@ public class EvenSizeBalancer implements Balancer {
 			// 2nd step: assign migrations and creations in serie
 			final CollectionUtils.CircularCollection<NetworkLocation> receptiveCircle = CollectionUtils.circular(receptors);
 			for (final NetworkLocation emisor : emisors) {
-				final Set<Duty<?>> duties = scheme.get(emisor);
+				final Set<Duty> duties = scheme.get(emisor);
 				int i = 0;
-				final Iterator<Duty<?>> it = duties.iterator();
+				final Iterator<Duty> it = duties.iterator();
 				while (it.hasNext() && i++ < Math.abs(deltas.get(emisor))) {
-					final Duty<?> d = it.next();
+					final Duty d = it.next();
 					if (!deletions.contains(d)) {
 						migrator.transfer(emisor, receptiveCircle.next(), d);
 					}
 				}
 			}
 			// Q pasa cuando una Dangling viene aca, sigue en la tabla asignada a ese shard ?
-			for (Duty<?> duty: creations) {
+			for (Duty duty: creations) {
 				migrator.transfer(receptiveCircle.next(), duty);
 			}
 		} else {
@@ -127,17 +127,17 @@ public class EvenSizeBalancer implements Balancer {
 
 	/* evaluate which shards must emit or receive duties by deltas */
 	private Map<NetworkLocation, Integer> checkDeltas(
-			final Pallet<?> pallet,
-			final Map<NetworkLocation, Set<Duty<?>>> scheme,
+			final Pallet pallet,
+			final Map<NetworkLocation, Set<Duty>> scheme,
 			final int evenSize, 
 			final Set<NetworkLocation> receptors, 
 			final Set<NetworkLocation> emisors, 
-			final Set<Duty<?>> deletions) {
+			final Set<Duty> deletions) {
 
 		final Map<NetworkLocation, Integer> deltas = new HashMap<>(scheme.keySet().size());
 		final int maxDelta = ((Metadata)pallet.getMetadata()).getMaxDutiesDeltaBetweenShards();
 		for (final NetworkLocation shard : scheme.keySet()) {
-			final Set<Duty<?>> shardedDuties = scheme.get(shard);
+			final Set<Duty> shardedDuties = scheme.get(shard);
 			// check if this shard contains the deleting duties 
 			int sizeToRemove = (int) shardedDuties.stream().filter(i -> deletions.contains(i)).count();
 			final int assignedDuties = shardedDuties.size() - sizeToRemove;

@@ -67,9 +67,9 @@ public interface Balancer {
 	 * 						and a set of deletions that will cease to exist in the table (already marked)
 	 * @param migrator		a facility to request modifications for duty assignation for the next distribution		
 	 */
-	void balance(final Pallet<?> pallet,
-			final Map<NetworkLocation, Set<Duty<?>>> scheme,
-			final Map<EntityEvent, Set<Duty<?>>> stage,
+	void balance(final Pallet pallet,
+			final Map<NetworkLocation, Set<Duty>> scheme,
+			final Map<EntityEvent, Set<Duty>> stage,
 			final Migrator migrator);
 	
 	/** safety read-only Shard's decorator for balancers to use */
@@ -78,7 +78,7 @@ public interface Balancer {
 		public NetworkLocation(final Shard shard) {
 			this.shard = shard;
 		}
-		public Map<Pallet<?>, Capacity> getCapacities() {
+		public Map<Pallet, Capacity> getCapacities() {
 			return this.shard.getCapacities();
 		}
 		public NetworkShardIdentifier getId() {
@@ -257,11 +257,11 @@ public interface Balancer {
 		CUSTOM(null),
 		;
 		
-		private final Comparator<Duty<?>> comp;
-		PreSort(final Comparator<Duty<?>> comp) {
+		private final Comparator<Duty> comp;
+		PreSort(final Comparator<Duty> comp) {
 			this.comp = comp;
 		}
-		public Comparator<Duty<?>> getComparator() { 
+		public Comparator<Duty> getComparator() { 
 			return this.comp;
 		}
 	}

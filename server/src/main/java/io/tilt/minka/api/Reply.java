@@ -3,8 +3,6 @@ package io.tilt.minka.api;
 import static io.tilt.minka.api.ReplyValue.SUCCESS;
 import static io.tilt.minka.api.ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED;
 
-import java.io.Serializable;
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
@@ -22,7 +20,7 @@ import io.tilt.minka.domain.EntityState;
 public class Reply {
 	
 	private ReplyValue value;
-	private Entity<? extends Serializable> entity;
+	private Entity entity;
 	private EntityState state;
 	private EntityEvent event;
 	private String message;
@@ -31,7 +29,7 @@ public class Reply {
 	public Reply() {}
 	public Reply(
 			final ReplyValue value, 
-			final Entity<? extends Serializable> entity, 
+			final Entity entity, 
 			final EntityState state,
 			final EntityEvent event, 
 			final String msg) {
@@ -49,7 +47,7 @@ public class Reply {
 	public ReplyValue getValue() {
 		return value;
 	}
-	public Entity<? extends Serializable> getEntity() {
+	public Entity getEntity() {
 		return entity;
 	}
 	/** @return the event of the entity, NULL when non related  */
@@ -82,7 +80,7 @@ public class Reply {
 	public void setValue(final ReplyValue value) {
 		this.value = value;
 	}
-	public void setEntity(final Entity<? extends Serializable> entity) {
+	public void setEntity(final Entity entity) {
 		this.entity = entity;
 	}
 	public void setState(final EntityState state) {

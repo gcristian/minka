@@ -60,8 +60,8 @@ public class TestUtils {
 	public static Set<ServerWhitness> buildCluster(
 			final int size,
 			final Config config,
-			final Set<Pallet<String>> pallets,
-			final Set<Duty<String>> duties) throws InterruptedException {
+			final Set<Pallet> pallets,
+			final Set<Duty> duties) throws InterruptedException {
 		
 		final Set<ServerWhitness> cluster = new HashSet<>();
 		for (int i = 0 ; i < size; i++) {
@@ -83,8 +83,8 @@ public class TestUtils {
 	
 	public static ServerWhitness createServer(
 			final Config refConfig,
-			final Set<Duty<String>> duties, 
-			final Set<Pallet<String>> pallets,
+			final Set<Duty> duties, 
+			final Set<Pallet> pallets,
 			final String tag) {
 		
 		final Config ownConfig = new Config(refConfig.getBootstrap().getZookeeperHostPort());
@@ -97,13 +97,13 @@ public class TestUtils {
 		ownConfig.getBootstrap().setCoreDumpFrequency(refConfig.getBootstrap().getCoreDumpFrequency());
 		ownConfig.getBootstrap().setCoreDumpFilepath(refConfig.getBootstrap().getCoreDumpFilepath());
 
-		final Set<Duty<String>> everCaptured = new HashSet<>();
-		final Set<Duty<String>> everReleased = new HashSet<>();
-		final Set<Duty<String>> current = new HashSet<>();
+		final Set<Duty> everCaptured = new HashSet<>();
+		final Set<Duty> everReleased = new HashSet<>();
+		final Set<Duty> current = new HashSet<>();
 		final Object[] o = {null};
-		final Server<String, String> server = new Server<String, String>(ownConfig);
-		final EventMapper<String, String> mapper = server.getEventMapper();
-		for (Pallet<String> p: pallets) {
+		final Server server = new Server(ownConfig);
+		final EventMapper mapper = server.getEventMapper();
+		for (Pallet p: pallets) {
 			mapper.setCapacity(p, 100);
 		}
 		mapper.onPalletLoad(() -> pallets)
@@ -136,11 +136,11 @@ public class TestUtils {
 	public static void assertCRUDExecuted(
 			final Type type, 
 			final Collection<ServerWhitness> cluster, 
-			final Collection<Duty<String>> duties) {
-		final Set<Duty<String>> check = new HashSet<>(duties);
+			final Collection<Duty> duties) {
+		final Set<Duty> check = new HashSet<>(duties);
 		for (ServerWhitness w: cluster) {
-			Set<Duty<String>> collModified = w.getEverCaptured();
-			Set<Duty<String>> collUnmodified = w.getEverReleased();
+			Set<Duty> collModified = w.getEverCaptured();
+			Set<Duty> collUnmodified = w.getEverReleased();
 			if (type==Type.remove) {
 				collUnmodified = w.getEverCaptured();
 				collModified = w.getEverReleased();
@@ -154,8 +154,8 @@ public class TestUtils {
 	
 	public static void assertDistribution(
 			final Collection<ServerWhitness> cluster,
-			final Collection<Duty<String>> duties) {
-		final Set<Duty<String>> tmp = new HashSet<>();
+			final Collection<Duty> duties) {
+		final Set<Duty> tmp = new HashSet<>();
 		for (ServerWhitness w: cluster) {
 			assertTrue(w.getCurrent().size()>0);
 			assertTrue(tmp.addAll(w.getCurrent()));
@@ -165,16 +165,16 @@ public class TestUtils {
 	}
 	
 
-	public static Set<Duty<String>> duties(final Pallet<String> p, final int size) {
-		final Set<Duty<String>> set = new HashSet<>();
+	public static Set<Duty> duties(final Pallet p, final int size) {
+		final Set<Duty> set = new HashSet<>();
 		for (int i = 0; i < size; i++) {
 			set.add(duty(p, i));			
 		}
 		return set;
 	}
 
-	public static Duty<String> duty(final Pallet<String> p, final int id) {
-		return Duty.<String>builder(String.valueOf(id), p.getId()).with(1).build();
+	public static Duty duty(final Pallet p, final int id) {
+		return Duty.builder(String.valueOf(id), p.getId()).with(1).build();
 	}
     
 

@@ -5,7 +5,6 @@ import static io.tilt.minka.api.config.SchedulerSettings.THREAD_NAME_WEBSERVER_W
 
 import java.io.File;
 import java.io.IOException;
-import java.io.Serializable;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.util.Iterator;
@@ -34,6 +33,7 @@ import io.tilt.minka.api.config.BootstrapConfiguration;
 import io.tilt.minka.api.config.BrokerConfiguration;
 import io.tilt.minka.api.inspect.AdminEndpoint;
 import io.tilt.minka.domain.AwaitingDelegate;
+import io.tilt.minka.domain.ConsumerDelegate;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.TCPShardIdentifier;
 import io.tilt.minka.utils.LogUtils;
@@ -52,10 +52,8 @@ import io.tilt.minka.utils.LogUtils;
  * 
  * @author Cristian Gonzalez
  * @since Sept 20, 2016
- * @param <D>	the duty payload type
- * @param <P>	the pallet payload type
  */
-public class Server<D extends Serializable, P extends Serializable> {
+public class Server {
 
 	private static final String CONTEXT_PATH = "classpath:io/tilt/minka/config/context-minka-spring.xml";
 	
@@ -68,7 +66,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 	
 	/* current holder's tenant, and one for each instance held by applications */
 	private Tenant tenant;
-	private EventMapper<D, P> mapper;
+	private EventMapper mapper;
 	
 	/** 
 	 * Create a Minka server. All mandatory events must be mapped to consumers/suppliers.
@@ -140,7 +138,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 	 * Used when avoiding a client implementation of {@linkplain PartitionMaster}. 
 	 * @return the event mapper instance associated with this server
 	 */
-	public EventMapper<D, P> getEventMapper() {
+	public EventMapper getEventMapper() {
 		if (tenant!=null) {
 			return this.mapper;
 		} else {
@@ -164,7 +162,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 				.toString());
 		//logger.info("{}: Using configuration: {}", name, config.toString());
 		ctx.setId(namespace);
-		mapper = new EventMapper<D, P>(tenant);
+		mapper = new EventMapper(tenant);
 		startContext(config);
 	}
 	
@@ -383,7 +381,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 	 * @param delegate	a fully implementation class of a partition delegate
 	 * @return	the server builder
 	 */
-	public void setDelegate(final PartitionDelegate<?, ?> delegate) {
+	public void setDelegate(final ConsumerDelegate delegate) {
 		Validate.notNull(delegate);
 		checkInit();		
 		final DependencyPlaceholder holder = getDepPlaceholder();
@@ -398,7 +396,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 	 * @param master a fully implementation class of a partition master
 	 * @return	the server builder
 	 */
-	public void setMaster(final PartitionMaster<?, ?> master) {
+	public void setMaster(final PartitionMaster master) {
 		Validate.notNull(master);
 		checkInit();		
 		final DependencyPlaceholder holder = getDepPlaceholder();
@@ -414,8 +412,7 @@ public class Server<D extends Serializable, P extends Serializable> {
 	 * Minka service must be fully initialized before being able to obtain an operative client
 	 * @return	an instance of a client   
 	 */
-	@SuppressWarnings("unchecked")
-	public Client<D, P> getClient() {
+	public Client getClient() {
 		checkInit();
 		return tenant.getContext().getBean(Client.class);
 	}

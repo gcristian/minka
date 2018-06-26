@@ -27,7 +27,6 @@ import io.tilt.minka.api.Server;
 
 public class DeadSimpleSample {
 
-	@SuppressWarnings("unchecked")
 	public static void main(String[] args) throws Exception {
 		
 		/**
@@ -35,18 +34,18 @@ public class DeadSimpleSample {
 		 */
 
 		// create a dummy duty to check at last for it's reception
-		final Duty<String> helloWorld = Duty.<String>builder("helloworld", "group").build();
+		final Duty helloWorld = Duty.builder("helloworld", "group").build();
 
 		Duty.builder("123", "123").build();
 		
 		// to save those duties assigned by minka to this shard 
-		final Set<Duty<String>> myDuties = new TreeSet<>();
+		final Set<Duty> myDuties = new TreeSet<>();
 		
 		// create a minka server with all default TCP/port values
-		final Server<String, String> server = new Server<>();		
+		final Server server = new Server();		
 		// create a dummy pallet to group the helloWorld duty
 		// on production environtment we should build duties loding source data from a database
-		final Pallet<String> pallet = Pallet.<String>builder("group").build();
+		final Pallet pallet = Pallet.builder("group").build();
 		
 		server.getEventMapper()
 			.onPalletLoad(()-> newHashSet(pallet))		
@@ -63,7 +62,7 @@ public class DeadSimpleSample {
 		System.out.print(myDuties.contains(helloWorld));
 		
 		// create another one
-		final Duty<String> another = Duty.<String>builder("another", "group").build();
+		final Duty another = Duty.builder("another", "group").build();
 		server.getClient().add(another);
 		
 		Thread.sleep(5000);

@@ -103,8 +103,8 @@ public class DatasetEmulator implements DummyDataProvider {
 	}
 	
 	@Override
-	public Set<Duty<String>> loadDuties() {
-		final Set<Duty<String>> duties = new HashSet<>();
+	public Set<Duty> loadDuties() {
+		final Set<Duty> duties = new HashSet<>();
 		final AtomicInteger numerator = new AtomicInteger();
 		
 		for (Object key : prop.keySet()) {
@@ -120,7 +120,7 @@ public class DatasetEmulator implements DummyDataProvider {
 	}
 
 	private void parseDutyFromString(final String key, final String chunk, 
-			final Consumer<Duty<String>> callback, final AtomicInteger numerator) {
+			final Consumer<Duty> callback, final AtomicInteger numerator) {
 
 		final String palletName = key.substring(DUTIES_PALLETS.length()+1);
 		final String[] parse = chunk.split(FIELD_DELIM);
@@ -141,18 +141,17 @@ public class DatasetEmulator implements DummyDataProvider {
 		for (int i = 0; i < size; i++) {
 			// this's biased as it's most probably to get the min value when given range is smaller than 0~min
 			final long dweight = rangePos > 0 ? Math.max(range[0],rnd.nextInt(range[1])) : weight;
-			callback.accept(Duty.<String>builder(
+			callback.accept(Duty.builder(
 			            String.valueOf(numerator.incrementAndGet()), 
 			            String.valueOf(palletName))
 			        .with(dweight)
-			        .with(String.valueOf(0x95+i))
 			        .build());
 		}
 	}
 
 	@Override
-	public Set<Pallet<String>> loadPallets() {
-		final Set<Pallet<String>> pallets = new HashSet<>();
+	public Set<Pallet> loadPallets() {
+		final Set<Pallet> pallets = new HashSet<>();
 		for (Object key : prop.keySet()) {
 			if (key.toString().startsWith(DUTIES_PALLETS)) {
 				final StringTokenizer tok = new StringTokenizer(prop.getProperty(key.toString())
@@ -171,14 +170,14 @@ public class DatasetEmulator implements DummyDataProvider {
 		return pallets; 
 	}
 	
-	private Set<Pallet<?>> logflags = new HashSet<>();
+	private Set<Pallet> logflags = new HashSet<>();
 
 	private Map<String, Double> capacities = new HashMap<>(); 
 	
 	@Override
 	public double loadShardCapacity(
-			final Pallet<String> pallet, 
-			final Set<Duty<String>> duties, 
+			final Pallet pallet, 
+			final Set<Duty> duties, 
 			final String shardIdentifier) {
 
 		final String port = shardIdentifier.split(FIELD_DELIM)[1];
@@ -191,8 +190,8 @@ public class DatasetEmulator implements DummyDataProvider {
 	}
 
 	private double readCapacityFromProperties(
-			final Pallet<String> pallet, 
-			final Set<Duty<String>> allDuties, 
+			final Pallet pallet, 
+			final Set<Duty> allDuties, 
 			final String port, 
 			final String shardId) {
 

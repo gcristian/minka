@@ -32,7 +32,7 @@ import io.tilt.minka.domain.ConsumerDelegate;
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
  */
-public interface PartitionDelegate<D extends Serializable, P extends Serializable> {
+public interface PartitionDelegate {
 
 	public static final String METHOD_NOT_IMPLEMENTED = "{}: this PartitionDelegate has not implemented event: {}";
 	Logger logger = LoggerFactory.getLogger(PartitionDelegate.class);
@@ -40,33 +40,33 @@ public interface PartitionDelegate<D extends Serializable, P extends Serializabl
 	/*
 	* Instruct the Follower shard to take management responsibilities on these duties
 	*/
-	void capture(Set<Duty<D>> duties);
-	void capturePallet(Set<Pallet<P>> pallets);
+	void capture(Set<Duty> duties);
+	void capturePallet(Set<Pallet> pallets);
 
 	/*
 	* Instruct the Follower shard to release management 
 	* responsibi﻿lities on these duties.
 	* Not doing so will make Minka apply rules set in {@linkplain Config} about {@linkplain ShardState}
 	*/
-	void release(Set<Duty<D>> duties);
-	void releasePallet(Set<Pallet<P>> pallets);
+	void release(Set<Duty> duties);
+	void releasePallet(Set<Pallet> pallets);
 
 	/*
 	 * Instruct the Follower shard to acknowledge an update ocurred on a duty's payload
 	 */
-	default void update(Duty<D> duties) {
+	default void update(Duty duties) {
 		logger.error(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "update");
 	}
-	default void update(Pallet<P> pallets) {
+	default void update(Pallet pallets) {
 		logger.error(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "update");
 	}
 	/*
 	 * Instruct te Follower shard to get a client payload event for a particular duty 
 	 */
-	default void transfer(Duty<D> duty, Serializable clientPayload) {
+	default void transfer(Duty duty, Serializable clientPayload) {
 		logger.error(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "transfer");
 	}
-	default void transfer(Pallet<P> duty, Serializable clientPayload) {
+	default void transfer(Pallet duty, Serializable clientPayload) {
 		logger.error(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "transfer");
 	}
 
@@ -74,7 +74,7 @@ public interface PartitionDelegate<D extends Serializable, P extends Serializabl
 	 * Report shard's maximum workload capacity for a certain pallet
 	 * @return	a unit in the same measure unit than duty weights reported 
 	 */
-	default double getTotalCapacity(Pallet<P> pallet) {
+	default double getTotalCapacity(Pallet pallet) {
 		return -1;
 	}
 	

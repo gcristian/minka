@@ -29,11 +29,11 @@ import io.tilt.minka.api.Pallet;
 public interface DummyDataProvider {
 
 	/** @return constant contents in all shards */
-	Set<Duty<String>> loadDuties();
+	Set<Duty> loadDuties();
 
 	/** @return constant contents in all shards */
-	Set<Pallet<String>> loadPallets();
+	Set<Pallet> loadPallets();
 
 	/** @return constant capacity for each shard */
-	double loadShardCapacity(Pallet<String> pallet, Set<Duty<String>> allDuties, String shardIdentifier);	    
+	double loadShardCapacity(Pallet pallet, Set<Duty> allDuties, String shardIdentifier);	    
 }

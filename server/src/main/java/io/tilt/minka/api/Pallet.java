@@ -1,6 +1,5 @@
 package io.tilt.minka.api;
 
-import java.io.Serializable;
 import java.util.Comparator;
 
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
@@ -38,7 +37,7 @@ import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
  * @author Cristian Gonzalez
  * @since Mar 30, 2016
  */
-public interface Pallet<P extends Serializable> extends Entity<P> {
+public interface Pallet extends Entity {
 
 	public enum Storage {
 		/**
@@ -62,11 +61,11 @@ public interface Pallet<P extends Serializable> extends Entity<P> {
 	
 
 	/** @return only to be used for balancers making use of a sorting previous to duty rebalance */
-	default Comparator<Duty<P>> getPreSortComparator() {
+	default Comparator<Duty> getPreSortComparator() {
 		return null;
 	}
 	
-	public static <P extends Serializable> PalletBuilder<P> builder(final String palletId) {
+	public static PalletBuilder builder(final String palletId) {
 		return PalletBuilder.builder(palletId);
 	}
 

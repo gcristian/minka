@@ -43,9 +43,9 @@ import io.tilt.minka.api.Reply;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.balancer.Balancer;
-import io.tilt.minka.core.leader.data.StageRepository;
 import io.tilt.minka.core.leader.data.ShardingScheme;
 import io.tilt.minka.core.leader.data.ShardingScheme.ClusterHealth;
+import io.tilt.minka.core.leader.data.StageRepository;
 import io.tilt.minka.core.leader.distributor.ChangePlan.Result;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
@@ -350,8 +350,8 @@ public class Distributor implements Service {
 		if (initialAdding || reload) {
 		    counterForReloads = 0;
 			logger.info("{}: reloading duties from storage", getName());
-			final Set<Duty<?>> duties = reloadDutiesFromStorage();
-			final Set<Pallet<?>> pallets = reloadPalletsFromStorage();
+			final Set<Duty> duties = reloadDutiesFromStorage();
+			final Set<Pallet> pallets = reloadPalletsFromStorage();
 						
 			final String master = config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? 
 					"Minka storage" : "PartitionMaster";
@@ -401,7 +401,7 @@ public class Distributor implements Service {
 		if (config.getDistributor().isRunConsistencyCheck() && shardingScheme.getCurrentPlan().areShippingsEmpty()) {
 			// only warn in case there's no reallocation ahead
 			final Set<ShardEntity> sorted = new TreeSet<>();
-			for (Duty<?> duty: reloadDutiesFromStorage()) {
+			for (Duty duty: reloadDutiesFromStorage()) {
 				final ShardEntity entity = ShardEntity.Builder.builder(duty).build();
 				if (!shardingScheme.getScheme().dutyExists(entity)) {
 					sorted.add(entity);
@@ -416,8 +416,8 @@ public class Distributor implements Service {
 	}
 
 	@SuppressWarnings("unchecked")
-	private Set<Duty<?>> reloadDutiesFromStorage() {
-		Set<Duty<?>> duties = null;
+	private Set<Duty> reloadDutiesFromStorage() {
+		Set<Duty> duties = null;
 		try {
 			if (config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT) {
 				duties = entityDao.loadDutySnapshot();
@@ -432,8 +432,8 @@ public class Distributor implements Service {
 	}
 
 	@SuppressWarnings("unchecked")
-	private Set<Pallet<?>> reloadPalletsFromStorage() {
-		Set<Pallet<?>> pallets = null;
+	private Set<Pallet> reloadPalletsFromStorage() {
+		Set<Pallet> pallets = null;
 		try {
 			if (config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT) {
 				pallets = entityDao.loadPalletSnapshot();

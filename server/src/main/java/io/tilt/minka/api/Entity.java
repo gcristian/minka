@@ -16,7 +16,6 @@
  */
 package io.tilt.minka.api;
 
-import java.io.Serializable;
 import java.util.Comparator;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -30,15 +29,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * Conditions:
  *  1)  implement hashCode() and equals() for consistency with your {@linkplain PartitionDelegate} 
  *  2)  If you handle storage: you must avoid collissions
- *   
+ *   O
  * @author Cristian Gonzalez
  * @since Dec 3, 2015
  * 	
  * @param <T>	the payload type
  */
-public abstract interface Entity<T extends Serializable> extends Comparable<Entity<T>>, Comparator<Entity<T>> {
-
-	Class<T> getClassType();
+public abstract interface Entity extends Comparable<Entity>, Comparator<Entity> {
 
 	/**
 	* Type erasure bans the chance to call a useful equals() on the impl.
@@ -49,12 +46,12 @@ public abstract interface Entity<T extends Serializable> extends Comparable<Enti
 	String getId();
 
 	@Override
-	default public int compareTo(Entity<T> o) {
+	default public int compareTo(Entity o) {
 		return compare(this, o);
 	}
 
 	@Override
-	default public int compare(Entity<T> o1, Entity<T> o2) {
+	default public int compare(Entity o1, Entity o2) {
 		return o1.getId().compareTo(o2.getId());
 	}
 

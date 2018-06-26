@@ -121,7 +121,7 @@
         
     <bean id="entityDao" class="io.tilt.minka.core.leader.EntityDao.FakeDao"/>
     
-    <bean id="schemeRepository" class="io.tilt.minka.core.leader.data.SchemeRepository">
+    <bean id="stageRepository" class="io.tilt.minka.core.leader.data.StageRepository">
     	<constructor-arg ref="shardingScheme" />
     	<constructor-arg ref="shardId" />
     </bean>																																														
@@ -132,7 +132,7 @@
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="shardingScheme" />
-        <constructor-arg ref="schemeRepository" />
+        <constructor-arg ref="stageRepository" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="entityDao" />
         <constructor-arg ref="clientHolder" />
@@ -171,7 +171,7 @@
         <constructor-arg ref="config" />
         <constructor-arg ref="shardingScheme" />
         <constructor-arg ref="scheduler" />
-        <constructor-arg ref="schemeRepository" />
+        <constructor-arg ref="stageRepository" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="shardId" />
     </bean>

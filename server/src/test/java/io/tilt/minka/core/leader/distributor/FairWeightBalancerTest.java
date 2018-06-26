@@ -39,15 +39,15 @@ public class FairWeightBalancerTest {
 		return set;
 	}
 	
-	public static Duty<String> buildDutyWithWeight(long weight, String idi) {
-		return Duty.<String>
+	public static Duty buildDutyWithWeight(long weight, String idi) {
+		return Duty.
 			builder(idi, "1")
 				.with(weight)
 				.build();
 	}
 
-	public static Set<Duty<?>> dutiesFromEntities(final Set<ShardEntity> set) {
-		final Set<Duty<?>> duties = new HashSet<>(
+	public static Set<Duty> dutiesFromEntities(final Set<ShardEntity> set) {
+		final Set<Duty> duties = new HashSet<>(
 				set.stream()
 					.map(e->e.getDuty())
 					.collect(Collectors.toSet()));
@@ -91,13 +91,13 @@ public class FairWeightBalancerTest {
 
 		// some basic domain
 		final Set<ShardEntity> ents = someEntitiesWithGrowingOrder();
-		final Set<Duty<?>> duties = dutiesFromEntities(ents);		
+		final Set<Duty> duties = dutiesFromEntities(ents);		
 		final Pallet p1 = Pallet.builder("1")
 				.with(new FairWeightBalancer.Metadata())
 				.build();
 		
 		// only creations at stage
-		final Map<EntityEvent, Set<Duty<?>>> stage = new HashMap<>();
+		final Map<EntityEvent, Set<Duty>> stage = new HashMap<>();
 		stage.put(EntityEvent.CREATE, duties);
 		stage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
@@ -130,13 +130,13 @@ public class FairWeightBalancerTest {
 
 		// some basic domain
 		final Set<ShardEntity> ents = someEntitiesWithSameOrder(12);
-		final Set<Duty<?>> duties = dutiesFromEntities(ents);		
+		final Set<Duty> duties = dutiesFromEntities(ents);		
 		final Pallet p1 = Pallet.builder("1")
 				.with(new FairWeightBalancer.Metadata())
 				.build();
 		
 		// only creations at backstage
-		final Map<EntityEvent, Set<Duty<?>>> stage = new HashMap<>();
+		final Map<EntityEvent, Set<Duty>> stage = new HashMap<>();
 		stage.put(EntityEvent.CREATE, duties);
 		stage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
@@ -171,13 +171,13 @@ public class FairWeightBalancerTest {
 		// some basic domain
 		
 		final Set<ShardEntity> ents = someEntitiesWithOddOrder();
-		final Set<Duty<?>> duties = dutiesFromEntities(ents);		
+		final Set<Duty> duties = dutiesFromEntities(ents);		
 		final Pallet p1 = Pallet.builder("1")
 				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, Balancer.PreSort.WEIGHT))
 				.build();
 		
 		// only creations at backstage
-		final Map<EntityEvent, Set<Duty<?>>> stage = new HashMap<>();
+		final Map<EntityEvent, Set<Duty>> stage = new HashMap<>();
 		stage.put(EntityEvent.CREATE, duties);
 		stage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
@@ -225,13 +225,13 @@ public class FairWeightBalancerTest {
 	public void testBalancedScattering() throws Exception {
 		// some basic domain
 		final Set<ShardEntity> ents = someEntitiesWithOddOrder();
-		final Set<Duty<?>> duties = dutiesFromEntities(ents);		
+		final Set<Duty> duties = dutiesFromEntities(ents);		
 		final Pallet p1 = Pallet.builder("1")
 				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, Balancer.PreSort.WEIGHT))
 				.build();
 		
 		// only creations at backstage
-		final Map<EntityEvent, Set<Duty<?>>> stage = new HashMap<>();
+		final Map<EntityEvent, Set<Duty>> stage = new HashMap<>();
 		stage.put(EntityEvent.CREATE, duties);
 		stage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
@@ -286,8 +286,8 @@ public class FairWeightBalancerTest {
 		return ret;
 	}
 	
-	public Map<NetworkLocation, Set<Duty<?>>> stageFromTable(final ShardingScheme table) {
-		final Map<NetworkLocation, Set<Duty<?>>> ret = new HashMap<>();
+	public Map<NetworkLocation, Set<Duty>> stageFromTable(final ShardingScheme table) {
+		final Map<NetworkLocation, Set<Duty>> ret = new HashMap<>();
 		table.getScheme().findShards(null, shard-> {
 			ret.put(new NetworkLocation(shard), Collections.emptySet());
 		});
@@ -299,13 +299,13 @@ public class FairWeightBalancerTest {
 	public void testOther() throws Exception {
 		// some basic domain
 		final Set<ShardEntity> ents = dutiesWithWeights(6, 6, 6, 6);
-		final Set<Duty<?>> duties = dutiesFromEntities(ents);		
+		final Set<Duty> duties = dutiesFromEntities(ents);		
 		final Pallet p1 = Pallet.builder("1")
 				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, Balancer.PreSort.DATE))
 				.build();
 		
 		// only creations at backstage
-		final Map<EntityEvent, Set<Duty<?>>> stage = new HashMap<>();
+		final Map<EntityEvent, Set<Duty>> stage = new HashMap<>();
 		stage.put(EntityEvent.CREATE, duties);
 		stage.put(EntityEvent.REMOVE, Collections.emptySet());
 		

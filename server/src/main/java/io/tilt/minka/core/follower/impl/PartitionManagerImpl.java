@@ -148,7 +148,6 @@ public class PartitionManagerImpl implements PartitionManager {
 		return dettach_(duties, null);
 	}
 	
-	@SuppressWarnings("unchecked")
 	private boolean dettach_(final Collection<ShardEntity> duties, final Runnable cleanPartitionCallback) {
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: ({}) # -{} RELEASE: {}", getClass().getSimpleName(),
@@ -172,8 +171,9 @@ public class PartitionManagerImpl implements PartitionManager {
 				duties.forEach(d->partition.remove(d));
 			}
 			// remove pallets absent in duties
-			final Set<ShardEntity> removing = partition.getPallets().stream()
+			final Set<Pallet> removing = partition.getPallets().stream()
 				.filter(p->!partition.contains(p.getRelatedEntity()))
+				.map(e->e.getPallet())
 				.collect(Collectors.toSet());
 			if (!removing.isEmpty()) {
 				dependencyPlaceholder.getDelegate().releasePallet(removing);
@@ -185,14 +185,13 @@ public class PartitionManagerImpl implements PartitionManager {
 		return false;
 	}
 
-	@SuppressWarnings("unchecked")
 	public boolean attach(final Collection<ShardEntity> duties) {
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: ({}) # +{} TAKE: {}", getClass().getSimpleName(), partition.getId(),
 				duties.size(), ShardEntity.toStringBrief(duties));
 		}
 		// TODO si falla el cliente no nos importa... ? rollbackeamos todo ? entrariamos en un ciclo...
-		final Set<Pallet<?>> pallets = new HashSet<>();
+		final Set<Pallet> pallets = new HashSet<>();
 		duties.stream().filter(d->partition.add(d))
 			.forEach(d->pallets.add(d.getRelatedEntity().getPallet()));
 		try {
@@ -209,8 +208,8 @@ public class PartitionManagerImpl implements PartitionManager {
 		return false;
 	}
 
-	private Set<Duty<?>> toSet(final Collection<ShardEntity> duties, Predicate<ShardEntity> filter) {
-		Set<Duty<?>> set = new HashSet<>(duties.size());
+	private Set<Duty> toSet(final Collection<ShardEntity> duties, Predicate<ShardEntity> filter) {
+		Set<Duty> set = new HashSet<>(duties.size());
 		for (ShardEntity dudty : duties) {
 			if (filter == null || filter.test(dudty)) {
 				set.add(dudty.getDuty());

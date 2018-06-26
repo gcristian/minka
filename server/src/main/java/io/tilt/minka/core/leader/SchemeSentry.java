@@ -38,9 +38,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.data.Stage;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.ShardingScheme;
+import io.tilt.minka.core.leader.data.Stage;
 import io.tilt.minka.core.leader.distributor.ChangeDetector;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.leader.distributor.Delivery;
@@ -48,12 +48,12 @@ import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.EntityRecord;
 /**
  * Single-point of write access to the {@linkplain Scheme}
  * Watches follower's heartbeats taking action on any update
@@ -90,7 +90,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 	
 		shard.enterHeartbeat(beat);
-		final Map<Pallet<?>, Capacity> cap = beat.getCapacities();
+		final Map<Pallet, Capacity> cap = beat.getCapacities();
 		if (cap!=null) {
 			shard.setCapacities(new HashMap<>(cap));
 		}

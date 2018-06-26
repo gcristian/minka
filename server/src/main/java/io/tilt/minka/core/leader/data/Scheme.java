@@ -21,13 +21,13 @@ import io.tilt.minka.core.leader.ConcurrentDutyException;
 import io.tilt.minka.core.leader.SchemeSentry;
 import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.Shard.Change;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
-import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
@@ -229,7 +229,7 @@ public class Scheme {
 		return getPartition(shard).getDuties();
 	}
 
-	public void findDuties(final Shard shard, final Pallet<?> pallet, final Consumer<ShardEntity> consumer) {
+	public void findDuties(final Shard shard, final Pallet pallet, final Consumer<ShardEntity> consumer) {
 		for (ShardEntity e: getPartition(shard).getDuties()) {
 			if (pallet==null || e.getDuty().getPalletId().equals(pallet.getId())) {
 				consumer.accept(e);
@@ -237,7 +237,7 @@ public class Scheme {
 		}
 	}
 	
-	public ShardEntity getByDuty(final Duty<?> duty) {
+	public ShardEntity getByDuty(final Duty duty) {
 		ShardEntity ret = null;
 		for (final Shard shard : partitionsByShard.keySet()) {
 			ret = partitionsByShard.get(shard).getByDuty(duty);
@@ -251,7 +251,7 @@ public class Scheme {
 	public void findDuties(final Consumer<ShardEntity> consumer) {
 		onDuties(null, null, consumer, null, false);
 	}
-	public void findDutiesByPallet(final Pallet<?> pallet, final Consumer<ShardEntity> consumer) {
+	public void findDutiesByPallet(final Pallet pallet, final Consumer<ShardEntity> consumer) {
 		onDuties(pallet, null, consumer, null, false);
 	}
 	public boolean dutyExists(final ShardEntity e) {
@@ -264,7 +264,7 @@ public class Scheme {
 		return getPartition(shard).getDuties().contains(e);
 	}
 	
-	private void onDuties(final Pallet<?> pallet, 
+	private void onDuties(final Pallet pallet, 
 			final ShardState state, 
 			final Consumer<ShardEntity> consumer, 
 			final Predicate<ShardEntity> test, 
@@ -318,7 +318,7 @@ public class Scheme {
 		return null;
 	}
 	
-	public Shard findDutyLocation(final Duty<?> duty) {
+	public Shard findDutyLocation(final Duty duty) {
 		for (final Shard shard : partitionsByShard.keySet()) {
 			final ShardEntity st = partitionsByShard.get(shard).getByDuty(duty);
 			if (st!=null) {
@@ -356,7 +356,7 @@ public class Scheme {
 			}
 			for (final Shard shard : shardsByID.values()) {
 				final ShardedPartition partition = partitionsByShard.get(shard);
-				final Map<Pallet<?>, Capacity> capacities = shard.getCapacities();
+				final Map<Pallet, Capacity> capacities = shard.getCapacities();
 				if (partition == null) {
 					logger.info("{}: {} = Empty", getClass().getSimpleName(), shard);
 				} else {
@@ -391,7 +391,7 @@ public class Scheme {
 			this.reference = reference;
 		}
 
-		public double getCapacity(final Pallet<?> pallet, final Shard quest) {
+		public double getCapacity(final Pallet pallet, final Shard quest) {
 			double total = 0;
 			for (final Shard shard : getShards()) {
 				if (quest == null || shard.equals(quest)) {
@@ -402,7 +402,7 @@ public class Scheme {
 			return total;
 		}
 
-		public double getCapacityTotal(final Pallet<?> pallet) {
+		public double getCapacityTotal(final Pallet pallet) {
 			return getCapacity(pallet, null);
 		}
 
@@ -410,11 +410,11 @@ public class Scheme {
 			return getSize(null, null);
 		}
 
-		public int getSizeTotal(final Pallet<?> pallet) {
+		public int getSizeTotal(final Pallet pallet) {
 			return getSize(pallet, null);
 		}
 
-		public int getSize(final Pallet<?> pallet, final Shard quest) {
+		public int getSize(final Pallet pallet, final Shard quest) {
 			int total = 0;
 			for (final ShardedPartition part : reference.partitionsByShard.values()) {
 				if (quest == null || part.getId().equals(quest.getShardID())) {
@@ -424,11 +424,11 @@ public class Scheme {
 			return total;
 		}
 
-		public double getWeightTotal(final Pallet<?> pallet) {
+		public double getWeightTotal(final Pallet pallet) {
 			return getWeight(pallet, null);
 		}
 
-		public double getWeight(final Pallet<?> pallet, final Shard quest) {
+		public double getWeight(final Pallet pallet, final Shard quest) {
 			int total = 0;
 			for (final ShardedPartition part : reference.partitionsByShard.values()) {
 				if (quest == null || part.getId().equals(quest.getShardID())) {
@@ -446,7 +446,7 @@ public class Scheme {
 			return reference.shardsByID.values();
 		}
 
-		public int getAccountConfirmed(final Pallet<?> filter) {
+		public int getAccountConfirmed(final Pallet filter) {
 			int total = 0;
 			for (Shard shard : reference.partitionsByShard.keySet()) {
 				if (shard.getState() == ShardState.ONLINE) {

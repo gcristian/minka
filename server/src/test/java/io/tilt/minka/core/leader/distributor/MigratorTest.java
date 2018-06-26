@@ -13,7 +13,7 @@ public class MigratorTest {
 	public static Migrator migrator(
 			final Set<Shard> shards,
 			final Set<ShardEntity> duties, 
-			final Pallet<?> p1) {
+			final Pallet p1) {
 		final ShardingScheme pt = new ShardingScheme();
 		shards.forEach(s->pt.getScheme().addShard(s));
 		

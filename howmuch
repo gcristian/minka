@@ -1,8 +1,8 @@
 #!/bin/bash
 for i in `find . -name '*.java'`; do
-   c=$(($c+1))
-   l=$((l+`sed '/^\s*$/d' $i | wc -l | cut -d ' ' -f1`))
-   w=$((w+`wc -w $i | cut -d ' ' -f1`))
+   #c=$(($c+1))
+   #l=$((l+`sed '/^\s*$/d' $i | wc -l | cut -d ' ' -f1`))
+   #w=$((w+`wc -w $i | cut -d ' ' -f1`))
    b=$((b+`wc -c $i | cut -d ' ' -f1`))
 done
 kb=$((b/1000))

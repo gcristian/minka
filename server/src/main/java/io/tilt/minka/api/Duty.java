@@ -16,8 +16,6 @@
  */
 package io.tilt.minka.api;
 
-import java.io.Serializable;
-
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -37,19 +35,21 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * @param <T> the payload type
  */
 @JsonAutoDetect
-public interface Duty<T extends Serializable> extends Entity<T> {
+public interface Duty extends Entity {
 	/**
 	* @return a representation in the same measure unit than the delegate's pallet capacity 
 	* Required to maintain a fairly load balancing  */
-	@JsonProperty("weight")double getWeight();
+	@JsonProperty("weight")
+	double getWeight();
 
 	/** @return the pallet id to which this duty must be grouped into. */		
-	@JsonProperty("palletId") String getPalletId();
+	@JsonProperty("palletId") 
+	String getPalletId();
 	
 	/** @return not mandatory only for Client usage */ 
-	Pallet<?> getPallet();
+	Pallet getPallet();
 	
-	static <T extends Serializable> DutyBuilder<T> builder(final String id, final String palletId) {
+	static DutyBuilder builder(final String id, final String palletId) {
 		return DutyBuilder.builder(id, palletId);
 	}
 
