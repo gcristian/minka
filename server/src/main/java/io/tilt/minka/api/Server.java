@@ -20,7 +20,6 @@ import org.apache.commons.lang.Validate;
 import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.grizzly.http.server.NetworkListener;
 import org.glassfish.grizzly.nio.transport.TCPNIOTransport;
-import org.glassfish.grizzly.threadpool.GrizzlyExecutorService;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
@@ -266,7 +265,6 @@ public class Server {
 
 	private void startWebserver() {
 		final ResourceConfig res = new ResourceConfig(AdminEndpoint.class);
-		
 		res.property("contextConfig", tenant.getContext());
 		final URI uri = resolveWebServerBindAddress(tenant.getConfig());
 		final HttpServer webServer = GrizzlyHttpServerFactory.createHttpServer(uri, res, false);
@@ -282,8 +280,6 @@ public class Server {
 			transport.setSelectorRunnersCount(1);
 			transport.setWorkerThreadPoolConfig(config.copy().setPoolName(THREAD_NAME_WEBSERVER_WORKER));
 			transport.setWorkerThreadPoolConfig(config.copy().setPoolName(THREAD_NAME_WEBSERVER_KERNEL));
-			// note the transport class has an inner channel connector disabled to configure
-			// as an instance private field which sizes the kernel pool to 10, unmodifiable.
 		}
 		
         // TODO disable ssl etc
@@ -291,7 +287,8 @@ public class Server {
 		try {
 			webServer.start();
 		} catch (IOException e) {
-			logger.info("{}: {} Unable to start web server", name, tenant.getConnectReference(), e);
+			logger.error("{}: {} Unable to start web server", name, tenant.getConnectReference(), e.getMessage());
+			throw new RuntimeException(e);
 		}
     }
 

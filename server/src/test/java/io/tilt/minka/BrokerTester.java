@@ -3,6 +3,7 @@ package io.tilt.minka;
 
 import static io.tilt.minka.broker.EventBroker.Channel.LEADTOFOLL;
 
+import java.io.InputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -13,6 +14,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import org.junit.Before;
@@ -21,7 +23,7 @@ import org.junit.Test;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.broker.impl.SocketBroker;
+import io.tilt.minka.broker.impl.NettyBroker;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.impl.SchedulerImpl;
 import io.tilt.minka.core.task.impl.SpectatorSupplier;
@@ -38,7 +40,7 @@ public class BrokerTester {
 	private static final int MIN_PORT_VALUE = 8000;
 	private static final int MAX_PORT_VALUE = 65000;
 	private CountDownLatch latch;
-	private Consumer<Serializable> consumer;
+	private BiConsumer<Serializable, InputStream> consumer;
 	private AtomicInteger msgAtOrigin;
 	private AtomicInteger msgAtDestiny;
 
@@ -48,6 +50,32 @@ public class BrokerTester {
 		msgAtOrigin = new AtomicInteger();
 		msgAtDestiny = new AtomicInteger();
 		consumer = buildConsumer(msgAtDestiny);
+	}
+	
+	@Test
+	public void test_two() throws Exception {
+
+		// network communication requires some time
+
+		final Config configL = buidConfig(22000);
+		final TCPShardIdentifier shardL = new TCPShardIdentifier(configL);
+
+		final Config configF1 = buidConfig(22001);
+		final TCPShardIdentifier shardF1 = new TCPShardIdentifier(configF1);
+
+		final LeaderAware container = new TransportlessLeaderAware(shardL);
+		container.setNewLeader(shardL);
+
+		final EventBroker brokerL = buildBroker(consumer, container, configL, shardL);
+		final EventBroker brokerF1 = buildBroker(consumer, container, configF1, shardF1);
+
+		Random rnd = new Random();
+		for (int i = 0; i <= 10; i++) {
+			test(brokerL, shardF1, configL, rnd.nextInt());
+			test(brokerL, shardF1, configL, rnd.nextInt());
+			test(brokerL, shardF1, configL, rnd.nextInt());
+			test(brokerF1, shardL, configF1, rnd.nextInt());
+		}
 	}
 
 	@Test
@@ -160,12 +188,12 @@ public class BrokerTester {
 	}
 
 	protected EventBroker buildBroker(
-			final Consumer<Serializable> driver,
+			final BiConsumer<Serializable, InputStream> driver,
 			final LeaderAware container, 
 			final Config config, 
 			final NetworkShardIdentifier shard) {
 
-		final EventBroker broker = new SocketBroker(
+		final EventBroker broker = new NettyBroker(
 				config, 
 				shard, 
 				container,
@@ -183,11 +211,11 @@ public class BrokerTester {
 		return broker;
 	}
 
-	protected Consumer<Serializable> buildConsumer(final AtomicInteger msgAtDestiny) {
+	protected BiConsumer<Serializable, InputStream> buildConsumer(final AtomicInteger msgAtDestiny) {
 
-		return new Consumer<Serializable>() {
+		return new BiConsumer<Serializable, InputStream>() {
 			@Override
-			public void accept(Serializable t) {
+			public void accept(Serializable t, InputStream stream) {
 				msgAtDestiny.addAndGet(((AtomicInteger) t).get());
 				BrokerTester.this.latch.countDown();
 			}

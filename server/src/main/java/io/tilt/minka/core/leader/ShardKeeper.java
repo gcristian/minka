@@ -16,7 +16,6 @@
  */
 package io.tilt.minka.core.leader;
 
-import static io.tilt.minka.broker.EventBroker.ChannelHint.EVENT_SET;
 import static io.tilt.minka.core.leader.data.Scheme.ClusterHealth.STABLE;
 import static io.tilt.minka.core.leader.data.Scheme.ClusterHealth.UNSTABLE;
 import static java.time.Instant.now;
@@ -223,7 +222,6 @@ class ShardKeeper implements Service {
 			scheme.getCommitedState().findShards(ShardState.GONE.negative(), 
 					shard-> eventBroker.send(
 							shard.getBrokerChannel(), 
-							EVENT_SET, 
 							Clearance.create(shardId, dom)));
 		} catch (Exception e) {
 			logger.error("{}: Unexpected while blessing", getName(), e);

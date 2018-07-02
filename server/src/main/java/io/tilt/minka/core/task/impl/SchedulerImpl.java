@@ -192,8 +192,8 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 			int retries = 0;
 			while (!Thread.interrupted()) {
 				final Permission p = untilGrant ? acquireBlocking(sync.getAction()) : acquire(sync.getAction());
-				if (logger.isDebugEnabled()) {
-					logger.debug("{}: ({}) {} operation {} to {}", getName(), logName, 
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: ({}) {} operation {} to {}", getName(), logName, 
 							sync.getAction(), p, sync.getTask().getClass().getSimpleName());
 				}
 				if (p == GRANTED) {

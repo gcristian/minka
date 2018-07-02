@@ -3,12 +3,16 @@ package io.tilt.minka;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.io.ByteArrayInputStream;
+import java.io.StringBufferInputStream;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+import org.apache.commons.io.Charsets;
+import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.junit.Assert;
 
 import io.tilt.minka.api.Config;
@@ -187,7 +191,8 @@ public class TestUtils {
 	}
 
 	public static Duty duty(final Pallet p, final int id) {
-		return Duty.builder(String.valueOf(id), p.getId()).with(1).build();
+		final ByteArrayInputStream bais = new ByteArrayInputStream(("this-is-a-stream-for-duty-id:" + id).getBytes(Charsets.UTF_8));
+		return Duty.builder(String.valueOf(id), p.getId()).with(1).with(bais).build();
 	}
     
 

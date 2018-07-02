@@ -141,12 +141,12 @@ public class EventMapper {
 	 * @param biconsumer	to be called only on client's call thru MinkaClient.deliver(...)
 	 * @return	the event mapper builder
 	 */
-	public EventMapper onTransfer(final BiConsumer<Duty, Serializable> biconsumer) {
+	public EventMapper onTransfer(final BiConsumer<Duty, java.io.InputStream> biconsumer) {
 		initConsumerDelegate();
 		((ConsumerDelegate)getDepPlaceholder().getDelegate()).setBiConsumerTransfer(biconsumer);
 		return this;
 	}
-	public EventMapper onPalletTransfer(final BiConsumer<Pallet, Serializable> biconsumer) {
+	public EventMapper onPalletTransfer(final BiConsumer<Pallet, java.io.InputStream> biconsumer) {
 		initConsumerDelegate();
 		((ConsumerDelegate)getDepPlaceholder().getDelegate()).setBiConsumerTransferPallet(biconsumer);
 		return this;

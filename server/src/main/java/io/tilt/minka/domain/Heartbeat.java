@@ -55,7 +55,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	private List<EntityRecord> captured;
 	@JsonProperty(index=5, value="captured-ids")
 	private String capturedIds;
-	private Map<Pallet, ShardCapacity> shardCapacities;
+	private Map<Pallet, ShardCapacity> capacities;
 	private final NetworkShardIdentifier shardId;
 	private final DateTime creation;
 	private DateTime reception;
@@ -136,7 +136,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 		this.shardId = id;
 		this.creation = creation;
 		this.sequenceId = sequenceId;
-		this.shardCapacities = shardCapacities;
+		this.capacities = shardCapacities;
 		this.reportsDuties = reportsDuties;
 		this.capturedIds = getCaptured_();
 	}
@@ -193,7 +193,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	/** dereferences inner collections */
 	public void clear() {
 		this.captured.clear();
-		this.shardCapacities.clear();
+		this.capacities.clear();
 	}
 
 	@JsonProperty(index=5, value="captured-size")
@@ -272,6 +272,6 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 
 	@JsonIgnore
 	public Map<Pallet, ShardCapacity> getCapacities() {
-		return this.shardCapacities;
+		return this.capacities;
 	}
 }

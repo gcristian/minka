@@ -22,10 +22,8 @@ import static java.util.Objects.requireNonNull;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -33,12 +31,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.HeartbeatFactory;
 import io.tilt.minka.core.task.LeaderAware;
+import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;

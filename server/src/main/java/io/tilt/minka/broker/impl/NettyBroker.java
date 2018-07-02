@@ -18,14 +18,14 @@ package io.tilt.minka.broker.impl;
 
 import static java.util.Objects.requireNonNull;
 
+import java.io.InputStream;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.broker.CustomCoder.Block;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
@@ -49,8 +50,8 @@ import io.tilt.minka.spectator.MessageMetadata;
 
 /**
  * Async TCP socket broker based on Netty framework
- * Every shard's broker runs a client listener server using {@linkplain SocketServer} 
- * while outbound messages from it are created on demand using a {@linkplain SocketClient}
+ * Every shard's broker runs a client listener server using {@linkplain NettyServer} 
+ * while outbound messages from it are created on demand using a {@linkplain NettyClient}
  * 
  * Although brokers are directly connected: they dont talk, 
  * i.e. clients dont wait for an answer, servers dont produce it, 
@@ -60,7 +61,7 @@ import io.tilt.minka.spectator.MessageMetadata;
  * @author Cristian Gonzalez
  * @since Jan 31, 2016
  */
-public class SocketBroker extends AbstractBroker implements EventBroker {
+public class NettyBroker extends AbstractBroker implements EventBroker {
 	@JsonIgnore
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -69,10 +70,10 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	private final LeaderAware leaderAware;
 	private final Agent discarderAgent;
 	
-	private SocketServer server;
-	private Map<DirectChannel, SocketClient> clients;
+	private NettyServer server;
+	private Map<DirectChannel, NettyClient> clients;
 
-	public SocketBroker(
+	public NettyBroker(
 			final Config config, 
 			final NetworkShardIdentifier shardId, 
 			final LeaderAware leaderAware,
@@ -100,11 +101,11 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 		if (server == null) {			
 			scheduler.schedule(discarderAgent);
 
-			logger.info("{}: Creating SocketServer", getName());
+			logger.info("{}: Creating NettyServer", getName());
 			getShardId().release();
-			this.server = new SocketServer(
+			this.server = new NettyServer(
 					this, 
-					config.getBroker().getConnectionHandlerThreads(),
+					config.getBroker().getInboundThreads(),
 					getShardId().getPort(), 
 					getShardId().getAddress().getHostAddress(),
 					config.getBroker().getNetworkInterfase(), 
@@ -131,9 +132,9 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	 */
 	private void discardObsoleteClients() {
 		try {
-			final Iterator<Entry<DirectChannel, SocketClient>> it = clients.entrySet().iterator();
+			final Iterator<Entry<DirectChannel, NettyClient>> it = clients.entrySet().iterator();
 			while (it.hasNext()) {
-				final Entry<DirectChannel, SocketClient> ch = it.next();
+				final Entry<DirectChannel, NettyClient> ch = it.next();
 				if (ch.getValue().hasExpired()) {
 					logger.warn("{}: ({}) DISCARDING obsolete client: {} for channel: {}", getName(),
 							getShardId(), ch.getKey(), ch.getKey());
@@ -153,7 +154,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 		if (previous == null || !previous.equals(newLeader)) {
 			logger.info("{}: ({}) Closing client connections to previous leader: {}, cause new leader is: {}",
 					getName(), super.getShardId(), previous, newLeader);
-			closeClients();
+			//closeClients();
 		}
 	}
 
@@ -171,41 +172,25 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	}
 
 	@Override
-	public boolean send(final BrokerChannel channel, final Serializable event) {
-		return post(channel, channel.getChannel().getType(), event);
-	}
-
-	@Override
-	public boolean send(final BrokerChannel channel, final List<Serializable> event) {
-		return post(channel, channel.getChannel().getType(), event);
-	}
-
-	@Override
-	public boolean send(
-			final BrokerChannel channel, 
-			final ChannelHint type, 
-			final Serializable event) {
-		return post(channel, type, event);
-	}
-
-	private synchronized boolean post(final BrokerChannel channel, final ChannelHint type, final Object event) {
-		final SocketClient client = getOrCreate(channel);
-		if (logger.isDebugEnabled()) {
-			logger.debug("{}: ({}) Posting to Broker: {}:{} ({} into {}))", getName(), getShardId(),
+	public synchronized boolean send(final BrokerChannel channel, final Serializable event, final InputStream stream) {
+		final NettyClient client = getOrCreate(channel);
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: ({}) Posting to {}:{} ({} into {}))", getName(), getShardId(),
 				channel.getAddress().getAddress().getHostAddress(), channel.getAddress().getPort(),
 				event.getClass().getSimpleName(), channel.getChannel());
 		}
 
-		return client.send(new MessageMetadata(event, channel.getChannel().name(), getShardId().toString()));
+		final MessageMetadata mm = new MessageMetadata(event, channel.getChannel().name(), getShardId().toString());
+		return client.send(new Block(mm, stream));
 	}
 
-	private SocketClient getOrCreate(final BrokerChannel channel) {
-		SocketClient client = this.clients.get(channel);
+	private NettyClient getOrCreate(final BrokerChannel channel) {
+		NettyClient client = this.clients.get(channel);
 		if (client == null) {
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: ({}) CREATING SocketClient for Shard: {}", getName(), getShardId(), channel.getAddress());
+				logger.info("{}: ({}) CREATING NettyClient for Shard: {}", getName(), getShardId(), channel.getAddress());
 			}
-			client = new SocketClient(channel,
+			client = new NettyClient(channel,
 					scheduler,
 					(int)config.beatToMs(config.getBroker().getRetryDelayMiliBeats())/1000, 
 					config.getBroker().getMaxRetries(), 
@@ -220,7 +205,8 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	public boolean unsubscribe(
 			final BrokerChannel brokerChannel, 
 			final Class<? extends Serializable> eventType,
-			final Consumer<Serializable> driver) {
+			final BiConsumer<Serializable, InputStream> driver) {
+		// TODO nothing to do really
 		return true;
 	}
 
@@ -287,7 +273,7 @@ public class SocketBroker extends AbstractBroker implements EventBroker {
 	protected boolean onSubscription(
 			final BrokerChannel channel, 
 			final Class<? extends Serializable> eventType,
-			final Consumer<Serializable> driver, 
+			final BiConsumer<Serializable, InputStream> driver, 
 			final long sinceTimestamp) {
 		return true;
 	}

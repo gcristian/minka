@@ -18,6 +18,8 @@ package io.tilt.minka.domain;
 
 import static org.apache.commons.lang.StringUtils.EMPTY;
 
+import java.io.InputStream;
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -54,11 +56,11 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	private CommitTree tree;
 	private EntityPayload userPayload;
 	private ShardEntity relatedEntity;
+	private volatile transient InputStream payload;
 	
 	public enum Type {
 		DUTY, PALLET
 	}
-
 	
 	private ShardEntity(final Entity entity, Type type) {
 		this.from = entity;
@@ -68,12 +70,12 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	
 	public static class Builder {
 		
-		private EntityPayload userPayload;
 		private ShardEntity relatedEntity;
 		private final Duty duty;
 		private final Pallet pallet;
 		private ShardEntity from;
-
+		private EntityPayload userPayload;
+		
 		private Builder(final Entity entity) {
 			Validate.notNull(entity);
 			if (entity instanceof Duty) {
@@ -90,11 +92,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 			return this;
 			
 		}
-		public Builder withPayload(final EntityPayload userPayload) {
-			Validate.notNull(userPayload);
-			this.userPayload = userPayload;
-			return this;
-		}
 		public ShardEntity build() {
 			if (from!=null) {
 				final ShardEntity t = new ShardEntity(from.getEntity(), from.getType());
@@ -109,7 +106,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 			} else {
 				final ShardEntity ret = new ShardEntity(duty == null ? pallet : duty,
 						duty == null ? Type.PALLET : Type.DUTY);
-				ret.setUserPayload(userPayload);
 				ret.setRelatedEntity(relatedEntity);
 				return ret;
 			}
@@ -125,6 +121,21 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		}
 	}
 
+	public void putPayload(final InputStream payload) {
+		this.payload = payload;
+	}
+	
+	public InputStream getPayload() {
+		return this.payload;
+	}
+	public boolean hasPayload() {
+		return this.payload != null;
+	}
+	
+	public void clearPayload() {
+		this.payload = null;
+	}
+	
 	private void setRelatedEntity(final ShardEntity entity){
 		this.relatedEntity = entity;
 	}
@@ -132,6 +143,10 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	@JsonIgnore
 	public ShardEntity getRelatedEntity() {
 		return this.relatedEntity;
+	}
+	
+	public EntityPayload getUserPayload() {
+		return userPayload;
 	}
 	
 	@JsonIgnore
@@ -148,6 +163,10 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	}
 
+	public void setUserPayload(EntityPayload userPayload) {
+		this.userPayload = userPayload;
+	}
+	
 	@JsonProperty("id")
 	private String getId_() {
 		if (this.from instanceof Duty) {
@@ -173,15 +192,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		return getCommitTree().getLast().getEvent();
 	}
 	
-	private void setUserPayload(final EntityPayload userPayload) {
-		this.userPayload = userPayload;
-	}
-
-	@JsonIgnore
-	public EntityPayload getUserPayload() {
-		return this.userPayload;
-	}
-
 	public static String toDutyStringIds(final Collection<Duty> duties) {
 		if (duties!=null && duties.size()>0) {
 			final StringBuilder sb = new StringBuilder(duties.size() * 10);

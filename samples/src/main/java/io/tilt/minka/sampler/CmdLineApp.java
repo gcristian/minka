@@ -216,7 +216,7 @@ public class CmdLineApp {
 		final String id = StringUtils.remove(StringUtils.abbreviate(s[2], 32).trim(), " ");
 		final DutyBuilder bldr = Duty.builder(tagPrefix + id, s[1]);
 		if (s.length==4) {
-			bldr.with(Double.valueOf(s[3]));
+			bldr.with(Double.valueOf(s[3]).doubleValue());
 		}
 		return bldr.build();
 	}

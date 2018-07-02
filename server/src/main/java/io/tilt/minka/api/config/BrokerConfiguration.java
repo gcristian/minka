@@ -3,6 +3,7 @@ package io.tilt.minka.api.config;
 import org.apache.commons.lang3.StringUtils;
 
 public class BrokerConfiguration {
+	
 	public final static int PORT = 5748;
 	protected final static String HOST_PORT = "localhost:" + PORT;
 	private String hostPort;
@@ -51,36 +52,67 @@ public class BrokerConfiguration {
 	public void setHostAndPort(final String host, final int port) {
 		this.hostPort = host + ":" + port;
 	}
-	public int getConnectionHandlerThreads() {
-		return this.connectionHandlerThreads;
+	// tested with a cluster of 10 nodes: 1 thread was enough
+	// either case Heartbeats from followers will compete for leader's atention at most
+	// and broker's messages range 8-30k bytes: which means a fast netty channel switch and no starvation   
+	protected final static int INBOUND_THREADS = 5;
+	private int inboundThreads;
+	protected final static int OUTBOUND_THREADS = 1;
+	private int outboundThreads;
+
+	public int getInboundThreads() {
+		return this.inboundThreads;
 	}
-	public void setConnectionHandlerThreads(int connectionHandlerThreads) {
-		this.connectionHandlerThreads = connectionHandlerThreads;
+	public void setInboundThreads(int connectionHandlerThreads) {
+		this.inboundThreads = connectionHandlerThreads;
 	}
+	public int getOutboundThreads() {
+		return this.outboundThreads;
+	}
+	public void setOutboundThreads(int connectionHandlerThreads) {
+		this.outboundThreads = connectionHandlerThreads;
+	}
+	
+
 	public int getMaxRetries() {
 		return this.maxRetries;
 	}
 	public void setMaxRetries(int maxRetries) {
 		this.maxRetries = maxRetries;
 	}
+	
 	public long  getRetryDelayMiliBeats() {
 		return retryDelayMiliBeats;
 	}
 	public void setRetryDelayMiliBeats(int retryDelayMiliBeats) {
 		this.retryDelayMiliBeats = retryDelayMiliBeats;
 	}
+	
 	public long getMaxLagBeforeDiscardingClientQueue() {
 		return maxLagBeforeDiscardingClientQueue;
 	}
 	public void setMaxLagBeforeDiscardingClientQueue(long maxLagBeforeDiscardingClientQueue) {
 		this.maxLagBeforeDiscardingClientQueue = maxLagBeforeDiscardingClientQueue;
 	}
+	
+	
+	public int getMaxClientQueueSize() {
+		return maxClientQueueSize;
+	}
+	public void setMaxClientQueueSize(final int maxClientQueueSize) {
+		this.maxClientQueueSize = maxClientQueueSize;
+	}
+	//protected final static int RETRY_DELAY_MS = 300;
+	//private int retryDelayMs;
+	/** True: try number-consecutive open ports if specified is busy, False: break bootup */
+	
 	public boolean isEnablePortFallback() {
 		return this.enablePortFallback;
 	}
 	public void setEnablePortFallback(boolean enablePortFallback) {
 		this.enablePortFallback = enablePortFallback;
 	}
+	
 	public boolean isUseMachineHostname() {
 		return this.useMachineHostname;
 	}
@@ -88,30 +120,28 @@ public class BrokerConfiguration {
 	public void setUseMachineHostname(boolean useMachineHostname) {
 		this.useMachineHostname = useMachineHostname;
 	}
+
 	public String getShardIdSuffix() {
 		return this.shardIdSuffix;
 	}
 	public void setShardIdSuffix(String shardIdSuffix) {
 		this.shardIdSuffix = shardIdSuffix;
 	}
+	
 	public String getNetworkInterfase() {
 		return this.networkInterfase;
 	}
 	public void setNetworkInterfase(String networkInterfase) {
 		this.networkInterfase = networkInterfase;
 	}
-	public int getMaxClientQueueSize() {
-		return maxClientQueueSize;
-	}
-	public void setMaxClientQueueSize(final int maxClientQueueSize) {
-		this.maxClientQueueSize = maxClientQueueSize;
-	}
+	
 	public long getShutdownQuiet() {
 		return shutdownQuiet;
 	}
 	public void setShutdownQuiet(long shutdownQuiet) {
 		this.shutdownQuiet = shutdownQuiet;
 	}
+	
 	public long getShutdownTimeout() {
 		return shutdownTimeout;
 	}
@@ -123,4 +153,5 @@ public class BrokerConfiguration {
 			throw new IllegalArgumentException("property [broker host port] cannot be blank");
 		}
 	}
+
 }

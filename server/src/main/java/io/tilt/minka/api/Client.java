@@ -18,15 +18,16 @@ package io.tilt.minka.api;
 
 import static java.util.Collections.singletonList;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.Validate;
-import org.glassfish.hk2.external.org.objectweb.asm.tree.TryCatchBlockNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +36,6 @@ import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.leader.ClientEventsHandler;
 import io.tilt.minka.core.leader.Leader;
-import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.monitor.DistroJSONBuilder;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.impl.ZookeeperLeaderAware;
@@ -59,7 +59,6 @@ import io.tilt.minka.shard.ShardIdentifier;
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
  */
-@SuppressWarnings({ "unchecked", "rawtypes" })
 public class Client {
 
 	private static final Logger logger = LoggerFactory.getLogger(Client.class);
@@ -154,10 +153,17 @@ public class Client {
 	* @return whether or not the operation succeed
 	*/
 	public Reply add(final Duty duty) {
-		return push(singletonList(duty), EntityEvent.CREATE, null, null);
+		return add(duty, null);
+	}
+	public Reply add(final Duty duty, final InputStream stream) {
+		return push(singletonList(duty), EntityEvent.CREATE, singletonList(stream), null);
 	}
 	public void addAll(final Collection<? extends Entity> duty, final Consumer<Reply> callback) {
 		push(duty, EntityEvent.CREATE, null, callback); 
+		addAll(duty, null, callback);
+	}
+	public void addAll(final Collection<? extends Entity> duty, final Collection<InputStream> streams, final Consumer<Reply> callback) {
+		push(duty, EntityEvent.CREATE, streams, callback); 
 	}
 
 	public Reply add(final Pallet pallet) {
@@ -175,16 +181,16 @@ public class Client {
 	public Reply update(final Pallet pallet) {
 		return push(singletonList(pallet), EntityEvent.UPDATE, null, null);
 	}
-	public Reply transfer(final Duty duty, final EntityPayload userPayload) {
-		return push(singletonList(duty), EntityEvent.TRANSFER, userPayload, null);
+	public Reply transfer(final Duty duty, final InputStream userPayload) {
+		return push(singletonList(duty), EntityEvent.TRANSFER, singletonList(userPayload), null);
 	}
-	public Reply transfer(final Pallet pallet, final EntityPayload userPayload) {
-		return push(singletonList(pallet), EntityEvent.TRANSFER, userPayload, null);
+	public Reply transfer(final Pallet pallet, final InputStream userPayload) {
+		return push(singletonList(pallet), EntityEvent.TRANSFER, singletonList(userPayload), null);
 	}
 	
 	private Reply push(final Collection<? extends Entity> raws, 
 			final EntityEvent event, 
-			final EntityPayload userPayload, 
+			final Collection<InputStream> payload,
 			final Consumer<Reply> callback) {
 		
 		Validate.notNull(raws, "an entity is required");
@@ -192,19 +198,12 @@ public class Client {
 		final Reply[] r = {null};
 
 		try {
-			final List<ShardEntity> entities = toEntities(raws, event, userPayload);
+			final List<ShardEntity> entities = toEntities(raws, event, payload);
 			
 			if (leader.inService()) {
-				if (logger.isDebugEnabled()) {
-					logger.debug("{}: Recurring to local leader !", getClass().getSimpleName());
-				}
 				clientMediator.mediateOnEntity(entities, 
 						callback != null ? callback : reply->r[0]=reply);
 			} else {
-				if (logger.isDebugEnabled()) {
-					logger.debug("{}: Sending event: {} to leader in service", 
-						getClass().getSimpleName(), event, raws, event);
-				}
 				r[0] = sendAndReply(event, callback, r, entities);
 			}			
 		} catch (Exception e) {
@@ -221,17 +220,19 @@ public class Client {
 			final List<ShardEntity> tmp) {
 		int tries = 10;
 		boolean[] sent = {false};
-		while (!Thread.interrupted() && !sent[0] && tries-->0) {
-			if (leaderAware.getLeaderShardId()!=null) {
-				final BrokerChannel channel = eventBroker.buildToTarget(config, 
-						Channel.CLITOLEAD,
-						leaderAware.getLeaderShardId());
-				sent[0] = eventBroker.send(channel, (List)tmp);
-			} else {
-				try {
-					Thread.sleep(config.beatToMs(10));
-				} catch (InterruptedException ie) {
-					break;
+		for (ShardEntity sd: tmp) {
+			while (!sent[0] && tries-->0) {
+				if (leaderAware.getLeaderShardId()!=null) {
+					final BrokerChannel channel = eventBroker.buildToTarget(config, 
+							Channel.CLITOLEAD,
+							leaderAware.getLeaderShardId());
+					sent[0] = eventBroker.send(channel, sd, sd.getInputStream());
+				} else {
+					try {
+						Thread.sleep(config.beatToMs(10));
+					} catch (InterruptedException ie) {
+						break;
+					}
 				}
 			}
 		}
@@ -252,20 +253,21 @@ public class Client {
 	private List<ShardEntity> toEntities(
 			final Collection<? extends Entity> raws, 
 			final EntityEvent event,
-			final EntityPayload userPayload) {
+			final Collection<InputStream> streams) {
 		
 		final List<ShardEntity> tmp = new ArrayList<>();
+		final Iterator<InputStream> it = streams!=null ? streams.iterator() : null;
 		for (final Entity e: raws) {
 			final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
-			if (userPayload != null) {
-				builder.withPayload(userPayload);
-			}
 			final ShardEntity tmpp = builder.build();
 			tmpp.getCommitTree().addEvent(
 					event, 
 					EntityState.PREPARED,  
 					this.shardId, 
 					CommitTree.PLAN_NA);
+			if (it!=null) {
+				tmpp.putPayload(it.next());
+			}
 			tmp.add(tmpp);
 		}
 		return tmp;

@@ -37,19 +37,6 @@ public class CollectionUtils {
 		return new CircularCollection<>(collection);
 	}
 
-	public static void main(String[] args) throws InterruptedException {
-		SlidingSortedSet<Object> x = sliding(3);
-		
-		for (int i =0; i < 5; i++) {
-			DateTime y = new DateTime();
-			System.out.println(y);
-			x.add(y);
-			Thread.sleep(1000l);
-		}
-		System.out.println();
-		System.out.println(x);
-	}
-	
 	public static <E>SlidingSortedSet<E> sliding(int maxSize) {
 		return new SlidingSortedSet<>(maxSize);
 	}

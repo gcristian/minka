@@ -1,8 +1,11 @@
 package io.tilt.minka.api;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.ObjectOutputStream;
 import java.time.Instant;
-import java.util.function.Supplier;
 
 import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;
@@ -22,7 +25,7 @@ public class DutyBuilder {
 	private final String id;
 	private final String palletId;
 
-	private Supplier<InputStream> payload;
+	private InputStream payload;
 	private double weight;
 
 	private DutyBuilder(final String id, final String palletId) {
@@ -63,11 +66,33 @@ public class DutyBuilder {
 	 * @param payload	must implement Serializable
 	 * @return	the builder
 	 */
-	public DutyBuilder with(final Supplier<InputStream> is) {
+	public DutyBuilder with(final InputStream payload) {
 		Validate.notNull(payload, id + ": You must specify payload param or use overload builder");
-		this.payload = is;
+		this.payload = payload;
 		return this;
 	}
+	
+	/**
+	 * Facility to add an object as a payload.
+	 * Argument is converted to an input stream to be transfered thru the wire.
+	 * Duty payloads are never held in memory, leader receives them and saves them as stream.
+	 * Leader transfers payloads to followers always as streams.
+	 *  
+	 * @param payload		an object that can be written to a byte array 
+	 * @return
+	 * @throws IOException 
+	 */
+	public DutyBuilder with(final Object payload) throws IOException {
+		Validate.notNull(payload, id + ": You must specify payload param or use overload builder");
+		final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		final ObjectOutputStream oos = new ObjectOutputStream(baos);
+		oos.writeObject(payload);
+		ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+		this.payload = bais;
+		baos.close();
+		return this;
+	}
+
 	/**
 	 * The associated processing weight at execution time for the host app.
 	 * Unweighted duties cannot take benefits on pallets with weighted balancers 
@@ -96,11 +121,11 @@ public class DutyBuilder {
 		/* courtesy: at client assignation the duty has the pallet embedded*/
 		private Pallet pallet;
 		private final double load;
-		private final Supplier<InputStream> payload;
+		private transient final InputStream payload;
 		private final Instant timestamp;
 
 		protected Task(
-				final Supplier<InputStream> payload, 
+				final InputStream payload, 
 				final String id, 
 				final double load,
 				final String palletId) {
@@ -128,7 +153,6 @@ public class DutyBuilder {
 				if (obj == this ) {
 					return true;
 				} else {
-					@SuppressWarnings("unchecked")
 					Entity entity = (Entity) obj;
 					return getId().equals(entity.getId());
 				}
@@ -146,8 +170,11 @@ public class DutyBuilder {
 		public String toString() {
 			return getId();
 		}
-
 		@JsonIgnore
+		public InputStream getPayload() {
+			return payload;
+		}
+		
 		public Instant getTimestamp() {
 			return timestamp;
 		}

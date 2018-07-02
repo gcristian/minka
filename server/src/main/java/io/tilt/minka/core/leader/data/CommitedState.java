@@ -160,7 +160,7 @@ public class CommitedState {
 			commit(replica, shard, EntityEvent.STOCK);
 		}
 	}
-	
+
 	/**
 	 * Account the end of the duty movement operation.
 	 * Only access-point to adding and removing duties.

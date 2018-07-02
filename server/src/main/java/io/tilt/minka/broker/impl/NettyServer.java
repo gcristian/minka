@@ -16,9 +16,6 @@
  */
 package io.tilt.minka.broker.impl;
 
-import static java.util.Collections.synchronizedMap;
-
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -31,27 +28,22 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandler.Sharable;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.serialization.ClassResolvers;
-import io.netty.handler.codec.serialization.ObjectDecoder;
-import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import io.netty.handler.stream.ChunkedWriteHandler;
 import io.tilt.minka.api.config.SchedulerSettings;
+import io.tilt.minka.broker.CustomCoder.Block;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
-import io.tilt.minka.spectator.MessageMetadata;
 
 /**
  * Listen connections from other server's clients forwarding input data to a consumer 
@@ -60,16 +52,14 @@ import io.tilt.minka.spectator.MessageMetadata;
  * @since Mar 9, 2016
  *
  */
-public class SocketServer {
+public class NettyServer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	/* for server */
-	private SocketServerHandler serverHandler;
+	private NettyServerHandler serverHandler;
 	private EventLoopGroup serverWorkerGroup;
-	private final Consumer<MessageMetadata> consumer;
 
-	private final int connectionHandlerThreads;
 	private final int serverPort;
 	private final String serverAddress;
 	private final String networkInterfase;
@@ -82,11 +72,10 @@ public class SocketServer {
 	private final String classname = getClass().getSimpleName();
 	
 	private ChannelFuture channelFuture;
-	
 
-	protected SocketServer(
-			final Consumer<MessageMetadata> consumer, 
-			final int connectionHandlerThreads, 
+	protected NettyServer(
+			final Consumer<Block> consumer, 
+			final int threads, 
 			final int serverPort,
 			final String serverAddress, 
 			final String networkInterfase, 
@@ -98,20 +87,18 @@ public class SocketServer {
 		Validate.notNull(consumer);
 		Validate.notNull(scheduler);
 		
-		this.serverHandler = new SocketServerHandler();
-		this.consumer = consumer;
-		this.connectionHandlerThreads = connectionHandlerThreads;
 		this.serverPort = serverPort;
 		this.serverAddress = serverAddress;
 		this.networkInterfase = networkInterfase;
 		this.scheduler = scheduler;
 		this.count = new AtomicLong();
 		this.loggingName = loggingName;
+		this.serverHandler = new NettyServerHandler(consumer, scheduler, loggingName);
 		this.agent = scheduler.getAgentFactory()
 			.create(
 				Action.BROKER_SERVER_START, 
 				PriorityLock.HIGH_ISOLATED,
-				Frequency.PERIODIC, () -> listenWithRetries(maxRetries, retryDelay))
+				Frequency.PERIODIC, () -> listenWithRetries(threads, maxRetries, retryDelay))
 			.every(5000l)
 			.build();
 		scheduler.schedule(agent);
@@ -121,7 +108,7 @@ public class SocketServer {
 	 * a client for a shard's broker to send any type of messages, whether be
 	 * follower or leader
 	 */
-	private void listenWithRetries(final int maxRetries, final int retryDelay) {
+	private void listenWithRetries(final int threads, final int maxRetries, final int retryDelay) {
 		final boolean alreadyInitiated = this.channelFuture!=null;
 		final boolean withoutErrors = alreadyInitiated && channelFuture.cause()==null;
 		final boolean shuttingDown = alreadyInitiated && serverWorkerGroup.isShuttingDown();
@@ -129,12 +116,14 @@ public class SocketServer {
 			return;
 		}
 		
-		this.serverWorkerGroup = new NioEventLoopGroup(
-				this.connectionHandlerThreads,
+		if (serverWorkerGroup==null) {
+			this.serverWorkerGroup = new NioEventLoopGroup(
+				threads,
 				new ThreadFactoryBuilder()
 					.setNameFormat(SchedulerSettings.THREAD_NAME_BROKER_SERVER_WORKER)
 					.build());
-
+		}
+		
 		boolean disconnected = true;
 		while (retry < maxRetries && disconnected &&!serverWorkerGroup.isShuttingDown()) {
 			if (retry++ > 0) {
@@ -145,7 +134,7 @@ public class SocketServer {
 							classname, loggingName, e);
 				}
 			}
-			disconnected = keepListening();
+			disconnected = keepListening(threads);
 		}
 		if (disconnected) {
 			scheduler.schedule(agent);
@@ -155,11 +144,11 @@ public class SocketServer {
 	/*
 	 * whether be follower or leader the server will always hear for messages
 	 */
-	private boolean keepListening() {
+	private boolean keepListening(final int threads) {
 		boolean disconnected;
 		if (logger.isInfoEnabled()) {
 		    logger.info("{}: ({}) Building server (using i: {}) with up to {} concurrent requests",
-				classname, loggingName, networkInterfase, this.connectionHandlerThreads);
+				classname, loggingName, networkInterfase, threads);
 		}
 
 		ServerBootstrap server = null;
@@ -172,29 +161,31 @@ public class SocketServer {
 					@Override
 					public void initChannel(SocketChannel ch) throws Exception {
 						ch.pipeline()
-						    .addLast("encoder", new ObjectEncoder())
-						    .addLast("decoder", new ObjectDecoder(ClassResolvers.weakCachingResolver(null)))
+						    //.addLast("encoder", new ObjectEncoder())
+						    //.addLast("decoder", new ObjectDecoder(ClassResolvers.weakCachingResolver(null)))
 						    .addLast("handler", serverHandler)
+						    .addLast("streamer", new ChunkedWriteHandler())
 						    .addLast(new ExceptionHandler())
 						    ;
 					}
 				});			
+			//server.childOption(ChannelOption.SO_BACKLOG, 100);
 			server.childOption(ChannelOption.SO_KEEPALIVE, true);
 			server.childOption(ChannelOption.TCP_NODELAY, true);
 			server.childOption(ChannelOption.AUTO_READ, true);
 			server.childOption(ChannelOption.SO_REUSEADDR, true);
+			//server.childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
 			
 			if (logger.isInfoEnabled()) {
 			    logger.info("{}: ({}) Listening to client connections (using i:{}) with up to {} concurrent requests",
-					classname, loggingName, networkInterfase, this.connectionHandlerThreads);
+					classname, loggingName, networkInterfase, threads);
 			}
 
 			this.channelFuture = server.bind(this.serverAddress, this.serverPort);
 			disconnected = false;
 		} catch (Exception e) {
 			disconnected = true;
-			logger.error("{}: ({}) Unexpected interruption while listening incoming connections",
-					classname, loggingName, e);
+			logger.error("{}: ({}) Unexpected interruption while listening incoming connections", classname, loggingName, e);
 		}
 		return disconnected;
 	}
@@ -206,65 +197,6 @@ public class SocketServer {
 		}
 	}
 
-	@Sharable
-	/**
-	 * Sharable makes it able to use the same handler for concurrent clients
-	 */
-	protected class SocketServerHandler extends ChannelInboundHandlerAdapter {
-
-		public final Map<String, Map<String, Integer>> countByTypeAndHost = synchronizedMap(new LinkedHashMap<>());
-		
-		@Override
-		public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-			super.channelUnregistered(ctx);
-		}
-
-		@Override
-		public void channelRead(ChannelHandlerContext ctx, Object msg) {
-			try {
-				if (msg == null) {
-					logger.error("({}) SocketServerHandler: incoming message came NULL", loggingName);
-					return;
-				}
-				MessageMetadata meta = (MessageMetadata) msg;
-				if (logger.isDebugEnabled()) {
-				    logger.debug("{}: ({}) Reading: {}", classname, loggingName, meta.getPayloadType());
-				}
-
-				scheduler.schedule(scheduler.getAgentFactory()
-						.create(
-							Action.BROKER_INCOMING_MESSAGE, 
-							PriorityLock.HIGH_ISOLATED, 
-							Frequency.ONCE, 
-							() -> consumer.accept(meta))
-						.build());
-				addMetric(meta);
-			} catch (Exception e) {
-				logger.error("({}) SocketServerHandler: Unexpected while reading incoming message", loggingName, e);
-			}
-		}
-
-		private void addMetric(MessageMetadata meta) {
-			final String origin = meta.getOriginConnectAddress();
-			Map<String, Integer> typesByHost = countByTypeAndHost.get(origin);
-			if (typesByHost==null) {
-				countByTypeAndHost.put(origin, typesByHost = new LinkedHashMap<>());
-			}
-			final String type = meta.getPayloadType().getSimpleName();
-			final Integer c = typesByHost.get(type);
-			typesByHost.put(type, c==null ? new Integer(1) : new Integer(c+1));
-		}
-		
-		@Override
-		public void exceptionCaught(final ChannelHandlerContext ctx, final Throwable e) {
-			if (logger.isDebugEnabled()) {
-				logger.debug("({}) ChannelInboundHandlerAdapter: Unexpected while consuming (who else's using broker port ??)", 
-					loggingName, e.getMessage());
-			}
-			ctx.close();
-		}
-	}
-	
 	public Map<String, Map<String, Integer>> getCountByTypeAndHost() {
 		return this.serverHandler.countByTypeAndHost;
 	}

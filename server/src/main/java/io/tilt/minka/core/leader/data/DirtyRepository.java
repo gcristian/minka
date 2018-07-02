@@ -36,11 +36,13 @@ public class DirtyRepository {
 
 	private final Scheme scheme;
 	private final ShardIdentifier shardId;
+	private final EntityRepository entityRepo;
 
-	public DirtyRepository(final Scheme scheme, final ShardIdentifier shardId) {
+	public DirtyRepository(final Scheme scheme, final ShardIdentifier shardId, final EntityRepository entityRepo) {
 		super();
 		this.scheme = scheme;
 		this.shardId = shardId;
+		this.entityRepo = entityRepo;
 	}
 
 	public Collection<Duty> getDuties() {
@@ -129,6 +131,10 @@ public class DirtyRepository {
 				if (pallet==null) {
 					respond(callback, Reply.inconsistent(duty.getDuty()));
 				} else {
+					if (duty.hasPayload()) {
+						entityRepo.downstream(duty.getDuty(), duty.getInputStream());
+						duty.clearPayload();
+					}
 					final ShardEntity newone = ShardEntity.Builder
 							.builder(duty.getDuty())
 							.withRelatedEntity(pallet)

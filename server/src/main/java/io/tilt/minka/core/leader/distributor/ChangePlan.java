@@ -414,6 +414,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 			.add(duty);
 	}
 	
+	// whish map.getOrDefault should have put the default value passed
 	static <K, V>V getOrPut(final Map<K, V> map, final K key, final Supplier<V> sup) {
 		if (map == null || key == null || sup == null) {
 			throw new IllegalArgumentException("null map key or supplier");
@@ -425,7 +426,6 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		return v;
 	}
 
-	
 	@JsonIgnore
 	boolean dispatchesEmpty() {
 		return dispatches.isEmpty();

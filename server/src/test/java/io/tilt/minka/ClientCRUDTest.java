@@ -20,6 +20,7 @@ import static java.util.Collections.singleton;
 import static org.junit.Assert.assertEquals;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
@@ -51,6 +52,21 @@ public class ClientCRUDTest {
 	}
     
 	@Test
+    public void smoketest() throws Exception {
+
+		final Pallet p = Pallet.builder("p-tsftra").build();
+		final Set<Pallet> pallets = newHashSet(p);
+		final Set<Duty> duties = duties(p, 12);
+
+		final Config proto = prototypeConfig();
+		proto.getBootstrap().setNamespace("test_start_full_then_remove_add");
+		final long distroWait = proto.beatToMs(10);
+		final Set<ServerWhitness> cluster = buildCluster(1, proto, pallets, Collections.emptySet());
+
+		sleep(1000*60*10);
+	}
+	
+	@Test
     public void test_start_full_then_remove_add() throws Exception {
 
 		final Pallet p = Pallet.builder("p-tsftra").build();
@@ -60,7 +76,7 @@ public class ClientCRUDTest {
 		final Config proto = prototypeConfig();
 		proto.getBootstrap().setNamespace("test_start_full_then_remove_add");
 		final long distroWait = proto.beatToMs(10);
-		final Set<ServerWhitness> cluster = buildCluster(4, proto, pallets, duties);
+		final Set<ServerWhitness> cluster = buildCluster(2, proto, pallets, duties);
 
 		sleep(distroWait * 5);
 		
@@ -70,6 +86,7 @@ public class ClientCRUDTest {
 		
 		// remove unexisting pallet
 		final Client leaderCli = lead.getServer().getClient();
+		Thread.sleep(10000);
 		assertEquals(SUCCESS, leaderCli.remove(p).getValue());
 		// add new pallet
 		assertEquals(SUCCESS, leaderCli.add(p).getValue());

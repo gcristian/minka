@@ -16,14 +16,16 @@
  */
 package io.tilt.minka.core.follower;
 
+import java.io.InputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,10 +41,10 @@ import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
-import io.tilt.minka.domain.DependencyPlaceholder;
-import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.CommitTree.Log;
+import io.tilt.minka.domain.DependencyPlaceholder;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
@@ -55,7 +57,7 @@ import io.tilt.minka.shard.Clearance;
  * @author Cristian Gonzalez
  * @since Aug 6, 2016
  */
-class LeaderEventsHandler implements Service, Consumer<Serializable> {
+class LeaderEventsHandler implements Service, BiConsumer<Serializable, InputStream> {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -112,15 +114,10 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 	}
 
 	@Override
-	public void accept(final Serializable event) {
-		if (!(event instanceof Clearance)) {
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: ({}) Receiving {}", getName(), config.getLoggingShardId(), 
-						event.getClass().getSimpleName());
-			}
-		}
-		if (event instanceof ArrayList) {
-			onCollection((ArrayList<ShardEntity>)event);
+	public void accept(final Serializable event, final InputStream stream) {
+		if (event instanceof ShardEntity) {
+			((ShardEntity)event).putPayload(stream);
+			onSingle(event);
 		} else if (event instanceof Clearance) {
 			onClearance((Clearance) event);
 		} else {
@@ -148,34 +145,42 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		}
 	}
 	
-	private void onCollection(final List<ShardEntity> list) {
-		if (list.isEmpty()) {
-			throw new IllegalStateException("leader is sending an empty duty list");
+	@SuppressWarnings("unchecked")
+	private void onSingle(final Serializable event) {
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: ({}) Receiving {}: {}", getName(), config.getLoggingShardId(), 
+					(ShardEntity) event, event);
 		}
+		final ShardEntity single = (ShardEntity) event;
 		final Synchronized handler = scheduler.getFactory().build(
 				Action.INSTRUCT_DELEGATE,
 				PriorityLock.MEDIUM_BLOCKING, 
-				() -> handleDuty(list));
+				() -> handleDuty(single));
 		scheduler.run(handler);
 	}
-	
-	private void handleDuty(final List<ShardEntity> duties) {
+
+	private void handleDuty(final ShardEntity duty) {
 		try {
-			for (final Entry<EntityEvent, List<ShardEntity>> e : groupByFoundEvents(duties).entrySet()) {
+			for (final Entry<EntityEvent, List<ShardEntity>> e : groupByFoundEvents(Collections.singletonList(duty)).entrySet()) {
 				switch (e.getKey()) {
+				case CREATE:
+					break;
+				case REMOVE:
+					//partitionManager.finalized(e.getValue());
+					break;
 				case ATTACH:
-					if (partitionManager.attach(e.getValue())) {
+					if (partitionManager.attach(Collections.singletonList(duty))) {
 						acknowledge(e);
 					}
 					break;
 				case DETACH:
-					if (partitionManager.dettach(e.getValue())) {
+					if (partitionManager.dettach(Collections.singletonList(duty))) {
 						acknowledge(e);
 					}
 					break;
 				case TRANSFER:
 				case UPDATE:
-					partitionManager.update(e.getValue());
+					partitionManager.update(Collections.singletonList(duty));
 					break;
 				case DROP:
 					if (partitionManager.drop(e.getValue())) {
@@ -188,15 +193,15 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 					}
 					break;
 				default:
-					logger.error("{}: ({}) Not allowed: {}", e.getKey(), config.getLoggingShardId());
+					logger.error("{}: ({}) Not allowed: {}", duty, config.getLoggingShardId());
 				}
 			}
 		} catch (Exception e) {
-			logger.error("{}: ({}) Unexpected while handling Duty:{}", getName(), config.getLoggingShardId(), duties, e);
+			logger.error("{}: ({}) Unexpected while handling Duty:{}", getName(), config.getLoggingShardId(), duty, e);
 		}
 	}
 
-	/** no special event sorting */
+ 	/** no special event sorting */
 	private Map<EntityEvent, List<ShardEntity>> groupByFoundEvents(final List<ShardEntity> duties) {
 		final Map<EntityEvent, List<ShardEntity>> map = new HashMap<>(EntityEvent.values().length);
 		for (ShardEntity d: duties) {
@@ -234,6 +239,7 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 				}
 			}
 		}
+
 	}
 	
 	PartitionManager getPartitionManager() {

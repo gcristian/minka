@@ -16,6 +16,7 @@
  */
 package io.tilt.minka.core.follower.impl;
 
+import java.io.InputStream;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -101,44 +102,31 @@ class PartitionManagerImpl implements PartitionManager {
 		}
 		return null;
 	}
-	
 	@Override
 	public Void update(final Collection<ShardEntity> duties) {
 		for (ShardEntity entity : duties) {
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: ({}) {}: {}", getClass().getSimpleName(),
+					partition.getId(), entity.hasPayload() ? " RECEIVE" : "UPDATE", entity.toBrief());
+			}
+
 			if (entity.getType()==ShardEntity.Type.DUTY) {
 				if (partition.contains(entity)) {
-					if (entity.getUserPayload() == null) {
-						if (logger.isInfoEnabled()) {
-							logger.info("{}: ({}) UPDATE : {}", getClass().getSimpleName(),
-								partition.getId(), entity.toBrief());
-						}
+					final boolean has = !entity.hasPayload();
+					if (!entity.hasPayload()) {
 						dependencyPlaceholder.getDelegate().update(entity.getDuty());
 					} else {
-						if (logger.isInfoEnabled()) {
-							logger.info("{}: ({}) RECEIVE: {} with Payload type {}",
-								getClass().getSimpleName(), partition.getId(), entity.toBrief(),
-								entity.getUserPayload().getClass().getName());
-						}
-						dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), entity.getUserPayload());
+						dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), entity.getInputStream());
 					}
 				} else {
 					logger.error("{}: ({}) Unable to UPDATE a never taken Duty !: {}", getClass().getSimpleName(),
 							partition.getId(), entity.toBrief());
 				}
 			} else if (entity.getType()==ShardEntity.Type.PALLET) {
-				if (entity.getUserPayload() == null) {
-					if (logger.isInfoEnabled()) {
-						logger.info("{}: ({}) UPDATE : {}", getClass().getSimpleName(),
-							partition.getId(), entity.toBrief());
-					}
+				if (!entity.hasPayload()) {
 					dependencyPlaceholder.getDelegate().update(entity.getPallet());
 				} else {
-					if (logger.isInfoEnabled()) {
-						logger.info("{}: ({}) RECEIVE: {} with Payload type {}",
-							getClass().getSimpleName(), partition.getId(), entity.toBrief(),
-							entity.getUserPayload().getClass().getName());
-					}
-					dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), entity.getUserPayload());					
+					dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), entity.getInputStream());					
 				}
 			}
 		}

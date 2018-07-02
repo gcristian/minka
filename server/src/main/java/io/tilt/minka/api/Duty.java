@@ -16,9 +16,14 @@
  */
 package io.tilt.minka.api;
 
+import java.io.InputStream;
+import java.io.Serializable;
+
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
+import io.tilt.minka.domain.ShardEntity;
 
 /**
  * An abstract entity that the host application uses to represent anything able to balance and distribute.  
@@ -54,6 +59,5 @@ public interface Duty extends Entity {
 	static DutyBuilder builder(final String id, final String palletId) {
 		return DutyBuilder.builder(id, palletId);
 	}
-
 
 }

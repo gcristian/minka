@@ -13,6 +13,7 @@ import static io.tilt.minka.domain.ConsumerDelegate.MappingEvent.transferPallet;
 import static io.tilt.minka.domain.ConsumerDelegate.MappingEvent.update;
 import static io.tilt.minka.domain.ConsumerDelegate.MappingEvent.updatePallet;
 
+import java.io.InputStream;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
@@ -79,8 +80,8 @@ public class ConsumerDelegate implements PartitionMaster {
 	
 	private Consumer<Duty> consumerUpdate;
 	private Consumer<Pallet> consumerPalletUpdate;
-	private BiConsumer<Duty, Serializable> biconsumerTransfer;
-	private BiConsumer<Pallet, Serializable> biconsumerPalletTransfer;
+	private BiConsumer<Duty, InputStream> biconsumerTransfer;
+	private BiConsumer<Pallet, InputStream> biconsumerPalletTransfer;
 	private final Map<MappingEvent, Consumer<Set<Pallet>>> consumersPallets;
 	private final Map<MappingEvent, Consumer<Set<Duty>>> consumers;
 	private final Map<MappingEvent, Supplier<Set<Duty>>> suppliers;
@@ -126,10 +127,10 @@ public class ConsumerDelegate implements PartitionMaster {
 		Validate.notNull(weight);
 		this.capacities.put(pallet, weight);
 	}
-	public void setBiConsumerTransfer(final BiConsumer<Duty, Serializable> biconsumerTransfer) {
+	public void setBiConsumerTransfer(final BiConsumer<Duty, InputStream> biconsumerTransfer) {
 		this.biconsumerTransfer = biconsumerTransfer;
 	}
-	public void setBiConsumerTransferPallet(final BiConsumer<Pallet, Serializable> biconsumerTransferPallet) {
+	public void setBiConsumerTransferPallet(final BiConsumer<Pallet, InputStream> biconsumerTransferPallet) {
 		this.biconsumerPalletTransfer = biconsumerTransferPallet;
 	}
 	public void setConsumerUpdate(final Consumer<Duty> consumerUpdate) {
@@ -280,7 +281,7 @@ public class ConsumerDelegate implements PartitionMaster {
 		}
 	}
 	@Override
-	public void transfer(final Duty duty, Serializable clientPayload) {
+	public void transfer(final Duty duty, InputStream clientPayload) {
 		if (this.biconsumerTransfer!=null) {
 			this.biconsumerTransfer.accept(duty, clientPayload);
 		} else {
@@ -296,7 +297,7 @@ public class ConsumerDelegate implements PartitionMaster {
 		}
 	}
 	@Override
-	public void transfer(final Pallet pallet, Serializable clientPayload) {
+	public void transfer(final Pallet pallet, InputStream clientPayload) {
 		if (this.biconsumerPalletTransfer!=null) {
 			this.biconsumerPalletTransfer.accept(pallet, clientPayload);
 		} else {
