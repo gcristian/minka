@@ -17,9 +17,11 @@
 
 package io.tilt.minka.broker.impl;
 
+import java.io.InputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -30,6 +32,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
 import io.tilt.minka.broker.EventBroker;
+import io.tilt.minka.broker.impl.CustomCoder.Block;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.spectator.MessageMetadata;
@@ -40,13 +43,13 @@ import io.tilt.minka.spectator.MessageMetadata;
  * @author Cristian Gonzalez
  * @since Nov 25, 2015
  */
-public abstract class AbstractBroker implements Service, EventBroker, Consumer<MessageMetadata> {
+public abstract class AbstractBroker implements Service, EventBroker, Consumer<Block> {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	/* save (channel-eventType) -> (many consumers) */
-	private Multimap<String, Consumer<Serializable>> consumerPerChannelEventType;
+	private Multimap<String, BiConsumer<Serializable, InputStream>> consumerPerChannelEventType;
 	/* save (consumer) -> (many channeles) */
-	private Multimap<Consumer<Serializable>, String> channelsPerConsumer;
+	private Multimap<BiConsumer<Serializable, InputStream>, String> channelsPerConsumer;
 	private final NetworkShardIdentifier shardId;
 	private final String classname = getClass().getSimpleName();
 
@@ -62,34 +65,41 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 
 	
 	@Override
-	public void accept(final MessageMetadata meta) {
-		if (logger.isDebugEnabled()) {
-			logger.debug("{}: ({}) Receiving {} from {}", classname, shardId, meta.getPayloadType().getSimpleName(),
-					meta.getOriginConnectAddress());
-		}
-		String key = meta.getInbox() + meta.getPayloadType().getSimpleName();
-		if (logger.isDebugEnabled()) {
-		    logger.debug("{}: ({}) Looking subscribed consumer to Key: {}", classname, shardId, key);
-		}
-		Collection<Consumer<Serializable>> consumers = consumerPerChannelEventType.get(key);
-		if (!consumers.isEmpty()) {
-			consumers.forEach(i -> i.accept((Serializable) meta.getPayload()));
-		} else {
-			logger.error("{}: ({}) No Subscriber for incoming event: {} at channel: {}", classname, shardId,
-					meta.getPayloadType(), meta.getInbox());
+	public void accept(final Block block) {
+		
+		try {
+			final MessageMetadata meta = (MessageMetadata)block.getMessage();
+			if (logger.isDebugEnabled()) {
+				logger.debug("{}: ({}) Receiving {} from {}", classname, shardId, meta.getPayloadType().getSimpleName(),
+						meta.getOriginConnectAddress());
+			}
+			String key = meta.getInbox() + meta.getPayloadType().getSimpleName();
+			if (logger.isDebugEnabled()) {
+			    logger.debug("{}: ({}) Looking subscribed consumer to Key: {}", classname, shardId, key);
+			}
+			Collection<BiConsumer<Serializable, InputStream>> consumers = consumerPerChannelEventType.get(key);
+			if (!consumers.isEmpty()) {
+				consumers.forEach(i -> i.accept((Serializable) meta.getPayload(), block.getStream()));
+			} else {
+				logger.error("{}: ({}) No Subscriber for incoming event: {} at channel: {}", classname, shardId,
+						meta.getPayloadType(), meta.getInbox());
+			}
+		} catch (Exception e) {
+			logger.error("Cannot decode input stream", e);
+			return;
 		}
 	}
 
 	protected abstract boolean onSubscription(
 			final BrokerChannel channel, 
 			final Class<? extends Serializable> eventType,
-			final Consumer<Serializable> consumer, 
+			final BiConsumer<Serializable, InputStream> consumer, 
 			final long sinceTimestamp);
 
 	@Override
 	public void subscribe(
 			final BrokerChannel buildToTarget, 
-			final Consumer<Serializable> driver, 
+			final BiConsumer<Serializable, InputStream> driver, 
 			final long sinceNow, 
 			final @SuppressWarnings("unchecked") Class<? extends Serializable>...classes) {
 		for (int i=0;i<classes.length;i++) {
@@ -101,13 +111,13 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 	public final boolean subscribe(
 			final BrokerChannel channel, 
 			final Class<? extends Serializable> eventType,
-			final Consumer<Serializable> consumer, 
+			final BiConsumer<Serializable, InputStream> consumer, 
 			final long sinceTimestamp) {
 
 		try {
 			// TODO para Pathable usar getFullName...
 			final String key = channel.getChannel().name() + eventType.getSimpleName();
-			final Collection<Consumer<Serializable>> drivers = consumerPerChannelEventType.get(key);
+			final Collection<BiConsumer<Serializable, InputStream>> drivers = consumerPerChannelEventType.get(key);
 			if (drivers != null && drivers.contains(consumer)) {
 				logger.warn("{}: ({}) Already subscribed to channel-eventType: {}", classname, shardId, key);
 				return true;

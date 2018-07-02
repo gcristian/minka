@@ -16,6 +16,7 @@
  */
 package io.tilt.minka.api;
 
+import java.io.InputStream;
 import java.io.Serializable;
 import java.util.Set;
 
@@ -63,10 +64,10 @@ public interface PartitionDelegate {
 	/*
 	 * Instruct te Follower shard to get a client payload event for a particular duty 
 	 */
-	default void transfer(Duty duty, Serializable clientPayload) {
+	default void transfer(Duty duty, InputStream clientPayload) {
 		logger.error(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "transfer");
 	}
-	default void transfer(Pallet duty, Serializable clientPayload) {
+	default void transfer(Pallet duty, InputStream clientPayload) {
 		logger.error(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "transfer");
 	}
 

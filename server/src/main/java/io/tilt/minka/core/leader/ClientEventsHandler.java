@@ -16,20 +16,23 @@
  */
 package io.tilt.minka.core.leader;
 
-import static java.util.Collections.singletonList;
-
+import java.io.InputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.locks.LockSupport;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Reply;
 import io.tilt.minka.api.ReplyValue;
 import io.tilt.minka.broker.EventBroker;
@@ -37,6 +40,7 @@ import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.core.leader.data.UncommitedRepository;
+import io.tilt.minka.core.leader.data.EntityRepository;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.EntityEvent;
@@ -52,7 +56,7 @@ import io.tilt.minka.shard.Shard;
  * @since Dec 2, 2015
  *
  */
-public class ClientEventsHandler implements Service, Consumer<Serializable> {
+public class ClientEventsHandler implements Service, BiConsumer<Serializable, InputStream> {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -62,6 +66,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	private final UncommitedRepository stageRepo;
 	private final EventBroker eventBroker;
 	private final NetworkShardIdentifier shardId;
+	private final EntityRepository entityRepo;
 
 	private Date start;
 
@@ -71,7 +76,8 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 			final Scheduler scheduler,
 			final UncommitedRepository stageRepo,
 			final EventBroker eventBroker, 
-			final NetworkShardIdentifier shardId) {
+			final NetworkShardIdentifier shardId,
+			final EntityRepository entityRepo) {
 
 		this.config = config;
 		this.shardingState = shardingState;
@@ -79,6 +85,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 		this.stageRepo = stageRepo;
 		this.eventBroker = eventBroker;
 		this.shardId = shardId;
+		this.entityRepo = entityRepo;
 	}
 
 	private void listenUserEvents() {
@@ -110,7 +117,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	}
 	
 	@Override
-	public void accept(final Serializable event) {
+	public void accept(final Serializable event, final InputStream stream) {
 		if (inService()) {
 			if (event instanceof ShardEntity) {
 				final ShardEntity entity = (ShardEntity) event;
@@ -137,7 +144,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 				
 				
 				
-				mediateOnEntity(singletonList(entity), (r)->{});
+				//mediateOnEntity(singletonList(entity), (r)->{});
 			} else if (event instanceof List) {
 				mediateOnEntity((List)event, (r)->{});
 			}
@@ -147,54 +154,54 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 		}
 	}
 
-	public synchronized void mediateOnEntity(final Collection<ShardEntity> entities, final Consumer<Reply> callback) {
-	    final ShardEntity first = entities.iterator().next();
-    	if (first.is(EntityEvent.UPDATE) || first.is(EntityEvent.TRANSFER)) {
+	
+	public synchronized void mediateOnEntity(final Collection<Duty.LoadedDuty> entities, final Consumer<Reply> callback) {
+	    final Duty.LoadedDuty first = entities.iterator().next();
+    	if (first.getDuty().is(EntityEvent.UPDATE) || first.getDuty().is(EntityEvent.TRANSFER)) {
 			updateOrTransfer(callback, first);
 		} else {
-		    if (first.getType()==ShardEntity.Type.DUTY) {
-				if (first.is(EntityEvent.CREATE)) {
-					stageRepo.saveAllDuties(entities, callback);
+		    if (first.getDuty().getType()==ShardEntity.Type.DUTY) {
+		    	final List<ShardEntity> coll = entities.stream().map(e->e.getDuty()).collect(Collectors.toList());
+				if (first.getDuty().is(EntityEvent.CREATE)) {
+					entityRepo.save(entities);
+					stageRepo.saveAllDuties(coll, callback);
 				} else {
-				    stageRepo.removeAllDuties(entities, callback);
+				    stageRepo.removeAllDuties(coll, callback);
 				}
 			} else {
-				if (first.is(EntityEvent.CREATE)) {
-					stageRepo.saveAllPallets(entities, callback);
+				final List<ShardEntity> coll = entities.stream().map(e->e.getDuty()).collect(Collectors.toList());
+				if (first.getDuty().is(EntityEvent.CREATE)) {
+					stageRepo.saveAllPallets(coll, callback);
 				} else {
-					stageRepo.removeAllPallet(entities, callback);
+					stageRepo.removeAllPallet(coll, callback);
 				}				
 			}
 		}
 	}
 
-	private void updateOrTransfer(final Consumer<Reply> callback, final ShardEntity entity) {
+	private void updateOrTransfer(final Consumer<Reply> callback, final Duty.LoadedDuty entity) {
 		boolean sent[] = { false };
-		if (entity.getType() == ShardEntity.Type.DUTY) {
-			final Shard location = shardingState.getCommitedState().findDutyLocation(entity);
+		if (entity.getDuty().getType() == ShardEntity.Type.DUTY) {
+			final Shard location = shardingState.getCommitedState().findDutyLocation(entity.getDuty());
 			if (location != null && location.getState().isAlive()) {
-				final Serializable payloadType = entity.getUserPayload() != null ? 
-						entity.getUserPayload().getClass().getSimpleName() : "[empty]";
-				logger.info("{}: Routing event with Payload: {} on {} to Shard: {}", 
-						getClass().getSimpleName(), payloadType, entity, location);
+				logger.info("{}: Routing event on {} to Shard: {}", 
+						getClass().getSimpleName(), entity, location);
 			} else {
 				logger.error("{}: Cannot route event to Duty:{} as Shard:{} is no longer functional", 
-						getClass().getSimpleName(), entity.toBrief(), location);
+						getClass().getSimpleName(), entity.getDuty().toBrief(), location);
 			}
-			sent[0] = eventBroker.send(location.getBrokerChannel(), entity);
-		} else if (entity.getType() == ShardEntity.Type.PALLET) {
-			shardingState.getCommitedState().filterPalletLocations(entity, shard -> {
+			sent[0] = eventBroker.send(location.getBrokerChannel(), entity.getDuty(), entity.getStream());
+		} else if (entity.getDuty().getType() == ShardEntity.Type.PALLET) {
+			shardingState.getCommitedState().filterPalletLocations(entity.getDuty(), shard -> {
 				if (shard.getState().isAlive()) {
-					final Serializable payloadType = entity.getUserPayload() != null ? 
-							entity.getUserPayload().getClass().getSimpleName() : "[empty]";
-					logger.info("{}: Routing event with Payload: {} on {} to Shard: {}", 
-							getClass().getSimpleName(), payloadType, entity, shard);
-					sent[0] = eventBroker.send(shard.getBrokerChannel(), entity);
+					logger.info("{}: Routing event on {} to Shard: {}", 
+							getClass().getSimpleName(), entity, shard);
+					sent[0] = eventBroker.send(shard.getBrokerChannel(), entity.getDuty(), entity.getStream());
 				}
 			});
 		}
 		callback.accept(new Reply(sent[0] ? ReplyValue.SUCCESS_SENT : ReplyValue.FAILURE_NOT_SENT,
-				entity.getEntity(), null, null, null));
+				entity.getDuty().getEntity(), null, null, null));
 	}
 
 }

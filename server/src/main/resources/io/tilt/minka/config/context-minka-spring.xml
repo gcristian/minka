@@ -49,12 +49,15 @@
     </bean>
 
     <!-- Subscripcion, envio y recepcion de eventos (integracion leader-follower)  -->
-    <bean id="eventBroker" class="io.tilt.minka.broker.impl.SocketBroker">
+    <bean id="eventBroker" class="io.tilt.minka.broker.impl.NettyExchange">
         <constructor-arg ref="config" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderAware" />
         <constructor-arg ref="scheduler" />
     </bean>
+    
+    <bean id="entityRepo" class="io.tilt.minka.core.leader.data.EntityRepository"/>
+    
     
     <!-- ============================================================================================
     
@@ -137,6 +140,7 @@
         <constructor-arg ref="entityDao" />
         <constructor-arg ref="clientHolder" />
         <constructor-arg ref="leaderAware" />
+        <constructor-arg ref="entityRepo" />
     </bean>
 
     <!-- acceso write-only a la tabla -->
@@ -174,6 +178,7 @@
         <constructor-arg ref="stageRepository" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="shardId" />
+        <constructor-arg ref="entityRepo" />
     </bean>
     
     <!-- simplemente bootstrapea los servicios -->

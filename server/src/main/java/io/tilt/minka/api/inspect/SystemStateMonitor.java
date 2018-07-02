@@ -47,7 +47,7 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.broker.impl.SocketClient;
+import io.tilt.minka.broker.impl.NettyClient;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 import io.tilt.minka.core.leader.data.CommitedState;
 import io.tilt.minka.core.leader.data.ShardingState;
@@ -255,8 +255,8 @@ public class SystemStateMonitor {
 				clients.put(e.getKey().getChannel(), shardsByChannel=new LinkedHashMap<>());
 			}
 			final Map<String, String> brief = new LinkedHashMap<>(4);
-			if (e.getValue() instanceof SocketClient) {
-				final SocketClient sc = (SocketClient)e.getValue();				
+			if (e.getValue() instanceof NettyClient) {
+				final NettyClient sc = (NettyClient)e.getValue();				
 				brief.put("queue-size", String.valueOf(sc.getQueueSize()));
 				brief.put("sent-counter", String.valueOf(sc.getSentCounter()));
 				brief.put("alive", String.valueOf(sc.getAlive()));

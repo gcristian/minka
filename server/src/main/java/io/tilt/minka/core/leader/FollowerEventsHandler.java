@@ -18,9 +18,9 @@ package io.tilt.minka.core.leader;
 
 import static java.util.Objects.requireNonNull;
 
+import java.io.InputStream;
 import java.time.Instant;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -45,7 +45,7 @@ import io.tilt.minka.shard.Shard;
  * @author Cristian Gonzalez
  * @since Dec 2, 2015
  */
-public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
+public class FollowerEventsHandler implements Service, BiConsumer<Heartbeat, InputStream> {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -82,7 +82,7 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 		eventBroker.subscribe(
 				eventBroker.buildToTarget(config, Channel.FOLLTOLEAD, shardId),
 				Heartbeat.class,
-				(Consumer) this, 
+				(BiConsumer) this, 
 				readQueueSince);
 	}
 
@@ -93,11 +93,11 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 		this.eventBroker.unsubscribe(
 				eventBroker.build(config, Channel.FOLLTOLEAD),
 				Heartbeat.class,
-				(Consumer) this);
+				(BiConsumer) this);
 	}
 		
 	@Override
-	public void accept(final Heartbeat hb) {
+	public void accept(final Heartbeat hb, final InputStream stream) {
 		lastBeat = Instant.ofEpochMilli(hb.getCreation().getMillis());
 		hb.setReception(new DateTime(DateTimeZone.UTC));
 		if (logger.isDebugEnabled()) {
@@ -107,7 +107,8 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 
 		scheduler.run(scheduler.getFactory().build(
 			Scheduler.Action.PARTITION_TABLE_UPDATE, 
-			PriorityLock.MEDIUM_BLOCKING, ()-> hbConsumer.accept(hb, getOrRegisterShard(hb))));
+			PriorityLock.MEDIUM_BLOCKING, 
+			()-> hbConsumer.accept(hb, getOrRegisterShard(hb))));
 	}
 
     private Shard getOrRegisterShard(final Heartbeat hb) {

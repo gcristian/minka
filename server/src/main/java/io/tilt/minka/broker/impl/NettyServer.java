@@ -17,7 +17,10 @@
 package io.tilt.minka.broker.impl;
 
 import static java.util.Collections.synchronizedMap;
+import static java.util.concurrent.CompletableFuture.runAsync;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -30,6 +33,10 @@ import org.slf4j.LoggerFactory;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
+import io.netty.buffer.Unpooled;
+import io.netty.buffer.UnpooledUnsafeDirectByteBuf;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
@@ -40,12 +47,12 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.serialization.ClassResolvers;
-import io.netty.handler.codec.serialization.ObjectDecoder;
-import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import io.netty.handler.stream.ChunkedWriteHandler;
 import io.tilt.minka.api.config.SchedulerSettings;
+import io.tilt.minka.broker.impl.CustomCoder.Block;
+import io.tilt.minka.broker.impl.CustomCoder.Decoder;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
@@ -60,14 +67,14 @@ import io.tilt.minka.spectator.MessageMetadata;
  * @since Mar 9, 2016
  *
  */
-public class SocketServer {
+public class NettyServer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	/* for server */
-	private SocketServerHandler serverHandler;
+	private NettyServerHandler serverHandler;
 	private EventLoopGroup serverWorkerGroup;
-	private final Consumer<MessageMetadata> consumer;
+	private final Consumer<Block> consumer;
 
 	private final int connectionHandlerThreads;
 	private final int serverPort;
@@ -84,8 +91,8 @@ public class SocketServer {
 	private ChannelFuture channelFuture;
 	
 
-	protected SocketServer(
-			final Consumer<MessageMetadata> consumer, 
+	protected NettyServer(
+			final Consumer<Block> consumer, 
 			final int connectionHandlerThreads, 
 			final int serverPort,
 			final String serverAddress, 
@@ -98,7 +105,7 @@ public class SocketServer {
 		Validate.notNull(consumer);
 		Validate.notNull(scheduler);
 		
-		this.serverHandler = new SocketServerHandler();
+		
 		this.consumer = consumer;
 		this.connectionHandlerThreads = connectionHandlerThreads;
 		this.serverPort = serverPort;
@@ -107,6 +114,7 @@ public class SocketServer {
 		this.scheduler = scheduler;
 		this.count = new AtomicLong();
 		this.loggingName = loggingName;
+		this.serverHandler = new NettyServerHandler();
 		this.agent = scheduler.getAgentFactory()
 			.create(
 				Action.BROKER_SERVER_START, 
@@ -172,17 +180,20 @@ public class SocketServer {
 					@Override
 					public void initChannel(SocketChannel ch) throws Exception {
 						ch.pipeline()
-						    .addLast("encoder", new ObjectEncoder())
-						    .addLast("decoder", new ObjectDecoder(ClassResolvers.weakCachingResolver(null)))
+						    //.addLast("encoder", new ObjectEncoder())
+						    //.addLast("decoder", new ObjectDecoder(ClassResolvers.weakCachingResolver(null)))
 						    .addLast("handler", serverHandler)
+						    .addLast("streamer", new ChunkedWriteHandler())
 						    .addLast(new ExceptionHandler())
 						    ;
 					}
 				});			
+			server.childOption(ChannelOption.SO_BACKLOG, 100);
 			server.childOption(ChannelOption.SO_KEEPALIVE, true);
 			server.childOption(ChannelOption.TCP_NODELAY, true);
 			server.childOption(ChannelOption.AUTO_READ, true);
 			server.childOption(ChannelOption.SO_REUSEADDR, true);
+			//server.childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
 			
 			if (logger.isInfoEnabled()) {
 			    logger.info("{}: ({}) Listening to client connections (using i:{}) with up to {} concurrent requests",
@@ -210,38 +221,58 @@ public class SocketServer {
 	/**
 	 * Sharable makes it able to use the same handler for concurrent clients
 	 */
-	protected class SocketServerHandler extends ChannelInboundHandlerAdapter {
+	protected class NettyServerHandler extends ChannelInboundHandlerAdapter {
 
 		public final Map<String, Map<String, Integer>> countByTypeAndHost = synchronizedMap(new LinkedHashMap<>());
+		private final Decoder deco;
 		
 		@Override
 		public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
 			super.channelUnregistered(ctx);
 		}
+		
+		public NettyServerHandler() {
+			super();
+			deco = new Decoder((obj, is)-> runAsync(()->consumer.accept(new Block(obj, is))));
+		}
 
+		private void test(final Block block) throws IOException {
+			//////////////////////////////
+			final MessageMetadata msg = (MessageMetadata) block.getMessage();
+			int read = 0;
+			final ByteArrayOutputStream baos = new ByteArrayOutputStream();  
+			while ((read =block.getStream().read())>-1) baos.write(read);
+			logger.info("stream: {}", baos.toByteArray());
+			//////////////////////////////
+		}
+		
 		@Override
 		public void channelRead(ChannelHandlerContext ctx, Object msg) {
+			
 			try {
 				if (msg == null) {
 					logger.error("({}) SocketServerHandler: incoming message came NULL", loggingName);
 					return;
 				}
-				MessageMetadata meta = (MessageMetadata) msg;
-				if (logger.isDebugEnabled()) {
-				    logger.debug("{}: ({}) Reading: {}", classname, loggingName, meta.getPayloadType());
-				}
-
-				scheduler.schedule(scheduler.getAgentFactory()
-						.create(
-							Action.BROKER_INCOMING_MESSAGE, 
-							PriorityLock.HIGH_ISOLATED, 
-							Frequency.ONCE, 
-							() -> consumer.accept(meta))
-						.build());
-				addMetric(meta);
+				final UnpooledUnsafeDirectByteBuf uudbb = (UnpooledUnsafeDirectByteBuf)msg;
+				logger.info("received buffer: {} bytes", uudbb.readableBytes());
+				final ByteBuf buffer = Unpooled.buffer(uudbb.readableBytes());
+				uudbb.readBytes(buffer);
+				deco.decode(buffer.array());
+				buffer.release();
 			} catch (Exception e) {
 				logger.error("({}) SocketServerHandler: Unexpected while reading incoming message", loggingName, e);
 			}
+		}
+
+		private void notifyListener(final Block block) {
+			scheduler.schedule(scheduler.getAgentFactory()
+					.create(
+						Action.BROKER_INCOMING_MESSAGE, 
+						PriorityLock.HIGH_ISOLATED, 
+						Frequency.ONCE, 
+						() -> consumer.accept(block))
+					.build());
 		}
 
 		private void addMetric(MessageMetadata meta) {

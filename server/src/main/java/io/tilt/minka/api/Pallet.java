@@ -1,5 +1,6 @@
 package io.tilt.minka.api;
 
+import java.io.InputStream;
 import java.util.Comparator;
 
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
@@ -51,10 +52,6 @@ public interface Pallet extends Entity {
 	
 	public static PalletBuilder builder(final String palletId) {
 		return PalletBuilder.builder(palletId);
-	}
-
-	default int replicas() {
-		throw new RuntimeException("not implemented");
 	}
 
 }

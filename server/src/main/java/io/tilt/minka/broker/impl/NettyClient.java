@@ -31,20 +31,23 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.codec.serialization.ClassResolvers;
-import io.netty.handler.codec.serialization.ObjectDecoder;
-import io.netty.handler.codec.serialization.ObjectEncoder;
+import io.netty.handler.stream.ChunkedStream;
+import io.netty.handler.stream.ChunkedWriteHandler;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.config.SchedulerSettings;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
+import io.tilt.minka.broker.impl.CustomCoder.Block;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
@@ -59,7 +62,7 @@ import io.tilt.minka.spectator.MessageMetadata;
  * @author Cristian Gonzalez
  * @since Mar 9, 2016
  */
-public class SocketClient {
+public class NettyClient {
 
 	final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
@@ -78,7 +81,7 @@ public class SocketClient {
 	private transient final Agent connector;
 	
 	private transient EventLoopGroup clientGroup;
-	private transient SocketClientHandler clientHandler;
+	private transient NettyClientHandler clientHandler;
 	
 	@JsonProperty("log-name")
 	private String loggingName;
@@ -86,7 +89,7 @@ public class SocketClient {
 	private long lastUsage;
 	private long sentCounter;
 
-	protected SocketClient(
+	protected NettyClient(
 			final BrokerChannel channel, 
 			final Scheduler scheduler, 
 			final int retryDelay,
@@ -98,7 +101,7 @@ public class SocketClient {
 		this.config = config;
 		this.scheduler = requireNonNull(scheduler);
 
-		this.clientHandler = new SocketClientHandler(
+		this.clientHandler = new NettyClientHandler(
 				config.beatToMs(config.getBroker().getMaxLagBeforeDiscardingClientQueue()), 
 				config.getBroker().getMaxClientQueueSize());
 		this.antiflapper = new AtomicBoolean(true);
@@ -144,13 +147,13 @@ public class SocketClient {
 		}
 	}
 
-	protected boolean send(final MessageMetadata msg) {
+	protected boolean send(final Block msg) {
 		logging(msg);
 		this.lastUsage = System.currentTimeMillis();
 		return this.clientHandler.send(msg);
 	}
 
-	private void logging(final MessageMetadata msg) {
+	private void logging(final Block msg) {
 		int queueSize = this.clientHandler.size();
 		if (!alive.get()) {
 			if (!antiflapper.get() || sentCounter ==0) {
@@ -165,7 +168,8 @@ public class SocketClient {
 		}
 		sentCounter++;
 		if (logger.isDebugEnabled()) {
-		    logger.debug("{}: ({}) Sending: {}", classname, loggingName, msg.getPayloadType().getSimpleName());
+		    logger.debug("{}: ({}) Sending: {}", classname, loggingName, 
+		    		((MessageMetadata)msg.getMessage()).getPayloadType().getSimpleName());
 		}
 		
 		if (queueSize>maxQueueThreshold) {
@@ -229,21 +233,26 @@ public class SocketClient {
 				@Override
 				public void initChannel(SocketChannel ch) throws Exception {
 					ch.pipeline()
-						.addLast("encoder", new ObjectEncoder())
-						.addLast("decoder", new ObjectDecoder(ClassResolvers.weakCachingResolver(null)))
+						//.addLast("encoder", new ObjectEncoder())
+						//.addLast("decoder", new ObjectDecoder(ClassResolvers.weakCachingResolver(null)))
+						.addLast("streamer", new ChunkedWriteHandler())
 						.addLast("handler", clientHandler)
 						.addLast(new ExceptionHandler());
 				}
 			});
+			//bootstrap.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
+			bootstrap.option(ChannelOption.SO_BACKLOG, 100);
+			bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+			bootstrap.option(ChannelOption.TCP_NODELAY, true);
+			bootstrap.option(ChannelOption.AUTO_READ, true);
+			bootstrap.option(ChannelOption.SO_REUSEADDR, true);
 			this.alive.set(true);
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: ({}) Binding to broker: {}:{} at channel: {}", classname, loggingName,
 					address, port, channel.getChannel().name());
 			}
 			
-			bootstrap.connect(addr.getAddress().getHostAddress(), addr.getPort())
-				.sync();
-				//.channel().closeFuture().sync();
+			bootstrap.connect(addr.getAddress().getHostAddress(), addr.getPort()).sync();
 			wrongDisconnection = false;
 		} catch (InterruptedException ie) {
 			wrongDisconnection = false;
@@ -260,12 +269,12 @@ public class SocketClient {
 	}
 
 	@Sharable
-	protected class SocketClientHandler extends ChannelInboundHandlerAdapter {
-		private final BlockingQueue<MessageMetadata> queue;
+	protected class NettyClientHandler extends ChannelInboundHandlerAdapter {
+		private final BlockingQueue<Block> queue;
 		private final long maxLagBeforeDiscardingClientQueueBeats;
 		private final int maxClientQueueSize;
 		
-		public SocketClientHandler(
+		public NettyClientHandler(
 				final long maxLagBeforeDiscardingClientQueueBeats,
 				final int maxClientQueueSize) {
 			this.queue = new ArrayBlockingQueue<>(maxClientQueueSize, true);
@@ -273,7 +282,7 @@ public class SocketClient {
 			this.maxClientQueueSize = maxClientQueueSize;
 		}
 
-		protected boolean send(final MessageMetadata msg) {
+		protected boolean send(final Block msg) {
 			boolean sent = queue.offer(msg);
 			if (!sent && isLagTooHigh()) {
 			    queue.clear();
@@ -283,9 +292,9 @@ public class SocketClient {
 		}
 
 		private boolean isLagTooHigh() {
-			final MessageMetadata eldest = queue.peek();
-			if ((System.currentTimeMillis() - eldest.getCreatedAt()) > maxLagBeforeDiscardingClientQueueBeats 
-					|| queue.size() == maxClientQueueSize) {
+			final Block eldest = queue.peek();
+			if ((System.currentTimeMillis() - ((MessageMetadata)eldest.getMessage()).getCreatedAt()) 
+					> maxLagBeforeDiscardingClientQueueBeats || queue.size() == maxClientQueueSize) {
 				logger.error("{}: ({}) Clearing queue for LAG reached LIMIT - increment client connector threads size", 
 						getClass().getSimpleName(), loggingName);
 				return true;
@@ -309,29 +318,38 @@ public class SocketClient {
 		}
 		@Override
 		public void channelActive(final ChannelHandlerContext ctx) {
-			MessageMetadata msg = null;
+			keepSending(ctx);
+		}
+
+		private void keepSending(final ChannelHandlerContext ctx) {
+			Block block = null;
 			try {
 				while (!Thread.interrupted()) {
-					msg = queue.take();
-					if (msg != null) {
+					block = queue.poll(100, TimeUnit.MILLISECONDS);
+					if (block != null) {
 						if (logger.isDebugEnabled()) {
-							logger.debug("{}: ({}) Writing: {}", classname, loggingName, msg.getPayloadType());
+							logger.debug("{}: ({}) Writing: {}", classname, loggingName, 
+									((MessageMetadata)block.getMessage()).getPayloadType());
 						}
-						ctx.writeAndFlush(msg);
+						ctx.writeAndFlush(new ChunkedStream(CustomCoder.Encoder.encode(block)));
 					} else {
 						logger.error("{}: ({}) Waiting for messages to be enqueued: {}", classname,
 								loggingName);
 					}
 				}
-			} catch (InterruptedException e) {
+			} catch (Exception e) {
 				logger.error("{}: ({}) interrupted while waiting for Socketclient blocking queue gets offered",
 						classname, loggingName, e);
 			}
 		}
 		
 		@Override
-		public void channelRead(ChannelHandlerContext ctx, Object msg) {
-			ctx.write(msg);
+		public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {			
+			ChunkedStream c = (ChunkedStream)msg;
+			final ByteBuf bb = c.readChunk(ctx);
+			final byte[] read = new byte[bb.readableBytes()];
+			bb.readBytes(read);
+			ctx.write(read);
 		}
 
 		@Override

@@ -43,12 +43,20 @@ public class MessageMetadata implements Serializable {
     static {
         sequencer = new AtomicInteger();
     }
+    
     public MessageMetadata(final Object payload, final String inbox, final String originConnectAddress) {
         this.payload = payload;
         this.originConnectAddress = originConnectAddress;
         this.createdAt = System.currentTimeMillis();
         this.inbox = inbox;
         this.sequenceNumber = sequencer.incrementAndGet();
+    }
+    private boolean asStream;
+    public void treatAsStream() {
+    	this.asStream = true;
+    }
+    public boolean isStream() {
+    	return this.asStream;
     }
     
     public Object getPayload() {

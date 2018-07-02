@@ -16,7 +16,6 @@
  */
 package io.tilt.minka.core.leader;
 
-import static io.tilt.minka.broker.EventBroker.ChannelHint.EVENT_SET;
 import static io.tilt.minka.core.leader.data.ShardingState.ClusterHealth.STABLE;
 import static io.tilt.minka.core.leader.data.ShardingState.ClusterHealth.UNSTABLE;
 import static java.time.Instant.now;
@@ -221,7 +220,6 @@ public class Proctor implements Service {
 			shardingState.getCommitedState().findShards(ShardState.GONE.negative(), 
 					shard-> eventBroker.send(
 							shard.getBrokerChannel(), 
-							EVENT_SET, 
 							Clearance.create(shardId, dom)));
 		} catch (Exception e) {
 			logger.error("{}: Unexpected while blessing", getName(), e);

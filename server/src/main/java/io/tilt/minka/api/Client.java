@@ -18,8 +18,10 @@ package io.tilt.minka.api;
 
 import static java.util.Collections.singletonList;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -150,10 +152,16 @@ public class Client {
 	* @return whether or not the operation succeed
 	*/
 	public Reply add(final Duty duty) {
-		return push(singletonList(duty), EntityEvent.CREATE, null, null);
+		return add(duty, null);
+	}
+	public Reply add(final Duty duty, final InputStream stream) {
+		return push(singletonList(duty), EntityEvent.CREATE, singletonList(stream), null);
 	}
 	public void addAll(final Collection<Entity> duty, final Consumer<Reply> callback) {
-		push(duty, EntityEvent.CREATE, null, callback); 
+		addAll(duty, null, callback);
+	}
+	public void addAll(final Collection<Entity> duty, final Collection<InputStream> streams, final Consumer<Reply> callback) {
+		push(duty, EntityEvent.CREATE, streams, callback); 
 	}
 
 	public Reply add(final Pallet pallet) {
@@ -171,38 +179,25 @@ public class Client {
 	public Reply update(final Pallet pallet) {
 		return push(singletonList(pallet), EntityEvent.UPDATE, null, null);
 	}
-	public Reply transfer(final Duty duty, final EntityPayload userPayload) {
-		return push(singletonList(duty), EntityEvent.TRANSFER, userPayload, null);
+	public Reply transfer(final Duty duty, final InputStream userPayload) {
+		return push(singletonList(duty), EntityEvent.TRANSFER, singletonList(userPayload), null);
 	}
-	public Reply transfer(final Pallet pallet, final EntityPayload userPayload) {
-		return push(singletonList(pallet), EntityEvent.TRANSFER, userPayload, null);
+	public Reply transfer(final Pallet pallet, final InputStream userPayload) {
+		return push(singletonList(pallet), EntityEvent.TRANSFER, singletonList(userPayload), null);
 	}
 	
 	private Reply push(final Collection<Entity> raws, 
 			final EntityEvent event, 
-			final EntityPayload userPayload, 
+			final Collection<InputStream> userPayload,
 			final Consumer<Reply> callback) {
 		
 		Validate.notNull(raws, "an entity is required");
 		// only not null when raws.size > 1 
-		final Reply[] r = {null};
-		
-		final List<ShardEntity> entities = toEntities(raws, event, userPayload);
-		
+		final Reply[] r = {null};		
+		final List<Duty.LoadedDuty> entities = toEntities(raws, event, userPayload);
 		if (leader.inService()) {
-			if (logger.isDebugEnabled()) {
-				logger.debug("{}: Recurring to local leader !", getClass().getSimpleName());
-			}
-			if (callback==null) {
-				clientMediator.mediateOnEntity(entities, reply->r[0]=reply);
-			} else {
-				clientMediator.mediateOnEntity(entities, callback);
-			}
+			clientMediator.mediateOnEntity(entities, callback!=null ? callback : reply->r[0]=reply);
 		} else {
-			if (logger.isDebugEnabled()) {
-				logger.debug("{}: Sending event: {} to leader in service", 
-					getClass().getSimpleName(), event, raws, event);
-			}
 			r[0] = sendAndReply(event, callback, r, entities);
 		}
 		return r[0];
@@ -212,32 +207,34 @@ public class Client {
 			final EntityEvent event, 
 			final Consumer<Reply> callback, 
 			final Reply[] r,
-			final List<ShardEntity> tmp) {
+			final List<Duty.LoadedDuty> tmp) {
 		int tries = 10;
 		boolean[] sent = {false};
-		while (!sent[0] && tries-->0) {
-			if (leaderAware.getLeaderShardId()!=null) {
-				final BrokerChannel channel = eventBroker.buildToTarget(config, 
-						Channel.CLITOLEAD,
-						leaderAware.getLeaderShardId());
-				sent[0] = eventBroker.send(channel, (List)tmp);
-			} else {
-				try {
-					Thread.sleep(config.beatToMs(10));
-				} catch (InterruptedException ie) {
-					break;
+		for (Duty.LoadedDuty ld: tmp) {
+			while (!sent[0] && tries-->0) {
+				if (leaderAware.getLeaderShardId()!=null) {
+					final BrokerChannel channel = eventBroker.buildToTarget(config, 
+							Channel.CLITOLEAD,
+							leaderAware.getLeaderShardId());
+					sent[0] = eventBroker.send(channel, ld.getDuty(), ld.getStream());
+				} else {
+					try {
+						Thread.sleep(config.beatToMs(10));
+					} catch (InterruptedException ie) {
+						break;
+					}
 				}
 			}
 		}
 		if (callback==null) {
 			return new Reply(sent[0] ? ReplyValue.SUCCESS_SENT : ReplyValue.FAILURE_NOT_SENT, 
-					tmp.get(0).getEntity(), null, event, null);
+					tmp.get(0).getDuty().getEntity(), null, event, null);
 		} else {
-			for (ShardEntity e: tmp) {
+			for (Duty.LoadedDuty e: tmp) {
 				try {
 					callback.accept(new Reply(
 							sent[0] ? ReplyValue.SUCCESS_SENT : ReplyValue.FAILURE_NOT_SENT, 
-							e.getEntity(), 
+							e.getDuty().getEntity(), 
 							null, 
 							event, 
 							null));	
@@ -249,24 +246,22 @@ public class Client {
 		return null;
 	}
 
-	private List<ShardEntity> toEntities(
+	private List<Duty.LoadedDuty> toEntities(
 			final Collection<Entity> raws, 
 			final EntityEvent event,
-			final EntityPayload userPayload) {
+			final Collection<InputStream> streams) {
 		
-		final List<ShardEntity> tmp = new ArrayList<>();
+		final List<Duty.LoadedDuty> tmp = new ArrayList<>();
+		final Iterator<InputStream> it = streams!=null ? streams.iterator() : null;
 		for (final Entity e: raws) {
 			final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
-			if (userPayload != null) {
-				builder.withPayload(userPayload);
-			}
 			final ShardEntity tmpp = builder.build();
 			tmpp.getJournal().addEvent(
 					event, 
 					EntityState.PREPARED,  
 					this.shardId, 
 					ChangePlan.PLAN_WITHOUT);
-			tmp.add(tmpp);
+			tmp.add(new Duty.LoadedDuty(tmpp, it!=null ? it.next() : null));
 		}
 		return tmp;
 	}

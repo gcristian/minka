@@ -16,6 +16,7 @@
  */
 package io.tilt.minka.core.follower.impl;
 
+import java.io.InputStream;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -101,11 +102,11 @@ public class PartitionManagerImpl implements PartitionManager {
 
 	@SuppressWarnings("unchecked")
 	// TODO refactory
-	public Void update(final Collection<ShardEntity> duties) {
+	public Void update(final Collection<ShardEntity> duties, final java.io.InputStream stream) {
 		for (ShardEntity entity : duties) {
 			if (entity.getType()==ShardEntity.Type.DUTY) {
 				if (partition.contains(entity)) {
-					if (entity.getUserPayload() == null) {
+					if (stream == null) {
 						if (logger.isInfoEnabled()) {
 							logger.info("{}: ({}) UPDATE : {}", getClass().getSimpleName(),
 								partition.getId(), entity.toBrief());
@@ -113,18 +114,17 @@ public class PartitionManagerImpl implements PartitionManager {
 						dependencyPlaceholder.getDelegate().update(entity.getDuty());
 					} else {
 						if (logger.isInfoEnabled()) {
-							logger.info("{}: ({}) RECEIVE: {} with Payload type {}",
-								getClass().getSimpleName(), partition.getId(), entity.toBrief(),
-								entity.getUserPayload().getClass().getName());
+							logger.info("{}: ({}) RECEIVE: {} with Payload",
+								getClass().getSimpleName(), partition.getId(), entity.toBrief());
 						}
-						dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), entity.getUserPayload());
+						dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), stream);
 					}
 				} else {
 					logger.error("{}: ({}) Unable to UPDATE a never taken Duty !: {}", getClass().getSimpleName(),
 							partition.getId(), entity.toBrief());
 				}
 			} else if (entity.getType()==ShardEntity.Type.PALLET) {
-				if (entity.getUserPayload() == null) {
+				if (stream == null) {
 					if (logger.isInfoEnabled()) {
 						logger.info("{}: ({}) UPDATE : {}", getClass().getSimpleName(),
 							partition.getId(), entity.toBrief());
@@ -132,11 +132,10 @@ public class PartitionManagerImpl implements PartitionManager {
 					dependencyPlaceholder.getDelegate().update(entity.getPallet());
 				} else {
 					if (logger.isInfoEnabled()) {
-						logger.info("{}: ({}) RECEIVE: {} with Payload type {}",
-							getClass().getSimpleName(), partition.getId(), entity.toBrief(),
-							entity.getUserPayload().getClass().getName());
+						logger.info("{}: ({}) RECEIVE: {} with Payload ",
+							getClass().getSimpleName(), partition.getId(), entity.toBrief());
 					}
-					dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), entity.getUserPayload());					
+					dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), stream);					
 				}
 			}
 		}
@@ -185,7 +184,7 @@ public class PartitionManagerImpl implements PartitionManager {
 		return false;
 	}
 
-	public boolean attach(final Collection<ShardEntity> duties) {
+	public boolean attach(final Collection<ShardEntity> duties, final InputStream stream) {
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: ({}) # +{} TAKE: {}", getClass().getSimpleName(), partition.getId(),
 				duties.size(), ShardEntity.toStringBrief(duties));
@@ -225,5 +224,4 @@ public class PartitionManagerImpl implements PartitionManager {
 		this.heartbeatFactory.setDomainInfo(domain);
 		return null;
 	}
-
 }

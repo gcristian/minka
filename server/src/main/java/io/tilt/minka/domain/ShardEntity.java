@@ -51,7 +51,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	private final Entity from;
 	private final Type type;
 	private EntityJournal journal;
-	private EntityPayload userPayload;
 	private ShardEntity relatedEntity;
 	
 	public enum Type {
@@ -68,7 +67,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	
 	public static class Builder {
 		
-		private EntityPayload userPayload;
 		private ShardEntity relatedEntity;
 		private final Duty duty;
 		private final Pallet pallet;
@@ -90,18 +88,10 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 			return this;
 			
 		}
-		public Builder withPayload(final EntityPayload userPayload) {
-			Validate.notNull(userPayload);
-			this.userPayload = userPayload;
-			return this;
-		}
 		public ShardEntity build() {
 			if (from!=null) {
 				final ShardEntity t = new ShardEntity(from.getEntity(), from.getType());
 				t.replaceJournal(from.getJournal());
-				if (userPayload==null) {
-					t.setUserPayload(from.getUserPayload());
-				}
 				if (relatedEntity==null) {
 					t.setRelatedEntity(from.getRelatedEntity());
 				}
@@ -109,7 +99,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 			} else {
 				final ShardEntity ret = new ShardEntity(duty == null ? pallet : duty,
 						duty == null ? Type.PALLET : Type.DUTY);
-				ret.setUserPayload(userPayload);
 				ret.setRelatedEntity(relatedEntity);
 				return ret;
 			}
@@ -173,15 +162,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		return getJournal().getLast().getEvent();
 	}
 	
-	private void setUserPayload(final EntityPayload userPayload) {
-		this.userPayload = userPayload;
-	}
-
-	@JsonIgnore
-	public EntityPayload getUserPayload() {
-		return this.userPayload;
-	}
-
 	public static String toDutyStringIds(final Collection<Duty> duties) {
 		if (duties!=null && duties.size()>0) {
 			final StringBuilder sb = new StringBuilder(duties.size() * 10);

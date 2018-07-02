@@ -19,8 +19,10 @@ package io.tilt.minka.core.leader.distributor;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.BiConsumer;
@@ -77,7 +79,8 @@ public class Distributor implements Service {
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final LeaderAware leaderAware;
     private final Agent distributor;
-
+	private final EntityRepository entityRepo;
+	
 	private boolean initialAdding;
 	private int counterForReloads;
 	private int counterForDistro;
@@ -93,7 +96,8 @@ public class Distributor implements Service {
 			final UncommitedRepository stageRepo,
 			final ShardIdentifier shardId,
 			final DependencyPlaceholder dependencyPlaceholder, 
-			final LeaderAware leaderAware) {
+			final LeaderAware leaderAware, 
+			final EntityRepository entityRepo) {
 
 		this.config = config;
 		this.scheduler = scheduler;
@@ -102,6 +106,7 @@ public class Distributor implements Service {
 		this.uncommitedRepository = stageRepo;
 		this.shardId = shardId;
 		this.leaderAware = leaderAware;
+		this.entityRepo = entityRepo;
 
 		this.dependencyPlaceholder = dependencyPlaceholder;
 		this.initialAdding = true;
@@ -291,6 +296,7 @@ public class Distributor implements Service {
 		return shardingState.getCommitedState().filterShards(
 				sh->sh.equals(d.getShard()) && sh.getState().isAlive());							
 	}
+	
 
 	/** @return if plan is still valid */
 	private boolean push(final ChangePlan changePlan, final Delivery delivery, final boolean retrying) {
@@ -300,9 +306,11 @@ public class Distributor implements Service {
 			changePlan.obsolete();
 			return false;
 		} else {
+			final Map<ShardEntity, Log> map = new HashMap<>();
+			
 			final List<ShardEntity> payload = new ArrayList<>();
 			final List<Log> logs = new ArrayList<>();
-			final BiConsumer<ShardEntity, Log> bc = (e, l)-> { payload.add(e); logs.add(l); };
+			final BiConsumer<ShardEntity, Log> bc = (e, l)-> { payload.add(e); logs.add(l); map.put(e, l); };
 			int deliCount = (retrying)  ? delivery.contentsByState(EntityState.PENDING, bc) :  delivery.contentsByState(bc);
 			if (deliCount == 0) {
 				throw new IllegalStateException("delivery with no duties to send ?");
@@ -311,14 +319,19 @@ public class Distributor implements Service {
 				logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), delivery.getEvent().toVerb(),
 						delivery.getShard().getShardID(), deliCount,
 						ShardEntity.toStringIds(payload));
-			}	
-			logs.forEach(l->l.addState(EntityState.PENDING));
-			if (eventBroker.send(delivery.getShard().getBrokerChannel(), (List)payload)) {
-				// dont mark to wait for those already confirmed (from fallen shards)
+			}
+			
+			boolean sent = true;
+			for (Map.Entry<ShardEntity, Log> e: map.entrySet()) {
+				e.getValue().addState(EntityState.PENDING);
+				if (!eventBroker.send(delivery.getShard().getBrokerChannel(), e.getKey(), entityRepo.read(e.getKey()))) {
+					sent = false;
+					e.getValue().addState(EntityState.PREPARED);
+					logger.error("{}: Couldnt transport current issues !!!", getName());
+				}
+			}
+			if (sent) {
 				delivery.markSent();
-			} else {
-				logs.forEach(l->l.addState(EntityState.PREPARED));
-				logger.error("{}: Couldnt transport current issues !!!", getName());
 			}
 			
 			return true;

@@ -16,6 +16,7 @@
  */
 package io.tilt.minka.core.follower;
 
+import java.io.InputStream;
 import java.util.Collection;
 
 import io.tilt.minka.domain.ShardEntity;
@@ -39,13 +40,13 @@ public interface PartitionManager {
 	Void finalized(Collection<ShardEntity> duty);
 
 	/** contact follower to update duties payloads */
-	Void update(Collection<ShardEntity> duty);
+	Void update(Collection<ShardEntity> duty, InputStream stream);
 
 	/** drop duties from follower, that is stopping them */
 	boolean dettach(Collection<ShardEntity> duty);
 
 	/** make the follower responsible of duties */
-	boolean attach(Collection<ShardEntity> duty);
+	boolean attach(Collection<ShardEntity> duty, InputStream stream);
 
 	/** make the follower know leader's domain information */
 	Void acknowledge(DomainInfo info);

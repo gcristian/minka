@@ -16,13 +16,11 @@
  */
 package io.tilt.minka.broker;
 
-import static io.tilt.minka.broker.EventBroker.ChannelHint.EVENT_QUEUE;
-import static io.tilt.minka.broker.EventBroker.ChannelHint.EVENT_SET;
 
+import java.io.InputStream;
 import java.io.Serializable;
-import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.task.Service;
@@ -48,39 +46,17 @@ public interface EventBroker extends Service {
 		NetworkShardIdentifier getAddress();
 	}
 
-	enum ChannelHint {
-		/*
-		 * for the broker impl to interpret it as an accumulation of events
-		 * that may be read alltogether or by time-windows, but non overridable
-		 * events.
-		 */
-		EVENT_QUEUE,
-		/*
-		 * for the broker impl to interpret it as an overriding event where
-		 * only matters the last of each event they are a set of unique among
-		 * the same path or folder or topic
-		 */
-		EVENT_SET;
-	};
-
 	public enum Channel {
-
 		/* where the followers put their events to the leader */
-		FOLLTOLEAD(EVENT_SET),
+		FOLLTOLEAD,
 		/* where the client put its events to the leader */
-		CLITOLEAD(EVENT_QUEUE),
+		CLITOLEAD,
 		/* where the leader puts its partition messags to followers */
-		LEADTOFOLL(EVENT_QUEUE);
+		LEADTOFOLL,
+		/* where the leader answers the clients back */
+		LEADTOCLI,
+		;
 
-		private final ChannelHint type;
-
-		Channel(final ChannelHint type) {
-			this.type = type;
-		}
-
-		public ChannelHint getType() {
-			return this.type;
-		}
 	}
 	
 	BrokerChannel build(Config config, Channel channel);
@@ -94,26 +70,22 @@ public interface EventBroker extends Service {
 			Channel channel, 
 			NetworkShardIdentifier shardId);
 
-
 	/* send an event object to an inbox name */
-	boolean send(BrokerChannel channel, Serializable event);
-
-	/* send an event object list to an inbox name */
-	boolean send(BrokerChannel channel, List<Serializable> event);
-
-	/* idem overriding channel type */
-	boolean send(BrokerChannel channel, ChannelHint hint, Serializable event);
+	boolean send(BrokerChannel channel, Serializable event, InputStream stream);
+	default boolean send(BrokerChannel channel, Serializable event) {
+		return send(channel, event, null);
+	}
 
 	/* use a driver to handle events of a certain type */
 	boolean subscribe(
 			BrokerChannel channel, 
 			Class<? extends Serializable> type, 
-			Consumer<Serializable> driver,
+			BiConsumer<Serializable, InputStream> driver,
 			long sinceTimestamp);
 
 	void subscribe(
 			BrokerChannel channel, 
-			Consumer<Serializable> driver, 
+			BiConsumer<Serializable, InputStream> driver, 
 			long sinceNowLapse, 
 			Class<? extends Serializable>... classes);
 
@@ -121,7 +93,7 @@ public interface EventBroker extends Service {
 	boolean unsubscribe(
 			BrokerChannel channel, 
 			Class<? extends Serializable> eventType,
-			Consumer<Serializable> driver);
+			BiConsumer<Serializable, InputStream> driver);
 	
 	Map<BrokerChannel, Object> getSendMetrics();
 	Map<String, Map> getReceptionMetrics();
