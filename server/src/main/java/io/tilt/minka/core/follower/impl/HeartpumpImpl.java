@@ -62,7 +62,7 @@ public class HeartpumpImpl implements Heartpump {
 		return this.lastHeartbeatTimestamp;
 	}
 
-	public boolean emit(final Heartbeat arg) {
+	public boolean emit(final Heartbeat beat) {
 		try {
 			if (leaderAware.getLeaderShardId() == null) {
 				logger.warn("{}: Still without an acknowledged Leader shard !", classname,
@@ -75,7 +75,7 @@ public class HeartpumpImpl implements Heartpump {
 							config, 
 							Channel.FOLLTOLEAD,
 							leaderAware.getLeaderShardId()), 
-					arg, IOUtils.toInputStream("algo"))) {
+					beat)) {
 				this.lastHeartbeatTimestamp = new DateTime(DateTimeZone.UTC);
 				return true;
 			} else {

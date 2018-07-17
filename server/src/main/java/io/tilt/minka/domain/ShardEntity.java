@@ -18,6 +18,8 @@ package io.tilt.minka.domain;
 
 import static org.apache.commons.lang.StringUtils.EMPTY;
 
+import java.io.InputStream;
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -52,11 +54,11 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	private final Type type;
 	private EntityJournal journal;
 	private ShardEntity relatedEntity;
+	private volatile transient InputStream payload;
 	
 	public enum Type {
 		DUTY, PALLET
 	}
-
 	
 	private ShardEntity(final Entity entity, Type type) {
 		this.from = entity;
@@ -114,6 +116,21 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		}
 	}
 
+	public void putPayload(final InputStream payload) {
+		this.payload = payload;
+	}
+	
+	public InputStream getPayload() {
+		return this.payload;
+	}
+	public boolean hasPayload() {
+		return this.payload != null;
+	}
+	
+	public void clearPayload() {
+		this.payload = null;
+	}
+	
 	private void setRelatedEntity(final ShardEntity entity){
 		this.relatedEntity = entity;
 	}

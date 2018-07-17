@@ -1,3 +1,3 @@
 #!/bin/bash
-cmd="echo ========== $1 ==========; curl -s \$(./leader)/minka/admin/$1 | tee ./last-$1 | jq . -C"
+cmd="echo ========== $1 ==========; curl -s 192.168.0.102:57480/minka/admin/$1 | tee ./last-$1 | jq . -C"
 watch -n1 -tc $cmd

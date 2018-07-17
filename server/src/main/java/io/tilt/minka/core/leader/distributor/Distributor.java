@@ -323,8 +323,12 @@ public class Distributor implements Service {
 			
 			boolean sent = true;
 			for (Map.Entry<ShardEntity, Log> e: map.entrySet()) {
+				e.getKey().clearPayload();
 				e.getValue().addState(EntityState.PENDING);
-				if (!eventBroker.send(delivery.getShard().getBrokerChannel(), e.getKey(), entityRepo.read(e.getKey()))) {
+				if (!eventBroker.send(
+				        delivery.getShard().getBrokerChannel(), 
+				        e.getKey(), 
+				        entityRepo.upstream(e.getKey().getDuty()))) {
 					sent = false;
 					e.getValue().addState(EntityState.PREPARED);
 					logger.error("{}: Couldnt transport current issues !!!", getName());

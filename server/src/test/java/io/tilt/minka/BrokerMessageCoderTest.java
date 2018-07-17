@@ -15,7 +15,7 @@ import org.apache.commons.lang.RandomStringUtils;
 import org.junit.Test;
 import org.springframework.util.StreamUtils;
 
-import io.tilt.minka.broker.impl.CustomCoder.Block;
+import io.tilt.minka.broker.CustomCoder.Block;
 import io.tilt.minka.domain.BrokerMessageCoder;
 
 public class BrokerMessageCoderTest {

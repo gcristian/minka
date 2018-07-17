@@ -32,36 +32,11 @@ import org.apache.commons.lang.Validate;
 import org.joda.time.DateTime;
 
 public class CollectionUtils {
-
-	public static <K, V>V getOrPut(final Map<K, V> map, final K key, final Supplier<V> sup) {
-		if (map == null || key == null || sup == null) {
-			throw new IllegalArgumentException("null map key or supplier");
-		}
-		V v = map.get(key);
-		if (v == null) {
-			map.put(key, v = sup.get());
-		}
-		return v;
-	}
-	
 	
 	public static <T>CircularCollection<T> circular(final Collection<T> collection) {
 		return new CircularCollection<>(collection);
 	}
 
-	public static void main(String[] args) throws InterruptedException {
-		SlidingSortedSet<Object> x = sliding(3);
-		
-		for (int i =0; i < 5; i++) {
-			DateTime y = new DateTime();
-			System.out.println(y);
-			x.add(y);
-			Thread.sleep(1000l);
-		}
-		System.out.println();
-		System.out.println(x);
-	}
-	
 	public static <E>SlidingSortedSet<E> sliding(int maxSize) {
 		return new SlidingSortedSet<>(maxSize);
 	}

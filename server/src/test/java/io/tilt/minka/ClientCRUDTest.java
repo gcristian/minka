@@ -20,6 +20,7 @@ import static java.util.Collections.singleton;
 import static org.junit.Assert.assertEquals;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
@@ -36,7 +37,7 @@ import io.tilt.minka.api.Pallet;
 public class ClientCRUDTest {
 	
 	@Test
-    public void whatever() throws Exception {
+    public void smoketest() throws Exception {
 
 		final Pallet p = Pallet.builder("p-tsftra").build();
 		final Set<Pallet> pallets = newHashSet(p);
@@ -45,7 +46,7 @@ public class ClientCRUDTest {
 		final Config proto = prototypeConfig();
 		proto.getBootstrap().setNamespace("test_start_full_then_remove_add");
 		final long distroWait = proto.beatToMs(10);
-		final Set<ServerWhitness> cluster = buildCluster(2, proto, pallets, duties);
+		final Set<ServerWhitness> cluster = buildCluster(1, proto, pallets, Collections.emptySet());
 
 		sleep(1000*60*10);
 	}

@@ -32,7 +32,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.broker.impl.CustomCoder.Block;
+import io.tilt.minka.broker.CustomCoder.Block;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.spectator.MessageMetadata;
@@ -69,11 +69,11 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<B
 		
 		try {
 			final MessageMetadata meta = (MessageMetadata)block.getMessage();
-			if (logger.isDebugEnabled()) {
-				logger.debug("{}: ({}) Receiving {} from {}", classname, shardId, meta.getPayloadType().getSimpleName(),
-						meta.getOriginConnectAddress());
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: ({}) Receiving from {}: ({} at {})", classname, shardId, meta.getOriginConnectAddress(),
+						meta.getPayloadType().getSimpleName(), meta.getInbox());
 			}
-			String key = meta.getInbox() + meta.getPayloadType().getSimpleName();
+			String key = meta.getInbox() + ":" + meta.getPayloadType().getSimpleName();
 			if (logger.isDebugEnabled()) {
 			    logger.debug("{}: ({}) Looking subscribed consumer to Key: {}", classname, shardId, key);
 			}
@@ -116,7 +116,7 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<B
 
 		try {
 			// TODO para Pathable usar getFullName...
-			final String key = channel.getChannel().name() + eventType.getSimpleName();
+			final String key = channel.getChannel().name() + ":" + eventType.getSimpleName();
 			final Collection<BiConsumer<Serializable, InputStream>> drivers = consumerPerChannelEventType.get(key);
 			if (drivers != null && drivers.contains(consumer)) {
 				logger.warn("{}: ({}) Already subscribed to channel-eventType: {}", classname, shardId, key);

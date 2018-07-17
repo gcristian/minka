@@ -17,6 +17,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
+import org.glassfish.grizzly.http.server.HttpHandler;
 import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.grizzly.http.server.NetworkListener;
 import org.glassfish.grizzly.nio.transport.TCPNIOTransport;
@@ -262,11 +263,9 @@ public class Server {
 
 	private void startWebserver() {
 		final ResourceConfig res = new ResourceConfig(AdminEndpoint.class);
-		
 		res.property("contextConfig", tenant.getContext());
-		final HttpServer webServer = GrizzlyHttpServerFactory.createHttpServer(
-		        resolveWebServerBindAddress(tenant.getConfig()), res);
-		
+		final URI weburi = resolveWebServerBindAddress(tenant.getConfig());
+		final HttpServer webServer = GrizzlyHttpServerFactory.createHttpServer(weburi, res, false);
 		final ThreadPoolConfig config = ThreadPoolConfig.defaultConfig()
 				.setCorePoolSize(1)
 				.setMaxPoolSize(1);
@@ -277,12 +276,17 @@ public class Server {
 			logger.info("{}: {} Reconfiguring webserver listener {}", name, tenant.getConnectReference(), listener);
 			final TCPNIOTransport transport = listener.getTransport();
 			transport.setSelectorRunnersCount(1);
+			transport.setKernelThreadPoolConfig(config.copy());
+			transport.setWorkerThreadPoolConfig(config.copy());
+			
+			/*
 			((GrizzlyExecutorService)transport.getWorkerThreadPool())
-				.reconfigure(config.copy().setPoolName(THREAD_NAME_WEBSERVER_WORKER));
+				.getConfiguration().setPoolName(THREAD_NAME_WEBSERVER_WORKER);
 			((GrizzlyExecutorService)transport.getKernelThreadPool())
-				.reconfigure(config.copy().setPoolName(THREAD_NAME_WEBSERVER_KERNEL));
+				.getConfiguration().setPoolName(THREAD_NAME_WEBSERVER_KERNEL);
 			// note the transport class has an inner channel connector disabled to configure
 			// as an instance private field which sizes the kernel pool to 10, unmodifiable.
+			 */
 		}
 		
         // TODO disable ssl etc
@@ -290,7 +294,8 @@ public class Server {
 		try {
 			webServer.start();
 		} catch (IOException e) {
-			logger.info("{}: {} Unable to start web server", name, tenant.getConnectReference(), e);
+			logger.error("{}: {} Unable to start web server", name, tenant.getConnectReference(), e.getMessage());
+			throw new RuntimeException(e);
 		}
     }
 

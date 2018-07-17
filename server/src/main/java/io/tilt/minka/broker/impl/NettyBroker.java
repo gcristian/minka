@@ -36,8 +36,8 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.broker.CustomCoder.Block;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.broker.impl.CustomCoder.Block;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -61,7 +61,7 @@ import io.tilt.minka.spectator.MessageMetadata;
  * @author Cristian Gonzalez
  * @since Jan 31, 2016
  */
-public class NettyExchange extends AbstractBroker implements EventBroker {
+public class NettyBroker extends AbstractBroker implements EventBroker {
 	@JsonIgnore
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -73,7 +73,7 @@ public class NettyExchange extends AbstractBroker implements EventBroker {
 	private NettyServer server;
 	private Map<DirectChannel, NettyClient> clients;
 
-	public NettyExchange(
+	public NettyBroker(
 			final Config config, 
 			final NetworkShardIdentifier shardId, 
 			final LeaderAware leaderAware,
@@ -105,7 +105,7 @@ public class NettyExchange extends AbstractBroker implements EventBroker {
 			getShardId().release();
 			this.server = new NettyServer(
 					this, 
-					config.getBroker().getConnectionHandlerThreads(),
+					config.getBroker().getInboundThreads(),
 					getShardId().getPort(), 
 					getShardId().getAddress().getHostAddress(),
 					config.getBroker().getNetworkInterfase(), 
@@ -154,7 +154,7 @@ public class NettyExchange extends AbstractBroker implements EventBroker {
 		if (previous == null || !previous.equals(newLeader)) {
 			logger.info("{}: ({}) Closing client connections to previous leader: {}, cause new leader is: {}",
 					getName(), super.getShardId(), previous, newLeader);
-			closeClients();
+			//closeClients();
 		}
 	}
 
@@ -174,8 +174,8 @@ public class NettyExchange extends AbstractBroker implements EventBroker {
 	@Override
 	public synchronized boolean send(final BrokerChannel channel, final Serializable event, final InputStream stream) {
 		final NettyClient client = getOrCreate(channel);
-		if (logger.isDebugEnabled()) {
-			logger.debug("{}: ({}) Posting to Broker: {}:{} ({} into {}))", getName(), getShardId(),
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: ({}) Posting to {}:{} ({} into {}))", getName(), getShardId(),
 				channel.getAddress().getAddress().getHostAddress(), channel.getAddress().getPort(),
 				event.getClass().getSimpleName(), channel.getChannel());
 		}
@@ -206,6 +206,7 @@ public class NettyExchange extends AbstractBroker implements EventBroker {
 			final BrokerChannel brokerChannel, 
 			final Class<? extends Serializable> eventType,
 			final BiConsumer<Serializable, InputStream> driver) {
+		// TODO nothing to do really
 		return true;
 	}
 

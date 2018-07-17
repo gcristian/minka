@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -382,16 +383,29 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	 * }
 	 */
 	protected void ship(final Shard shard, final ShardEntity duty) {
-		CollectionUtils.getOrPut(
-				CollectionUtils.getOrPut(
-						shippings,
-						duty.getLastEvent(),
-						() -> new HashMap<>(2)),
-				shard,
-				() -> new ArrayList<>())
-				.add(duty);
+		getOrPut(
+			getOrPut(
+					shippings, 
+					duty.getLastEvent(), 
+					()-> new HashMap<>(2)), 
+			shard,
+			() -> new ArrayList<>())
+			.add(duty);
+
 	}
 	
+	// whish map.getOrDefault should have put the default value passed
+	static <K, V>V getOrPut(final Map<K, V> map, final K key, final Supplier<V> sup) {
+		if (map == null || key == null || sup == null) {
+			throw new IllegalArgumentException("null map key or supplier");
+		}
+		V v = map.get(key);
+		if (v == null) {
+			map.put(key, v = sup.get());
+		}
+		return v;
+	}
+
 	@JsonIgnore
 	public boolean areShippingsEmpty() {
 		return shippings.isEmpty();

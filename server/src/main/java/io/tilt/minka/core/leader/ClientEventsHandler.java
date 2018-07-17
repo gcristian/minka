@@ -20,6 +20,7 @@ import java.io.InputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.locks.LockSupport;
@@ -32,7 +33,6 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Reply;
 import io.tilt.minka.api.ReplyValue;
 import io.tilt.minka.broker.EventBroker;
@@ -117,21 +117,18 @@ public class ClientEventsHandler implements Service, BiConsumer<Serializable, In
 	}
 	
 	@Override
-	public void accept(final Serializable event, final InputStream stream) {
+	public void accept(final Serializable event, final InputStream payload) {
 		if (inService()) {
 			if (event instanceof ShardEntity) {
 				final ShardEntity entity = (ShardEntity) event;
-				
-				final String sid = entity.getJournal().getLast().getTargetId();
-				
+
 				/*
+				final String sid = entity.getJournal().getLast().getTargetId();
 				final BrokerChannel origin = eventBroker.buildToTarget(
 						config, 
 						Channel.LEADTOFOLL, 
 						shardingState.getScheme().findShard(sid).getShardID());
 				eventBroker.send(origin, event);
-				*/
-				
 				// make available to all followers
 				shardingState.getCommitedState().findShards(null, shard-> {
 					eventBroker.send(
@@ -141,10 +138,10 @@ public class ClientEventsHandler implements Service, BiConsumer<Serializable, In
 									shard.getShardID()), 
 							event);
 				});
-				
-				
-				
-				//mediateOnEntity(singletonList(entity), (r)->{});
+				*/
+
+				entity.putPayload(payload);
+				mediateOnEntity(Collections.singletonList(entity), (r)->{});
 			} else if (event instanceof List) {
 				mediateOnEntity((List)event, (r)->{});
 			}
@@ -155,22 +152,22 @@ public class ClientEventsHandler implements Service, BiConsumer<Serializable, In
 	}
 
 	
-	public synchronized void mediateOnEntity(final Collection<Duty.LoadedDuty> entities, final Consumer<Reply> callback) {
-	    final Duty.LoadedDuty first = entities.iterator().next();
-    	if (first.getDuty().is(EntityEvent.UPDATE) || first.getDuty().is(EntityEvent.TRANSFER)) {
-			updateOrTransfer(callback, first);
+	public synchronized void mediateOnEntity(final Collection<ShardEntity> entities, final Consumer<Reply> callback) {
+		final ShardEntity first = entities.iterator().next();
+    	if (first.is(EntityEvent.UPDATE) || first.is(EntityEvent.TRANSFER)) {
+			entities.forEach(e->updateOrTransfer(callback, e));
 		} else {
-		    if (first.getDuty().getType()==ShardEntity.Type.DUTY) {
-		    	final List<ShardEntity> coll = entities.stream().map(e->e.getDuty()).collect(Collectors.toList());
-				if (first.getDuty().is(EntityEvent.CREATE)) {
-					entityRepo.save(entities);
-					stageRepo.saveAllDuties(coll, callback);
+		    final boolean neo = first.is(EntityEvent.CREATE);
+            if (first.getType() == ShardEntity.Type.DUTY) {
+		    	final List<ShardEntity> coll = entities.stream().map(e->e).collect(Collectors.toList());
+				if (neo) {
+	                stageRepo.saveAllDuties(coll, callback);    
 				} else {
 				    stageRepo.removeAllDuties(coll, callback);
 				}
 			} else {
-				final List<ShardEntity> coll = entities.stream().map(e->e.getDuty()).collect(Collectors.toList());
-				if (first.getDuty().is(EntityEvent.CREATE)) {
+				final List<ShardEntity> coll = entities.stream().map(e->e).collect(Collectors.toList());
+				if (neo) {
 					stageRepo.saveAllPallets(coll, callback);
 				} else {
 					stageRepo.removeAllPallet(coll, callback);
@@ -179,29 +176,29 @@ public class ClientEventsHandler implements Service, BiConsumer<Serializable, In
 		}
 	}
 
-	private void updateOrTransfer(final Consumer<Reply> callback, final Duty.LoadedDuty entity) {
+	private void updateOrTransfer(final Consumer<Reply> callback, final ShardEntity se) {
 		boolean sent[] = { false };
-		if (entity.getDuty().getType() == ShardEntity.Type.DUTY) {
-			final Shard location = shardingState.getCommitedState().findDutyLocation(entity.getDuty());
+		if (se.getType() == ShardEntity.Type.DUTY) {
+			final Shard location = shardingState.getCommitedState().findDutyLocation(se.getDuty());
 			if (location != null && location.getState().isAlive()) {
-				logger.info("{}: Routing event on {} to Shard: {}", 
-						getClass().getSimpleName(), entity, location);
+				logger.info("{}: Routing event on {} to Shard: {}", getClass().getSimpleName(), se, location);
 			} else {
 				logger.error("{}: Cannot route event to Duty:{} as Shard:{} is no longer functional", 
-						getClass().getSimpleName(), entity.getDuty().toBrief(), location);
+						getClass().getSimpleName(), se.toBrief(), location);
 			}
-			sent[0] = eventBroker.send(location.getBrokerChannel(), entity.getDuty(), entity.getStream());
-		} else if (entity.getDuty().getType() == ShardEntity.Type.PALLET) {
-			shardingState.getCommitedState().filterPalletLocations(entity.getDuty(), shard -> {
+			sent[0] = eventBroker.send(location.getBrokerChannel(), se, se.getInputStream());
+		} else if (se.getType() == ShardEntity.Type.PALLET) {
+			shardingState.getCommitedState().filterPalletLocations(se, shard -> {
+
 				if (shard.getState().isAlive()) {
 					logger.info("{}: Routing event on {} to Shard: {}", 
-							getClass().getSimpleName(), entity, shard);
-					sent[0] = eventBroker.send(shard.getBrokerChannel(), entity.getDuty(), entity.getStream());
+							getClass().getSimpleName(), se, shard);
+					sent[0] = eventBroker.send(shard.getBrokerChannel(), se, se.getInputStream());
 				}
 			});
 		}
 		callback.accept(new Reply(sent[0] ? ReplyValue.SUCCESS_SENT : ReplyValue.FAILURE_NOT_SENT,
-				entity.getDuty().getEntity(), null, null, null));
+				se.getEntity(), null, null, null));
 	}
 
 }

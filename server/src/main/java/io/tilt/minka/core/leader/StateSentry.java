@@ -46,7 +46,6 @@ import io.tilt.minka.core.leader.distributor.Delivery;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
-import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardEntity;
@@ -138,11 +137,11 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 			// changePlan is only NULL before 1st distribution
 			// there's been a change of leader: i'm initiating with older followers
 			final StringBuilder log = new StringBuilder();
-			for (EntityRecord e: beat.getReportedCapturedDuties()) {
+			for (ShardEntity e: beat.getReportedCapturedDuties()) {
 				//L: prepared, L: pending, F: received, C: confirmed, L: ack.
 				boolean learnt = shardingState.getCommitedState().learnPreviousDistribution(e, shard);
 				if (learnt && logger.isInfoEnabled()) {
-					log.append(e.getId()).append(',');
+					log.append(e.getDuty().getId()).append(',');
 				}
 			}
 			if (log.length()>0) {
@@ -202,7 +201,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	}
 	
 	/*this checks partition table looking for missing duties (not declared dangling, that's diff) */
-	private void detectUnexpectedChanges(final Shard shard, final List<EntityRecord> reportedDuties) {
+	private void detectUnexpectedChanges(final Shard shard, final List<ShardEntity> reportedDuties) {
 		final Set<Entry<EntityState, List<ShardEntity>>> entrySet = findAbsent(shard, reportedDuties).entrySet();
 		StringBuilder log = new StringBuilder();
 		
@@ -229,17 +228,17 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 		if (log.length()>0) {
 			logger.info("{}: Written unexpected absents ({}) at [{}] on: {}", getClass().getSimpleName(), 
-					REMOVE.name(), shard, EntityRecord.toStringIds(reportedDuties));
+					REMOVE.name(), shard, ShardEntity.toStringIds(reportedDuties));
 		}
 	}
 
-	private Map<EntityState, List<ShardEntity>> findAbsent(final Shard shard, final List<EntityRecord> reportedDuties) {
+	private Map<EntityState, List<ShardEntity>> findAbsent(final Shard shard, final List<ShardEntity> reportedDuties) {
 		Map<EntityState, List<ShardEntity>> lost = null;
 		for (final ShardEntity duty : shardingState.getCommitedState().getDutiesByShard(shard)) {
 			boolean found = false;
 			boolean foundAsDangling = false;
-			for (EntityRecord reportedDuty : reportedDuties) {
-				if (duty.getEntity().getId().equals(reportedDuty.getId())) {
+			for (ShardEntity reportedDuty : reportedDuties) {
+				if (duty.getEntity().getId().equals(reportedDuty.getDuty().getId())) {
 					final EntityState lastState = reportedDuty.getLastState();
 					switch (lastState) {
 					case CONFIRMED:
@@ -279,9 +278,9 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	}
 	
 
-	private void detectInvalidShards(final Shard sourceShard, final List<EntityRecord> reportedCapturedDuties) {
-		for (final EntityRecord e : reportedCapturedDuties) {
-			final Shard should = shardingState.getCommitedState().findDutyLocation(e.getId());
+	private void detectInvalidShards(final Shard sourceShard, final List<ShardEntity> reportedCapturedDuties) {
+		for (final ShardEntity e : reportedCapturedDuties) {
+			final Shard should = shardingState.getCommitedState().findDutyLocation(e.getDuty().getId());
 			if (should==null) {
 				logger.error("unexisting duty: " + e.toString() + " reported by shard: " + sourceShard);
 			} else if (!should.equals(sourceShard)) {

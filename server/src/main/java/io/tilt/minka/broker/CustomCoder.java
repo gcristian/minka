@@ -1,4 +1,4 @@
-package io.tilt.minka.broker.impl;
+package io.tilt.minka.broker;
 
 import static java.util.Objects.requireNonNull;
 
@@ -19,9 +19,6 @@ import java.util.Vector;
 import java.util.function.BiConsumer;
 
 import org.apache.commons.io.Charsets;
-import org.jboss.netty.util.internal.ByteBufferUtil;
-
-import io.netty.buffer.ByteBufUtil;
 
 /**
  * Provides a way to transfer large Duty payload contents without allocating memory.
@@ -30,14 +27,7 @@ import io.netty.buffer.ByteBufUtil;
  * to the user again chunk by chunk to the point of consumption or storage.
  */
 public class CustomCoder {
-	
-	private final static byte TYPE_SIMPLE = 0x0;
-	private final static byte TYPE_STREAM = 0x1;
-
-	private static final byte[] EOO = "@#EndOfObject$%".getBytes(Charsets.UTF_8);
-	private static final byte[] EOB = "@#EndOfBlock$%".getBytes(Charsets.UTF_8);
-
-
+    
 	public static class Block {
 		private final Serializable message;
 		private final InputStream stream;
@@ -54,7 +44,156 @@ public class CustomCoder {
 		}
 	}
 	
-	/**
+	private final static byte TYPE_SIMPLE = 0x0;
+	private final static byte TYPE_STREAM = 0x1;
+
+	@SuppressWarnings("resource")
+    public static class Decoder {
+    
+    	private byte[] pbuff = null;
+    	private int offset = 0;
+
+    	private ByteArrayOutputStream baos;
+    	private PipedOutputStream pipeout;
+    	private PipedInputStream pipein;
+    	private int type = -1;
+    	private Section section = Section.head;
+    	
+		private final BiConsumer<Serializable, InputStream> biconsumer;
+    	
+		/** callmeback with the payload and the user stream unfetched every time you find them */
+    	public Decoder(final BiConsumer<Serializable, InputStream> consumer) {
+    		this.biconsumer = requireNonNull(consumer);
+    	}
+    	
+    	private void drain(final byte[] buffer, final int pidx, final int idx) throws Exception {
+			final OutputStream out = section == Section.object ? baos : pipeout;
+			if (section.isLimit()) {
+				//boolean unread = idx+1<readable;
+				try {
+				(section == Section.eoo ? baos : pipeout)
+					.write(pbuff!=null ? pbuff : buffer, pidx, ((idx-offset)-pidx)+1);
+				
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				if (section == Section.eoo) {
+					// prepare for new stream
+					pipein = new PipedInputStream(pipeout = new PipedOutputStream(), 2048);
+					final Serializable c = convert(baos);
+					biconsumer.accept(c, pipein);			
+				} else if (section == Section.eob) {
+					// notify EOF to user thread
+					pipeout.write(0xFFFFFFFF);
+					pipeout.flush();
+				}
+				section = section.next();
+			} else { 
+				if (pbuff!=null) {
+					out.write(pbuff, pidx, pbuff.length-pidx);
+					pbuff = null; // reset backup of previous cut when any
+				}
+				out.write(buffer, pidx, idx-pidx);
+				out.flush();
+				if (offset > 0) {
+					// save current buff: it may be part of a fragmented EO
+					pbuff = Arrays.copyOfRange(buffer, pidx, idx-offset);
+				}
+			}
+    	}
+
+    	/**
+    	 * Scans the byte array window as fragment/s of a wider message block
+    	 * delegating on consumers upon detected apparition of objects and user streams, 
+    	 * ../h:1/obj/stream/h:2/object/h1:object/stream/h1:.
+    	 */
+    	public void decode(final byte[] bytes) throws Exception {
+			int idx = 0, pidx = 0;
+			byte[] mark = null;
+			for (;idx < bytes.length; idx++) {
+				if (section == Section.head) {
+					pidx = idx+1;
+					header(bytes[idx]);
+				} else {
+					// here only stream/object are possible
+					if (mark == null) {
+						mark = section.eos();
+					}
+					if (bytes[idx] == mark[offset]) {
+						if (++offset == mark.length) {
+							section = section.next();
+							// save read bytes from start until end pos to output stream 
+							drain(bytes, pidx, idx);
+							// save start pos for the next drain
+							pidx = idx +1;
+							// reset mark index
+							offset = 0;
+						}
+					} else {
+						// false mark coincidence: restart 
+						offset = 0;
+					}
+				}
+			}
+			drain(bytes, pidx, idx);
+    	}
+   	
+    	private void header(final byte head) throws StreamCorruptedException {
+			// 1st block
+			type = head;
+			if (type!=1 && type!=0) {
+				throw new StreamCorruptedException("header unknown");
+			}
+			baos = new ByteArrayOutputStream();
+			section = section.next();
+    	}
+
+    	private static Serializable convert(final ByteArrayOutputStream baos) throws IOException, ClassNotFoundException {
+			final ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+			final ObjectInputStream ois = new ObjectInputStream(bais);
+			return (Serializable)ois.readObject();
+    	}    	
+    	
+    }   
+	
+	private static final byte[] EOO = "@#EndOfObject$%".getBytes(Charsets.UTF_8);
+    private static final byte[] EOB = "@#EndOfBlock$%".getBytes(Charsets.UTF_8);
+
+    private static enum Section {
+        
+        // type mark
+        head,
+        // shard entity
+        object,
+        // end of object
+        eoo,
+        // user duty input stream
+        stream,
+        // end of block
+        eob
+        ;
+        public boolean isLimit() {
+            return this == eoo || this == eob;
+        }
+        public byte[] eos() {
+            if (this == stream) {
+                return EOB;
+            } else if (this == object) {
+                return EOO;
+            } else {
+                throw new IllegalArgumentException("curr. section not a body !: " + this);
+            }
+        }
+        public Section next() {
+            final int o = this.ordinal();
+            if (o+1 == values().length) {
+                return head;
+            }
+            return values()[o+1];
+        }
+    }
+    
+    /**
 	 * Encoded format for returned input streams:
 	 * <pre>
 	 * 
@@ -98,7 +237,7 @@ public class CustomCoder {
     		final ObjectOutputStream oos = new ObjectOutputStream(baos);
 			oos.writeObject(block.getMessage());
     		oos.flush();    		
-    		baos.write(EOO, 0, EOO.length);			
+    		baos.write(Section.object.eos(), 0, Section.object.eos().length);			
 			vec.add(new ByteArrayInputStream(baos.toByteArray()));
 
 			// 3rd block: stream
@@ -106,144 +245,10 @@ public class CustomCoder {
     			vec.add(block.getStream());
     		}
 			// 3rd/4th block: end of stream
-    		vec.add(new ByteArrayInputStream(EOB));    			
+    		vec.add(new ByteArrayInputStream(Section.stream.eos()));    			
     		return new SequenceInputStream(vec.elements());
     	}
     	
 	}
-	
-	@SuppressWarnings("resource")
-    public static class Decoder {
-    
-    	private byte[] pbuff = null;
-    	private int offset = 0;
 
-    	private ByteArrayOutputStream baos;
-    	private PipedOutputStream pipeout;
-    	private PipedInputStream pipein;
-    	private int type = -1;
-    	private Section section = Section.head;
-    	
-		private final BiConsumer<Serializable, InputStream> biconsumer;
-    	
-		/** callmeback with the payload and the user stream unfetched every time you find them */
-    	public Decoder(final BiConsumer<Serializable, InputStream> consumer) {
-    		this.biconsumer = requireNonNull(consumer);
-    	}
-    	
-    	private void drain(final byte[] buffer, final int pidx, final int idx) throws Exception {
-			final OutputStream out = section == Section.object ? baos : pipeout;
-			if (section.isLimit()) {
-				//boolean unread = idx+1<readable;
-				(section == Section.eoo ? baos : pipeout)
-					.write(pbuff!=null ? pbuff : buffer, pidx, ((idx-offset)-pidx)+1);
-				if (section == Section.eoo) {
-					// prepare for new stream
-					pipein = new PipedInputStream(pipeout = new PipedOutputStream(), 2048);
-					final Serializable c = convert(baos);
-					biconsumer.accept(c, pipein);			
-				} else if (section == Section.eob) {
-					// notify EOF to user thread
-					pipeout.write(0xFFFFFFFF);
-					pipeout.flush();
-				}
-				section = section.next();
-			} else { 
-				if (pbuff!=null) {
-					out.write(pbuff, pidx, pbuff.length-pidx);
-					pbuff = null; // reset backup of previous cut when any
-				}
-				out.write(buffer, pidx, idx-pidx);
-				out.flush();
-				if (offset > 0) {
-					// save current buff: it may be part of a fragmented EOO
-					pbuff = Arrays.copyOfRange(buffer, pidx, idx-offset);
-				}
-			}
-    	}
-
-    	/**
-    	 * Scans the byte array window as fragment/s of a wider message block
-    	 * delegating on consumers upon detected apparition of objects and user streams, 
-    	 * ../h:1/obj/stream/h:2/object/h1:object/stream/h1:.
-    	 */
-    	public void decode(final byte[] bytes) throws Exception {
-			int idx = 0, pidx = 0;			
-			for (;idx < bytes.length; idx++) {
-				if (section == Section.head) {
-					pidx = idx+1;
-					header(bytes[idx]);
-				} else {
-					// here only stream/object are possible
-					final byte[] mark = section.eob();
-					if (bytes[idx] == mark[offset]) {
-						if (++offset == mark.length) {
-							section = section.next();
-							// save read bytes from start until end pos to output stream 
-							drain(bytes, pidx, idx);
-							// save start pos for the next drain
-							pidx = idx +1;
-							// reset mark index
-							offset = 0;
-						}
-					} else {
-						// false mark coincidence: restart 
-						offset = 0;
-					}
-				}
-			}
-			drain(bytes, pidx, idx);
-    	}
-   	
-    	private void header(final byte head) throws StreamCorruptedException {
-			// 1st block
-			type = head;
-			if (type!=1 && type!=0) {
-				throw new StreamCorruptedException("header unknown");
-			}
-			baos = new ByteArrayOutputStream();
-			section = section.next();
-    	}
-
-    	private static Serializable convert(final ByteArrayOutputStream baos) throws IOException, ClassNotFoundException {
-			final ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-			final ObjectInputStream ois = new ObjectInputStream(bais);
-			return (Serializable)ois.readObject();
-    	}
-
-    	private enum Section {
-    		// type mark
-    		head,
-    		// shard entity
-    		object,
-    		// end of object
-    		eoo,
-    		// user duty input stream
-    		stream,
-    		// end of block
-    		eob
-    		;
-    		public boolean isLimit() {
-    			return this == eoo || this == eob;
-    		}
-    		public byte[] eob() {
-    			if (this == stream) {
-    				return EOB;
-    			} else if (this == object) {
-    				return EOO;
-    			} else {
-    				throw new IllegalArgumentException("curr. section not a body !");
-    			}
-    		}
-    		public Section next() {
-				final int o = this.ordinal();
-				if (o+1 == values().length) {
-					return head;
-				}
-				return values()[o+1];
-    		}
-    	}
-
-    	
-    }   	
 }

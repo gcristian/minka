@@ -16,12 +16,6 @@
  */
 package io.tilt.minka.broker.impl;
 
-import static java.util.Collections.synchronizedMap;
-import static java.util.concurrent.CompletableFuture.runAsync;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -33,14 +27,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.PooledByteBufAllocator;
-import io.netty.buffer.Unpooled;
-import io.netty.buffer.UnpooledUnsafeDirectByteBuf;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandler.Sharable;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
@@ -51,14 +38,12 @@ import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import io.tilt.minka.api.config.SchedulerSettings;
-import io.tilt.minka.broker.impl.CustomCoder.Block;
-import io.tilt.minka.broker.impl.CustomCoder.Decoder;
+import io.tilt.minka.broker.CustomCoder.Block;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
-import io.tilt.minka.spectator.MessageMetadata;
 
 /**
  * Listen connections from other server's clients forwarding input data to a consumer 
@@ -74,9 +59,7 @@ public class NettyServer {
 	/* for server */
 	private NettyServerHandler serverHandler;
 	private EventLoopGroup serverWorkerGroup;
-	private final Consumer<Block> consumer;
 
-	private final int connectionHandlerThreads;
 	private final int serverPort;
 	private final String serverAddress;
 	private final String networkInterfase;
@@ -89,11 +72,10 @@ public class NettyServer {
 	private final String classname = getClass().getSimpleName();
 	
 	private ChannelFuture channelFuture;
-	
 
 	protected NettyServer(
 			final Consumer<Block> consumer, 
-			final int connectionHandlerThreads, 
+			final int threads, 
 			final int serverPort,
 			final String serverAddress, 
 			final String networkInterfase, 
@@ -105,21 +87,18 @@ public class NettyServer {
 		Validate.notNull(consumer);
 		Validate.notNull(scheduler);
 		
-		
-		this.consumer = consumer;
-		this.connectionHandlerThreads = connectionHandlerThreads;
 		this.serverPort = serverPort;
 		this.serverAddress = serverAddress;
 		this.networkInterfase = networkInterfase;
 		this.scheduler = scheduler;
 		this.count = new AtomicLong();
 		this.loggingName = loggingName;
-		this.serverHandler = new NettyServerHandler();
+		this.serverHandler = new NettyServerHandler(consumer, scheduler, loggingName);
 		this.agent = scheduler.getAgentFactory()
 			.create(
 				Action.BROKER_SERVER_START, 
 				PriorityLock.HIGH_ISOLATED,
-				Frequency.PERIODIC, () -> listenWithRetries(maxRetries, retryDelay))
+				Frequency.PERIODIC, () -> listenWithRetries(threads, maxRetries, retryDelay))
 			.every(5000l)
 			.build();
 		scheduler.schedule(agent);
@@ -129,7 +108,7 @@ public class NettyServer {
 	 * a client for a shard's broker to send any type of messages, whether be
 	 * follower or leader
 	 */
-	private void listenWithRetries(final int maxRetries, final int retryDelay) {
+	private void listenWithRetries(final int threads, final int maxRetries, final int retryDelay) {
 		final boolean alreadyInitiated = this.channelFuture!=null;
 		final boolean withoutErrors = alreadyInitiated && channelFuture.cause()==null;
 		final boolean shuttingDown = alreadyInitiated && serverWorkerGroup.isShuttingDown();
@@ -137,12 +116,14 @@ public class NettyServer {
 			return;
 		}
 		
-		this.serverWorkerGroup = new NioEventLoopGroup(
-				this.connectionHandlerThreads,
+		if (serverWorkerGroup==null) {
+			this.serverWorkerGroup = new NioEventLoopGroup(
+				threads,
 				new ThreadFactoryBuilder()
 					.setNameFormat(SchedulerSettings.THREAD_NAME_BROKER_SERVER_WORKER)
 					.build());
-
+		}
+		
 		boolean disconnected = true;
 		while (retry < maxRetries && disconnected &&!serverWorkerGroup.isShuttingDown()) {
 			if (retry++ > 0) {
@@ -153,7 +134,7 @@ public class NettyServer {
 							classname, loggingName, e);
 				}
 			}
-			disconnected = keepListening();
+			disconnected = keepListening(threads);
 		}
 		if (disconnected) {
 			scheduler.schedule(agent);
@@ -163,11 +144,11 @@ public class NettyServer {
 	/*
 	 * whether be follower or leader the server will always hear for messages
 	 */
-	private boolean keepListening() {
+	private boolean keepListening(final int threads) {
 		boolean disconnected;
 		if (logger.isInfoEnabled()) {
 		    logger.info("{}: ({}) Building server (using i: {}) with up to {} concurrent requests",
-				classname, loggingName, networkInterfase, this.connectionHandlerThreads);
+				classname, loggingName, networkInterfase, threads);
 		}
 
 		ServerBootstrap server = null;
@@ -188,7 +169,7 @@ public class NettyServer {
 						    ;
 					}
 				});			
-			server.childOption(ChannelOption.SO_BACKLOG, 100);
+			//server.childOption(ChannelOption.SO_BACKLOG, 100);
 			server.childOption(ChannelOption.SO_KEEPALIVE, true);
 			server.childOption(ChannelOption.TCP_NODELAY, true);
 			server.childOption(ChannelOption.AUTO_READ, true);
@@ -197,15 +178,14 @@ public class NettyServer {
 			
 			if (logger.isInfoEnabled()) {
 			    logger.info("{}: ({}) Listening to client connections (using i:{}) with up to {} concurrent requests",
-					classname, loggingName, networkInterfase, this.connectionHandlerThreads);
+					classname, loggingName, networkInterfase, threads);
 			}
 
 			this.channelFuture = server.bind(this.serverAddress, this.serverPort);
 			disconnected = false;
 		} catch (Exception e) {
 			disconnected = true;
-			logger.error("{}: ({}) Unexpected interruption while listening incoming connections",
-					classname, loggingName, e);
+			logger.error("{}: ({}) Unexpected interruption while listening incoming connections", classname, loggingName, e);
 		}
 		return disconnected;
 	}
@@ -217,85 +197,6 @@ public class NettyServer {
 		}
 	}
 
-	@Sharable
-	/**
-	 * Sharable makes it able to use the same handler for concurrent clients
-	 */
-	protected class NettyServerHandler extends ChannelInboundHandlerAdapter {
-
-		public final Map<String, Map<String, Integer>> countByTypeAndHost = synchronizedMap(new LinkedHashMap<>());
-		private final Decoder deco;
-		
-		@Override
-		public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-			super.channelUnregistered(ctx);
-		}
-		
-		public NettyServerHandler() {
-			super();
-			deco = new Decoder((obj, is)-> runAsync(()->consumer.accept(new Block(obj, is))));
-		}
-
-		private void test(final Block block) throws IOException {
-			//////////////////////////////
-			final MessageMetadata msg = (MessageMetadata) block.getMessage();
-			int read = 0;
-			final ByteArrayOutputStream baos = new ByteArrayOutputStream();  
-			while ((read =block.getStream().read())>-1) baos.write(read);
-			logger.info("stream: {}", baos.toByteArray());
-			//////////////////////////////
-		}
-		
-		@Override
-		public void channelRead(ChannelHandlerContext ctx, Object msg) {
-			
-			try {
-				if (msg == null) {
-					logger.error("({}) SocketServerHandler: incoming message came NULL", loggingName);
-					return;
-				}
-				final UnpooledUnsafeDirectByteBuf uudbb = (UnpooledUnsafeDirectByteBuf)msg;
-				logger.info("received buffer: {} bytes", uudbb.readableBytes());
-				final ByteBuf buffer = Unpooled.buffer(uudbb.readableBytes());
-				uudbb.readBytes(buffer);
-				deco.decode(buffer.array());
-				buffer.release();
-			} catch (Exception e) {
-				logger.error("({}) SocketServerHandler: Unexpected while reading incoming message", loggingName, e);
-			}
-		}
-
-		private void notifyListener(final Block block) {
-			scheduler.schedule(scheduler.getAgentFactory()
-					.create(
-						Action.BROKER_INCOMING_MESSAGE, 
-						PriorityLock.HIGH_ISOLATED, 
-						Frequency.ONCE, 
-						() -> consumer.accept(block))
-					.build());
-		}
-
-		private void addMetric(MessageMetadata meta) {
-			final String origin = meta.getOriginConnectAddress();
-			Map<String, Integer> typesByHost = countByTypeAndHost.get(origin);
-			if (typesByHost==null) {
-				countByTypeAndHost.put(origin, typesByHost = new LinkedHashMap<>());
-			}
-			final String type = meta.getPayloadType().getSimpleName();
-			final Integer c = typesByHost.get(type);
-			typesByHost.put(type, c==null ? new Integer(1) : new Integer(c+1));
-		}
-		
-		@Override
-		public void exceptionCaught(final ChannelHandlerContext ctx, final Throwable e) {
-			if (logger.isDebugEnabled()) {
-				logger.debug("({}) ChannelInboundHandlerAdapter: Unexpected while consuming (who else's using broker port ??)", 
-					loggingName, e.getMessage());
-			}
-			ctx.close();
-		}
-	}
-	
 	public Map<String, Map<String, Integer>> getCountByTypeAndHost() {
 		return this.serverHandler.countByTypeAndHost;
 	}

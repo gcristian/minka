@@ -19,7 +19,7 @@ import java.util.function.Consumer;
 import org.apache.commons.io.Charsets;
 
 import io.netty.handler.codec.CorruptedFrameException;
-import io.tilt.minka.broker.impl.CustomCoder.Block;
+import io.tilt.minka.broker.CustomCoder.Block;
 
 /**
  * Encoded format for returned input streams:
@@ -46,7 +46,7 @@ import io.tilt.minka.broker.impl.CustomCoder.Block;
  * --------------------------------------------------------------------------------------
  */
 public class BrokerMessageCoder {
-	
+		
 		private final static byte TYPE_SIMPLE = 0x0;
     	private final static byte TYPE_STREAM = 0x1;
     	private final static byte TYPE_STREAMS = 0x2;

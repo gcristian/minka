@@ -64,9 +64,9 @@ public class DutyBuilder {
 	 * @param payload	must implement Serializable
 	 * @return	the builder
 	 */
-	public DutyBuilder with(final InputStream is) {
+	public DutyBuilder with(final InputStream payload) {
 		Validate.notNull(payload, id + ": You must specify payload param or use overload builder");
-		this.payload = is;
+		this.payload = payload;
 		return this;
 	}
 	
@@ -119,7 +119,7 @@ public class DutyBuilder {
 		/* courtesy: at client assignation the duty has the pallet embedded*/
 		private Pallet pallet;
 		private final double load;
-		private final InputStream payload;
+		private transient final InputStream payload;
 		private final Instant timestamp;
 
 		protected Task(

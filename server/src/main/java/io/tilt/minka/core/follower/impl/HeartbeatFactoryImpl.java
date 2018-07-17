@@ -32,15 +32,14 @@ import io.tilt.minka.core.follower.HeartbeatFactory;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityJournal.Log;
-import io.tilt.minka.shard.ShardCapacity;
-import io.tilt.minka.shard.DomainInfo;
-import io.tilt.minka.shard.NetworkShardIdentifier;
-import io.tilt.minka.shard.ShardIdentifier;
-import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
+import io.tilt.minka.shard.DomainInfo;
+import io.tilt.minka.shard.NetworkShardIdentifier;
+import io.tilt.minka.shard.ShardCapacity;
+import io.tilt.minka.shard.ShardIdentifier;
 import io.tilt.minka.utils.LogUtils;
 
 /**
@@ -84,8 +83,8 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		// this's used only if there's nothing important to report (differences, absences, etc)
 		final Heartbeat.Builder builder = Heartbeat.builder(sequence.getAndIncrement(), partition.getId());
 		// add reported: as confirmed if previously assigned, dangling otherwise.
-		final List<EntityRecord> tmp = new ArrayList<>(partition.getDuties().size()); 
-		boolean issues = detectChangesOnReport(builder, d->tmp.add(EntityRecord.fromEntity(d)));
+		final List<ShardEntity> tmp = new ArrayList<>(partition.getDuties().size()); 
+		boolean issues = detectChangesOnReport(builder, d->tmp.add(d));
 		logBeat |=issues;
 		
 		boolean newLeader = false; 
@@ -115,7 +114,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			log.info("{}: ({}) {} SeqID: {}, {}", 
 				getClass().getSimpleName(), hb.getShardId(), LogUtils.HB_CHAR, hb.getSequenceId(), 
 				hb.reportsDuties() ? new StringBuilder("Duties: (")
-					.append(EntityRecord.toStringIds(hb.getReportedCapturedDuties()))
+					.append(ShardEntity.toStringIds(hb.getReportedCapturedDuties()))
 					.append(")").toString() : "");
 		}
 		return hb;
@@ -161,7 +160,6 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		return false;
 	}
 	
-	@SuppressWarnings("unchecked")	
 	private void addReportedCapacities(final Heartbeat.Builder builder) {
 		if (domain!=null && domain.getDomainPallets()!=null) {
 			for (ShardEntity pallet: domain.getDomainPallets()) {
@@ -183,7 +181,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	        return;
 	    }
 		final StringBuilder sb = new StringBuilder();
-		List<EntityRecord> sorted = hb.getReportedCapturedDuties();
+		List<ShardEntity> sorted = hb.getReportedCapturedDuties();
 		if (!sorted.isEmpty()) {
 			sorted.sort(sorted.get(0));
 		}
@@ -193,7 +191,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 				LogUtils.HB_CHAR, 
 				hb.getSequenceId(), 
 				hb.getReportedCapturedDuties().size(), 
-				EntityRecord.toStringIds(hb.getReportedCapturedDuties()), 
+				ShardEntity.toStringIds(hb.getReportedCapturedDuties()), 
 				hb.getReportedCapturedDuties().isEmpty() ? "" : "reportDuties"
 				);
 	}

@@ -188,13 +188,13 @@ public class Client {
 	
 	private Reply push(final Collection<Entity> raws, 
 			final EntityEvent event, 
-			final Collection<InputStream> userPayload,
+			final Collection<InputStream> payload,
 			final Consumer<Reply> callback) {
 		
 		Validate.notNull(raws, "an entity is required");
 		// only not null when raws.size > 1 
 		final Reply[] r = {null};		
-		final List<Duty.LoadedDuty> entities = toEntities(raws, event, userPayload);
+		final List<ShardEntity> entities = toEntities(raws, event, payload);
 		if (leader.inService()) {
 			clientMediator.mediateOnEntity(entities, callback!=null ? callback : reply->r[0]=reply);
 		} else {
@@ -207,16 +207,16 @@ public class Client {
 			final EntityEvent event, 
 			final Consumer<Reply> callback, 
 			final Reply[] r,
-			final List<Duty.LoadedDuty> tmp) {
+			final List<ShardEntity> tmp) {
 		int tries = 10;
 		boolean[] sent = {false};
-		for (Duty.LoadedDuty ld: tmp) {
+		for (ShardEntity sd: tmp) {
 			while (!sent[0] && tries-->0) {
 				if (leaderAware.getLeaderShardId()!=null) {
 					final BrokerChannel channel = eventBroker.buildToTarget(config, 
 							Channel.CLITOLEAD,
 							leaderAware.getLeaderShardId());
-					sent[0] = eventBroker.send(channel, ld.getDuty(), ld.getStream());
+					sent[0] = eventBroker.send(channel, sd, sd.getInputStream());
 				} else {
 					try {
 						Thread.sleep(config.beatToMs(10));
@@ -228,13 +228,13 @@ public class Client {
 		}
 		if (callback==null) {
 			return new Reply(sent[0] ? ReplyValue.SUCCESS_SENT : ReplyValue.FAILURE_NOT_SENT, 
-					tmp.get(0).getDuty().getEntity(), null, event, null);
+					tmp.get(0).getEntity(), null, event, null);
 		} else {
-			for (Duty.LoadedDuty e: tmp) {
+			for (ShardEntity e: tmp) {
 				try {
 					callback.accept(new Reply(
 							sent[0] ? ReplyValue.SUCCESS_SENT : ReplyValue.FAILURE_NOT_SENT, 
-							e.getDuty().getEntity(), 
+							e.getEntity(), 
 							null, 
 							event, 
 							null));	
@@ -246,12 +246,12 @@ public class Client {
 		return null;
 	}
 
-	private List<Duty.LoadedDuty> toEntities(
+	private List<ShardEntity> toEntities(
 			final Collection<Entity> raws, 
 			final EntityEvent event,
 			final Collection<InputStream> streams) {
 		
-		final List<Duty.LoadedDuty> tmp = new ArrayList<>();
+		final List<ShardEntity> tmp = new ArrayList<>();
 		final Iterator<InputStream> it = streams!=null ? streams.iterator() : null;
 		for (final Entity e: raws) {
 			final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
@@ -261,7 +261,10 @@ public class Client {
 					EntityState.PREPARED,  
 					this.shardId, 
 					ChangePlan.PLAN_WITHOUT);
-			tmp.add(new Duty.LoadedDuty(tmpp, it!=null ? it.next() : null));
+			if (it!=null) {
+				tmpp.putPayload(it.next());
+			}
+			tmp.add(tmpp);
 		}
 		return tmp;
 	}

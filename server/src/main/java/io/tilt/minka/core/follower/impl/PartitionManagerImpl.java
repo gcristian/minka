@@ -100,42 +100,31 @@ public class PartitionManagerImpl implements PartitionManager {
 		return null;
 	}
 
-	@SuppressWarnings("unchecked")
 	// TODO refactory
-	public Void update(final Collection<ShardEntity> duties, final java.io.InputStream stream) {
+	public Void update(final Collection<ShardEntity> duties) {
 		for (ShardEntity entity : duties) {
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: ({}) {}: {}", getClass().getSimpleName(),
+					partition.getId(), entity.hasPayload() ? " RECEIVE" : "UPDATE", entity.toBrief());
+			}
+
 			if (entity.getType()==ShardEntity.Type.DUTY) {
 				if (partition.contains(entity)) {
-					if (stream == null) {
-						if (logger.isInfoEnabled()) {
-							logger.info("{}: ({}) UPDATE : {}", getClass().getSimpleName(),
-								partition.getId(), entity.toBrief());
-						}
+					final boolean has = !entity.hasPayload();
+					if (!entity.hasPayload()) {
 						dependencyPlaceholder.getDelegate().update(entity.getDuty());
 					} else {
-						if (logger.isInfoEnabled()) {
-							logger.info("{}: ({}) RECEIVE: {} with Payload",
-								getClass().getSimpleName(), partition.getId(), entity.toBrief());
-						}
-						dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), stream);
+						dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), entity.getInputStream());
 					}
 				} else {
 					logger.error("{}: ({}) Unable to UPDATE a never taken Duty !: {}", getClass().getSimpleName(),
 							partition.getId(), entity.toBrief());
 				}
 			} else if (entity.getType()==ShardEntity.Type.PALLET) {
-				if (stream == null) {
-					if (logger.isInfoEnabled()) {
-						logger.info("{}: ({}) UPDATE : {}", getClass().getSimpleName(),
-							partition.getId(), entity.toBrief());
-					}
+				if (!entity.hasPayload()) {
 					dependencyPlaceholder.getDelegate().update(entity.getPallet());
 				} else {
-					if (logger.isInfoEnabled()) {
-						logger.info("{}: ({}) RECEIVE: {} with Payload ",
-							getClass().getSimpleName(), partition.getId(), entity.toBrief());
-					}
-					dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), stream);					
+					dependencyPlaceholder.getDelegate().transfer(entity.getDuty(), entity.getInputStream());					
 				}
 			}
 		}
@@ -184,7 +173,7 @@ public class PartitionManagerImpl implements PartitionManager {
 		return false;
 	}
 
-	public boolean attach(final Collection<ShardEntity> duties, final InputStream stream) {
+	public boolean attach(final Collection<ShardEntity> duties) {
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: ({}) # +{} TAKE: {}", getClass().getSimpleName(), partition.getId(),
 				duties.size(), ShardEntity.toStringBrief(duties));

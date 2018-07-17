@@ -56,6 +56,7 @@ public class ExceptionHandler extends ChannelDuplexHandler {
             }
         }));
     }
+    
     @Override
     public void write(
             final ChannelHandlerContext ctx, 

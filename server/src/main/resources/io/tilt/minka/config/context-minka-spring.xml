@@ -49,7 +49,7 @@
     </bean>
 
     <!-- Subscripcion, envio y recepcion de eventos (integracion leader-follower)  -->
-    <bean id="eventBroker" class="io.tilt.minka.broker.impl.NettyExchange">
+    <bean id="eventBroker" class="io.tilt.minka.broker.impl.NettyBroker">
         <constructor-arg ref="config" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderAware" />
@@ -127,6 +127,7 @@
     <bean id="stageRepository" class="io.tilt.minka.core.leader.data.UncommitedRepository">
     	<constructor-arg ref="shardingScheme" />
     	<constructor-arg ref="shardId" />
+    	<constructor-arg ref="entityRepo" />
     </bean>																																														
     
     <!-- Balancea las tareas -->

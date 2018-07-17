@@ -20,12 +20,11 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.ConcurrentDutyException;
 import io.tilt.minka.core.leader.StateSentry;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
-import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.ShardIdentifier;
 import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.shard.Transition;
@@ -40,7 +39,7 @@ public class CommitedState {
 
 	private static final Logger logger = LoggerFactory.getLogger(CommitedState.class);
 
-	private final Map<ShardIdentifier, Set<EntityRecord>> previousScheme = new HashMap<>();
+	private final Map<ShardIdentifier, Set<ShardEntity>> previousScheme = new HashMap<>();
 	private final Map<ShardIdentifier, Shard> shardsByID;
 	private final Map<Shard, ShardedPartition> partitionsByShard;
 	final Map<String, ShardEntity> palletsById;
@@ -150,15 +149,15 @@ public class CommitedState {
 	public void patchOnPreviousDistribution(final Set<ShardEntity> duties) {
 		if (!previousScheme.isEmpty()) {
 			final EntityEvent event = EntityEvent.ATTACH;
-			for (Map.Entry<ShardIdentifier, Set<EntityRecord>> e: previousScheme.entrySet()) {
+			for (Map.Entry<ShardIdentifier, Set<ShardEntity>> e: previousScheme.entrySet()) {
 				boolean found = false;
 				if (logger.isInfoEnabled()) {
 					logger.info("{}: Patching scheme ({}) w/prev. distribution journals: {}", getClass().getSimpleName(), 
-							event, EntityRecord.toStringIds(e.getValue()));
+							event, ShardEntity.toStringIds(e.getValue()));
 				}
-				for (EntityRecord r: e.getValue()) {
+				for (ShardEntity r: e.getValue()) {
 					for (ShardEntity d: duties) {
-						if (d.getDuty().getId().equals(r.getId())) {
+						if (d.getDuty().getId().equals(r.getDuty().getId())) {
 							found = true;
 							d.replaceJournal(r.getJournal());
 							write(d, findShard(s->s.getShardID().equals(e.getKey())), event, null);
@@ -167,7 +166,7 @@ public class CommitedState {
 					}
 					if (!found) {
 						logger.error("{}: Shard {} reported an unloaded duty from previous distribution: {}", 
-								getClass().getSimpleName(), e.getKey(), r.getId());
+								getClass().getSimpleName(), e.getKey(), r.getDuty().getId());
 					}
 				}
 			}
@@ -176,9 +175,9 @@ public class CommitedState {
 	}
 	
 	/** guard the report to take it as truth once distribution runs and ShardEntity is loaded */
-	public boolean learnPreviousDistribution(final EntityRecord duty, final Shard where) {
+	public boolean learnPreviousDistribution(final ShardEntity duty, final Shard where) {
 		boolean ret = false;
-		Set<EntityRecord> list = previousScheme.get(where.getShardID());
+		Set<ShardEntity> list = previousScheme.get(where.getShardID());
 		if (list==null) {
 			previousScheme.put(where.getShardID(), list = new HashSet<>());
 		}

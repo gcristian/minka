@@ -108,7 +108,8 @@ public class LeaderEventsHandler implements Service, BiConsumer<Serializable, In
 	@Override
 	public void accept(final Serializable event, final InputStream stream) {
 		if (event instanceof ShardEntity) {
-			onSingle(event, stream);
+			((ShardEntity)event).putPayload(stream);
+			onSingle(event);
 		} else if (event instanceof Clearance) {
 			onClearance(event);
 		} else {
@@ -138,7 +139,7 @@ public class LeaderEventsHandler implements Service, BiConsumer<Serializable, In
 	}
 	
 	@SuppressWarnings("unchecked")
-	private void onSingle(final Serializable event, final InputStream stream) {
+	private void onSingle(final Serializable event) {
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: ({}) Receiving {}: {}", getName(), config.getLoggingShardId(), 
 					(ShardEntity) event, event);
@@ -147,11 +148,11 @@ public class LeaderEventsHandler implements Service, BiConsumer<Serializable, In
 		final Synchronized handler = scheduler.getFactory().build(
 				Action.INSTRUCT_DELEGATE,
 				PriorityLock.MEDIUM_BLOCKING, 
-				() -> handleDuty(single, stream));
+				() -> handleDuty(single));
 		scheduler.run(handler);
 	}
 
-	private void handleDuty(final ShardEntity duty, final InputStream stream) {
+	private void handleDuty(final ShardEntity duty) {
 		try {
 			switch (duty.getLastEvent()) {
 			case CREATE:
@@ -160,7 +161,7 @@ public class LeaderEventsHandler implements Service, BiConsumer<Serializable, In
 				//partitionManager.finalized(e.getValue());
 				break;
 			case ATTACH:
-				if (partitionManager.attach(Collections.singletonList(duty), stream)) {
+				if (partitionManager.attach(Collections.singletonList(duty))) {
 					received(duty);
 				}
 				break;
@@ -171,7 +172,7 @@ public class LeaderEventsHandler implements Service, BiConsumer<Serializable, In
 				break;
 			case TRANSFER:
 			case UPDATE:
-				partitionManager.update(Collections.singletonList(duty), stream);
+				partitionManager.update(Collections.singletonList(duty));
 				break;
 			default:
 				logger.error("{}: ({}) Not allowed: {}", duty, config.getLoggingShardId());

@@ -17,10 +17,13 @@
 package io.tilt.minka.broker;
 
 
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.util.Map;
 import java.util.function.BiConsumer;
+
+import com.google.common.base.Charsets;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.task.Service;
@@ -73,7 +76,7 @@ public interface EventBroker extends Service {
 	/* send an event object to an inbox name */
 	boolean send(BrokerChannel channel, Serializable event, InputStream stream);
 	default boolean send(BrokerChannel channel, Serializable event) {
-		return send(channel, event, null);
+		return send(channel, event, new ByteArrayInputStream("eventbroker-nonempty".getBytes(Charsets.UTF_8)));
 	}
 
 	/* use a driver to handle events of a certain type */
