@@ -22,7 +22,7 @@ import static io.tilt.minka.core.leader.distributor.Migrator.log;
 import java.util.Set;
 
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.data.ShardingScheme;
+import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Shard;
@@ -56,13 +56,13 @@ public class Override {
 		return this.remainingCap;
 	}
 
-	boolean apply(final ChangePlan changePlan, final ShardingScheme scheme) {
+	boolean apply(final ChangePlan changePlan, final ShardingState scheme) {
 		boolean anyChange = false;
 		
 		if (log.isDebugEnabled()) {
 			log.debug("{}: cluster built {}", getClass().getSimpleName(), entities);
 			final StringBuilder tmp = new StringBuilder();
-			scheme.getScheme().findDuties(getShard(), pallet, d->tmp.append(d).append(", "));
+			scheme.getCommitedState().findDuties(getShard(), pallet, d->tmp.append(d).append(", "));
 			log.debug("{}: currents at shard {} ", getClass().getSimpleName(), tmp);
 		}
 		anyChange |= dettachDelta(changePlan, scheme);
@@ -77,11 +77,11 @@ public class Override {
 	    * null or empty cluster translates to: dettach all existing */
 	private final boolean dettachDelta(
 			final ChangePlan changePlan, 
-			final ShardingScheme scheme) {
+			final ShardingState scheme) {
 
 		final StringBuilder logg = new StringBuilder(16*10);
 		final int[] count = new int[1];
-		scheme.getScheme().findDuties(getShard(), pallet, detach-> {
+		scheme.getCommitedState().findDuties(getShard(), pallet, detach-> {
 			if (entities == null || !entities.contains(detach)) {
 				detach.getJournal().addEvent(EntityEvent.DETACH,
 						EntityState.PREPARED,
@@ -103,13 +103,13 @@ public class Override {
 	/* attach what's not already living in that shard */
 	private final boolean attachDelta(
 			final ChangePlan changePlan, 
-			final ShardingScheme scheme) {
+			final ShardingState scheme) {
 
 		final StringBuilder logg = new StringBuilder(10 * 16); 
 		int count = 0;
 		if (entities != null) {
 			for (final ShardEntity attach: entities) {
-				if (!scheme.getScheme().dutyExistsAt(attach, getShard())) {
+				if (!scheme.getCommitedState().dutyExistsAt(attach, getShard())) {
 					count++;
 					attach.getJournal().addEvent(EntityEvent.ATTACH,
 							EntityState.PREPARED,

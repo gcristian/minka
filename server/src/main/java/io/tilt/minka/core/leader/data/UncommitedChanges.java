@@ -22,13 +22,13 @@ import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 
 /** 
- * Temporal state of modifications willing to be added to the {@linkplain Scheme}
+ * Temporal state of modifications willing to be added to the {@linkplain CommitedState}
  * including inconsistencies detected by the sentry
- * Only maintainers: {@linkplain SchemeSentry} and {@linkplain StageRepository}
+ * Only maintainers: {@linkplain SchemeSentry} and {@linkplain UncommitedRepository}
  * */
-public class Stage {
+public class UncommitedChanges {
 
-	private static final Logger logger = LoggerFactory.getLogger(Stage.class);
+	private static final Logger logger = LoggerFactory.getLogger(UncommitedChanges.class);
 
     // creations and removes willing to be attached or detached to/from shards.
 	private final Map<Pallet, ShardEntity> palletCrud;
@@ -40,17 +40,17 @@ public class Stage {
 	private Instant snaptake;
 	
 	// read-only snapshot for ChangePlanBuilder thread (not to be modified, stage remains MASTER)
-	private Stage snapshot;
+	private UncommitedChanges snapshot;
 	private boolean stealthChange;
 	private boolean snap = false;
 	private Instant lastStealthChange;
 	
 	/** @return a frozen state of stage, so message-events threads 
 	 * (threadpool-size independently) can still modify the instance for further change plans */
-	public synchronized Stage snapshot() {
+	public synchronized UncommitedChanges snapshot() {
 		checkNotOnSnap();
 		if (snapshot==null) {
-			final Stage tmp = new Stage();
+			final UncommitedChanges tmp = new UncommitedChanges();
 			tmp.dutyCrud.putAll(this.dutyCrud);
 			tmp.dutyDangling.putAll(this.dutyDangling);
 			tmp.dutyMissings.putAll(this.dutyMissings);
@@ -82,7 +82,7 @@ public class Stage {
 		return last==null || snaptake.toEpochMilli() >=last.getHead().getTime();
 	}
 
-	public Stage() {
+	public UncommitedChanges() {
 		this.palletCrud = new HashMap<>();
 		this.dutyCrud = new HashMap<>();
 		this.dutyMissings = new HashMap<>();

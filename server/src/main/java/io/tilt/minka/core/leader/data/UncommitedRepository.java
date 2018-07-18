@@ -29,32 +29,32 @@ import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
 
 /**
- * Entry point for outter clients of the {@linkplain Stage}
+ * Entry point for outter clients of the {@linkplain UncommitedChanges}
  * Validations and consistency considerations for {@linkplain Client} usage
  */
-public class StageRepository {
+public class UncommitedRepository {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
 
-	private final ShardingScheme scheme;
+	private final ShardingState scheme;
 	private final ShardIdentifier shardId;
 
-	public StageRepository(final ShardingScheme shardingScheme, final ShardIdentifier shardId) {
+	public UncommitedRepository(final ShardingState shardingState, final ShardIdentifier shardId) {
 		super();
-		this.scheme = shardingScheme;
+		this.scheme = shardingState;
 		this.shardId = shardId;
 	}
 
 	public Collection<Duty> getDuties() {
 		final List<Duty> tmp = new LinkedList<>();
-		this.scheme.getScheme().findDuties(d->tmp.add(d.getDuty()));
+		this.scheme.getCommitedState().findDuties(d->tmp.add(d.getDuty()));
 		return tmp;
 	}
 
 	public Collection<Pallet> getPallets() {
 		final List<Pallet> tmp = new LinkedList<>();
-		this.scheme.getScheme().findDuties(d->tmp.add(d.getPallet()));
+		this.scheme.getCommitedState().findDuties(d->tmp.add(d.getPallet()));
 		return tmp;
 	}
 
@@ -63,7 +63,7 @@ public class StageRepository {
 	public void removeAllDuties(final Collection<ShardEntity> coll, final Consumer<Reply> callback) {
 		final List<ShardEntity> tmp = new ArrayList<>(coll.size());
 		for (ShardEntity remove : coll) {
-			final ShardEntity current = scheme.getScheme().getByDuty(remove.getDuty());
+			final ShardEntity current = scheme.getCommitedState().getByDuty(remove.getDuty());
 			if (current != null) {
 				tmp.add(remove);
 			} else {
@@ -72,7 +72,7 @@ public class StageRepository {
 			}
 		}
 
-		scheme.getStage().addAllCrudDuty(tmp, (duty, added) -> {
+		scheme.getUncommited().addAllCrudDuty(tmp, (duty, added) -> {
 			if (added) {
 				tryCallback(callback, new Reply(ReplyValue.SUCCESS, duty, PREPARED, REMOVE, null));
 			} else {
@@ -85,14 +85,14 @@ public class StageRepository {
 	public void saveAllDutiesRaw(final Collection<Duty> coll, final Consumer<Reply> callback) {
 		final Set<ShardEntity> rawSet = coll.stream().map(x-> toEntity(x)).collect(Collectors.toSet());
 		// check learning scheme
-		scheme.getScheme().patchOnPreviousDistribution(rawSet);
+		scheme.getCommitedState().patchOnPreviousDistribution(rawSet);
 		saveAllDuties(rawSet, callback);
 	}
 
 	private ShardEntity toEntity(final Entity e) {
 		final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
 		if (e instanceof Duty) {
-			ShardEntity pallet = scheme.getScheme().getPalletById(((Duty)e).getPalletId());
+			ShardEntity pallet = scheme.getCommitedState().getPalletById(((Duty)e).getPalletId());
 			builder.withRelatedEntity(pallet);
 		}
 		final ShardEntity entity = builder.build();
@@ -120,7 +120,7 @@ public class StageRepository {
 				ret = new Reply(ReplyValue.ERROR_ENTITY_ALREADY_EXISTS, duty.getDuty(), null, null, null);
 				tryCallback(callback, ret);
 			} else {
-				final ShardEntity pallet = scheme.getScheme().getPalletById(duty.getDuty().getPalletId());
+				final ShardEntity pallet = scheme.getCommitedState().getPalletById(duty.getDuty().getPalletId());
 				if (pallet==null) {
 					tryCallback(callback, new Reply(ReplyValue.ERROR_ENTITY_INCONSISTENT, duty.getDuty(), null, null, 
 							String.format("%s: Skipping Crud Event %s: Pallet ID :%s set not found or yet created", classname,
@@ -143,7 +143,7 @@ public class StageRepository {
 		}
 		
 		final StringBuilder sb = new StringBuilder(tmp.size() * 5+1);
-		scheme.getStage().addAllCrudDuty(tmp, (duty, added)-> {
+		scheme.getUncommited().addAllCrudDuty(tmp, (duty, added)-> {
 			if (added) {
 				if (logger.isInfoEnabled()) {
 					sb.append(duty).append(',');
@@ -175,7 +175,7 @@ public class StageRepository {
 
 	private ShardIdentifier fromShardId(final String id) {
 		final ShardIdentifier[] ret = {null};
-		scheme.getScheme().findShards(null, s->{
+		scheme.getCommitedState().findShards(null, s->{
 			if (s.getShardID().getId().equals(id)) {
 				ret[0] = s.getShardID();
 			}
@@ -187,10 +187,10 @@ public class StageRepository {
 	
 	public void removeAllPallet(final Collection<ShardEntity> coll, final Consumer<Reply> callback) {
 	    for (ShardEntity pallet: coll) {
-	        final ShardEntity p = scheme.getScheme().getPalletById(pallet.getEntity().getId());
+	        final ShardEntity p = scheme.getCommitedState().getPalletById(pallet.getEntity().getId());
     		if (p==null) {
     			tryCallback(callback, new Reply(ReplyValue.ERROR_ENTITY_NOT_FOUND, pallet.getEntity(), null, null, 
-    					String.format("%s: Skipping remove not found in Scheme: %s", 
+    					String.format("%s: Skipping remove not found in CommitedState: %s", 
     							getClass().getSimpleName(), pallet.getEntity().getId())));
     		} else {
     		    final boolean done = scheme.addCrudPallet(pallet);
@@ -204,7 +204,7 @@ public class StageRepository {
 	}
 	public void saveAllPallets(final Collection<ShardEntity> coll, final Consumer<Reply> callback) {
 		for (ShardEntity p: coll) {
-    		final ShardEntity already = scheme.getScheme().getPalletById(p.getEntity().getId());
+    		final ShardEntity already = scheme.getCommitedState().getPalletById(p.getEntity().getId());
     		if (already==null) {
     	        if (logger.isInfoEnabled()) {
     	            logger.info("{}: Adding New Pallets: {} with Balancer: {}", classname, p.getPallet(), 
@@ -216,7 +216,7 @@ public class StageRepository {
                         String.format("%s: Added %s: %s", classname, added ? "": "already", p.getPallet())));
     		} else {
     			tryCallback(callback, new Reply(ReplyValue.ERROR_ENTITY_ALREADY_EXISTS, p.getEntity(), null, EntityEvent.CREATE, 
-                        String.format("%s: Skipping creation already in Scheme: %s", 
+                        String.format("%s: Skipping creation already in CommitedState: %s", 
                                 getClass().getSimpleName(), p.getEntity().getId())));
     		}
 		}
@@ -224,7 +224,7 @@ public class StageRepository {
 	}
 	
 	private boolean presentInPartition(final ShardEntity duty) {
-		final Shard shardLocation = scheme.getScheme().findDutyLocation(duty.getDuty());
+		final Shard shardLocation = scheme.getCommitedState().findDutyLocation(duty.getDuty());
 		return shardLocation != null && shardLocation.getState().isAlive();
 	}
 

@@ -16,8 +16,8 @@
  */
 package io.tilt.minka.core.leader.data;
 
-import static io.tilt.minka.core.leader.data.ShardingScheme.ClusterHealth.STABLE;
-import static io.tilt.minka.core.leader.data.ShardingScheme.ClusterHealth.UNSTABLE;
+import static io.tilt.minka.core.leader.data.ShardingState.ClusterHealth.STABLE;
+import static io.tilt.minka.core.leader.data.ShardingState.ClusterHealth.UNSTABLE;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -36,22 +36,22 @@ import io.tilt.minka.domain.ShardEntity;
  * Only one modifier allowed: {@linkplain SchemeSentry} with a {@linkplain ChangePlan} after a distribution process.
  * 
  * Contains the relations between {@linkplain Shard} and {@linkplain Duty}.
- * Continuously checked truth in {@linkplain Scheme}.
- * Client CRUD requests and detected problems in {@linkplain Stage}
+ * Continuously checked truth in {@linkplain CommitedState}.
+ * Client CRUD requests and detected problems in {@linkplain UncommitedChanges}
  * Built at leader promotion.
  * 
  * @author Cristian Gonzalez
  * @since Dec 2, 2015	
  */
-public class ShardingScheme {
+public class ShardingState {
 
-	private static final Logger logger = LoggerFactory.getLogger(Scheme.class);
+	private static final Logger logger = LoggerFactory.getLogger(CommitedState.class);
 	
 	private ClusterHealth visibilityHealth;
 	private ClusterHealth distributionHealth;
 	
-	private final Scheme scheme;
-	private final Stage stage;
+	private final CommitedState commitedState;
+	private final UncommitedChanges uncommitedChanges;
 	private ChangePlan currentPlan;
 	private List<Runnable> observers;
 	
@@ -82,11 +82,11 @@ public class ShardingScheme {
 		INSUFFICIENT,
 	}
 
-	public ShardingScheme() {
+	public ShardingState() {
 		this.visibilityHealth = ClusterHealth.STABLE;
 		this.distributionHealth = ClusterHealth.STABLE;
-		this.scheme = new Scheme();
-		this.stage = new Stage();
+		this.commitedState = new CommitedState();
+		this.uncommitedChanges = new UncommitedChanges();
 	}
 	
 	public ChangePlan getCurrentPlan() {
@@ -109,12 +109,12 @@ public class ShardingScheme {
 		}
 	}
 
-	public Stage getStage() {
-		return this.stage;
+	public UncommitedChanges getUncommited() {
+		return this.uncommitedChanges;
 	}
 	
-	public Scheme getScheme() {
-		return this.scheme;
+	public CommitedState getCommitedState() {
+		return this.commitedState;
 	}
 
 	public ClusterHealth getHealth() {
@@ -142,16 +142,16 @@ public class ShardingScheme {
 	public String toString() {
 		StringBuilder sb = new StringBuilder()
 				.append("Shards: ")
-				.append(getScheme().shardsSize())
+				.append(getCommitedState().shardsSize())
 				.append(" Crud Duties: ")
-				.append(getStage().dutyCrud.size());
+				.append(getUncommited().dutyCrud.size());
 		//.append(" Change: ").append(change.getGroupedIssues().size());
 		return sb.toString();
 	}
 
 	public void logStatus() {
-		getScheme().logStatus();
-		getStage().logStatus();
+		getCommitedState().logStatus();
+		getUncommited().logStatus();
 		logger.info("{}: Health: {}", getClass().getSimpleName(), getDistributionHealth());
 	}
 
@@ -163,10 +163,10 @@ public class ShardingScheme {
 		boolean done = false;
 		if (pallet.getLastEvent()==EntityEvent.REMOVE) {
 			// TRUE: something removed
-			done = getScheme().palletsById.remove(pallet.getPallet().getId())!=null;
+			done = getCommitedState().palletsById.remove(pallet.getPallet().getId())!=null;
 		} else if (pallet.getLastEvent()==EntityEvent.CREATE) {
 			// TRUE: done first time
-			done = getScheme().palletsById.put(pallet.getPallet().getId(), pallet)==null;	
+			done = getCommitedState().palletsById.put(pallet.getPallet().getId(), pallet)==null;	
 		}
 		return done;
 	}

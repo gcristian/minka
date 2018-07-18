@@ -17,7 +17,7 @@
 package io.tilt.minka.core.leader.distributor;
 
 
-import io.tilt.minka.core.leader.data.ShardingScheme;
+import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Shard;
@@ -53,8 +53,8 @@ class Transfer {
 	}
 	
 	/* dettach in prev. source, attach to next target */
-	boolean apply(final ChangePlan changePlan, final ShardingScheme scheme) {
-		final Shard location = scheme.getScheme().findDutyLocation(entity);
+	boolean apply(final ChangePlan changePlan, final ShardingState scheme) {
+		final Shard location = scheme.getCommitedState().findDutyLocation(entity);
 		if (location != null && location.equals(target)) {
 			Migrator.log.info("{}: Transfers mean no change for Duty: {}", getClass().getSimpleName(), toString());
 			return false;

@@ -36,8 +36,8 @@ import io.tilt.minka.api.ReplyValue;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.core.leader.data.ShardingScheme;
-import io.tilt.minka.core.leader.data.StageRepository;
+import io.tilt.minka.core.leader.data.ShardingState;
+import io.tilt.minka.core.leader.data.UncommitedRepository;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Service;
@@ -61,9 +61,9 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private final Config config;
-	private final ShardingScheme shardingScheme;
+	private final ShardingState shardingState;
 	private final Scheduler scheduler;
-	private final StageRepository stageRepo;
+	private final UncommitedRepository stageRepo;
 	private final EventBroker eventBroker;
 	private final NetworkShardIdentifier shardId;
 
@@ -71,14 +71,14 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 
 	public ClientEventsHandler(
 			final Config config, 
-			final ShardingScheme shardingScheme, 
+			final ShardingState shardingState, 
 			final Scheduler scheduler,
-			final StageRepository stageRepo,
+			final UncommitedRepository stageRepo,
 			final EventBroker eventBroker, 
 			final NetworkShardIdentifier shardId) {
 
 		this.config = config;
-		this.shardingScheme = shardingScheme;
+		this.shardingState = shardingState;
 		this.scheduler = scheduler;
 		this.stageRepo = stageRepo;
 		this.eventBroker = eventBroker;
@@ -100,13 +100,13 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 
 	private void cleanShutdown(final ShardCommand op) {
 		//Locks.stopCandidate(Names.getLeaderName(config.getServiceName()), false);		
-		shardingScheme.getScheme().findShards(ShardState.ONLINE.filter(), shard-> {
+		shardingState.getCommitedState().findShards(ShardState.ONLINE.filter(), shard-> {
 			eventBroker.send(shard.getBrokerChannel(), op);
 		});
 		boolean offline = false;
 		while (!offline && !Thread.interrupted()) {
 			LockSupport.parkUntil(5000l);
-			offline = shardingScheme.getScheme().shardsSize(ShardState.ONLINE.filter()) == 0;
+			offline = shardingState.getCommitedState().shardsSize(ShardState.ONLINE.filter()) == 0;
 		}
 		// only then close subscriptions
 		stop();
@@ -154,12 +154,12 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 				final BrokerChannel origin = eventBroker.buildToTarget(
 						config, 
 						Channel.LEADTOFOLL, 
-						shardingScheme.getScheme().findShard(sid).getShardID());
+						shardingState.getScheme().findShard(sid).getShardID());
 				eventBroker.send(origin, event);
 				*/
 				
 				// make available to all followers
-				shardingScheme.getScheme().findShards(null, shard-> {
+				shardingState.getCommitedState().findShards(null, shard-> {
 					eventBroker.send(
 							eventBroker.buildToTarget(
 									config, 
@@ -206,7 +206,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	private void updateOrTransfer(final Consumer<Reply> callback, final ShardEntity entity) {
 		boolean sent[] = { false };
 		if (entity.getType() == ShardEntity.Type.DUTY) {
-			final Shard location = shardingScheme.getScheme().findDutyLocation(entity);
+			final Shard location = shardingState.getCommitedState().findDutyLocation(entity);
 			if (location != null && location.getState().isAlive()) {
 				final Serializable payloadType = entity.getUserPayload() != null ? 
 						entity.getUserPayload().getClass().getSimpleName() : "[empty]";
@@ -218,7 +218,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 			}
 			sent[0] = eventBroker.send(location.getBrokerChannel(), entity);
 		} else if (entity.getType() == ShardEntity.Type.PALLET) {
-			shardingScheme.getScheme().filterPalletLocations(entity, shard -> {
+			shardingState.getCommitedState().filterPalletLocations(entity, shard -> {
 				if (shard.getState().isAlive()) {
 					final Serializable payloadType = entity.getUserPayload() != null ? 
 							entity.getUserPayload().getClass().getSimpleName() : "[empty]";

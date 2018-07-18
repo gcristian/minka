@@ -43,9 +43,9 @@ import io.tilt.minka.api.Reply;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.balancer.Balancer;
-import io.tilt.minka.core.leader.data.ShardingScheme;
-import io.tilt.minka.core.leader.data.ShardingScheme.ClusterHealth;
-import io.tilt.minka.core.leader.data.StageRepository;
+import io.tilt.minka.core.leader.data.ShardingState;
+import io.tilt.minka.core.leader.data.ShardingState.ClusterHealth;
+import io.tilt.minka.core.leader.data.UncommitedRepository;
 import io.tilt.minka.core.leader.distributor.ChangePlan.Result;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
@@ -78,8 +78,8 @@ public class Distributor implements Service {
 	private final Config config;
 	private final Scheduler scheduler;
 	private final EventBroker eventBroker;
-	private final ShardingScheme shardingScheme;
-	private final StageRepository stageRepository;
+	private final ShardingState shardingState;
+	private final UncommitedRepository uncommitedRepository;
 	private final ShardIdentifier shardId;
 	private final EntityDao entityDao;
 	private final DependencyPlaceholder dependencyPlaceholder;
@@ -97,8 +97,8 @@ public class Distributor implements Service {
 			final Config config, 
 			final Scheduler scheduler, 
 			final EventBroker eventBroker,
-			final ShardingScheme shardingScheme, 
-			final StageRepository stageRepo,
+			final ShardingState shardingState, 
+			final UncommitedRepository stageRepo,
 			final ShardIdentifier shardId,
 			final EntityDao dutyDao, 
 			final DependencyPlaceholder dependencyPlaceholder, 
@@ -107,8 +107,8 @@ public class Distributor implements Service {
 		this.config = config;
 		this.scheduler = scheduler;
 		this.eventBroker = eventBroker;
-		this.shardingScheme = shardingScheme;
-		this.stageRepository = stageRepo;
+		this.shardingState = shardingState;
+		this.uncommitedRepository = stageRepo;
 		this.shardId = shardId;
 		this.entityDao = dutyDao;
 		this.leaderAware = leaderAware;
@@ -159,22 +159,22 @@ public class Distributor implements Service {
 				return;
 			}
 			final boolean changes = config.getDistributor().isRunOnStealthMode() &&
-					(shardingScheme.getScheme().isStealthChange() 
-					|| shardingScheme.getStage().isStealthChange());
+					(shardingState.getCommitedState().isStealthChange() 
+					|| shardingState.getUncommited().isStealthChange());
 			// skip if unstable unless a plan in progress or expirations will occurr and dismiss
-			final ChangePlan currPlan = shardingScheme.getCurrentPlan();
+			final ChangePlan currPlan = shardingState.getCurrentPlan();
 			
 			final boolean noPlan = currPlan==null || currPlan.getResult().isClosed();
 			
-			if (noPlan && shardingScheme.getShardsHealth() == ClusterHealth.UNSTABLE) {
+			if (noPlan && shardingState.getShardsHealth() == ClusterHealth.UNSTABLE) {
 				logger.warn("{}: ({}) Suspending distribution until reaching cluster stability", getName(), shardId);
 				return;
 			} else if (!changes && noPlan) {
 				return;
 			} else if (changes && noPlan) {
-				if (shardingScheme.getStage().isStealthChange()) {
+				if (shardingState.getUncommited().isStealthChange()) {
 					final long threshold = config.beatToMs(config.getDistributor().getStealthHoldThreshold());
-					if (!shardingScheme.getStage().stealthOverThreshold(threshold)) {						
+					if (!shardingState.getUncommited().stealthOverThreshold(threshold)) {						
 						if (lastStealthBlocked==null) {
 							lastStealthBlocked = Instant.now();
 						} else if (System.currentTimeMillis() - lastStealthBlocked.toEpochMilli() > 
@@ -189,7 +189,7 @@ public class Distributor implements Service {
 				}
 			}
 			
-			final int online = shardingScheme.getScheme().shardsSize(ShardState.ONLINE.filter());
+			final int online = shardingState.getCommitedState().shardsSize(ShardState.ONLINE.filter());
 			final int min = config.getProctor().getMinShardsOnlineBeforeSharding();
 			if (online < min) {
 				logger.warn("{}: Suspending distribution: not enough online shards (min:{}, now:{})", getName(), min, online);
@@ -246,23 +246,23 @@ public class Distributor implements Service {
 
 	/** @return a plan to drive built at balancer's request */
 	private ChangePlan buildPlan(final ChangePlan previous) {
-		final ChangePlan changePlan = factory.create(shardingScheme, previous);
+		final ChangePlan changePlan = factory.create(shardingState, previous);
 		if (null!=changePlan) {
-			shardingScheme.setPlan(changePlan);
-			this.shardingScheme.setDistributionHealth(ClusterHealth.UNSTABLE);
+			shardingState.setPlan(changePlan);
+			this.shardingState.setDistributionHealth(ClusterHealth.UNSTABLE);
 			changePlan.prepare();
-			shardingScheme.getStage().dropSnapshot();
+			shardingState.getUncommited().dropSnapshot();
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Balancer generated issues on ChangePlan: {}", getName(), changePlan.getId());
 			}
 			return changePlan;
 		} else {
-			this.shardingScheme.setDistributionHealth(ClusterHealth.STABLE);
+			this.shardingState.setDistributionHealth(ClusterHealth.STABLE);
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Distribution in Balance ", getName(), LogUtils.BALANCED_CHAR);
 			}			
-			shardingScheme.getScheme().stealthChange(false);
-			shardingScheme.getStage().setStealthChange(false);
+			shardingState.getCommitedState().stealthChange(false);
+			shardingState.getUncommited().setStealthChange(false);
 			return null;
 		}
 	}
@@ -305,7 +305,7 @@ public class Distributor implements Service {
 	}
 
 	private boolean deliveryShardValid(final Delivery d) {
-		return shardingScheme.getScheme().filterShards(
+		return shardingState.getCommitedState().filterShards(
 				sh->sh.equals(d.getShard()) && sh.getState().isAlive());							
 	}
 
@@ -313,7 +313,7 @@ public class Distributor implements Service {
 	private boolean push(final ChangePlan changePlan, final Delivery delivery, final boolean retrying) {
 		// check it's still in ptable
 		if (!deliveryShardValid(delivery)) {
-			logger.error("{}: ShardingScheme lost transport's target shard: {}", getName(), delivery.getShard());
+			logger.error("{}: ShardingState lost transport's target shard: {}", getName(), delivery.getShard());
 			changePlan.obsolete();
 			return false;
 		} else {
@@ -359,7 +359,7 @@ public class Distributor implements Service {
 				logger.warn("{}: EventMapper user's supplier hasn't return any pallets {}",getName(), master,  pallets);
 				initialAdding = false;
 			} else {				
-				stageRepository.saveAllPalletsRaw(pallets, logger("Pallet"));
+				uncommitedRepository.saveAllPalletsRaw(pallets, logger("Pallet"));
 			}
 			
 			if (duties == null || duties.isEmpty()) {
@@ -372,11 +372,11 @@ public class Distributor implements Service {
 					logger.error("{}: Distribution suspended - Duty Built construction problem: ", getName(), e);
 					return false;
 				}
-				stageRepository.saveAllDutiesRaw(duties, logger("Duty"));
+				uncommitedRepository.saveAllDutiesRaw(duties, logger("Duty"));
 				initialAdding = false;
 			}
 
-			if (shardingScheme.getStage().getDutiesCrud().isEmpty()) {
+			if (shardingState.getUncommited().getDutiesCrud().isEmpty()) {
 				logger.warn("{}: Aborting first distribution (no CRUD duties)", getName());
 				return false;
 			} else {
@@ -398,19 +398,19 @@ public class Distributor implements Service {
 
 	/** feed missing duties with storage/scheme diff. */
 	private void checkUnexistingDutiesFromStorage() {
-		if (config.getDistributor().isRunConsistencyCheck() && shardingScheme.getCurrentPlan().areShippingsEmpty()) {
+		if (config.getDistributor().isRunConsistencyCheck() && shardingState.getCurrentPlan().areShippingsEmpty()) {
 			// only warn in case there's no reallocation ahead
 			final Set<ShardEntity> sorted = new TreeSet<>();
 			for (Duty duty: reloadDutiesFromStorage()) {
 				final ShardEntity entity = ShardEntity.Builder.builder(duty).build();
-				if (!shardingScheme.getScheme().dutyExists(entity)) {
+				if (!shardingState.getCommitedState().dutyExists(entity)) {
 					sorted.add(entity);
 				}
 			}
 			if (!sorted.isEmpty()) {
 				logger.error("{}: Consistency check: Absent duties going as Missing [ {}]", getName(),
 						ShardEntity.toStringIds(sorted));
-				shardingScheme.getStage().addMissing(sorted);
+				shardingState.getUncommited().addMissing(sorted);
 			}
 		}
 	}
@@ -448,13 +448,13 @@ public class Distributor implements Service {
 	}
 
 	private void communicateUpdates() {
-		final Set<ShardEntity> updates = shardingScheme.getStage().getDutiesCrud().stream()
+		final Set<ShardEntity> updates = shardingState.getUncommited().getDutiesCrud().stream()
 				.filter(i -> i.getJournal().getLast().getEvent() == EntityEvent.UPDATE 
 					&& i.getJournal().getLast().getLastState() == EntityState.PREPARED)
 				.collect(Collectors.toCollection(HashSet::new));
 		if (!updates.isEmpty()) {
 			for (ShardEntity updatedDuty : updates) {
-				Shard location = shardingScheme.getScheme().findDutyLocation(updatedDuty);
+				Shard location = shardingState.getCommitedState().findDutyLocation(updatedDuty);
 				logger.info("{}: Transporting (update) Duty: {} to Shard: {}", getName(), updatedDuty.toString(), 
 						location.getShardID());
 				if (eventBroker.send(location.getBrokerChannel(), updatedDuty)) {
@@ -471,6 +471,6 @@ public class Distributor implements Service {
 					.append(" by Leader: ").append(shardId.toString());
 			logger.info(LogUtils.titleLine(title.toString()));
 		}
-		shardingScheme.logStatus();
+		shardingState.logStatus();
 	}
 }

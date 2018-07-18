@@ -42,9 +42,9 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
-import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.core.leader.data.ShardingScheme;
-import io.tilt.minka.core.leader.data.Stage;
+import io.tilt.minka.core.leader.data.CommitedState;
+import io.tilt.minka.core.leader.data.ShardingState;
+import io.tilt.minka.core.leader.data.UncommitedChanges;
 import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
@@ -72,9 +72,9 @@ class ChangePlanFactory {
 	}
 
 	/** @return a plan if there're changes to apply or NULL if not */
-	final ChangePlan create(final ShardingScheme scheme, final ChangePlan previous) {
+	final ChangePlan create(final ShardingState scheme, final ChangePlan previous) {
 		
-		final Stage snapshot = scheme.getStage().snapshot();
+		final UncommitedChanges snapshot = scheme.getUncommited().snapshot();
 		ChangePlan changePlan = new ChangePlan(
 				config.beatToMs(config.getDistributor().getPlanExpiration()), 
 				config.getDistributor().getPlanMaxRetries());
@@ -83,19 +83,19 @@ class ChangePlanFactory {
 		final Set<ShardEntity> deletions = collectAsRemoves(scheme, previous, snapshot, changePlan, creations);
 		
 		final Set<ShardEntity> ents = new HashSet<>();
-		scheme.getScheme().findDuties(ents::add);
+		scheme.getCommitedState().findDuties(ents::add);
 		ents.addAll(creations);
 		boolean changes = false;
 		final Map<String, List<ShardEntity>> schemeByPallets = ents.stream()
 				.collect(Collectors.groupingBy(e -> e.getDuty().getPalletId()));
 		if (schemeByPallets.isEmpty()) {
-			logger.warn("{}: Scheme and Stage are empty. Nothing to balance (C:{}, R:{})", 
+			logger.warn("{}: CommitedState and UncommitedChanges are empty. Nothing to balance (C:{}, R:{})", 
 					name, creations.size(), deletions.size());
 			changePlan = null;
 		} else {
 			try {
 				for (final Map.Entry<String, List<ShardEntity>> e : schemeByPallets.entrySet()) {
-					final Pallet pallet = scheme.getScheme().getPalletById(e.getKey()).getPallet();
+					final Pallet pallet = scheme.getCommitedState().getPalletById(e.getKey()).getPallet();
 					final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
 					logStatus(scheme, creations, deletions, e.getValue(), pallet, balancer);
 					if (balancer != null) {
@@ -109,8 +109,8 @@ class ChangePlanFactory {
 					}
 				}
 				// only when everything went well otherwise'd be lost
-				scheme.getStage().clearAllocatedMissing();
-				scheme.getStage().cleanAllocatedDanglings();
+				scheme.getUncommited().clearAllocatedMissing();
+				scheme.getUncommited().cleanAllocatedDanglings();
 				if (!changes && deletions.isEmpty()) {
 					changePlan = null;
 				}
@@ -119,14 +119,14 @@ class ChangePlanFactory {
 		    	logger.error("{}: Cancelling ChangePlan building", name, e);
 			}
 		}
-		scheme.getStage().dropSnapshot();
+		scheme.getUncommited().dropSnapshot();
 		return changePlan;
 	}
 
 	private Set<ShardEntity> collectAsRemoves(
-			final ShardingScheme scheme,
+			final ShardingState scheme,
 			final ChangePlan previousChange,
-			final Stage snapshot,
+			final UncommitedChanges snapshot,
 			final ChangePlan changePlan, 
 			final Set<ShardEntity> dutyCreations) {
 		
@@ -134,13 +134,13 @@ class ChangePlanFactory {
 		snapshot.findDutiesCrud(REMOVE::equals, null, crud-> {
 			// as a CRUD a deletion lives in stage as a mark within an Opaque ShardEntity
 			// we must now search for the real one
-			final ShardEntity schemed = scheme.getScheme().getByDuty(crud.getDuty());
+			final ShardEntity schemed = scheme.getCommitedState().getByDuty(crud.getDuty());
 			if (schemed!=null) {
 				// translate the REMOVAL event
 				schemed.getJournal().addEvent(
 						crud.getLastEvent(), 
 						crud.getLastState(), 
-						scheme.getScheme().findDutyLocation(schemed).getShardID(), 
+						scheme.getCommitedState().findDutyLocation(schemed).getShardID(), 
 						-1);
 				dutyDeletions.add(schemed);
 				// prevail user's deletion op. over clustering restore/creation
@@ -152,15 +152,15 @@ class ChangePlanFactory {
 		
 		// lets add those duties of a certain deleting pallet
 		snapshot.findPalletsCrud(REMOVE::equals, PREPARED::equals, p-> {
-			scheme.getScheme().findDutiesByPallet(p.getPallet(), dutyDeletions::add);
+			scheme.getCommitedState().findDutiesByPallet(p.getPallet(), dutyDeletions::add);
 		});
 		shipDeletions(scheme, changePlan, dutyDeletions);
 		return dutyDeletions;
 	}
 
-	private Set<ShardEntity> collectAsCreates(final ShardingScheme scheme,
+	private Set<ShardEntity> collectAsCreates(final ShardingState scheme,
 			final ChangePlan previousChange,
-			final Stage snapshot,
+			final UncommitedChanges snapshot,
 			final ChangePlan changePlan) {
 		// recently fallen shards
 		addMissingAsCrud(scheme, changePlan);
@@ -178,7 +178,7 @@ class ChangePlanFactory {
 	}
 
 	private static final Migrator balancePallet(
-			final ShardingScheme partition, 
+			final ShardingState partition, 
 			final Pallet pallet, 
 			final Balancer balancer,
 			final Set<ShardEntity> dutyCreations, 
@@ -195,9 +195,9 @@ class ChangePlanFactory {
 		final Map<NetworkLocation, Set<Duty>> scheme = new TreeMap<>();
 		
 		// add the currently distributed duties
-		partition.getScheme().findShards(ShardState.ONLINE.filter(), shard-> {
+		partition.getCommitedState().findShards(ShardState.ONLINE.filter(), shard-> {
 			final Set<Duty> located = new HashSet<>();
-			partition.getScheme().findDuties(shard, pallet, d-> {
+			partition.getCommitedState().findDuties(shard, pallet, d-> {
 				located.add(d.getDuty());
 				sourceRefs.add(d);
 			}); 
@@ -220,23 +220,23 @@ class ChangePlanFactory {
 		return ret;
 	}
 	
-	private void addMissingAsCrud(final ShardingScheme partition, final ChangePlan changePlan) {
-	    final Collection<ShardEntity> missing = partition.getStage().snapshot().getDutiesMissing();
+	private void addMissingAsCrud(final ShardingState partition, final ChangePlan changePlan) {
+	    final Collection<ShardEntity> missing = partition.getUncommited().snapshot().getDutiesMissing();
 		for (final ShardEntity missed : missing) {
-			final Shard lazy = partition.getScheme().findDutyLocation(missed);
+			final Shard lazy = partition.getCommitedState().findDutyLocation(missed);
 			if (logger.isDebugEnabled()) {
 				logger.debug("{}: Registering {}, missing Duty: {}", name,
 					lazy == null ? "unattached" : "from falling Shard: " + lazy, missed);
 			}
 			if (lazy != null) {
-				partition.getScheme().write(missed, lazy, REMOVE, ()-> {
+				partition.getCommitedState().write(missed, lazy, REMOVE, ()-> {
 					// missing duties are a confirmation per-se from the very shards,
 					// so the ptable gets fixed right away without a realloc.
 					missed.getJournal().addEvent(REMOVE, CONFIRMED,lazy.getShardID(),changePlan.getId());					
 				});
 			}
 			missed.getJournal().addEvent(CREATE, PREPARED,null,changePlan.getId());
-			partition.getStage().snapshot().addCrudDuty(missed);
+			partition.getUncommited().snapshot().addCrudDuty(missed);
 		}
 		if (!missing.isEmpty()) {
 			if (logger.isInfoEnabled()) {
@@ -269,11 +269,11 @@ class ChangePlanFactory {
 	}
 
 	/* by user deleted */
-	private final void shipDeletions(final ShardingScheme partition, final ChangePlan changePlan,
+	private final void shipDeletions(final ShardingState partition, final ChangePlan changePlan,
 			final Set<ShardEntity> deletions) {
 
 		for (final ShardEntity deletion : deletions) {
-			final Shard shard = partition.getScheme().findDutyLocation(deletion);
+			final Shard shard = partition.getCommitedState().findDutyLocation(deletion);
 			deletion.getJournal().addEvent(DETACH, 
 					PREPARED,
 					shard.getShardID(),
@@ -287,7 +287,7 @@ class ChangePlanFactory {
 	}
 
 	private void logStatus(
-			final ShardingScheme partition, 
+			final ShardingState partition, 
 			final Set<ShardEntity> dutyCreations, 
 			final Set<ShardEntity> dutyDeletions,
 			final List<ShardEntity> duties,
@@ -301,7 +301,7 @@ class ChangePlanFactory {
 		logger.info(LogUtils.titleLine(LogUtils.HYPHEN_CHAR, "Building Pallet: %s for %s", pallet.getId(), 
 				balancer.getClass().getSimpleName()));
 		final double[] clusterCapacity = new double[1];
-		partition.getScheme().findShards(ShardState.ONLINE.filter(), node-> {
+		partition.getCommitedState().findShards(ShardState.ONLINE.filter(), node-> {
 			final Capacity cap = node.getCapacities().get(pallet);
 			final double currTotal = cap == null ? 0 :  cap.getTotal();
 			logger.info("{}: Capacity Shard {} : {}", name, node.toString(), currTotal);
@@ -309,7 +309,7 @@ class ChangePlanFactory {
 		});
 		logger.info("{}: Total cluster capacity: {}", name, clusterCapacity);
 		logger.info("{}: RECKONING #{}; +{}; -{} duties: {}", name,
-			new Scheme.SchemeExtractor(partition.getScheme())
+			new CommitedState.SchemeExtractor(partition.getCommitedState())
 				.getAccountConfirmed(pallet), 
 			dutyCreations.stream()
 				.filter(d->d.getDuty().getPalletId().equals(pallet.getId()))

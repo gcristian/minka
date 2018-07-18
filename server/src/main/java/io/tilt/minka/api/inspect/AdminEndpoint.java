@@ -45,7 +45,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.wordnik.swagger.annotations.Api;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.core.leader.data.ShardingScheme;
+import io.tilt.minka.core.leader.data.ShardingState;
 
 @Api("Minka Endpoint API")
 @Path("admin")
@@ -55,7 +55,7 @@ import io.tilt.minka.core.leader.data.ShardingScheme;
 public class AdminEndpoint {
 
 	@Autowired
-	private ShardingScheme scheme;
+	private ShardingState scheme;
 	@Autowired
 	private SystemStateMonitor state;
 	@Autowired
@@ -109,7 +109,7 @@ public class AdminEndpoint {
 	@Path("/distro/run")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response runDistro() throws JsonProcessingException {
-		scheme.getScheme().stealthChange(true);
+		scheme.getCommitedState().stealthChange(true);
 		return Response.accepted().build();
 	}
 

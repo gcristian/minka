@@ -36,9 +36,9 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
  * Representation of the known confirmed status of distribution of duties.
  * Only maintainer: {@linkplain SchemeSentry}
  */
-public class Scheme {
+public class CommitedState {
 
-	private static final Logger logger = LoggerFactory.getLogger(Scheme.class);
+	private static final Logger logger = LoggerFactory.getLogger(CommitedState.class);
 
 	private final Map<ShardIdentifier, Set<EntityRecord>> previousScheme = new HashMap<>();
 	private final Map<ShardIdentifier, Shard> shardsByID;
@@ -47,7 +47,7 @@ public class Scheme {
 	private final Map<ShardIdentifier, SlidingSortedSet<Shard.Change>> goneShards;
 	private boolean stealthChange;
 	
-	public Scheme() {
+	public CommitedState() {
 		this.goneShards = new HashMap<>();
 		this.shardsByID = new HashMap<>();
 		this.partitionsByShard = new HashMap<>();
@@ -194,7 +194,7 @@ public class Scheme {
 	 * @param duty 		the entity to act on
 	 * @param where		the sard where it resides
 	 * @param callback	called when writting is possible
-	 * @return if there was a Scheme change after the action 
+	 * @return if there was a CommitedState change after the action 
 	 */
 	public boolean write(final ShardEntity duty, final Shard where, final EntityEvent event, final Runnable callback) {
 		final boolean add = event.is(EntityEvent.ATTACH) || event.is(EntityEvent.CREATE);
@@ -385,9 +385,9 @@ public class Scheme {
 
 	/** Read-only access */
 	public static class SchemeExtractor {
-		private final Scheme reference;
+		private final CommitedState reference;
 
-		public SchemeExtractor(final Scheme reference) {
+		public SchemeExtractor(final CommitedState reference) {
 			this.reference = reference;
 		}
 

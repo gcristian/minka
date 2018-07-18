@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.core.leader.data.ShardingScheme;
+import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Service;
@@ -40,7 +40,7 @@ import io.tilt.minka.domain.Shard;
 
 /**
  * Drives follower's events like {@linkplain Heartbeat} 
- * and maintains a {@linkplain ShardingScheme} by defining a member's service state
+ * and maintains a {@linkplain ShardingState} by defining a member's service state
  *  
  * @author Cristian Gonzalez
  * @since Dec 2, 2015
@@ -50,7 +50,7 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private final Config config;
-	private final ShardingScheme shardingScheme;
+	private final ShardingState shardingState;
 	private final BiConsumer<Heartbeat, Shard> hbConsumer;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
@@ -60,14 +60,14 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 
 	public FollowerEventsHandler(
 			final Config config, 
-			final ShardingScheme shardingScheme, 
+			final ShardingState shardingState, 
 			final BiConsumer<Heartbeat, Shard> hbConsumer,
 			final EventBroker eventBroker, 
 			final Scheduler scheduler, 
 			final NetworkShardIdentifier shardId) {
 
 		this.config = requireNonNull(config);
-		this.shardingScheme = requireNonNull(shardingScheme);
+		this.shardingState = requireNonNull(shardingState);
 		this.hbConsumer = requireNonNull(hbConsumer);
 		this.eventBroker = requireNonNull(eventBroker);
 		this.scheduler = requireNonNull(scheduler);
@@ -112,10 +112,10 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 
     private Shard getOrRegisterShard(final Heartbeat hb) {
 		// when a shutdownlock acquired then keep receving HB to evaluate all Slaves are down!
-		Shard shard = shardingScheme.getScheme().getShard(hb.getShardId());
+		Shard shard = shardingState.getCommitedState().getShard(hb.getShardId());
 		if (shard == null) {
 			// new member
-			shardingScheme.getScheme().addShard(shard = new Shard(
+			shardingState.getCommitedState().addShard(shard = new Shard(
 					eventBroker.buildToTarget(config, Channel.LEADTOFOLL, hb.getShardId()),
 					hb.getShardId()));
 		}

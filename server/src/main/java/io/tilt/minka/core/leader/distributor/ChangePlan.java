@@ -42,7 +42,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.leader.balancer.Balancer;
-import io.tilt.minka.core.leader.data.Scheme;
+import io.tilt.minka.core.leader.data.CommitedState;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal;
 import io.tilt.minka.domain.EntityJournal.Log;
@@ -55,7 +55,7 @@ import io.tilt.minka.utils.LogUtils;
 
 /**
  * Plan of distribution changes, as a consequence of {@linkplain Balancer} recalculation, 
- * caused by CRUD operations to the {@linkplain Scheme}. <br>
+ * caused by CRUD operations to the {@linkplain CommitedState}. <br>
  * Contains a matrix of actions with minimum behaviour scoped to the pace of scheme change.
  * <br>
  * Composed of many {@linkplain Delivery} objects sent to different {@linkplain Shard},

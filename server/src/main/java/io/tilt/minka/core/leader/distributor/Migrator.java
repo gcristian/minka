@@ -36,7 +36,7 @@ import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
 import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
 import io.tilt.minka.core.leader.balancer.BalancingException;
-import io.tilt.minka.core.leader.data.ShardingScheme;
+import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal;
@@ -53,7 +53,7 @@ import io.tilt.minka.domain.ShardIdentifier;
  * Leveraging the balancer of the distribution process (order, validation, consistency, etc)<br>
  * <br>
  * A new plan will not be shipped when balancers do repeatable distributions and there're no<br> 
- * CRUD ops from client, keeping the {@linkplain Scheme} stable and unchanged, <br>
+ * CRUD ops from client, keeping the {@linkplain CommitedState} stable and unchanged, <br>
  * as overrides and transfer only compute deltas according the state of the scheme.<br>
  * 
  * @author Cristian Gonzalez
@@ -63,7 +63,7 @@ public class Migrator {
 
 	protected static final Logger log = LoggerFactory.getLogger(Migrator.class);
 	
-	private final ShardingScheme scheme;
+	private final ShardingState scheme;
 	private final Pallet pallet;
 	private Boolean isWeightedPallet;
 	private List<Override> overrides;
@@ -72,7 +72,7 @@ public class Migrator {
 	private Map<Duty, ShardEntity> sourceRefs;
 	
 	
-	protected Migrator(final ShardingScheme scheme, final Pallet pallet, final Set<ShardEntity> duties) {
+	protected Migrator(final ShardingState scheme, final Pallet pallet, final Set<ShardEntity> duties) {
 		super();
 		this.scheme = requireNonNull(scheme);
 		this.pallet = requireNonNull(pallet);
@@ -115,7 +115,7 @@ public class Migrator {
 	}
 	private final void transfer_(final NetworkLocation source, final NetworkLocation target, final Duty duty) throws BalancingException {
 		if (this.transfers == null ) {
-			this.transfers = new ArrayList<>(scheme.getScheme().shardsSize());
+			this.transfers = new ArrayList<>(scheme.getCommitedState().shardsSize());
 		}
 		final Shard source_ = source!=null ? deref(source) : null;
 		final Shard target_ = deref(target);
@@ -162,7 +162,7 @@ public class Migrator {
 		requireNonNull(shard);
 		requireNonNull(cluster);
 		if (this.overrides == null) {
-			this.overrides = new ArrayList<>(scheme.getScheme().shardsSize());
+			this.overrides = new ArrayList<>(scheme.getCommitedState().shardsSize());
 		}
 		
 		cluster.forEach(derefd->checkDuplicate(sourceRefs.get(derefd)));
@@ -178,7 +178,7 @@ public class Migrator {
 	}
 	
 	private Shard deref(final NetworkLocation location) {
-		return scheme.getScheme().findShard(shard->shard.getShardID().equals(location.getId())); 
+		return scheme.getCommitedState().findShard(shard->shard.getShardID().equals(location.getId())); 
 	}
 	
 	private double validateOverride(final Shard target, final Set<Duty> cluster) {
@@ -225,11 +225,11 @@ public class Migrator {
 		if (!pallet.getId().equals(entity.getDuty().getPalletId())) {
 			throw new BalancingException("bad transfer: duty %s doesnt belong to pallet: %s", entity, pallet);
 		}
-		if (scheme.getScheme().getDutiesByShard(target).contains(entity)) {
+		if (scheme.getCommitedState().getDutiesByShard(target).contains(entity)) {
 			throw new BalancingException("bad transfer: duty %s already exist in target shard: %s", entity, target);
 		}
 		if (source==null) {
-			final Shard location = scheme.getScheme().findDutyLocation(entity);
+			final Shard location = scheme.getCommitedState().findDutyLocation(entity);
 			if (location !=null && !(location.getState()==ShardState.GONE || location.getState()==ShardState.QUITTED)) {
 				throw new BalancingException("bad transfer: duty %s has a source, must be transferred from "
 						+ "its current location: %s", entity, location);
@@ -241,8 +241,8 @@ public class Migrator {
 		if (entity.getLastEvent()==EntityEvent.REMOVE && scheme.getBackstage().snapshot().after(entity)) {
 			throw new BalancingException("bad transfer: duty: %s is marked for deletion, cannot be balanced", entity);
 		}*/
-		scheme.getStage().snapshot().findDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, duty-> {
-			if (scheme.getStage().snapshot().after(duty)) {
+		scheme.getUncommited().snapshot().findDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, duty-> {
+			if (scheme.getUncommited().snapshot().after(duty)) {
 				if (duty.equals(entity)) {
 					throw new BalancingException("bad transfer: duty: %s is just marked for deletion, cannot be balanced", entity);
 				}
@@ -293,7 +293,7 @@ public class Migrator {
 
 	private boolean anyExclusions() {
 	    boolean[] ret = new boolean[1];
-		scheme.getStage().snapshot().findDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, duty-> {
+		scheme.getUncommited().snapshot().findDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, duty-> {
 			if (duty.getDuty().getPalletId().equals(pallet.getId()) && 
 					!inTransfers(duty) && 
 					!inOverrides(duty) && 
@@ -303,8 +303,8 @@ public class Migrator {
 			}
 		});
 		final Set<ShardEntity> deletions = new HashSet<>();
-		scheme.getStage().snapshot().findDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, deletions::add);
-		scheme.getScheme().findDuties(curr-> {
+		scheme.getUncommited().snapshot().findDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, deletions::add);
+		scheme.getCommitedState().findDuties(curr-> {
 			if (curr.getDuty().getPalletId().equals(pallet.getId()) && 
 			        !deletions.contains(curr) && 
 					!inTransfers(curr) && 

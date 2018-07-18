@@ -49,9 +49,9 @@ import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.broker.impl.SocketClient;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
-import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.core.leader.data.ShardingScheme;
-import io.tilt.minka.core.leader.data.Stage;
+import io.tilt.minka.core.leader.data.CommitedState;
+import io.tilt.minka.core.leader.data.ShardingState;
+import io.tilt.minka.core.leader.data.UncommitedChanges;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
@@ -76,7 +76,7 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 public class SystemStateMonitor {
 
 	private final LeaderAware leaderAware; 
-	private final ShardingScheme scheme;
+	private final ShardingState scheme;
 	private final ShardedPartition partition;
 	private final Scheduler scheduler;
 	private final EventBroker broker;
@@ -101,7 +101,7 @@ public class SystemStateMonitor {
 
 	public SystemStateMonitor(
 			final LeaderAware leaderAware, 
-			final ShardingScheme scheme,
+			final ShardingState scheme,
 			final ShardedPartition partition,
 			final Scheduler scheduler,
 			final EventBroker broker, 
@@ -220,7 +220,7 @@ public class SystemStateMonitor {
 	public String schemeToJson(final boolean detail) {
 		Map<String, Object> m = new LinkedHashMap<>(2);
 		m.put("scheme", buildDuties(detail));
-		m.put("stage", buildStage(detail, scheme.getStage()));
+		m.put("stage", buildStage(detail, scheme.getUncommited()));
 		return toJson(m);
 	}
 
@@ -268,18 +268,18 @@ public class SystemStateMonitor {
 		return global;
 	}
 
-	private Map<String, Object> buildShards(final ShardingScheme scheme) {
+	private Map<String, Object> buildShards(final ShardingState scheme) {
 		final Map<String, Object> map = new LinkedHashMap<>(5);
 		map.put("namespace", config.getBootstrap().getNamespace());
 		map.put("leader", leaderAware.getLeaderShardId());
 		map.put("previous", leaderAware.getAllPreviousLeaders());
 		final Map<String, List<String>> tmp = new HashMap<>();
-		scheme.getScheme().getGoneShards().entrySet().forEach(e-> {
+		scheme.getCommitedState().getGoneShards().entrySet().forEach(e-> {
 			tmp.put(e.getKey().getId(), e.getValue().values().stream().map(c->c.toString()).collect(toList()));
 		});
 		map.put("gone", tmp);
 		final List<Shard> list = new ArrayList<>();
-		scheme.getScheme().findShards(null, list::add);
+		scheme.getCommitedState().findShards(null, list::add);
 		map.put("shards", list);
 		return map;
 	}
@@ -294,7 +294,7 @@ public class SystemStateMonitor {
 	private Map<String, List<Object>> buildDuties(final boolean detail) {
 		Validate.notNull(scheme);
 		final Map<String, List<Object>> byPalletId = new LinkedHashMap<>();
-		scheme.getScheme().findDuties(d-> {
+		scheme.getCommitedState().findDuties(d-> {
 			List<Object> pid = byPalletId.get(d.getDuty().getPalletId());
 			if (pid==null) {
 				byPalletId.put(d.getDuty().getPalletId(), pid = new ArrayList<>());
@@ -316,11 +316,11 @@ public class SystemStateMonitor {
 		return ret;
 	}
 	
-	private Map<String, List<Object>> buildStage(final boolean detail, final Stage stage) {
+	private Map<String, List<Object>> buildStage(final boolean detail, final UncommitedChanges uncommitedChanges) {
 		final Map<String, List<Object>> ret = new LinkedHashMap<>(3);		
-		ret.put("crud", dutyBrief(stage.getDutiesCrud(), detail));
-		ret.put("dangling", dutyBrief(stage.getDutiesDangling(), detail));
-		ret.put("missing", dutyBrief(stage.getDutiesMissing(), detail));
+		ret.put("crud", dutyBrief(uncommitedChanges.getDutiesCrud(), detail));
+		ret.put("dangling", dutyBrief(uncommitedChanges.getDutiesDangling(), detail));
+		ret.put("missing", dutyBrief(uncommitedChanges.getDutiesMissing(), detail));
 		return ret;
 	}
 
@@ -335,13 +335,13 @@ public class SystemStateMonitor {
 		
 	private List<Map<String, Object>> buildPallets() {
 		
-		final Scheme.SchemeExtractor extractor = new Scheme.SchemeExtractor(scheme.getScheme());
+		final CommitedState.SchemeExtractor extractor = new CommitedState.SchemeExtractor(scheme.getCommitedState());
 		final List<Map<String, Object>> ret = new ArrayList<>(extractor.getPallets().size());
 		for (final ShardEntity pallet: extractor.getPallets()) {
 			
 			final double[] dettachedWeight = {0};
 			final int[] crudSize = new int[1];
-			scheme.getStage().findDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, e-> {
+			scheme.getUncommited().findDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, e-> {
 				if (e.getDuty().getPalletId().equals(pallet.getPallet().getId())) {
 					crudSize[0]++;
 					dettachedWeight[0]+=e.getDuty().getWeight();
@@ -350,7 +350,7 @@ public class SystemStateMonitor {
 								
 
 			final List<DutyView> dutyRepList = new ArrayList<>();
-			scheme.getScheme().findDutiesByPallet(pallet.getPallet(), 
+			scheme.getCommitedState().findDutiesByPallet(pallet.getPallet(), 
 					d -> dutyRepList.add(new DutyView(
 									d.getDuty().getId(),
 									d.getDuty().getWeight())));
@@ -371,16 +371,16 @@ public class SystemStateMonitor {
 		return ret;
 	}
 
-	private static List<Map<String, Object>> buildShardRep(final ShardingScheme table) {	    
+	private static List<Map<String, Object>> buildShardRep(final ShardingState table) {	    
 		final List<Map<String, Object>> ret = new LinkedList<>();
-		final Scheme.SchemeExtractor extractor = new Scheme.SchemeExtractor(table.getScheme());
+		final CommitedState.SchemeExtractor extractor = new CommitedState.SchemeExtractor(table.getCommitedState());
 		for (final Shard shard : extractor.getShards()) {
 			final List<Map<String , Object>> palletsAtShard =new LinkedList<>();
 			
 			for (final ShardEntity pallet: extractor.getPallets()) {
 				final List<DutyView> dutyRepList = new LinkedList<>();
 				int[] size = new int[1];
-				table.getScheme().findDuties(shard, pallet.getPallet(), d-> {
+				table.getCommitedState().findDuties(shard, pallet.getPallet(), d-> {
 					size[0]++;
 					dutyRepList.add(
 						new DutyView(
@@ -404,17 +404,17 @@ public class SystemStateMonitor {
 		return ret;
 	}
 
-	private static Map<String, Object> buildGlobal(final ShardingScheme table) {
-		Scheme.SchemeExtractor extractor = new Scheme.SchemeExtractor(table.getScheme());
+	private static Map<String, Object> buildGlobal(final ShardingState table) {
+		CommitedState.SchemeExtractor extractor = new CommitedState.SchemeExtractor(table.getCommitedState());
 		final Map<String, Object> map = new LinkedHashMap<>(8);
 		map.put("size-shards", extractor.getShards().size());
 		map.put("size-pallets", extractor.getPallets().size());
 		map.put("size-scheme", extractor.getSizeTotal());
-		map.put("size-crud", table.getStage().getDutiesCrud().size());
-		map.put("size-missings", table.getStage().getDutiesMissing().size());
-		map.put("size-dangling", table.getStage().getDutiesDangling().size());
-		map.put("stage-change", table.getStage().isStealthChange());
-		map.put("scheme-change", table.getScheme().isStealthChange());
+		map.put("size-crud", table.getUncommited().getDutiesCrud().size());
+		map.put("size-missings", table.getUncommited().getDutiesMissing().size());
+		map.put("size-dangling", table.getUncommited().getDutiesDangling().size());
+		map.put("stage-change", table.getUncommited().isStealthChange());
+		map.put("scheme-change", table.getCommitedState().isStealthChange());
 		return map;
 	}
 	
