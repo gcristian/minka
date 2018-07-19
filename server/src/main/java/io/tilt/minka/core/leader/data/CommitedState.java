@@ -18,13 +18,13 @@ import io.tilt.minka.api.ConsistencyException;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.ConcurrentDutyException;
-import io.tilt.minka.core.leader.SchemeSentry;
+import io.tilt.minka.core.leader.StateSentry;
 import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.Shard.Change;
+import io.tilt.minka.domain.Shard.Transition;
 import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardIdentifier;
@@ -34,7 +34,7 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 
 /**
  * Representation of the known confirmed status of distribution of duties.
- * Only maintainer: {@linkplain SchemeSentry}
+ * Only maintainer: {@linkplain StateSentry}
  */
 public class CommitedState {
 
@@ -44,7 +44,7 @@ public class CommitedState {
 	private final Map<ShardIdentifier, Shard> shardsByID;
 	private final Map<Shard, ShardedPartition> partitionsByShard;
 	final Map<String, ShardEntity> palletsById;
-	private final Map<ShardIdentifier, SlidingSortedSet<Shard.Change>> goneShards;
+	private final Map<ShardIdentifier, SlidingSortedSet<Shard.Transition>> goneShards;
 	private boolean stealthChange;
 	
 	public CommitedState() {
@@ -102,7 +102,7 @@ public class CommitedState {
 	
 	/**
 	 * When a Shard has been offline and their dangling duties reassigned
-	 * after completing Change's cycles: the shard must be deleted
+	 * after completing Transition's cycles: the shard must be deleted
 	 * @param shard	a shard to delete from cluster
 	 * @return true if the action was performed
 	 */
@@ -138,8 +138,8 @@ public class CommitedState {
 	/** backup gone shards for history */
 	private void addGoneShard(final Shard shard) {
 		int max = 5;
-		for (final Iterator<Change> it = shard.getChanges().iterator(); it.hasNext() && max>0;max--) {
-			SlidingSortedSet<Change> set = goneShards.get(shard.getShardID());
+		for (final Iterator<Transition> it = shard.getTransitions().values().iterator(); it.hasNext() && max>0;max--) {
+			SlidingSortedSet<Transition> set = goneShards.get(shard.getShardID());
 			if (set==null) {
 				goneShards.put(shard.getShardID(), set = CollectionUtils.sliding(max));
 			}
@@ -343,7 +343,7 @@ public class CommitedState {
 		return this.shardsByID.values().size();
 	}
 
-	public Map<ShardIdentifier, SlidingSortedSet<Shard.Change>> getGoneShards() {
+	public Map<ShardIdentifier, SlidingSortedSet<Shard.Transition>> getGoneShards() {
 		return goneShards;
 	}
 	

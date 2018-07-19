@@ -122,8 +122,8 @@ public class ChangeDetector {
 			final List<ShardEntity> deliveryDuties,
 			final BiConsumer<Log, ShardEntity> c,
 			final long pid) {
-		Set<EntityRecord> sortedLogConfirmed = null;
-		Set<EntityRecord> sortedLogDirty = null;
+		Set<EntityRecord> log = null;
+		Set<EntityRecord> dirty = null;
 		boolean found = false;
 		for (final EntityRecord beated : beatedDuties) {
 			for (ShardEntity delivered : deliveryDuties) {
@@ -132,34 +132,34 @@ public class ChangeDetector {
 					if (expected != null) {
 						found = true;
 						if (logger.isInfoEnabled()) {
-							if (sortedLogConfirmed == null) {
-								sortedLogConfirmed = new TreeSet<>();
+							if (log == null) {
+								log = new TreeSet<>();
 							}
-							sortedLogConfirmed.add(beated);
+							log.add(beated);
 						}
 						c.accept(expected, delivered);
 					} else {
 						final Date fact = delivered.getJournal().getLast().getHead();
 						final long now = System.currentTimeMillis();
 						if (now - fact.getTime() > MAX_EVENT_DATE_FOR_DIRTY) {
-							if (sortedLogDirty == null) {
-								sortedLogDirty = new TreeSet<>();
+							if (dirty == null) {
+								dirty = new TreeSet<>();
 							}
-							sortedLogDirty.add(beated);
+							dirty.add(beated);
 						}
 					}
 					break;
 				}
 			}
 		}
-		if (sortedLogConfirmed!=null) {
+		if (log!=null) {
 			logger.info("{}: ShardID: {}, {} {} for Duties: {}", classname,
 					shardid, ATTACH, CONFIRMED, 
-					EntityRecord.toStringIds(sortedLogConfirmed));
+					EntityRecord.toStringIds(log));
 		}
-		if (sortedLogDirty!=null) {
+		if (dirty!=null) {
 			logger.warn("{}: ShardID: {}, Reporting DIRTY partition event for Duties: {}", classname,
-					shardid, EntityRecord.toStringIds(sortedLogDirty));
+					shardid, EntityRecord.toStringIds(dirty));
 		}
 		return found;
 	}
@@ -208,7 +208,7 @@ public class ChangeDetector {
 			final List<ShardEntity> deliveryDuties,
 			final BiConsumer<Log, ShardEntity> c, 
 			final long pid) {
-		Set<ShardEntity> sortedLog = null;
+		Set<ShardEntity> log = null;
 		boolean found = false;
 		for (ShardEntity prescripted : deliveryDuties) {
 			if (!beatedDuties.stream()
@@ -218,20 +218,20 @@ public class ChangeDetector {
 				if (changelog!=null && (changelog.getLastState()==PENDING || changelog.getLastState()==MISSING)) {
 					found = true;
 					if (logger.isInfoEnabled()) {
-						if (sortedLog==null) {
-							sortedLog = new TreeSet<>();
+						if (log==null) {
+							log = new TreeSet<>();
 						}
-						sortedLog.add(prescripted);
+						log.add(prescripted);
 					}
 					c.accept(changelog, prescripted);
 				}
 			}
 		}
 		
-		if (sortedLog!=null) {
+		if (log!=null) {
 			logger.info("{}: ShardID: {}, {} {} for Duties: {}",
 					getClass().getSimpleName(), shardid, DETACH, CONFIRMED, 
-					ShardEntity.toStringIds(sortedLog));
+					ShardEntity.toStringIds(log));
 		}
 		return found;
 	}

@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.SchemeSentry;
+import io.tilt.minka.core.leader.StateSentry;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.EntityState;
@@ -24,7 +24,7 @@ import io.tilt.minka.domain.ShardEntity;
 /** 
  * Temporal state of modifications willing to be added to the {@linkplain CommitedState}
  * including inconsistencies detected by the sentry
- * Only maintainers: {@linkplain SchemeSentry} and {@linkplain UncommitedRepository}
+ * Only maintainers: {@linkplain StateSentry} and {@linkplain UncommitedRepository}
  * */
 public class UncommitedChanges {
 

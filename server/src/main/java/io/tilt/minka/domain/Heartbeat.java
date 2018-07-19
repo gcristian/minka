@@ -57,7 +57,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	private final boolean reportsDuties;
 	
 	/* only set when change is owned by follower */
-	private Shard.Change stateChange;
+	private Shard.Transition stateChange;
 
 	public static Builder builder(final long sequenceId, final NetworkShardIdentifier shardId) {
 		Validate.notNull(shardId);
@@ -166,12 +166,12 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	}
 
 	@JsonProperty(index=8, value="state-change")
-	public Shard.Change getShardChange() {
+	public Shard.Transition getShardChange() {
 		return this.stateChange;
 	}
 
-	public void setShardChange(final Shard.Change change) {
-		this.stateChange = change;
+	public void setShardChange(final Shard.Transition transition) {
+		this.stateChange = transition;
 	}
 
 	@JsonIgnore

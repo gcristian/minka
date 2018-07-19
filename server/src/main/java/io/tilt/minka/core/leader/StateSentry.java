@@ -63,7 +63,7 @@ import io.tilt.minka.domain.ShardEntity;
  * @author Cristian Gonzalez
  * @since Jan 4, 2016
  */
-public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
+public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
@@ -71,7 +71,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	private final ShardingState shardingState;
 	private final ChangeDetector changeDetector;
 	
-	public SchemeSentry(final ShardingState shardingState, final Scheduler scheduler) {
+	public StateSentry(final ShardingState shardingState, final Scheduler scheduler) {
 		this.shardingState = shardingState;
 		this.changeDetector = new ChangeDetector(shardingState);
 	}
@@ -83,7 +83,7 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 	public void accept(final Heartbeat beat, final Shard shard) {
 		if (beat.getShardChange() != null) {
 			logger.info("{}: ShardID: {} changes to: {}", classname, shard, beat.getShardChange());
-   			shardStateChange(shard, shard.getState(), beat.getShardChange());
+   			shardStateTransition(shard, shard.getState(), beat.getShardChange());
 			if (beat.getShardChange().getState() == QUITTED) {
 				return;
 			}
@@ -290,10 +290,10 @@ public class SchemeSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-	public void shardStateChange(final Shard shard, final ShardState prior, final Shard.Change change) {
-		shard.applyChange(change);
+	public void shardStateTransition(final Shard shard, final ShardState prior, final Shard.Transition transition) {
+		shard.applyChange(transition);
 		shardingState.getCommitedState().stealthChange(true);		
-		switch (change.getState()) {
+		switch (transition.getState()) {
 		case GONE:
 		case QUITTED:
 			recoverAndRetire(shard);

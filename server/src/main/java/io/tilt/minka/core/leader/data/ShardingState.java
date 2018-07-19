@@ -26,14 +26,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.core.leader.SchemeSentry;
+import io.tilt.minka.core.leader.StateSentry;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
- * Only one modifier allowed: {@linkplain SchemeSentry} with a {@linkplain ChangePlan} after a distribution process.
+ * Only one modifier allowed: {@linkplain StateSentry} with a {@linkplain ChangePlan} after a distribution process.
  * 
  * Contains the relations between {@linkplain Shard} and {@linkplain Duty}.
  * Continuously checked truth in {@linkplain CommitedState}.
@@ -145,7 +145,7 @@ public class ShardingState {
 				.append(getCommitedState().shardsSize())
 				.append(" Crud Duties: ")
 				.append(getUncommited().dutyCrud.size());
-		//.append(" Change: ").append(change.getGroupedIssues().size());
+		//.append(" Transition: ").append(change.getGroupedIssues().size());
 		return sb.toString();
 	}
 

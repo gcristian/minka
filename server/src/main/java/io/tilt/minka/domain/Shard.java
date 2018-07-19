@@ -110,18 +110,20 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		;
 	}
 	
-	public static class Change implements Comparator<Change>, Comparable<Change>, Serializable {
+	public static class Transition implements Comparator<Transition>, Comparable<Transition>, Serializable {
 		
 		private static final long serialVersionUID = -6140509862684397273L;
 		private final Cause cause;
 		private final ShardState state;
 		private final long timestamp;
+		private final String explain;
 		
-		public Change(final Cause cause, final ShardState state) {
+		public Transition(final Cause cause, final ShardState state) {
 			super();
 			this.cause = cause;
 			this.state = state;
 			this.timestamp = System.currentTimeMillis();
+			this.explain = null;
 		}
 		public Cause getCause() {
 			return cause;
@@ -138,9 +140,11 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		public String getTimestamp_() {
 			return getTimestamp().toString();
 		}
-		
+		public String getExplain() {
+			return explain;
+		}
 		@Override
-		public int compare(Change o1, Change o2) {
+		public int compare(Transition o1, Transition o2) {
 			if (o1==null) {
 				return 1;
 			} else if (o2==null) {
@@ -150,7 +154,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 			}
 		}
 		@Override
-		public int compareTo(Change o) {
+		public int compareTo(Transition o) {
 			return compare(this, o);
 		}
 		@Override
@@ -167,7 +171,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	private final NetworkShardIdentifier shardId;
 	private final Instant firstTimeSeen;
 	private final SlidingSortedSet<Heartbeat> beats;
-	private final SlidingSortedSet<Change> changes;
+	private final SlidingSortedSet<Transition> transitions;
 	
 	private ShardState serviceState;
 	private Map<Pallet, Capacity> capacities;
@@ -179,15 +183,15 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		this.brokerChannel = requireNonNull(channel);
 		this.shardId = requireNonNull(memberId);		
 		this.beats = CollectionUtils.sliding(ProctorSettings.MAX_HEARBEATS_TO_EVALUATE);
-		this.changes = CollectionUtils.sliding(ProctorSettings.MAX_SHARD_CHANGES_TO_HOLD);
+		this.transitions = CollectionUtils.sliding(ProctorSettings.MAX_SHARD_CHANGES_TO_HOLD);
 		this.capacities = new HashMap<>();
-		final Shard.Change first = new Shard.Change(Cause.INIT, ShardState.JOINING);
+		final Shard.Transition first = new Shard.Transition(Cause.INIT, ShardState.JOINING);
 		applyChange(first);
 		this.firstTimeSeen = first.getTimestamp();
 	}
 	@JsonIgnore
-	public Instant getLastStatusChange() {
-		return this.changes.last().getTimestamp();
+	public Instant getLastTransition() {
+		return this.transitions.last().getTimestamp();
 	}
 	@JsonIgnore
 	public Instant getFirstTimeSeen() {
@@ -244,18 +248,18 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		return this.serviceState;
 	}
 
-	public void applyChange(final Change change) {
-		this.serviceState = change.getState();
-		this.changes.add(change);
+	public void applyChange(final Transition transition) {
+		this.serviceState = transition.getState();
+		this.transitions.add(transition);
 	}
 	
 	@JsonIgnore
-	public Set<Change> getChanges() {
-		return changes.values();
+	public SlidingSortedSet<Transition> getTransitions() {
+		return transitions;
 	}
-	@JsonProperty("state-changes")
-	public Collection<String> getChanges_() {
-		return changes.values().stream().map(c->c.toString()).collect(Collectors.toList());
+	@JsonProperty("state-transitions")
+	public Collection<String> getTransitions_() {
+		return transitions.values().stream().map(c->c.toString()).collect(Collectors.toList());
 	}
 
 	public int hashCode() {

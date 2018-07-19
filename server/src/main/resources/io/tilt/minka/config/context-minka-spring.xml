@@ -140,7 +140,7 @@
     </bean>
 
     <!-- acceso write-only a la tabla -->
-    <bean id="schemeSentry" class="io.tilt.minka.core.leader.SchemeSentry">
+    <bean id="schemeSentry" class="io.tilt.minka.core.leader.StateSentry">
         <constructor-arg ref="shardingScheme" />
         <constructor-arg ref="scheduler" />
     </bean>
