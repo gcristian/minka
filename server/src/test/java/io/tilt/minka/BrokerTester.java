@@ -28,8 +28,8 @@ import io.tilt.minka.core.task.impl.SpectatorSupplier;
 import io.tilt.minka.core.task.impl.SynchronizedAgentFactoryImpl;
 import io.tilt.minka.core.task.impl.SynchronizedFactoryImpl;
 import io.tilt.minka.core.task.impl.TransportlessLeaderAware;
-import io.tilt.minka.domain.NetworkShardIdentifier;
-import io.tilt.minka.domain.TCPShardIdentifier;
+import io.tilt.minka.shard.NetworkShardIdentifier;
+import io.tilt.minka.shard.TCPShardIdentifier;
 import junit.framework.Assert;
 
 public class BrokerTester {

@@ -4,8 +4,8 @@ import java.util.Set;
 
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.data.ShardingState;
-import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.Shard;
 
 
 public class MigratorTest {

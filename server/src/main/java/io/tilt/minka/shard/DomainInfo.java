@@ -1,8 +1,10 @@
 
-package io.tilt.minka.domain;
+package io.tilt.minka.shard;
 
 import java.io.Serializable;
 import java.util.Collection;
+
+import io.tilt.minka.domain.ShardEntity;
 
 public class DomainInfo implements Serializable {
 

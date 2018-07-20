@@ -27,8 +27,8 @@ import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.follower.Heartpump;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.Heartbeat;
-import io.tilt.minka.domain.NetworkShardIdentifier;
 import io.tilt.minka.domain.ShardedPartition;
+import io.tilt.minka.shard.NetworkShardIdentifier;
 
 public class HeartpumpImpl implements Heartpump {
 

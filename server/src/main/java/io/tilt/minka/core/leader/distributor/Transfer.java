@@ -20,8 +20,8 @@ package io.tilt.minka.core.leader.distributor;
 import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
-import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.Shard;
 
 /**
  * Strategy of Movement.

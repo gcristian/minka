@@ -39,7 +39,7 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.config.BalancerConfiguration;
 import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.Shard;
+import io.tilt.minka.shard.DateComparer;
 
 /**
  * Type balanced.
@@ -58,12 +58,12 @@ public class EvenWeightBalancer implements Balancer {
 	
 	public static class Metadata implements BalancerMetadata {
 		public static final long serialVersionUID = -2274456002611675425L;
-		private final Balancer.PreSort presort;
+		private final PreSort presort;
 		@Override
 		public Class<? extends Balancer> getBalancer() {
 			return EvenWeightBalancer.class;
 		}
-		public Metadata(Balancer.PreSort presort) {
+		public Metadata(PreSort presort) {
 			super();
 			this.presort = presort;
 		}
@@ -71,7 +71,7 @@ public class EvenWeightBalancer implements Balancer {
 			super();
 			this.presort = BalancerConfiguration.EVEN_WEIGHT_PRESORT;
 		}
-		protected Balancer.PreSort getPresort() {
+		protected PreSort getPresort() {
 			return this.presort;
 		}
 		@Override
@@ -130,7 +130,7 @@ public class EvenWeightBalancer implements Balancer {
 		List<List<Duty>> clusters = null;
 		// sort the shards by first time seen so duties are spread into a stable shard arrange
 		//Collections.reverseOrder();
-		Collections.sort(availableShards, Collections.reverseOrder(new Shard.DateComparer()));
+		Collections.sort(availableShards, Collections.reverseOrder(new DateComparer()));
 		if (availableShards.size() > 1 && dutiesSorted.size() >= availableShards.size()) {
 			clusters = new WeightBasedClusterizer().split(availableShards.size(), dutiesSorted);
 			logDebug(clusters);

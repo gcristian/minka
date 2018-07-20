@@ -19,7 +19,6 @@ package io.tilt.minka.core.leader;
 import static io.tilt.minka.broker.EventBroker.ChannelHint.EVENT_SET;
 import static io.tilt.minka.core.leader.data.ShardingState.ClusterHealth.STABLE;
 import static io.tilt.minka.core.leader.data.ShardingState.ClusterHealth.UNSTABLE;
-import static io.tilt.minka.domain.Shard.ShardState.ONLINE;
 import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
 
@@ -43,12 +42,13 @@ import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
-import io.tilt.minka.domain.Clearance;
-import io.tilt.minka.domain.DomainInfo;
-import io.tilt.minka.domain.NetworkShardIdentifier;
-import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.Clearance;
+import io.tilt.minka.shard.DomainInfo;
+import io.tilt.minka.shard.NetworkShardIdentifier;
+import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardState;
+import io.tilt.minka.shard.Transition;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 import io.tilt.minka.utils.LogUtils;
 
@@ -144,7 +144,7 @@ public class Proctor implements Service {
 		final int[] sizeOnline = new int[1];
 		final List<Runnable> actions = new LinkedList<>();
 		shardingState.getCommitedState().findShards(null, shard-> {
-			final Shard.Transition trans = diagnoser.nextTransition(
+			final Transition trans = diagnoser.nextTransition(
 					shard.getState(), (SlidingSortedSet)shard.getTransitions(), shard.getHeartbeats());  
 			final ShardState priorState = shard.getState();
 			
@@ -156,7 +156,7 @@ public class Proctor implements Service {
 				explainToLog(trans, priorState, shard, actions.isEmpty(), size);
 			}
 
-			sizeOnline[0] += trans.getState() == ONLINE ? 1 : 0;
+			sizeOnline[0] += trans.getState() == ShardState.ONLINE ? 1 : 0;
 		});
 		// avoid failfast iterator
 		if (!actions.isEmpty()) {
@@ -178,7 +178,7 @@ public class Proctor implements Service {
 		}
 	}
 	
-	private void explainToLog(final Shard.Transition transition, final ShardState priorState,
+	private void explainToLog(final Transition transition, final ShardState priorState,
 			final Shard shard, final boolean atFirstChange, final int sizeShards) {
 		try {		
 			if (logger.isInfoEnabled()) {

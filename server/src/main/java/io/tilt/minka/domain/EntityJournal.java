@@ -36,6 +36,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import io.tilt.minka.api.config.DistributorSettings;
 import io.tilt.minka.domain.EntityJournal.Log.StateStamp;
+import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardIdentifier;
 
 /**
  * Operation and state registry for entities. Living within {@linkplain ShardEntity} instances.

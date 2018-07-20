@@ -16,13 +16,13 @@ import org.junit.Test;
 import io.tilt.minka.ShardTest;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.balancer.Balancer;
-import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
 import io.tilt.minka.core.leader.balancer.FairWeightBalancer;
+import io.tilt.minka.core.leader.balancer.NetworkLocation;
+import io.tilt.minka.core.leader.balancer.PreSort;
 import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.Shard;
 
 public class FairWeightBalancerTest {
 
@@ -173,7 +173,7 @@ public class FairWeightBalancerTest {
 		final Set<ShardEntity> ents = someEntitiesWithOddOrder();
 		final Set<Duty> duties = dutiesFromEntities(ents);		
 		final Pallet p1 = Pallet.builder("1")
-				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, Balancer.PreSort.WEIGHT))
+				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, PreSort.WEIGHT))
 				.build();
 		
 		// only creations at backstage
@@ -227,7 +227,7 @@ public class FairWeightBalancerTest {
 		final Set<ShardEntity> ents = someEntitiesWithOddOrder();
 		final Set<Duty> duties = dutiesFromEntities(ents);		
 		final Pallet p1 = Pallet.builder("1")
-				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, Balancer.PreSort.WEIGHT))
+				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, PreSort.WEIGHT))
 				.build();
 		
 		// only creations at backstage
@@ -301,7 +301,7 @@ public class FairWeightBalancerTest {
 		final Set<ShardEntity> ents = dutiesWithWeights(6, 6, 6, 6);
 		final Set<Duty> duties = dutiesFromEntities(ents);		
 		final Pallet p1 = Pallet.builder("1")
-				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, Balancer.PreSort.DATE))
+				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, PreSort.DATE))
 				.build();
 		
 		// only creations at backstage

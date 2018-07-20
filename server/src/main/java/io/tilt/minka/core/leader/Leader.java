@@ -30,8 +30,8 @@ import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
+import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.core.task.Service;
-import io.tilt.minka.domain.NetworkShardIdentifier;
 
 /**
  * An agnostic master service with the following responsibilities:

@@ -40,7 +40,7 @@ import io.tilt.minka.api.config.DistributorSettings;
 import io.tilt.minka.api.config.FollowerSettings;
 import io.tilt.minka.api.config.ProctorSettings;
 import io.tilt.minka.api.config.SchedulerSettings;
-import io.tilt.minka.domain.ShardIdentifier;
+import io.tilt.minka.shard.ShardIdentifier;
 import io.tilt.minka.utils.Defaulter;
 
 /**

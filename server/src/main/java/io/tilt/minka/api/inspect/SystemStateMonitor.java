@@ -60,9 +60,9 @@ import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
-import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
+import io.tilt.minka.shard.Shard;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 

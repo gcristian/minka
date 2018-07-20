@@ -29,8 +29,8 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.leader.StateSentry;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.Shard;
 
 /**
  * Only one modifier allowed: {@linkplain StateSentry} with a {@linkplain ChangePlan} after a distribution process.

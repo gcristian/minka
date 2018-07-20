@@ -61,6 +61,7 @@ public class CollectionUtils {
 		System.out.println();
 		System.out.println(x);
 	}
+	
 	public static <E>SlidingSortedSet<E> sliding(int maxSize) {
 		return new SlidingSortedSet<>(maxSize);
 	}

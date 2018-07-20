@@ -26,7 +26,7 @@ import java.util.function.Consumer;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.task.Service;
-import io.tilt.minka.domain.NetworkShardIdentifier;
+import io.tilt.minka.shard.NetworkShardIdentifier;
 
 /**
  * Transport-agnostic asynchronic exchange to decouple messages between shards.

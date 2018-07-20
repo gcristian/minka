@@ -33,11 +33,12 @@ import org.mockito.Mockito;
 
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
-import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
-import io.tilt.minka.domain.Capacity;
-import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.Shard.CapacityComparer;
-import io.tilt.minka.domain.TCPShardIdentifier;
+import io.tilt.minka.core.leader.balancer.NetworkLocation;
+import io.tilt.minka.shard.Capacity;
+import io.tilt.minka.shard.CapacityComparer;
+import io.tilt.minka.shard.DateComparer;
+import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.TCPShardIdentifier;
 
 public class ShardTest {
 
@@ -46,7 +47,7 @@ public class ShardTest {
 	@Test
 	public void test_shard_comparers() throws Exception {
 		final Set<NetworkLocation> capacityOrder = new TreeSet<>(new CapacityComparer(p));
-		final Set<NetworkLocation> dateOrder = new TreeSet<>(new Shard.DateComparer());
+		final Set<NetworkLocation> dateOrder = new TreeSet<>(new DateComparer());
 		for (int i = 0; i < new Random().nextInt(100); i++) {
 			capacityOrder.add(new NetworkLocation(buildShard(p, new Random().nextDouble())));
 		}

@@ -31,7 +31,7 @@ import com.google.common.collect.Multimap;
 
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.Service;
-import io.tilt.minka.domain.NetworkShardIdentifier;
+import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.spectator.MessageMetadata;
 
 /**

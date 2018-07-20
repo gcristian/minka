@@ -43,8 +43,8 @@ import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
-import io.tilt.minka.domain.NetworkShardIdentifier;
-import io.tilt.minka.domain.ShardIdentifier;
+import io.tilt.minka.shard.NetworkShardIdentifier;
+import io.tilt.minka.shard.ShardIdentifier;
 import io.tilt.minka.spectator.MessageMetadata;
 
 /**

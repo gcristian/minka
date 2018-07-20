@@ -21,7 +21,6 @@ import static io.tilt.minka.domain.EntityEvent.REMOVE;
 import static io.tilt.minka.domain.EntityState.CONFIRMED;
 import static io.tilt.minka.domain.EntityState.DANGLING;
 import static io.tilt.minka.domain.EntityState.MISSING;
-import static io.tilt.minka.domain.Shard.ShardState.QUITTED;
 import static java.util.Collections.emptyMap;
 
 import java.time.Instant;
@@ -45,15 +44,16 @@ import io.tilt.minka.core.leader.distributor.ChangeDetector;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.leader.distributor.Delivery;
 import io.tilt.minka.core.task.Scheduler;
-import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
-import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.Capacity;
+import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardState;
+import io.tilt.minka.shard.Transition;
 /**
  * Single-point of write access to the {@linkplain CommitedState}
  * Watches follower's heartbeats taking action on any update
@@ -84,7 +84,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		if (beat.getShardChange() != null) {
 			logger.info("{}: ShardID: {} changes to: {}", classname, shard, beat.getShardChange());
    			shardStateTransition(shard, shard.getState(), beat.getShardChange());
-			if (beat.getShardChange().getState() == QUITTED) {
+			if (beat.getShardChange().getState() == ShardState.QUITTED) {
 				return;
 			}
 		}
@@ -290,7 +290,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-	public void shardStateTransition(final Shard shard, final ShardState prior, final Shard.Transition transition) {
+	public void shardStateTransition(final Shard shard, final ShardState prior, final Transition transition) {
 		shard.applyChange(transition);
 		shardingState.getCommitedState().stealthChange(true);		
 		switch (transition.getState()) {

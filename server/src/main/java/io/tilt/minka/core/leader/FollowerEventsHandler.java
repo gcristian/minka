@@ -35,8 +35,8 @@ import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.Heartbeat;
-import io.tilt.minka.domain.NetworkShardIdentifier;
-import io.tilt.minka.domain.Shard;
+import io.tilt.minka.shard.NetworkShardIdentifier;
+import io.tilt.minka.shard.Shard;
 
 /**
  * Drives follower's events like {@linkplain Heartbeat} 

@@ -26,6 +26,8 @@ import org.apache.commons.lang.Validate;
 
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
+import io.tilt.minka.shard.NetworkShardIdentifier;
+import io.tilt.minka.shard.Shard;
 
 /**
  * At leader, the ChangeDetector read-writes to maintain the knowledge about where is what. 

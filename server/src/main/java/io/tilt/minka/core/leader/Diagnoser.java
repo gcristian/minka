@@ -1,9 +1,5 @@
 package io.tilt.minka.core.leader;
 
-import static io.tilt.minka.domain.Shard.ShardState.GONE;
-import static io.tilt.minka.domain.Shard.ShardState.JOINING;
-import static io.tilt.minka.domain.Shard.ShardState.ONLINE;
-import static io.tilt.minka.domain.Shard.ShardState.QUARANTINE;
 import static io.tilt.minka.utils.LogUtils.HEALTH_DOWN;
 import static io.tilt.minka.utils.LogUtils.HEALTH_UP;
 
@@ -19,9 +15,10 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.domain.Heartbeat;
-import io.tilt.minka.domain.NetworkShardIdentifier;
-import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.Shard.ShardState;
+import io.tilt.minka.shard.TransitionCause;
+import io.tilt.minka.shard.NetworkShardIdentifier;
+import io.tilt.minka.shard.ShardState;
+import io.tilt.minka.shard.Transition;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 
 /**
@@ -49,25 +46,25 @@ public class Diagnoser {
 	}
 
 	/** @return a state transition if diagnosed at all or the same transition */
-	protected Shard.Transition nextTransition(
+	protected Transition nextTransition(
 			final ShardState currentState,
-			final SlidingSortedSet<Shard.Transition> transitions,
+			final SlidingSortedSet<Transition> transitions,
 			final SlidingSortedSet<Heartbeat> beats) {
 		
 		final long now = System.currentTimeMillis();
 		final long lapseStart = now - configuredLapse;
 		ShardState newState = currentState;
 		LinkedList<Heartbeat> pastLapse = null;
-		Shard.Cause cause = transitions.values().iterator().next().getCause();
+		TransitionCause transitionCause = transitions.values().iterator().next().getCause();
 		
 		if (beats.size() < minToBeGone) {
 			final long max = config.beatToMs(config.getProctor().getMaxShardJoiningState());
 			if (transitions.last().getTimestamp().plusMillis(max).isBefore(Instant.now())) {
-				cause = Shard.Cause.JOINING_STARVED;
-				newState = GONE;
+				transitionCause = TransitionCause.JOINING_STARVED;
+				newState = ShardState.GONE;
 			} else {
-				cause = Shard.Cause.FEW_HEARTBEATS;
-				newState = JOINING;
+				transitionCause = TransitionCause.FEW_HEARTBEATS;
+				newState = ShardState.JOINING;
 			}
 		} else {
 			pastLapse = beats.values().stream().filter(i -> i.getCreation().isAfter(lapseStart))
@@ -75,36 +72,36 @@ public class Diagnoser {
 			int pastLapseSize = pastLapse.size();
 			if (pastLapseSize > 0 && checkHealth(now, normalDelay, pastLapse)) {
 				if (pastLapseSize >= minHealthlyToGoOnline) {
-					cause = Shard.Cause.HEALTHLY_THRESHOLD;
-					newState = ONLINE;
+					transitionCause = TransitionCause.HEALTHLY_THRESHOLD;
+					newState = ShardState.ONLINE;
 				} else {
-					cause = Shard.Cause.HEALTHLY_THRESHOLD;
-					newState = QUARANTINE;
+					transitionCause = TransitionCause.HEALTHLY_THRESHOLD;
+					newState = ShardState.QUARANTINE;
 					// how many times should we support flapping before killing it
 				}
 			} else {
 				if (pastLapseSize > maxSickToGoQuarantine) {
 					if (pastLapseSize <= minToBeGone || pastLapseSize == 0) {
-						cause = Shard.Cause.MIN_ABSENT;
-						newState = GONE;
+						transitionCause = TransitionCause.MIN_ABSENT;
+						newState = ShardState.GONE;
 					} else {
-						cause = Shard.Cause.MAX_SICK_FOR_ONLINE;
-						newState = QUARANTINE;
+						transitionCause = TransitionCause.MAX_SICK_FOR_ONLINE;
+						newState = ShardState.QUARANTINE;
 					}
-				} else if (pastLapseSize <= minToBeGone && currentState == QUARANTINE) {
-					cause = Shard.Cause.MIN_ABSENT;
-					newState = GONE;
-				} else if (pastLapseSize > 0 && currentState == ONLINE) {
-					cause = Shard.Cause.SWITCH_BACK;
-					newState = QUARANTINE;
+				} else if (pastLapseSize <= minToBeGone && currentState == ShardState.QUARANTINE) {
+					transitionCause = TransitionCause.MIN_ABSENT;
+					newState = ShardState.GONE;
+				} else if (pastLapseSize > 0 && currentState == ShardState.ONLINE) {
+					transitionCause = TransitionCause.SWITCH_BACK;
+					newState = ShardState.QUARANTINE;
 				} else if (pastLapseSize == 0 
-						&& (currentState == QUARANTINE || currentState == ONLINE)) {
-					cause = Shard.Cause.BECAME_ANCIENT;
-					newState = GONE;
+						&& (currentState == ShardState.QUARANTINE || currentState == ShardState.ONLINE)) {
+					transitionCause = TransitionCause.BECAME_ANCIENT;
+					newState = ShardState.GONE;
 				}
 			}
 		}
-		return new Shard.Transition(cause, newState);
+		return new Transition(transitionCause, newState);
 	}
 
 	private boolean checkHealth(final long now, final long normalDelay, final List<Heartbeat> onTime) {

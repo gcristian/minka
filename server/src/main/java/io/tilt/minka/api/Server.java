@@ -35,7 +35,7 @@ import io.tilt.minka.api.inspect.AdminEndpoint;
 import io.tilt.minka.domain.AwaitingDelegate;
 import io.tilt.minka.domain.ConsumerDelegate;
 import io.tilt.minka.domain.DependencyPlaceholder;
-import io.tilt.minka.domain.TCPShardIdentifier;
+import io.tilt.minka.shard.TCPShardIdentifier;
 import io.tilt.minka.utils.LogUtils;
 
 /**

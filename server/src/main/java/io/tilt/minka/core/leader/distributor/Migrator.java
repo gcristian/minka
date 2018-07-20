@@ -33,18 +33,18 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer;
-import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
 import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
 import io.tilt.minka.core.leader.balancer.BalancingException;
+import io.tilt.minka.core.leader.balancer.NetworkLocation;
 import io.tilt.minka.core.leader.data.ShardingState;
-import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal;
 import io.tilt.minka.domain.EntityState;
-import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardIdentifier;
+import io.tilt.minka.shard.Capacity;
+import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardIdentifier;
+import io.tilt.minka.shard.ShardState;
 
 /** 
  * Balancer's Helper to request {@linkplain Transfer} and {@linkplain Override}

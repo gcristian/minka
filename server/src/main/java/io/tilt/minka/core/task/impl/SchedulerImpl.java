@@ -35,7 +35,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.config.SchedulerSettings;
 import io.tilt.minka.core.task.Scheduler;
-import io.tilt.minka.domain.ShardIdentifier;
+import io.tilt.minka.shard.ShardIdentifier;
 
 /**
  * @author Cristian Gonzalez

@@ -19,16 +19,16 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.ConcurrentDutyException;
 import io.tilt.minka.core.leader.StateSentry;
-import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityRecord;
-import io.tilt.minka.domain.NetworkShardIdentifier;
-import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.Shard.Transition;
-import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardIdentifier;
 import io.tilt.minka.domain.ShardedPartition;
+import io.tilt.minka.shard.Capacity;
+import io.tilt.minka.shard.NetworkShardIdentifier;
+import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardIdentifier;
+import io.tilt.minka.shard.ShardState;
+import io.tilt.minka.shard.Transition;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 
@@ -44,7 +44,7 @@ public class CommitedState {
 	private final Map<ShardIdentifier, Shard> shardsByID;
 	private final Map<Shard, ShardedPartition> partitionsByShard;
 	final Map<String, ShardEntity> palletsById;
-	private final Map<ShardIdentifier, SlidingSortedSet<Shard.Transition>> goneShards;
+	private final Map<ShardIdentifier, SlidingSortedSet<Transition>> goneShards;
 	private boolean stealthChange;
 	
 	public CommitedState() {
@@ -343,7 +343,7 @@ public class CommitedState {
 		return this.shardsByID.values().size();
 	}
 
-	public Map<ShardIdentifier, SlidingSortedSet<Shard.Transition>> getGoneShards() {
+	public Map<ShardIdentifier, SlidingSortedSet<Transition>> getGoneShards() {
 		return goneShards;
 	}
 	

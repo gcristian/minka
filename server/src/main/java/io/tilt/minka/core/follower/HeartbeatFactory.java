@@ -16,8 +16,8 @@
  */
 package io.tilt.minka.core.follower;
 
-import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.Heartbeat;
+import io.tilt.minka.shard.DomainInfo;
 
 /**
  * Knows how to build a HB 

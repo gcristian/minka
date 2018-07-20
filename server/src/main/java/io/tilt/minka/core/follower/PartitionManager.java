@@ -18,8 +18,8 @@ package io.tilt.minka.core.follower;
 
 import java.util.Collection;
 
-import io.tilt.minka.domain.DomainInfo;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.DomainInfo;
 
 /**
  * Upon leader's reception of instructions: execute them

@@ -21,6 +21,7 @@ import org.apache.commons.lang.Validate;
 import io.tilt.minka.api.EntityPayload;
 import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.core.task.Semaphore.Action;
+import io.tilt.minka.shard.NetworkShardIdentifier;
 
 /**
  * An operation to be executed at the cluster master

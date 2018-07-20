@@ -16,9 +16,7 @@
  */
 package io.tilt.minka.core.leader.balancer;
 
-import java.time.Instant;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -33,11 +31,7 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.leader.distributor.Migrator;
-import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.NetworkShardIdentifier;
-import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.ShardEntity;
 
 /**
  * Analyze the current distribution of {@linkplain Duty}'s and propose changes.
@@ -72,59 +66,6 @@ public interface Balancer {
 			final Map<EntityEvent, Set<Duty>> stage,
 			final Migrator migrator);
 	
-	/** safety read-only Shard's decorator for balancers to use */
-	public static class NetworkLocation implements Comparator<NetworkLocation>, Comparable<NetworkLocation> {
-		private final Shard shard;
-		public NetworkLocation(final Shard shard) {
-			this.shard = shard;
-		}
-		public Map<Pallet, Capacity> getCapacities() {
-			return this.shard.getCapacities();
-		}
-		public NetworkShardIdentifier getId() {
-			return this.shard.getShardID();
-		}
-		public Instant getCreation() {
-			return this.shard.getFirstTimeSeen();
-		}
-		@java.lang.Override
-		public String toString() {
-			return this.shard.toString();
-		}
-		/**
-		 * To be used by user's custom balancers for location/server reference. 
-		 * @return the tag set with {@linkplain Minka} on setLocationTag(..) 
-		 */
-		public String getTag() {
-		    return this.shard.getShardID().getTag();
-		}
-		private Shard getShard() {
-			return shard;
-		}
-		@java.lang.Override
-		public int compare(final NetworkLocation o1, final NetworkLocation o2) {
-			return shard.compare(o1.getShard(), o2.shard);
-		}
-		@java.lang.Override
-		public int compareTo(final NetworkLocation o) {
-			return shard.compareTo(o.getShard());
-		}
-		@java.lang.Override
-		public int hashCode() {
-			return shard.hashCode();
-		}
-		@java.lang.Override
-		public boolean equals(Object obj) {
-			if (obj==null || !(obj instanceof NetworkLocation)) {
-				return false;
-			} else if (obj==this) {
-				return true;
-			} else {
-				return shard.equals(((NetworkLocation)obj).getShard());
-			}
-		}
-	}
-		
 	/** so clients can add new balancers */
 	public static class Directory {
 		private final static Map<Class<? extends Balancer>, Balancer> directory = new HashMap<>(Strategy.values().length);
@@ -222,47 +163,6 @@ public interface Balancer {
 				logger.error("{}: Unable to load balancer: {}", getBalancer().getClass(), Balancer.class.getSimpleName(), e);
 				return null;
 			}
-		}
-	}
-
-	enum PreSort {
-		/**
-		 * Dispose duties with perfect mix between all workload values
-		 * in order to avoid having two duties of the same workload together
-		 * like: 1,2,3,1,2,3,1,2,3 = Good for migration reduction while balanced distrib.  
-		 */
-		SAW(null),
-		/**
-		 * Use hashing order
-		 */
-		HASH(new ShardEntity.HashComparer()),
-		/**
-		 * Use Creation date order, i.e. natural order.
-		 * Use this to keep the migration of duties among shards: to a bare minimum.
-		 * Duty workload weight is considered but natural order restricts the re-accomodation much more.
-		 * Useful when the master list of duties has lot of changes in time, and low migration is required.
-		 * Use this in case your Duties represent Tasks of a short lifecycle.
-		 */
-		DATE(new ShardEntity.DateComparer()),
-		/**
-		 * Use Workload order.
-		 * Use this to maximize the clustering algorithm's effectiveness.
-		 * In presence of frequent variation of workloads, duties will tend to migrate more. 
-		 * Otherwise this's the most optimus strategy.
-		 * Use this in case your Duties represent Data or Entities with a long lifecycle 
-		 */
-		WEIGHT(new ShardEntity.WeightComparer()),
-		
-		/** Use Pallet's custom comparator */
-		CUSTOM(null),
-		;
-		
-		private final Comparator<Duty> comp;
-		PreSort(final Comparator<Duty> comp) {
-			this.comp = comp;
-		}
-		public Comparator<Duty> getComparator() { 
-			return this.comp;
 		}
 	}
 

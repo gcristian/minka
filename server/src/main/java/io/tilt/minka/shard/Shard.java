@@ -1,0 +1,177 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership. The ASF
+ * licenses this file to You under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+package io.tilt.minka.shard;
+
+import static java.util.Objects.requireNonNull;
+
+import java.time.Instant;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.apache.commons.lang.builder.HashCodeBuilder;
+
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import io.tilt.minka.api.Pallet;
+import io.tilt.minka.api.config.ProctorSettings;
+import io.tilt.minka.broker.EventBroker.BrokerChannel;
+import io.tilt.minka.domain.Heartbeat;
+import io.tilt.minka.utils.CollectionUtils;
+import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
+
+/**
+ * Compound information about a node, maintained by the Leader
+ * 
+ * @author Cristian Gonzalez
+ * @since Nov 5, 2015
+ */
+@JsonAutoDetect
+public class Shard implements Comparator<Shard>, Comparable<Shard> {
+
+	private final BrokerChannel brokerChannel;
+	private final NetworkShardIdentifier shardId;
+	private final Instant firstTimeSeen;
+	private final SlidingSortedSet<Heartbeat> beats;
+	private final SlidingSortedSet<Transition> transitions;
+	
+	private ShardState serviceState;
+	private Map<Pallet, Capacity> capacities;
+
+	public Shard(
+			final BrokerChannel channel, 
+			final NetworkShardIdentifier memberId) {
+		super();
+		this.brokerChannel = requireNonNull(channel);
+		this.shardId = requireNonNull(memberId);		
+		this.beats = CollectionUtils.sliding(ProctorSettings.MAX_HEARBEATS_TO_EVALUATE);
+		this.transitions = CollectionUtils.sliding(ProctorSettings.MAX_SHARD_CHANGES_TO_HOLD);
+		this.capacities = new HashMap<>();
+		final Transition first = new Transition(TransitionCause.INIT, ShardState.JOINING);
+		applyChange(first);
+		this.firstTimeSeen = first.getTimestamp();
+	}
+	@JsonIgnore
+	public Instant getLastTransition() {
+		return this.transitions.last().getTimestamp();
+	}
+	@JsonIgnore
+	public Instant getFirstTimeSeen() {
+		return this.firstTimeSeen;
+	}
+	
+	@JsonProperty("last-beat-id")
+	private String lastBeatId() {
+		return String.valueOf(this.getLast().getSequenceId());
+	}
+
+	@JsonIgnore
+	public BrokerChannel getBrokerChannel() {
+		return this.brokerChannel;
+	}
+
+	@JsonProperty("id")
+	public NetworkShardIdentifier getShardID() {
+		return this.shardId;
+	}
+	
+	public void setCapacities(Map<Pallet, Capacity> capacities) {
+		this.capacities = capacities;
+	}
+	
+	@JsonIgnore
+	public Map<Pallet, Capacity> getCapacities() {
+		return this.capacities;
+	}
+	@JsonProperty("capacities")
+	public Map<String, Double> briefCapacities() {
+		final Map<String, Double> ret = new LinkedHashMap<>();
+		for (final Map.Entry<Pallet, Capacity> e: capacities.entrySet()) {
+			ret.put(e.getKey().getId(), e.getValue().getTotal());
+		}
+		return ret;
+	}
+
+	public void enterHeartbeat(final Heartbeat hb) {
+		this.beats.add(hb);
+	}
+	
+	@JsonIgnore
+	public SlidingSortedSet<Heartbeat> getHeartbeats() {
+		return this.beats;
+	}
+	
+	@JsonIgnore
+	private Heartbeat getLast() {
+	    return this.beats.first();
+	}
+
+	public ShardState getState() {
+		return this.serviceState;
+	}
+
+	public void applyChange(final Transition transition) {
+		this.serviceState = transition.getState();
+		this.transitions.add(transition);
+	}
+	
+	@JsonIgnore
+	public SlidingSortedSet<Transition> getTransitions() {
+		return transitions;
+	}
+	@JsonProperty("state-transitions")
+	public Collection<String> getTransitions_() {
+		return transitions.values().stream().map(c->c.toString()).collect(Collectors.toList());
+	}
+
+	public int hashCode() {
+		return new HashCodeBuilder().append(this.getShardID()).toHashCode();
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+		if (obj == null || !(obj instanceof Shard)) {
+			return false;
+		} else if (obj == this) {
+			return true;
+		} else {
+			return ((Shard) obj).getShardID().equals(getShardID());
+		}
+	}
+
+	@Override
+	public String toString() {
+		return this.shardId.toString();
+	}
+
+	@Override
+	public int compare(Shard o1, Shard o2) {
+		return o1.getFirstTimeSeen().compareTo(o2.getFirstTimeSeen());
+	}
+	
+	@Override
+	public int compareTo(final Shard arg0) {
+		return arg0.compare(this, arg0);
+	}
+
+}

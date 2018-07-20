@@ -42,7 +42,7 @@ import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.impl.SpectatorSupplier;
 import io.tilt.minka.domain.DependencyPlaceholder;
-import io.tilt.minka.domain.ShardIdentifier;
+import io.tilt.minka.shard.ShardIdentifier;
 import io.tilt.minka.spectator.Locks;
 import io.tilt.minka.spectator.ServerCandidate;
 

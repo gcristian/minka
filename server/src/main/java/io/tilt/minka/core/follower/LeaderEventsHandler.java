@@ -38,13 +38,13 @@ import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
-import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
+import io.tilt.minka.shard.Clearance;
 
 /**
  * Leader event handler.

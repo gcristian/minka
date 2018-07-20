@@ -23,10 +23,10 @@ import io.tilt.minka.api.ReplyValue;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardIdentifier;
 import io.tilt.minka.domain.EntityState;
-import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardIdentifier;
 
 /**
  * Entry point for outter clients of the {@linkplain UncommitedChanges}

@@ -20,7 +20,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.function.Consumer;
 
-import io.tilt.minka.domain.NetworkShardIdentifier;
+import io.tilt.minka.shard.NetworkShardIdentifier;
 
 /**
  * Value object with responsibility of always knowing who the leader is 

@@ -34,6 +34,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
+import io.tilt.minka.shard.Capacity;
+import io.tilt.minka.shard.NetworkShardIdentifier;
+import io.tilt.minka.shard.Transition;
 
 /**
  * A heartbeat is a sign that the node must be considered alive.
@@ -57,7 +60,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	private final boolean reportsDuties;
 	
 	/* only set when change is owned by follower */
-	private Shard.Transition stateChange;
+	private Transition stateChange;
 
 	public static Builder builder(final long sequenceId, final NetworkShardIdentifier shardId) {
 		Validate.notNull(shardId);
@@ -166,11 +169,11 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	}
 
 	@JsonProperty(index=8, value="state-change")
-	public Shard.Transition getShardChange() {
+	public Transition getShardChange() {
 		return this.stateChange;
 	}
 
-	public void setShardChange(final Shard.Transition transition) {
+	public void setShardChange(final Transition transition) {
 		this.stateChange = transition;
 	}
 

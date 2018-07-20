@@ -20,7 +20,7 @@ import java.nio.charset.Charset;
 
 import org.springframework.util.StreamUtils;
 
-import io.tilt.minka.domain.ShardIdentifier;
+import io.tilt.minka.shard.ShardIdentifier;
 
 /**
  * http://boschista.deviantart.com/journal/Cool-ASCII-Symbols-214218618

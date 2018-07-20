@@ -1,4 +1,4 @@
-package io.tilt.minka.domain;
+package io.tilt.minka.shard;
 
 import java.io.Serializable;
 

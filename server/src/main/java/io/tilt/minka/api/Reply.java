@@ -71,7 +71,7 @@ public class Reply {
 	public String toString() {
 		return new StringBuilder()
 				.append("Client-Result:").append(isSuccess()).append(',')
-				.append("Cause-Code:").append(value.toString()).append(',')
+				.append("TransitionCause-Code:").append(value.toString()).append(',')
 				.toString()
 				;
 	}

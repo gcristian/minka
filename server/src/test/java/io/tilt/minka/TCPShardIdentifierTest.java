@@ -26,7 +26,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.domain.TCPShardIdentifier;
+import io.tilt.minka.shard.TCPShardIdentifier;
 
 public class TCPShardIdentifierTest {
 

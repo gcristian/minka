@@ -35,12 +35,12 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardIdentifier;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
-import io.tilt.minka.domain.Shard;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardIdentifier;
 
 /**
  * Contains the mechanism and knowledge for determining reallocation changes <br>

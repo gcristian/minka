@@ -1,9 +1,8 @@
 package io.tilt.minka.api.config;
 
-import io.tilt.minka.core.leader.balancer.Balancer;
-import io.tilt.minka.core.leader.balancer.Balancer.PreSort;
 import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
 import io.tilt.minka.core.leader.balancer.FairWeightBalancer.Dispersion;
+import io.tilt.minka.core.leader.balancer.PreSort;
 import io.tilt.minka.core.leader.balancer.SpillOverBalancer.MaxUnit;
 
 public class BalancerConfiguration {
@@ -13,8 +12,8 @@ public class BalancerConfiguration {
 	public static final int EVEN_SIZE_MAX_DUTIES_DELTA_BETWEEN_SHARDS = 1;
 	private int roundRobinMaxDutiesDeltaBetweenShards;
 	
-	public static final Balancer.PreSort EVEN_WEIGHT_PRESORT = Balancer.PreSort.WEIGHT;
-	private Balancer.PreSort evenLoadPresort;
+	public static final PreSort EVEN_WEIGHT_PRESORT = PreSort.WEIGHT;
+	private PreSort evenLoadPresort;
 	
 	public static final MaxUnit SPILL_OVER_MAX_UNIT = MaxUnit.USE_CAPACITY;
 	private MaxUnit spillOverMaxUnit;
@@ -37,10 +36,10 @@ public class BalancerConfiguration {
 	public void setStrategy(Strategy distributorbalancerStrategy) {
 		this.strategy = distributorbalancerStrategy;
 	}
-	public Balancer.PreSort getEvenLoadPresort() {
+	public PreSort getEvenLoadPresort() {
 		return this.evenLoadPresort;
 	}
-	public void setEvenLoadPresort(Balancer.PreSort fairLoadPresort) {
+	public void setEvenLoadPresort(PreSort fairLoadPresort) {
 		this.evenLoadPresort = fairLoadPresort; 
 	}
 	public MaxUnit getSpillOverMaxUnit() {

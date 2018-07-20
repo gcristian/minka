@@ -42,11 +42,11 @@ import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.NetworkShardIdentifier;
-import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.NetworkShardIdentifier;
+import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardState;
 
 /**
  * Drives events generated thru the {@linkplain Client} by the client

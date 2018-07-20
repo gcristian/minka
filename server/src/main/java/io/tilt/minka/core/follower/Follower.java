@@ -34,11 +34,12 @@ import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
-import io.tilt.minka.domain.Clearance;
 import io.tilt.minka.domain.Heartbeat;
-import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardedPartition;
+import io.tilt.minka.shard.TransitionCause;
+import io.tilt.minka.shard.Clearance;
+import io.tilt.minka.shard.ShardState;
+import io.tilt.minka.shard.Transition;
 
 /**
  * An agnostic slave service with the following responsibilities:
@@ -123,7 +124,7 @@ public class Follower implements Service {
 			
 		if (inService()) {
 			final Heartbeat bye = heartbeatFactory.create(true);
-			bye.setShardChange(new Shard.Transition(Shard.Cause.FOLLOWER_BREAKUP, ShardState.QUITTED));
+			bye.setShardChange(new Transition(TransitionCause.FOLLOWER_BREAKUP, ShardState.QUITTED));
 			if (!heartpump.emit(bye)) {
 				logger.error("{}: ({}) Unable to send quitting heartbeat", classname, config.getLoggingShardId());
 			} else {

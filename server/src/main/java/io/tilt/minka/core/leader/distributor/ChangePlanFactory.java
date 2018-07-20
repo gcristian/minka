@@ -41,15 +41,15 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer;
-import io.tilt.minka.core.leader.balancer.Balancer.NetworkLocation;
+import io.tilt.minka.core.leader.balancer.NetworkLocation;
 import io.tilt.minka.core.leader.data.CommitedState;
 import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.core.leader.data.UncommitedChanges;
-import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.Shard;
-import io.tilt.minka.domain.Shard.ShardState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.Capacity;
+import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.utils.LogUtils;
 
 /**

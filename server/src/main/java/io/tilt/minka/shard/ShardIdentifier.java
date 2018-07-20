@@ -14,9 +14,11 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.domain;
+package io.tilt.minka.shard;
 
-import java.net.InetAddress;
+import java.io.Serializable;
+
+import org.joda.time.DateTime;
 
 import io.tilt.minka.core.follower.Follower;
 
@@ -28,18 +30,17 @@ import io.tilt.minka.core.follower.Follower;
  * @since Dec 3, 2015
  *
  */
-public interface NetworkShardIdentifier extends ShardIdentifier {
+public interface ShardIdentifier extends Serializable {
 
-	/** free any resource taken to ensure usability of the network ID */
-	void release();
+	/** to be used internally to identify follower shards */
+	String getId();
 
-	/** hold any resource guaranteeing availability of the network ID */
-	void take(boolean findAny) throws Exception;
+	/** to be used by users as a secondary reference */
+	String getTag();
 
-	/** get the port taken */
-	int getPort();
+	DateTime getCreation();
 
-	/** get the host address taken for ID */
-	InetAddress getAddress();
-	
+	/* receive it after server initialization */
+	void setWebHostPort(String hostport);
+
 }

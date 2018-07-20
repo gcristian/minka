@@ -36,11 +36,11 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.PartitionDelegate;
 import io.tilt.minka.api.config.BalancerConfiguration;
 import io.tilt.minka.core.leader.distributor.Migrator;
-import io.tilt.minka.domain.Capacity;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.Shard.CapacityComparer;
-import io.tilt.minka.domain.Shard.DateComparer;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.Capacity;
+import io.tilt.minka.shard.CapacityComparer;
+import io.tilt.minka.shard.DateComparer;
 
 /**
  * Type unbalanced.
