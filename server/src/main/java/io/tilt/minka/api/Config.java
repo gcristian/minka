@@ -35,7 +35,6 @@ import com.fasterxml.jackson.datatype.joda.ser.DateTimeSerializer;
 import io.tilt.minka.api.config.BalancerConfiguration;
 import io.tilt.minka.api.config.BootstrapConfiguration;
 import io.tilt.minka.api.config.BrokerConfiguration;
-import io.tilt.minka.api.config.ConsistencyConfiguration;
 import io.tilt.minka.api.config.DistributorSettings;
 import io.tilt.minka.api.config.FollowerSettings;
 import io.tilt.minka.api.config.ProctorSettings;
@@ -77,7 +76,6 @@ public class Config {
 	private BalancerConfiguration balancer;
 	private DistributorSettings distributor;
 	private ProctorSettings proctor;
-	private ConsistencyConfiguration consistency;
 
 	private void init() {
 		this.scheduler = new SchedulerSettings();
@@ -87,7 +85,6 @@ public class Config {
 		this.distributor = new DistributorSettings();
 		this.proctor = new ProctorSettings();
 		this.balancer = new BalancerConfiguration();
-		this.consistency = new ConsistencyConfiguration();		
 	}
 	public Config() {
 		init();
@@ -113,7 +110,6 @@ public class Config {
 		if (prop == null) {
 			prop = new Properties();
 		}
-		Defaulter.apply(prop, "consistency.", this.getConsistency());
 		Defaulter.apply(prop, "balancer.", this.getBalancer());
 		Defaulter.apply(prop, "bootstrap.", this.getBootstrap());
 		Defaulter.apply(prop, "broker.", this.getBroker());
@@ -229,14 +225,6 @@ public class Config {
 
 	public void setScheduler(SchedulerSettings scheduler) {
 		this.scheduler = scheduler;
-	}
-
-	public ConsistencyConfiguration getConsistency() {
-		return this.consistency;
-	}
-
-	public void setConsistency(ConsistencyConfiguration consistency) {
-		this.consistency = consistency;
 	}
 
 }

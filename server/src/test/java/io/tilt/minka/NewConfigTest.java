@@ -23,7 +23,6 @@ public class NewConfigTest {
 	public void testConfigDefaults() throws Exception {
 		final Properties prop = new Properties();
 		Config conf = new Config();
-		Defaulter.apply(prop, "concistency.", conf.getConsistency());
 		Defaulter.apply(prop, "balancer.", conf.getBalancer());
 		Defaulter.apply(prop, "bootstrap.", conf.getBootstrap());
 		Defaulter.apply(prop, "broker.", conf.getBroker());

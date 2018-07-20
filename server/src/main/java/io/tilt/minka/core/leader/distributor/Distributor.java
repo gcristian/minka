@@ -30,7 +30,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,10 +37,8 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.DutyBuilder.Task;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.api.Reply;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.leader.EntityDao;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.core.leader.data.ShardingState.ClusterHealth;
@@ -57,11 +54,11 @@ import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.EntityState;
+import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardIdentifier;
 import io.tilt.minka.shard.ShardState;
-import io.tilt.minka.domain.EntityState;
-import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.utils.LogUtils;
 
 /**
@@ -81,7 +78,6 @@ public class Distributor implements Service {
 	private final ShardingState shardingState;
 	private final UncommitedRepository uncommitedRepository;
 	private final ShardIdentifier shardId;
-	private final EntityDao entityDao;
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final LeaderAware leaderAware;
     private final Agent distributor;
@@ -100,7 +96,6 @@ public class Distributor implements Service {
 			final ShardingState shardingState, 
 			final UncommitedRepository stageRepo,
 			final ShardIdentifier shardId,
-			final EntityDao dutyDao, 
 			final DependencyPlaceholder dependencyPlaceholder, 
 			final LeaderAware leaderAware) {
 
@@ -110,15 +105,7 @@ public class Distributor implements Service {
 		this.shardingState = shardingState;
 		this.uncommitedRepository = stageRepo;
 		this.shardId = shardId;
-		this.entityDao = dutyDao;
 		this.leaderAware = leaderAware;
-
-		if (config.getConsistency().getDutyStorage() == Storage.CLIENT_DEFINED) {
-			Validate.notNull(dependencyPlaceholder, "When Minka not in Storage mode: a Partition Master is required");
-		} else {
-			Validate.isTrue(dependencyPlaceholder.getMaster() == null,
-					"When Minka in Storage mode: a Partition Master must not be exposed");
-		}
 
 		this.dependencyPlaceholder = dependencyPlaceholder;
 		this.initialAdding = true;
@@ -353,17 +340,15 @@ public class Distributor implements Service {
 			final Set<Duty> duties = reloadDutiesFromStorage();
 			final Set<Pallet> pallets = reloadPalletsFromStorage();
 						
-			final String master = config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? 
-					"Minka storage" : "PartitionMaster";
 			if (pallets == null || pallets.isEmpty()) {
-				logger.warn("{}: EventMapper user's supplier hasn't return any pallets {}",getName(), master,  pallets);
+				logger.warn("{}: EventMapper user's supplier hasn't return any pallets {}",getName(), pallets);
 				initialAdding = false;
 			} else {				
 				uncommitedRepository.saveAllPalletsRaw(pallets, logger("Pallet"));
 			}
 			
 			if (duties == null || duties.isEmpty()) {
-				logger.warn("{}: EventMapper user's supplier hasn't return any duties: {}",getName(), master, duties);
+				logger.warn("{}: EventMapper user's supplier hasn't return any duties: {}",getName(), duties);
 				initialAdding = false;
 			} else {
 				try {
@@ -380,7 +365,7 @@ public class Distributor implements Service {
 				logger.warn("{}: Aborting first distribution (no CRUD duties)", getName());
 				return false;
 			} else {
-				logger.info("{}: {} reported {} entities for sharding...", getName(), master, duties.size());
+				logger.info("{}: reported {} entities for sharding...", getName(), duties.size());
 			}
 		} else {
 			checkUnexistingDutiesFromStorage();
@@ -419,14 +404,9 @@ public class Distributor implements Service {
 	private Set<Duty> reloadDutiesFromStorage() {
 		Set<Duty> duties = null;
 		try {
-			if (config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT) {
-				duties = entityDao.loadDutySnapshot();
-			} else {
-				duties = dependencyPlaceholder.getMaster().loadDuties();
-			}
+			duties = dependencyPlaceholder.getMaster().loadDuties();
 		} catch (Exception e) {
-			logger.error("{}: {} throwed an Exception", getName(),
-					config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster", e);
+			logger.error("{}: throwed an Exception", getName(), e);
 		}
 		return duties;
 	}
@@ -435,14 +415,9 @@ public class Distributor implements Service {
 	private Set<Pallet> reloadPalletsFromStorage() {
 		Set<Pallet> pallets = null;
 		try {
-			if (config.getConsistency().getDutyStorage() == Storage.MINKA_MANAGEMENT) {
-				pallets = entityDao.loadPalletSnapshot();
-			} else {
-				pallets = dependencyPlaceholder.getMaster().loadPallets();
-			}
+			pallets = dependencyPlaceholder.getMaster().loadPallets();
 		} catch (Exception e) {
-			logger.error("{}: {} throwed an Exception", getName(),
-					config.getConsistency().getDutyStorage()== Storage.MINKA_MANAGEMENT ? "DutyDao" : "PartitionMaster", e);
+			logger.error("{}: throwed an Exception", getName(), e);
 		}
 		return pallets;
 	}

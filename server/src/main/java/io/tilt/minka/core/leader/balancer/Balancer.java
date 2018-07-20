@@ -134,10 +134,6 @@ public interface Balancer {
 		
 		/* keep minimum usage of shards: until spill then fill another one but keep frugal */
 		SPILLOVER(SpillOverBalancer.class, Type.UNBALANCED, Weighted.YES),
-		/* keep agglutination of duties: move them together wherever they are */
-		COALESCE(CoalesceBalancer.class, Type.UNBALANCED, Weighted.NOT),
-		/* random lazily spread distribution */
-		//SCATTER(ShuffleBalancer.class, Type.UNBALANCED, Weighted.NOT),
 		;
 		Class<? extends Balancer> balancer;
 		Type type;

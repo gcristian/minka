@@ -39,22 +39,6 @@ import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
  */
 public interface Pallet extends Entity {
 
-	public enum Storage {
-		/**
-		 * The host application must provide an instance of {@linkplain PartitionMaster}
-		 * for minka to know them at leader election, before distribution.
-		 * Also the provided instance will be called for CRUD operations, only at leader's shard. 
-		 * So the client handles persistance, media transformation, database, etc.   
-		 */
-		CLIENT_DEFINED,
-		/**
-		 * Minka uses its own storage. Which spreads to JDBC, filesystem.
-		 * With JDBC the host application can still have some control over data.  
-		 */
-		MINKA_MANAGEMENT
-	}
-
-	Storage getStorage();
 
 	/** @return the Balancer strategy and metadata to use for the pallet */
 	BalancerMetadata getMetadata();
@@ -69,5 +53,8 @@ public interface Pallet extends Entity {
 		return PalletBuilder.builder(palletId);
 	}
 
+	default int replicas() {
+		throw new RuntimeException("not implemented");
+	}
 
 }

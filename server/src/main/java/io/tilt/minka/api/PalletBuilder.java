@@ -23,7 +23,6 @@ import java.util.function.Supplier;
 import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 
-import io.tilt.minka.api.Pallet.Storage;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 
@@ -40,7 +39,6 @@ public class PalletBuilder {
 	private final String id;
 
 	private BalancerMetadata meta;
-	private Storage storage;
 	private Supplier<InputStream> payload;
 
 	private PalletBuilder(final String id) {
@@ -81,9 +79,7 @@ public class PalletBuilder {
 	}
 
 	public Pallet build() {
-		return new Group(id, meta == null ? Balancer.Strategy.EVEN_SIZE.getBalancerMetadata() : meta,
-				storage == null ? Storage.CLIENT_DEFINED : storage, 
-				payload);
+		return new Group(id, meta == null ? Balancer.Strategy.EVEN_SIZE.getBalancerMetadata() : meta, payload);
 	}
 
 	public static class Group implements Pallet, Serializable {
@@ -91,20 +87,16 @@ public class PalletBuilder {
 		private static final long serialVersionUID = 4519763920222729635L;
 
 		private final BalancerMetadata meta;
-		private final Storage storage;
 		private final Supplier<InputStream> value;
 		private final String id;
 
 		private Group(
 		        final String id, 
 		        final BalancerMetadata meta, 
-		        final Pallet.Storage storage, 
 		        final Supplier<InputStream> payload) {
 			super();
 			Validate.notNull(id);
-			Validate.notNull(storage);
 			this.meta = meta;
-			this.storage = storage;
 			this.value = payload;
 			this.id = id;
 		}
@@ -125,11 +117,6 @@ public class PalletBuilder {
 			} else {
 				return false;
 			}
-		}
-
-		@Override
-		public Storage getStorage() {
-			return storage;
 		}
 
 		@Override
