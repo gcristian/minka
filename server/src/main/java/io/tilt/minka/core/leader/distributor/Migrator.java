@@ -35,13 +35,13 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
 import io.tilt.minka.core.leader.balancer.BalancingException;
-import io.tilt.minka.core.leader.balancer.NetworkLocation;
+import io.tilt.minka.core.leader.balancer.Spot;
 import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.shard.Capacity;
+import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardIdentifier;
 import io.tilt.minka.shard.ShardState;
@@ -90,7 +90,7 @@ public class Migrator {
 	 * @param target		where the duty is going to be attached
 	 * @param duty			the duty to be attached
 	 */
-	public final void transfer(final NetworkLocation target, final Duty duty) {
+	public final void transfer(final Spot target, final Duty duty) {
 		requireNonNull(target);
 		requireNonNull(duty);
 		transfer_(null, target, duty);
@@ -107,13 +107,13 @@ public class Migrator {
 	 * @param source		where the duty is going to be dettached first
 	 * @param duty			the duty to be attached
 	 */
-	public final void transfer(final NetworkLocation source, final NetworkLocation target, final Duty duty) {
+	public final void transfer(final Spot source, final Spot target, final Duty duty) {
 		requireNonNull(source);
 		requireNonNull(target);
 		requireNonNull(duty);
 		transfer_(source, target, duty);
 	}
-	private final void transfer_(final NetworkLocation source, final NetworkLocation target, final Duty duty) throws BalancingException {
+	private final void transfer_(final Spot source, final Spot target, final Duty duty) throws BalancingException {
 		if (this.transfers == null ) {
 			this.transfers = new ArrayList<>(scheme.getCommitedState().shardsSize());
 		}
@@ -136,7 +136,7 @@ public class Migrator {
 	}
 	
 	/** leave a reason for distribution exclusion */
-	public final void stuck(final Duty duty, final NetworkLocation location) {
+	public final void stuck(final Duty duty, final Spot location) {
 		requireNonNull(duty);
 		final ShardEntity e = sourceRefs.get(duty);
 		final ShardIdentifier shard = location.getId();
@@ -158,7 +158,7 @@ public class Migrator {
 	 * @param shard		the target destination where duties will be attached
 	 * @param cluster	the duties to be attached.
 	 */
-	public final void override(final NetworkLocation shard, final Set<Duty> cluster) {
+	public final void override(final Spot shard, final Set<Duty> cluster) {
 		requireNonNull(shard);
 		requireNonNull(cluster);
 		if (this.overrides == null) {
@@ -177,7 +177,7 @@ public class Migrator {
 		overrides.add(new Override(pallet, shard_, derefed, remainingCap));
 	}
 	
-	private Shard deref(final NetworkLocation location) {
+	private Shard deref(final Spot location) {
 		return scheme.getCommitedState().findShard(shard->shard.getShardID().equals(location.getId())); 
 	}
 	
@@ -194,7 +194,7 @@ public class Migrator {
 		double remainingCap = 0;
 		if (isWeightedPallet()) {
 			final double[] accum = {0};
-			final Capacity cap = target.getCapacities().get(pallet);
+			final ShardCapacity cap = target.getCapacities().get(pallet);
 			if (cap!=null) {
 				cluster.forEach(d->accum[0]+=d.getWeight());
 				if (cap.getTotal() < accum[0]) {

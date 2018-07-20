@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
@@ -39,14 +38,11 @@ import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.core.leader.data.UncommitedRepository;
 import io.tilt.minka.core.task.Scheduler;
-import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.Shard;
-import io.tilt.minka.shard.ShardState;
 
 /**
  * Drives events generated thru the {@linkplain Client} by the client
@@ -85,40 +81,12 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 		this.shardId = shardId;
 	}
 
-	public boolean clusterOperation(final ShardCommand op) {
-		boolean done = false;
-		Runnable lambda = null;
-		if (op.getOperation() == io.tilt.minka.domain.ShardCommand.Command.CLUSTER_CLEAN_SHUTDOWN) {
-			lambda = () -> cleanShutdown(op);
-		}
-		scheduler.run(scheduler.getFactory().build(
-						op.getOperation().getAction(), 
-						PriorityLock.LOW_ON_PERMISSION, 
-						lambda));
-		return done;
-	}
-
-	private void cleanShutdown(final ShardCommand op) {
-		//Locks.stopCandidate(Names.getLeaderName(config.getServiceName()), false);		
-		shardingState.getCommitedState().findShards(ShardState.ONLINE.filter(), shard-> {
-			eventBroker.send(shard.getBrokerChannel(), op);
-		});
-		boolean offline = false;
-		while (!offline && !Thread.interrupted()) {
-			LockSupport.parkUntil(5000l);
-			offline = shardingState.getCommitedState().shardsSize(ShardState.ONLINE.filter()) == 0;
-		}
-		// only then close subscriptions
-		stop();
-	}
-
 	private void listenUserEvents() {
 		final BrokerChannel channel = eventBroker.buildToTarget(
 				config, 
 				Channel.CLITOLEAD, 
 				shardId);
 		eventBroker.subscribe(channel, ShardEntity.class,this, 0);
-		eventBroker.subscribe(channel, ShardCommand.class,this, 0);
 		eventBroker.subscribe(channel, ArrayList.class,this, 0);
 	}
 
@@ -133,7 +101,6 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	public void stop() {
 		logger.info("{}: Stopping", getClass().getSimpleName());
 		eventBroker.unsubscribe(eventBroker.build(config, Channel.CLITOLEAD), ShardEntity.class, this);
-		eventBroker.unsubscribe(eventBroker.build(config, Channel.CLITOLEAD), ShardCommand.class, this);
 		eventBroker.unsubscribe(eventBroker.build(config, Channel.CLITOLEAD), ArrayList.class, this);
 	}
 
@@ -173,8 +140,6 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 				mediateOnEntity(singletonList(entity), (r)->{});
 			} else if (event instanceof List) {
 				mediateOnEntity((List)event, (r)->{});
-			} else if (event instanceof ShardCommand) {
-				clusterOperation((ShardCommand) event);
 			}
 		} else {
 			logger.error("{}: User events came but this master is no longer in service: {}", getClass().getSimpleName(),

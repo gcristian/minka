@@ -39,7 +39,7 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.config.BalancerConfiguration;
 import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.shard.DateComparer;
+import io.tilt.minka.shard.SpotDateComparer;
 
 /**
  * Type balanced.
@@ -83,7 +83,7 @@ public class EvenWeightBalancer implements Balancer {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public final void balance(
 			final Pallet pallet,
-			final Map<NetworkLocation, Set<Duty>> scheme,
+			final Map<Spot, Set<Duty>> scheme,
 			final Map<EntityEvent, Set<Duty>> stage,
 			final Migrator migrator) {
 		// order new ones and current ones in order to get a fair distro 
@@ -94,7 +94,7 @@ public class EvenWeightBalancer implements Balancer {
 		duties.removeAll(stage.get(EntityEvent.REMOVE)); // delete those marked for deletion
 		final List<Duty> dutiesSorted = new ArrayList<>(duties);
 		logger.debug("{}: Before Balance: {} ({})", getClass().getSimpleName(), toDutyStringIds(dutiesSorted));
-		final List<NetworkLocation> availShards = scheme.keySet().stream().filter(s->s.getCapacities()
+		final List<Spot> availShards = scheme.keySet().stream().filter(s->s.getCapacities()
 				.get(pallet)!=null).collect(Collectors.toList());
 		if (availShards.isEmpty()) {
 			logger.error("{}: Still no shard reported capacity for pallet: {}!", getClass().getSimpleName(), pallet);
@@ -106,11 +106,11 @@ public class EvenWeightBalancer implements Balancer {
 			return;
 		}
 		final Iterator<List<Duty>> itCluster = clusters.iterator();
-		final Iterator<NetworkLocation> itShards = availShards.iterator();
+		final Iterator<Spot> itShards = availShards.iterator();
 		while(itCluster.hasNext()) {
-			final NetworkLocation loc = itShards.next();
+			final Spot loc = itShards.next();
 			final List<Duty> selection = itCluster.next();
-			final Bascule<NetworkLocation, Duty> bascule = new Bascule(loc, loc.getCapacities().get(pallet).getTotal());
+			final Bascule<Spot, Duty> bascule = new Bascule(loc, loc.getCapacities().get(pallet).getTotal());
 			selection.forEach(d->bascule.tryLift(d, d.getWeight()));
 			migrator.override(bascule.getOwner(), bascule.getCargo());
 			if (!bascule.getDiscarded().isEmpty()) {
@@ -123,14 +123,14 @@ public class EvenWeightBalancer implements Balancer {
 
 
 	private List<List<Duty>> formClusters(
-			final List<NetworkLocation> availableShards, 
+			final List<Spot> availableShards, 
 			final Set<Duty> duties,
 			final List<Duty> dutiesSorted) {
 
 		List<List<Duty>> clusters = null;
 		// sort the shards by first time seen so duties are spread into a stable shard arrange
 		//Collections.reverseOrder();
-		Collections.sort(availableShards, Collections.reverseOrder(new DateComparer()));
+		Collections.sort(availableShards, Collections.reverseOrder(new SpotDateComparer()));
 		if (availableShards.size() > 1 && dutiesSorted.size() >= availableShards.size()) {
 			clusters = new WeightBasedClusterizer().split(availableShards.size(), dutiesSorted);
 			logDebug(clusters);

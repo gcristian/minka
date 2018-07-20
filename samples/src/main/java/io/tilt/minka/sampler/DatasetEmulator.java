@@ -226,7 +226,7 @@ public class DatasetEmulator implements DummyDataProvider {
 			}
 		}
 		if (!logflags.contains(pallet)) {
-			logger.info("{} Capacity pallet: {} = {}", shardId, pallet.getId(), ret);
+			logger.info("{} ShardCapacity pallet: {} = {}", shardId, pallet.getId(), ret);
 			logflags.add(pallet);
 		}
 		return ret;

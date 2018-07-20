@@ -56,7 +56,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	private final SlidingSortedSet<Transition> transitions;
 	
 	private ShardState serviceState;
-	private Map<Pallet, Capacity> capacities;
+	private Map<Pallet, ShardCapacity> shardCapacities;
 
 	public Shard(
 			final BrokerChannel channel, 
@@ -66,7 +66,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		this.shardId = requireNonNull(memberId);		
 		this.beats = CollectionUtils.sliding(ProctorSettings.MAX_HEARBEATS_TO_EVALUATE);
 		this.transitions = CollectionUtils.sliding(ProctorSettings.MAX_SHARD_CHANGES_TO_HOLD);
-		this.capacities = new HashMap<>();
+		this.shardCapacities = new HashMap<>();
 		final Transition first = new Transition(TransitionCause.INIT, ShardState.JOINING);
 		applyChange(first);
 		this.firstTimeSeen = first.getTimestamp();
@@ -95,18 +95,18 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		return this.shardId;
 	}
 	
-	public void setCapacities(Map<Pallet, Capacity> capacities) {
-		this.capacities = capacities;
+	public void setCapacities(Map<Pallet, ShardCapacity> shardCapacities) {
+		this.shardCapacities = shardCapacities;
 	}
 	
 	@JsonIgnore
-	public Map<Pallet, Capacity> getCapacities() {
-		return this.capacities;
+	public Map<Pallet, ShardCapacity> getCapacities() {
+		return this.shardCapacities;
 	}
-	@JsonProperty("capacities")
+	@JsonProperty("shardCapacities")
 	public Map<String, Double> briefCapacities() {
 		final Map<String, Double> ret = new LinkedHashMap<>();
-		for (final Map.Entry<Pallet, Capacity> e: capacities.entrySet()) {
+		for (final Map.Entry<Pallet, ShardCapacity> e: shardCapacities.entrySet()) {
 			ret.put(e.getKey().getId(), e.getValue().getTotal());
 		}
 		return ret;

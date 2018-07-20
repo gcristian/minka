@@ -33,10 +33,10 @@ import org.mockito.Mockito;
 
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
-import io.tilt.minka.core.leader.balancer.NetworkLocation;
-import io.tilt.minka.shard.Capacity;
-import io.tilt.minka.shard.CapacityComparer;
-import io.tilt.minka.shard.DateComparer;
+import io.tilt.minka.core.leader.balancer.Spot;
+import io.tilt.minka.shard.ShardCapacity;
+import io.tilt.minka.shard.SpotCapacityComparer;
+import io.tilt.minka.shard.SpotDateComparer;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.TCPShardIdentifier;
 
@@ -46,15 +46,15 @@ public class ShardTest {
 
 	@Test
 	public void test_shard_comparers() throws Exception {
-		final Set<NetworkLocation> capacityOrder = new TreeSet<>(new CapacityComparer(p));
-		final Set<NetworkLocation> dateOrder = new TreeSet<>(new DateComparer());
+		final Set<Spot> capacityOrder = new TreeSet<>(new SpotCapacityComparer(p));
+		final Set<Spot> dateOrder = new TreeSet<>(new SpotDateComparer());
 		for (int i = 0; i < new Random().nextInt(100); i++) {
-			capacityOrder.add(new NetworkLocation(buildShard(p, new Random().nextDouble())));
+			capacityOrder.add(new Spot(buildShard(p, new Random().nextDouble())));
 		}
-		 Iterator<NetworkLocation> it = capacityOrder.iterator();
+		 Iterator<Spot> it = capacityOrder.iterator();
 		double lastcap = 0;
 		while (it.hasNext()) {
-			NetworkLocation next = it.next();
+			Spot next = it.next();
 			final double thiscap = next.getCapacities().get(p).getTotal();
 			Assert.assertTrue("capacity comparer returned a different relation", thiscap > lastcap);
 			lastcap = thiscap;
@@ -63,9 +63,9 @@ public class ShardTest {
 		Assert.assertTrue("no shard built", lastcap > 0);
 		
 		it = dateOrder.iterator();
-		NetworkLocation last = null;
+		Spot last = null;
 		while (it.hasNext()) {
-			NetworkLocation next = it.next();
+			Spot next = it.next();
 			if (last!=null) {
 				Assert.assertTrue("date comparer returned a different order", 
 						next.getCreation().isAfter(last.getCreation()));
@@ -88,8 +88,8 @@ public class ShardTest {
 		when(mockedShardID.getCreation()).thenReturn(new DateTime());
 		when(mockedShardID.toString()).thenReturn(idi);
 		final Shard s1 = new Shard(Mockito.mock(BrokerChannel.class), mockedShardID);
-		final Map<Pallet, Capacity> c = new HashMap<>();
-		c.put(p, new Capacity(p, cap));
+		final Map<Pallet, ShardCapacity> c = new HashMap<>();
+		c.put(p, new ShardCapacity(p, cap));
 		s1.setCapacities(c);
 		return s1;
 	}

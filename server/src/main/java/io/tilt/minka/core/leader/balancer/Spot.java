@@ -5,17 +5,22 @@ import java.util.Comparator;
 import java.util.Map;
 
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.shard.Capacity;
+import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.Shard;
 
-/** safety read-only Shard's decorator for balancers to use */
-public class NetworkLocation implements Comparator<NetworkLocation>, Comparable<NetworkLocation> {
+/** 
+ * Synonym and read-only view of a {@linkplain Shard}.
+ * Safety decorator for balancers to use, in presence of custom balancers. 
+ */
+public class Spot implements Comparator<Spot>, Comparable<Spot> {
+	
 	private final Shard shard;
-	public NetworkLocation(final Shard shard) {
+	
+	public Spot(final Shard shard) {
 		this.shard = shard;
 	}
-	public Map<Pallet, Capacity> getCapacities() {
+	public Map<Pallet, ShardCapacity> getCapacities() {
 		return this.shard.getCapacities();
 	}
 	public NetworkShardIdentifier getId() {
@@ -39,11 +44,11 @@ public class NetworkLocation implements Comparator<NetworkLocation>, Comparable<
 		return shard;
 	}
 	@java.lang.Override
-	public int compare(final NetworkLocation o1, final NetworkLocation o2) {
+	public int compare(final Spot o1, final Spot o2) {
 		return shard.compare(o1.getShard(), o2.shard);
 	}
 	@java.lang.Override
-	public int compareTo(final NetworkLocation o) {
+	public int compareTo(final Spot o) {
 		return shard.compareTo(o.getShard());
 	}
 	@java.lang.Override
@@ -52,12 +57,12 @@ public class NetworkLocation implements Comparator<NetworkLocation>, Comparable<
 	}
 	@java.lang.Override
 	public boolean equals(Object obj) {
-		if (obj==null || !(obj instanceof NetworkLocation)) {
+		if (obj==null || !(obj instanceof Spot)) {
 			return false;
 		} else if (obj==this) {
 			return true;
 		} else {
-			return shard.equals(((NetworkLocation)obj).getShard());
+			return shard.equals(((Spot)obj).getShard());
 		}
 	}
 }

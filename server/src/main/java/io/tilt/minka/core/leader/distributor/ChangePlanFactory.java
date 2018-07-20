@@ -41,13 +41,13 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer;
-import io.tilt.minka.core.leader.balancer.NetworkLocation;
+import io.tilt.minka.core.leader.balancer.Spot;
 import io.tilt.minka.core.leader.data.CommitedState;
 import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.core.leader.data.UncommitedChanges;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.shard.Capacity;
+import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.utils.LogUtils;
@@ -192,7 +192,7 @@ class ChangePlanFactory {
 				.collect(Collectors.toSet());
 
 		final Set<ShardEntity> sourceRefs = new HashSet<>(removes.size() + adds.size());
-		final Map<NetworkLocation, Set<Duty>> scheme = new TreeMap<>();
+		final Map<Spot, Set<Duty>> scheme = new TreeMap<>();
 		
 		// add the currently distributed duties
 		partition.getCommitedState().findShards(ShardState.ONLINE.filter(), shard-> {
@@ -201,7 +201,7 @@ class ChangePlanFactory {
 				located.add(d.getDuty());
 				sourceRefs.add(d);
 			}); 
-			scheme.put(new NetworkLocation(shard), located);
+			scheme.put(new Spot(shard), located);
 		});
 		// add the currently distributed duties
 		sourceRefs.addAll(removes);
@@ -302,9 +302,9 @@ class ChangePlanFactory {
 				balancer.getClass().getSimpleName()));
 		final double[] clusterCapacity = new double[1];
 		partition.getCommitedState().findShards(ShardState.ONLINE.filter(), node-> {
-			final Capacity cap = node.getCapacities().get(pallet);
+			final ShardCapacity cap = node.getCapacities().get(pallet);
 			final double currTotal = cap == null ? 0 :  cap.getTotal();
-			logger.info("{}: Capacity Shard {} : {}", name, node.toString(), currTotal);
+			logger.info("{}: ShardCapacity Shard {} : {}", name, node.toString(), currTotal);
 			clusterCapacity[0] += currTotal;
 		});
 		logger.info("{}: Total cluster capacity: {}", name, clusterCapacity);

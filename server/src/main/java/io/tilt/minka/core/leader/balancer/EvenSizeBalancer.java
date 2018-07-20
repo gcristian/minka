@@ -79,7 +79,7 @@ public class EvenSizeBalancer implements Balancer {
 	 */
 	public void balance(
 			final Pallet pallet,
-			final Map<NetworkLocation, Set<Duty>> scheme,
+			final Map<Spot, Set<Duty>> scheme,
 			final Map<EntityEvent, Set<Duty>> stage,
 			final Migrator migrator) {
 		// get a fair distribution
@@ -97,15 +97,15 @@ public class EvenSizeBalancer implements Balancer {
 				deletions.size(), recount);
 
 		// split shards into receptors and emisors while calculating new fair distribution 
-		final Set<NetworkLocation> receptors = new HashSet<>(shardsSize);
-		final Set<NetworkLocation> emisors = new HashSet<>(shardsSize);
-		final Map<NetworkLocation, Integer> deltas = checkDeltas(pallet, scheme, evenSize, receptors, emisors, deletions);
+		final Set<Spot> receptors = new HashSet<>(shardsSize);
+		final Set<Spot> emisors = new HashSet<>(shardsSize);
+		final Map<Spot, Integer> deltas = checkDeltas(pallet, scheme, evenSize, receptors, emisors, deletions);
 		if (deltas.isEmpty()) {
 			logger.info("{}: Evenly distributed already (no sharding deltas out of threshold)", getClass().getSimpleName());
 		} else if (!receptors.isEmpty()) {
 			// 2nd step: assign migrations and creations in serie
-			final CollectionUtils.CircularCollection<NetworkLocation> receptiveCircle = CollectionUtils.circular(receptors);
-			for (final NetworkLocation emisor : emisors) {
+			final CollectionUtils.CircularCollection<Spot> receptiveCircle = CollectionUtils.circular(receptors);
+			for (final Spot emisor : emisors) {
 				final Set<Duty> duties = scheme.get(emisor);
 				int i = 0;
 				final Iterator<Duty> it = duties.iterator();
@@ -126,17 +126,17 @@ public class EvenSizeBalancer implements Balancer {
 	}
 
 	/* evaluate which shards must emit or receive duties by deltas */
-	private Map<NetworkLocation, Integer> checkDeltas(
+	private Map<Spot, Integer> checkDeltas(
 			final Pallet pallet,
-			final Map<NetworkLocation, Set<Duty>> scheme,
+			final Map<Spot, Set<Duty>> scheme,
 			final int evenSize, 
-			final Set<NetworkLocation> receptors, 
-			final Set<NetworkLocation> emisors, 
+			final Set<Spot> receptors, 
+			final Set<Spot> emisors, 
 			final Set<Duty> deletions) {
 
-		final Map<NetworkLocation, Integer> deltas = new HashMap<>(scheme.keySet().size());
+		final Map<Spot, Integer> deltas = new HashMap<>(scheme.keySet().size());
 		final int maxDelta = ((Metadata)pallet.getMetadata()).getMaxDutiesDeltaBetweenShards();
-		for (final NetworkLocation shard : scheme.keySet()) {
+		for (final Spot shard : scheme.keySet()) {
 			final Set<Duty> shardedDuties = scheme.get(shard);
 			// check if this shard contains the deleting duties 
 			int sizeToRemove = (int) shardedDuties.stream().filter(i -> deletions.contains(i)).count();

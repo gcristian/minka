@@ -4,14 +4,14 @@ import java.io.Serializable;
 
 import io.tilt.minka.api.Pallet;
 
-public class Capacity implements Serializable {
+public class ShardCapacity implements Serializable {
 	
 	private static final long serialVersionUID = 3629069972815094880L;
 	
 	private final double total;
 	private final Pallet pallet;
 	
-	public Capacity(Pallet pallet, double total) {
+	public ShardCapacity(Pallet pallet, double total) {
 		this.total = total;
 		this.pallet = pallet;
 	}

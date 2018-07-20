@@ -3,7 +3,9 @@ package io.tilt.minka.core.leader.balancer;
 import java.util.Comparator;
 
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.EntityDateComparer;
+import io.tilt.minka.domain.EntityHashComparer;
+import io.tilt.minka.domain.EntityWeightComparer;
 
 public enum PreSort {
 	/**
@@ -15,7 +17,7 @@ public enum PreSort {
 	/**
 	 * Use hashing order
 	 */
-	HASH(new ShardEntity.HashComparer()),
+	HASH(new EntityHashComparer()),
 	/**
 	 * Use Creation date order, i.e. natural order.
 	 * Use this to keep the migration of duties among shards: to a bare minimum.
@@ -23,7 +25,7 @@ public enum PreSort {
 	 * Useful when the master list of duties has lot of changes in time, and low migration is required.
 	 * Use this in case your Duties represent Tasks of a short lifecycle.
 	 */
-	DATE(new ShardEntity.DateComparer()),
+	DATE(new EntityDateComparer()),
 	/**
 	 * Use Workload order.
 	 * Use this to maximize the clustering algorithm's effectiveness.
@@ -31,7 +33,7 @@ public enum PreSort {
 	 * Otherwise this's the most optimus strategy.
 	 * Use this in case your Duties represent Data or Entities with a long lifecycle 
 	 */
-	WEIGHT(new ShardEntity.WeightComparer()),
+	WEIGHT(new EntityWeightComparer()),
 	
 	/** Use Pallet's custom comparator */
 	CUSTOM(null),

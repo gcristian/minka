@@ -50,7 +50,7 @@ import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.shard.Capacity;
+import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.shard.Transition;
@@ -90,7 +90,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 	
 		shard.enterHeartbeat(beat);
-		final Map<Pallet, Capacity> cap = beat.getCapacities();
+		final Map<Pallet, ShardCapacity> cap = beat.getCapacities();
 		if (cap!=null) {
 			shard.setCapacities(new HashMap<>(cap));
 		}

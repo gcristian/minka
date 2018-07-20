@@ -32,7 +32,7 @@ import io.tilt.minka.core.follower.HeartbeatFactory;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityJournal.Log;
-import io.tilt.minka.shard.Capacity;
+import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.DomainInfo;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.ShardIdentifier;
@@ -172,7 +172,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 					log.error("{}: ({}) Error ocurred while asking for total capacity on Pallet: {}", classname,
 							partition.getId(), pallet.getPallet(), e);
 				} finally {
-					builder.addCapacity(pallet.getPallet(), new Capacity(pallet.getPallet(), capacity));
+					builder.addCapacity(pallet.getPallet(), new ShardCapacity(pallet.getPallet(), capacity));
 				}
 			}
 		}

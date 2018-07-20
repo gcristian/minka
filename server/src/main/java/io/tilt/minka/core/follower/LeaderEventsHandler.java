@@ -41,7 +41,6 @@ import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
-import io.tilt.minka.domain.ShardCommand;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.shard.Clearance;
@@ -111,9 +110,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 
 	@Override
 	public void accept(final Serializable event) {
-		if (event instanceof ShardCommand) {
-			logger.debug("{}: ({}) Receiving: {}", getName(), config.getLoggingShardId(), event);
-		} else if (event instanceof ArrayList) {
+		if (event instanceof ArrayList) {
 			onCollection(event);
 		} else if (event instanceof Clearance) {
 			onClearance(event);

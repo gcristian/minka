@@ -17,7 +17,7 @@ import io.tilt.minka.ShardTest;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.FairWeightBalancer;
-import io.tilt.minka.core.leader.balancer.NetworkLocation;
+import io.tilt.minka.core.leader.balancer.Spot;
 import io.tilt.minka.core.leader.balancer.PreSort;
 import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.domain.EntityEvent;
@@ -286,10 +286,10 @@ public class FairWeightBalancerTest {
 		return ret;
 	}
 	
-	public Map<NetworkLocation, Set<Duty>> stageFromTable(final ShardingState table) {
-		final Map<NetworkLocation, Set<Duty>> ret = new HashMap<>();
+	public Map<Spot, Set<Duty>> stageFromTable(final ShardingState table) {
+		final Map<Spot, Set<Duty>> ret = new HashMap<>();
 		table.getCommitedState().findShards(null, shard-> {
-			ret.put(new NetworkLocation(shard), Collections.emptySet());
+			ret.put(new Spot(shard), Collections.emptySet());
 		});
 		return ret;
 	}

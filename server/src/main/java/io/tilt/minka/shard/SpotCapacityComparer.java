@@ -6,22 +6,22 @@ import java.util.Comparator;
 import java.util.stream.Collectors;
 
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.balancer.NetworkLocation;
+import io.tilt.minka.core.leader.balancer.Spot;
 
 /* is important to maintain a predictable order to avoid migration churning */
-public class CapacityComparer implements Comparator<NetworkLocation>, Serializable {
+public class SpotCapacityComparer implements Comparator<Spot>, Serializable {
 	
 	private static final long serialVersionUID = 2191475545082914908L;
 	private final Pallet pallet;
 	
-	public CapacityComparer(Pallet pallet) {
+	public SpotCapacityComparer(Pallet pallet) {
 		super();
 		this.pallet = pallet;
 	}
 	@Override
-	public int compare(final NetworkLocation s, final NetworkLocation s2) {
-		final Capacity cap1 = s.getCapacities().get(pallet);
-		final Capacity cap2 = s2.getCapacities().get(pallet);
+	public int compare(final Spot s, final Spot s2) {
+		final ShardCapacity cap1 = s.getCapacities().get(pallet);
+		final ShardCapacity cap2 = s2.getCapacities().get(pallet);
 		if (cap1 == null) {
 			return -1;
 		} else if (cap2 == null) {
@@ -29,7 +29,7 @@ public class CapacityComparer implements Comparator<NetworkLocation>, Serializab
 		} else {
 			int ret = Double.compare(cap1.getTotal(), cap2.getTotal());
 			// always the same predictable order 
-			ret = ret != 0 ? ret : DateComparer.compareByCreation(s, s2);
+			ret = ret != 0 ? ret : SpotDateComparer.compareByCreation(s, s2);
 			if (ret==0) {
 				// TODO refactory
 				ret = Arrays.asList(s.getId().getId(), s2.getId().getId())

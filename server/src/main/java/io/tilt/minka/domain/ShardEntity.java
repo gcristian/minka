@@ -18,7 +18,6 @@ package io.tilt.minka.domain;
 
 import static org.apache.commons.lang.StringUtils.EMPTY;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -31,8 +30,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.DutyBuilder;
-import io.tilt.minka.api.DutyBuilder.Task;
 import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.EntityPayload;
 import io.tilt.minka.api.Pallet;
@@ -304,58 +301,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	}
 
 	
-	public static class WeightComparer implements Comparator<Duty>, Serializable {
-		private static final long serialVersionUID = 2191475545082914908L;
-		@Override
-		public int compare(final Duty o1, final Duty o2) {
-			if (o1 == null || o2 == null) {
-				return compareNulls(o1, o2);
-			} else {
-				int ret = Double.compare(o1.getWeight(), o2.getWeight());
-				// break comparator contract about same weight same entity yeah rightttttt
-				if (ret == 0) {
-					return compareTieBreak(o1, o2);
-				}
-				return ret;
-			}
-		}
-	}
-	
-	public static class HashComparer implements Comparator<Duty>, Serializable {
-		private static final long serialVersionUID = 3709876521530551544L;
-		@Override
-		public int compare(final Duty o1, final Duty o2) {
-			if (o1 == null || o2 == null) {
-				return compareNulls(o1, o2);
-			} else {
-				int i = o1.getId().compareTo(o2.getId());
-				if (i == 0) {
-					i = compareTieBreak(o1, o2);
-				}
-				return i;
-			}
-		}
-	}
-	
-	public static class DateComparer implements Comparator<Duty>, Serializable {
-		private static final long serialVersionUID = 3709876521530551544L;
-		@Override
-		public int compare(final Duty o1, final Duty o2) {
-			int i = 0;
-			if (o1 == null || o2 == null) {
-				return compareNulls(o1, o2);
-			} else if (o1 instanceof DutyBuilder.Task && o2 instanceof DutyBuilder.Task) {
-				final Task o1ts = (DutyBuilder.Task)o1;
-				final Task o2ts = (DutyBuilder.Task)o1;
-				i = o1ts.getTimestamp().compareTo(o2ts.getTimestamp());
-				if (i == 0) {
-					i = compareTieBreak(o1, o2);
-				}				
-			}
-			return i;
-		}
-	}
-
 	static int compareNulls(final Duty o1, final Duty o2) {
 		return o1==null && o1!=o2 ? -1 : o1!=o2 ? 1 : 0;
 	}

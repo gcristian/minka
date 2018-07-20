@@ -75,7 +75,7 @@ public class CoalesceBalancer implements Balancer {
 	@Override
 	public void balance(
 			final Pallet pallet,
-			final Map<NetworkLocation, Set<Duty>> scheme,
+			final Map<Spot, Set<Duty>> scheme,
 			final Map<EntityEvent, Set<Duty>> stage,
 			final Migrator migrator) {
 

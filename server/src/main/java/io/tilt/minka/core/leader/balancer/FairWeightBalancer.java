@@ -33,8 +33,8 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.config.BalancerConfiguration;
 import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.shard.Capacity;
-import io.tilt.minka.shard.CapacityComparer;
+import io.tilt.minka.shard.ShardCapacity;
+import io.tilt.minka.shard.SpotCapacityComparer;
 
 /**
  * Type balanced.
@@ -106,7 +106,7 @@ public class FairWeightBalancer implements Balancer {
 	 * also fixing division remainders, but without overwhelming shards. 
 	 */
 	public void balance(final Pallet pallet, 
-			final Map<NetworkLocation, Set<Duty>> scheme, 
+			final Map<Spot, Set<Duty>> scheme, 
 			final Map<EntityEvent, Set<Duty>> stage,
 			final Migrator migrator) {
 
@@ -117,7 +117,7 @@ public class FairWeightBalancer implements Balancer {
 		scheme.values().forEach(duties::addAll);
 		duties.removeAll(stage.get(EntityEvent.REMOVE)); // delete those marked for deletion
 		if (meta.getDispersion()==Dispersion.EVEN) {
-			final Set<Bascule<NetworkLocation, Duty>> bascules = buildBascules(pallet, scheme.keySet(), duties);
+			final Set<Bascule<Spot, Duty>> bascules = buildBascules(pallet, scheme.keySet(), duties);
 			if (bascules==null) {
 				return;
 			} else if (bascules.isEmpty()) {
@@ -125,12 +125,12 @@ public class FairWeightBalancer implements Balancer {
 				// migrator.stuck(itDuties.next(), null));
 				return;
 			}
-			final Iterator<Bascule<NetworkLocation, Duty>> itBascs = bascules.iterator();
+			final Iterator<Bascule<Spot, Duty>> itBascs = bascules.iterator();
 			final Iterator<Duty> itDuties = duties.iterator();
 			Duty duty = null;
 			boolean lifted = true;
 			while (itBascs.hasNext()) {
-				final Bascule<NetworkLocation, Duty> bascule = itBascs.next();
+				final Bascule<Spot, Duty> bascule = itBascs.next();
 				while (itDuties.hasNext() || !lifted) {
 					if (lifted) {
 						duty = itDuties.next();
@@ -170,23 +170,23 @@ public class FairWeightBalancer implements Balancer {
 		}
 	}
 
-	private final Set<Bascule<NetworkLocation, Duty>> buildBascules(
+	private final Set<Bascule<Spot, Duty>> buildBascules(
 			final Pallet pallet, 
-			final Set<NetworkLocation> onlineShards, 
+			final Set<Spot> onlineShards, 
 			final Set<Duty> duties) {
 
-		final Bascule<NetworkLocation, Duty> brute = new Bascule<>();
+		final Bascule<Spot, Duty> brute = new Bascule<>();
 		duties.forEach(d->brute.lift(d.getWeight()));
-		Set<Bascule<NetworkLocation, Duty>> bascules = new LinkedHashSet<>();
-		final List<NetworkLocation> sorted = new ArrayList<>(onlineShards);
-		Collections.sort(sorted, new CapacityComparer(pallet));
-		for (final NetworkLocation shard: sorted) {
-			final Capacity cap = shard.getCapacities().get(pallet);
+		Set<Bascule<Spot, Duty>> bascules = new LinkedHashSet<>();
+		final List<Spot> sorted = new ArrayList<>(onlineShards);
+		Collections.sort(sorted, new SpotCapacityComparer(pallet));
+		for (final Spot shard: sorted) {
+			final ShardCapacity cap = shard.getCapacities().get(pallet);
 			if (cap!=null) {
 				bascules.add(new Bascule<>(shard, cap.getTotal()));
 			}
 		}
-		double clusterCap = bascules.isEmpty() ? 0 :Bascule.<NetworkLocation, Duty>getMaxRealCapacity(bascules);
+		double clusterCap = bascules.isEmpty() ? 0 :Bascule.<Spot, Duty>getMaxRealCapacity(bascules);
 		if (clusterCap <=0) {
 			logger.error("{}: No available or reported capacity for Pallet: {}", getClass().getSimpleName(), pallet);
 			bascules = null;
@@ -195,7 +195,7 @@ public class FairWeightBalancer implements Balancer {
 				logger.error("{}: Pallet: {} with Inssuficient/Almost cluster capacity (max: {}, required load: {})", 
 					getClass().getSimpleName(), pallet, clusterCap, brute.totalLift());
 			}
-			for (final Bascule<NetworkLocation, Duty> b: bascules) {
+			for (final Bascule<Spot, Duty> b: bascules) {
 				// fairness thru shard's capacities flattening according total weight
 				// so total bascule's fair value ends up close to equal the total weight
 				final double fair = Math.min(brute.totalLift() * (b.getMaxRealCapacity() / clusterCap), b.getMaxRealCapacity());

@@ -23,7 +23,7 @@ import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
-import io.tilt.minka.shard.Capacity;
+import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardIdentifier;
@@ -356,16 +356,16 @@ public class CommitedState {
 			}
 			for (final Shard shard : shardsByID.values()) {
 				final ShardedPartition partition = partitionsByShard.get(shard);
-				final Map<Pallet, Capacity> capacities = shard.getCapacities();
+				final Map<Pallet, ShardCapacity> shardCapacities = shard.getCapacities();
 				if (partition == null) {
 					logger.info("{}: {} = Empty", getClass().getSimpleName(), shard);
 				} else {
 					for (ShardEntity p: palletsById.values()) {
 						final StringBuilder sb = new StringBuilder();
 						sb.append(shard).append(" Pallet: ").append(p.getPallet().getId());
-						final Capacity cap = capacities.get(p.getPallet());
+						final ShardCapacity cap = shardCapacities.get(p.getPallet());
 						sb.append(" Size: ").append(partition.getDutiesSize(p.getPallet()));
-						sb.append(" Weight/Capacity: ");
+						sb.append(" Weight/ShardCapacity: ");
 						final double[] weight = new double[1];
 						partition.getDuties().stream()
 							.filter(d->d.getDuty().getPalletId().equals(p.getPallet().getId()))
@@ -395,7 +395,7 @@ public class CommitedState {
 			double total = 0;
 			for (final Shard shard : getShards()) {
 				if (quest == null || shard.equals(quest)) {
-					final Capacity cap = shard.getCapacities().get(pallet);
+					final ShardCapacity cap = shard.getCapacities().get(pallet);
 					total += cap != null ? cap.getTotal() : 0;
 				}
 			}

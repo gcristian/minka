@@ -34,7 +34,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
-import io.tilt.minka.shard.Capacity;
+import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.Transition;
 
@@ -50,7 +50,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	private static final long serialVersionUID = 4828220405145911529L;
 
 	private List<EntityRecord> reportedCapturedDuties;
-	private Map<Pallet, Capacity> capacities;
+	private Map<Pallet, ShardCapacity> shardCapacities;
 	private final NetworkShardIdentifier shardId;
 	private final DateTime creation;
 	private DateTime reception;
@@ -75,7 +75,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 		private final long sequenceId;
 		private final DateTime creation;
 		private final NetworkShardIdentifier shardId;
-		private final Map<Pallet, Capacity> capacities = new HashMap<>();
+		private final Map<Pallet, ShardCapacity> shardCapacities = new HashMap<>();
 
 		private Builder(final long sequenceId, final NetworkShardIdentifier shardId) {
 			this.shardId = shardId;
@@ -94,10 +94,10 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 			this.reportsCapturedDuties = true;
 			return this;
 		}
-		public Builder addCapacity(final Pallet pallet, final Capacity capacity) {
+		public Builder addCapacity(final Pallet pallet, final ShardCapacity shardCapacity) {
 			Validate.notNull(pallet);
-			Validate.notNull(capacity);
-			this.capacities.put(pallet, capacity); 
+			Validate.notNull(shardCapacity);
+			this.shardCapacities.put(pallet, shardCapacity); 
 			return this;
 		}
 		public Builder withWarning() {
@@ -105,7 +105,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 			return this;
 		}
 		public Heartbeat build() {
-			return new Heartbeat(entities, warning, shardId, sequenceId, capacities, 
+			return new Heartbeat(entities, warning, shardId, sequenceId, shardCapacities, 
 					reportsCapturedDuties, this.creation);
 		}
 	}
@@ -121,7 +121,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 			final boolean warning, 
 			final NetworkShardIdentifier id,
 			final long sequenceId, 
-			final Map<Pallet, Capacity> capacities, 
+			final Map<Pallet, ShardCapacity> shardCapacities, 
 			final boolean reportsDuties, 
 			final DateTime creation) {
 		this.reportedCapturedDuties = duties == null ? Collections.emptyList() : duties;
@@ -129,7 +129,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 		this.shardId = id;
 		this.creation = creation;
 		this.sequenceId = sequenceId;
-		this.capacities = capacities;
+		this.shardCapacities = shardCapacities;
 		this.reportsDuties = reportsDuties;
 	}
 
@@ -185,7 +185,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	/** dereferences inner collections */
 	public void clear() {
 		this.reportedCapturedDuties.clear();
-		this.capacities.clear();
+		this.shardCapacities.clear();
 	}
 
 	@JsonProperty(index=5, value="reported-duties")
@@ -251,7 +251,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	}
 
 	@JsonIgnore
-	public Map<Pallet, Capacity> getCapacities() {
-		return this.capacities;
+	public Map<Pallet, ShardCapacity> getCapacities() {
+		return this.shardCapacities;
 	}
 }
