@@ -16,9 +16,6 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
-import static io.tilt.minka.core.leader.distributor.ChangePlan.Result.CLOSED_EXPIRED;
-import static io.tilt.minka.core.leader.distributor.ChangePlan.Result.CLOSED_OBSOLETE;
-import static io.tilt.minka.core.leader.distributor.ChangePlan.Result.RETRYING;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -43,7 +40,6 @@ import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.core.leader.data.ShardingState.ClusterHealth;
 import io.tilt.minka.core.leader.data.UncommitedRepository;
-import io.tilt.minka.core.leader.distributor.ChangePlan.Result;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -207,21 +203,21 @@ public class Distributor implements Service {
 		boolean rebuild = changePlan == null || changePlan.getResult().isClosed();
 		boolean firstTime = true;
 		ChangePlan p = changePlan;
-		Result r = null;
+		ChangePlanState r = null;
 		while (firstTime || rebuild) {
 			if (rebuild) {
 				rebuild = false;
 				p = buildPlan(p);
 			}
 			if (p != null && !p.getResult().isClosed()) {
-				if (r == RETRYING) {
+				if (r == ChangePlanState.RETRYING) {
 					repushPendings(p);
 				} else {
 					pushAvailable(p);
 				}
 				r = p.getResult();
 			}
-			if (r == CLOSED_EXPIRED || r == CLOSED_OBSOLETE) {
+			if (r == ChangePlanState.CLOSED_EXPIRED || r == ChangePlanState.CLOSED_OBSOLETE) {
 				rebuild = true;
 			} else if (p != null) {
 				p.calculateState();

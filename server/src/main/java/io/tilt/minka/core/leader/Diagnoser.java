@@ -15,10 +15,10 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.domain.Heartbeat;
-import io.tilt.minka.shard.TransitionCause;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.shard.Transition;
+import io.tilt.minka.shard.TransitionCause;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 
 /**

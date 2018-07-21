@@ -95,7 +95,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	private List<Delivery> deliveries;
 	private Instant started;
 	private Instant ended;
-	private Result result = Result.RUNNING;
+	private ChangePlanState changePlanState = ChangePlanState.RUNNING;
 	private int retryCounter;
 
 	private static List<EntityEvent> consistentEventsOrder = Arrays.asList(
@@ -114,37 +114,14 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		this.id = System.currentTimeMillis();
 	}
 
-	public static enum Result {
-		/* still a running plan */
-		RUNNING,
-		/* resending deliveries for a nth time */
-		RETRYING,
-		/* all deliveries passed from enqueued to pending and confirmed */
-		CLOSED_APPLIED,
-		/* plan contains invalid shippings unable to deliver */
-		CLOSED_ERROR,
-		/* some deliveries became obsolete/impossible, rebuilding is required */
-		CLOSED_OBSOLETE,
-		/* some deliveries were never confirmed beyond retries/waiting limits */
-		CLOSED_EXPIRED;
-
-		public boolean isSuccess() {
-			return this == CLOSED_APPLIED;
-		}
-
-		public boolean isClosed() {
-			return this != RUNNING && this != RETRYING;
-		}
-	}
-
 	public void obsolete() {
-		this.result = Result.CLOSED_OBSOLETE;
-		logger.warn("{}: ChangePlan going {}", getClass().getSimpleName(), result);
+		this.changePlanState = ChangePlanState.CLOSED_OBSOLETE;
+		logger.warn("{}: ChangePlan going {}", getClass().getSimpleName(), changePlanState);
 		this.ended = Instant.now();
 	}
 
-	public Result getResult() {
-		return this.result;
+	public ChangePlanState getResult() {
+		return this.changePlanState;
 	}
 
 	@JsonIgnore
@@ -201,7 +178,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 			}
 		}
 		checkAllEventsPaired(deliveries, (unpaired)-> {
-			this.result = Result.CLOSED_ERROR;
+			this.changePlanState = ChangePlanState.CLOSED_ERROR;
 			this.ended = Instant.now();
 			logger.error("{}: Invalid ChangePlan with an operation unpaired: {}", getClass().getSimpleName(), 
 					unpaired.toBrief());
@@ -338,7 +315,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 
 	/** recalculates state according its deliveries states */
 	public void calculateState() {
-		if (this.result.isClosed()) {
+		if (this.changePlanState.isClosed()) {
 			return;
 		} else if (deliveries.isEmpty()) {
 			throw new IllegalStateException("plan without deliveries cannot compute state");
@@ -351,21 +328,21 @@ public class ChangePlan implements Comparable<ChangePlan> {
 			}
 		}
 		if (allDone) {
-			this.result = Result.CLOSED_APPLIED;
+			this.changePlanState = ChangePlanState.CLOSED_APPLIED;
 			this.ended = Instant.now();
 		} else {
 			final Instant expiration = started.plusMillis(maxMillis);
 			if (expiration.isBefore(Instant.now())) {
 				if (retryCounter == this.maxRetries) {
 					logger.warn("{}: Abandoning ChangePlan expired ! (max secs:{}) ", getClass().getSimpleName(), maxMillis);
-					this.result = Result.CLOSED_EXPIRED;
+					this.changePlanState = ChangePlanState.CLOSED_EXPIRED;
 					this.ended = Instant.now();
 				} else {
 					retryCounter++;
 					this.started = Instant.now();
 					logger.warn("{}: ReSending ChangePlan expired: Retry {} (max secs:{}) ",
 							getClass().getSimpleName(), retryCounter, maxMillis);
-					this.result = Result.RETRYING;
+					this.changePlanState = ChangePlanState.RETRYING;
 				}
 			} else {
 				if (logger.isInfoEnabled()) {
@@ -374,7 +351,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 							getId(),
 							secsToExpire(expiration));
 				}
-				this.result = Result.RUNNING;
+				this.changePlanState = ChangePlanState.RUNNING;
 			}
 		}
 	}

@@ -70,7 +70,7 @@ public class Reply {
 	@Override
 	public String toString() {
 		return new StringBuilder()
-				.append("Client-Result:").append(isSuccess()).append(',')
+				.append("Client-ChangePlanState:").append(isSuccess()).append(',')
 				.append("TransitionCause-Code:").append(value.toString()).append(',')
 				.toString()
 				;
