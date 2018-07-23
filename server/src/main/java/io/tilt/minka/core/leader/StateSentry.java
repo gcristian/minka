@@ -24,6 +24,7 @@ import static io.tilt.minka.domain.EntityState.MISSING;
 import static java.util.Collections.emptyMap;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -33,6 +34,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
+import org.apache.log4j.lf5.util.StreamUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -98,9 +100,9 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		detectExpectedChanges(shard, beat);
 
 		if ((beat.reportsDuties()) && shard.getState().isAlive()) {
-			detectUnexpectedChanges(shard, beat.getReportedCapturedDuties());
+			detectUnexpectedChanges(shard, beat.getCaptured());
 			if (shardingState.getCurrentPlan()!=null) {
-				detectInvalidShards(shard, beat.getReportedCapturedDuties());
+				detectInvalidShards(shard, beat.getCaptured());
 			}
 		}
 		beat.clear();
@@ -109,18 +111,22 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	private void detectExpectedChanges(final Shard shard, final Heartbeat beat) {
 		final ChangePlan changePlan = shardingState.getCurrentPlan();
 		if (changePlan!=null && !changePlan.getResult().isClosed()) {
+			
 			final Delivery delivery = changePlan.getDelivery(shard);
 			if (delivery!=null && delivery.getStep()==Delivery.Step.PENDING) {
-				final Map<EntityEvent, StringBuilder> logging = new HashMap<>(4);
-				if (changeDetector.findPlannedChanges(delivery, changePlan.getId(), beat, shard.getShardID(), 
-						(l,d)-> writesOnChange(shard, l, d, logging))) {
-					delivery.calculateState(s->logger.info(s));
+				final Map<EntityEvent, StringBuilder> logg = new HashMap<>(EntityEvent.values().length);
+				final BiConsumer<Log, ShardEntity> committer = (log, del)-> commit(shard, log, del, logg);
+				
+				if (changeDetector.detect(delivery, changePlan.getId(), beat, shard.getShardID(), committer,
+						EntityEvent.ATTACH, EntityEvent.STOCK, EntityEvent.DROP)) { 
+					delivery.calculateState(logger::info);
 				}
-				if (logging.size()>0 && logger.isInfoEnabled()) {
-					logging.entrySet().forEach(e-> logger.info("{}: Written expected change {} at [{}] on: {}", 
+				
+				if (logg.size()>0 && logger.isInfoEnabled()) {
+					logg.entrySet().forEach(e-> logger.info("{}: Written expected change {} at [{}] on: {}", 
 							getClass().getSimpleName(), e.getKey().name(), shard, e.getValue().toString()));
 				}
-				changePlan.calculateState();
+				
 				if (changePlan.getResult().isClosed()) {
 					if (logger.isInfoEnabled()) {
 						logger.info("{}: ChangePlan finished ! (promoted) duration: {}ms", classname, 
@@ -138,9 +144,9 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 			// changePlan is only NULL before 1st distribution
 			// there's been a change of leader: i'm initiating with older followers
 			final StringBuilder log = new StringBuilder();
-			for (EntityRecord e: beat.getReportedCapturedDuties()) {
+			for (EntityRecord e: beat.getCaptured()) {
 				//L: prepared, L: pending, F: received, C: confirmed, L: ack.
-				boolean learnt = shardingState.getCommitedState().learnPreviousDistribution(e, shard);
+				boolean learnt = shardingState.getUncommited().learnPreviousDistribution(e, shard);
 				if (learnt && logger.isInfoEnabled()) {
 					log.append(e.getId()).append(',');
 				}
@@ -151,9 +157,9 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-	private void writesOnChange(final Shard shard, final Log changelog, final ShardEntity entity, 
+	private void commit(final Shard shard, final Log changelog, final ShardEntity entity, 
 			final Map<EntityEvent, StringBuilder> logging) {
-		if (shardingState.getCommitedState().write(entity, shard, changelog.getEvent(), ()-> {
+		final Runnable r = ()-> {
 			if (logger.isInfoEnabled()) {
 				StringBuilder sb = logging.get(changelog.getEvent());
 				if (sb==null) {
@@ -167,21 +173,24 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 					CONFIRMED,
 					shard.getShardID(),
 					changelog.getPlanId());
-			})) {
-			updateStage(changelog, entity);
+			};
+			
+		if (shardingState.getCommitedState().commit(entity, shard, changelog.getEvent(), r)) {
+			// && changelog.getEvent().getType()==EntityEvent.Type.ALLOCATION) {
+			clearUncommited(changelog, entity);
 		}
 		// REMOVES go this way:
 		if (changelog.getEvent()==EntityEvent.DETACH) {
 			final Log previous = entity.getJournal().descendingIterator().next();
 			if (previous.getEvent()==EntityEvent.REMOVE) {
-				shardingState.getCommitedState().write(entity, shard, previous.getEvent(), ()->{
+				shardingState.getCommitedState().commit(entity, shard, previous.getEvent(), ()->{
 					logger.info("{}: Removing duty at request: {}", classname, entity);
 				});
 			}
 		}
 	}
 
-	private void updateStage(final Log changelog, final ShardEntity entity) {
+	private void clearUncommited(final Log changelog, final ShardEntity entity) {
 		// remove it from the stage
 		final ShardEntity crud = shardingState.getUncommited().getCrudByDuty(entity.getDuty());
 		if (crud!=null) {
@@ -218,7 +227,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 				if (logger.isInfoEnabled()) {
 					log.append(ShardEntity.toStringIds(e.getValue()));
 				}
-				e.getValue().forEach(d->shardingState.getCommitedState().write(d, shard, REMOVE, ()->{
+				e.getValue().forEach(d->shardingState.getCommitedState().commit(d, shard, REMOVE, ()->{
 					d.getJournal().addEvent(
 							d.getLastEvent(),
 							e.getKey()==DANGLING ? DANGLING : MISSING, 
@@ -281,11 +290,13 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 
 	private void detectInvalidShards(final Shard sourceShard, final List<EntityRecord> reportedCapturedDuties) {
 		for (final EntityRecord e : reportedCapturedDuties) {
-			final Shard should = shardingState.getCommitedState().findDutyLocation(e.getId());
-			if (should==null) {
-				logger.error("unexisting duty: " + e.toString() + " reported by shard: " + sourceShard);
-			} else if (!should.equals(sourceShard)) {
-				logger.error("relocated duty: " + e.toString() + " being reported by shard: " + sourceShard);
+			if (e.getJournal().getLast().getEvent().getType()==EntityEvent.Type.ALLOCATION) {
+				final Shard should = shardingState.getCommitedState().findDutyLocation(e.getId());
+				if (should==null) {
+					logger.error("unexisting duty: " + e.toString() + " reported by shard: " + sourceShard);
+				} else if (!should.equals(sourceShard)) {
+					logger.error("relocated duty: " + e.toString() + " being reported by shard: " + sourceShard);
+				}
 			}
 		}
 	}

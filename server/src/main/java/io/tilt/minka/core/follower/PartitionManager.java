@@ -46,6 +46,9 @@ public interface PartitionManager {
 
 	/** make the follower responsible of duties */
 	boolean attach(Collection<ShardEntity> duty);
+	
+	boolean stock(Collection<ShardEntity> duty);
+	boolean drop(Collection<ShardEntity> duty);
 
 	/** make the follower know leader's domain information */
 	Void acknowledge(DomainInfo info);

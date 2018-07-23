@@ -270,7 +270,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 				}
 			}
 		} catch (Exception e) {
-			//journal.commit(compose(getClass(), Fact.shard_finding_address).with(Result.FAILURE).with(e).build());
+			//journal.commit(compose(getClass(), Fact.shard_finding_address).with(ChangePlanState.FAILURE).with(e).build());
 			logger.error("{}: Cannot build shard id value with hostname", logName, e);
 		}
 		if (fallback != null) {

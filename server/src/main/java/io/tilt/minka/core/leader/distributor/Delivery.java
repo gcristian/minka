@@ -145,7 +145,7 @@ public class Delivery {
 			boolean noneLeft = true;
 			for (final ShardEntity duty : duties) {
 				// look up confirmation for the specific logged event matching this delivery
-				final Log found = duty.getJournal().find(getPlanId(), shard.getShardID(), getEvent());
+				final Log found = duty.getJournal().findFirst(getPlanId(), shard.getShardID(), getEvent());
 				if (found != null && found.getLastState() != EntityState.CONFIRMED) {
 					noneLeft = false;
 					if (c!=null) {

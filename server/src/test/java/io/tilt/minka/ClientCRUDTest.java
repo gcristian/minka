@@ -34,7 +34,21 @@ import io.tilt.minka.api.Pallet;
 
 
 public class ClientCRUDTest {
-	
+
+	@Test
+    public void test_smoke() throws Exception {
+
+		final Pallet p = Pallet.builder("p-tsftra").build();
+		final Set<Pallet> pallets = newHashSet(p);
+		final Set<Duty> duties = duties(p, 12);
+
+		final Config proto = prototypeConfig();
+		proto.getBootstrap().setNamespace("test_start_full_then_remove_add");
+		final long distroWait = proto.beatToMs(10);
+		final Set<ServerWhitness> cluster = buildCluster(3, proto, pallets, duties);
+		sleep(1000* 60 * 10);
+	}
+    
 	@Test
     public void test_start_full_then_remove_add() throws Exception {
 

@@ -62,14 +62,14 @@ public class Follower implements Service {
 
 	private final LeaderEventsHandler leaderEventsHandler;
 	private final Config config;
-	private final EventBroker eventBroker;
-
 	private final Scheduler scheduler;
 	private final Heartpump heartpump;
 	private final HeartbeatFactory heartbeatFactory;
-	private final Agent follow;
 	private final ShardedPartition partition;
 	private final LeaderAware leaderAware;
+	private final Agent follow;
+	
+	private boolean lastSuccess;
 	
 	public Follower(
 			final Config config, 
@@ -87,7 +87,6 @@ public class Follower implements Service {
 		this.heartbeatFactory = requireNonNull(heartbeatFactory);
 		this.leaderEventsHandler = requireNonNull(leaderConsumer);
 		this.config = requireNonNull(config);
-		this.eventBroker = requireNonNull(eventBroker);
 		this.creation = new DateTime(DateTimeZone.UTC);
 		this.scheduler = requireNonNull(scheduler);
 		this.partition = requireNonNull(partition);
@@ -142,8 +141,6 @@ public class Follower implements Service {
 			}
 		}
 	}
-	
-	private boolean lastSuccess;
 	
 	private void follow() {
 		checkClearanceOrDrop();		

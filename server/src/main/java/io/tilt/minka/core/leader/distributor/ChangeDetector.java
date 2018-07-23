@@ -24,6 +24,7 @@ import static io.tilt.minka.domain.EntityState.MISSING;
 import static io.tilt.minka.domain.EntityState.PENDING;
 import static io.tilt.minka.domain.EntityState.RECEIVED;
 
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
@@ -34,13 +35,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.data.ShardingState;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
-import io.tilt.minka.shard.Shard;
-import io.tilt.minka.shard.ShardIdentifier;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardIdentifier;
 
 /**
  * Contains the mechanism and knowledge for determining reallocation changes <br>
@@ -65,44 +67,35 @@ public class ChangeDetector {
 	}
 
 	/** Finds sharding changes by matching entity journals for planned reallocations */
-	public boolean findPlannedChanges(
+	public boolean detect(
 			final Delivery delivery, 
 			final long pid, 
 			final Heartbeat beat, 
-			final ShardIdentifier sourceid,
-			final BiConsumer<Log, ShardEntity> bicons) {
+			final ShardIdentifier source,
+			final BiConsumer<Log, ShardEntity> bicons,
+			final EntityEvent...events) {
 		long lattestPlanId = 0;
 		boolean found = false;
 		if (beat.reportsDuties()) {
-			lattestPlanId = latestPlan(beat);
+			lattestPlanId = latestPlan(beat.getCaptured());
 			if (lattestPlanId==pid) {
-				found|=onFoundAttachments(
-						sourceid, 
-						beat.getReportedCapturedDuties(), 
-						delivery.getDuties(), 
-						bicons, 
-						pid);
+				found|=onFoundPairings(source, beat.getCaptured(), delivery.getDuties(), bicons, pid, events);
 			}
 		}
-		found|=onFoundDetachments(
-				sourceid, 
-				beat.getReportedCapturedDuties(), 
-				delivery.getDuties(), 
-				bicons, 
-				pid);
+		found|=onFoundDetachments(source, beat.getCaptured(), delivery.getDuties(), bicons, pid);
 
-		if (lattestPlanId<pid && !found) {
+		if (false && lattestPlanId<pid && !found) {
 			// delivery found, no change but expected ? 
 			logger.warn("{}: Ignoring shard's ({}) heartbeats with a previous Journal: {} (current: {})", 
-				getClass().getSimpleName(), sourceid.toString(), lattestPlanId, pid);
+				getClass().getSimpleName(), source.toString(), lattestPlanId, pid);
 		}
 		return found;
 	}
 
 	/* latest entity's journal plan ID among the beat */
-	private static long latestPlan(final Heartbeat beat) {
+	private static long latestPlan(final Collection<EntityRecord> ents) {
 		long lattestPlanId = 0;
-		for (EntityRecord e: beat.getReportedCapturedDuties()) {
+		for (EntityRecord e: ents) {
 			final long pid = e.getJournal().getLast().getPlanId();
 			if (pid > lattestPlanId) {
 				lattestPlanId = pid;
@@ -116,19 +109,20 @@ public class ChangeDetector {
 	 * find the up-coming
 	 * @return if there were changes 
 	 */
-	private boolean onFoundAttachments(
+	private boolean onFoundPairings(
 			final ShardIdentifier shardid, 
 			final List<EntityRecord> beatedDuties,
 			final List<ShardEntity> deliveryDuties,
 			final BiConsumer<Log, ShardEntity> c,
-			final long pid) {
+			final long pid,
+			final EntityEvent...events) {
 		Set<EntityRecord> log = null;
 		Set<EntityRecord> dirty = null;
 		boolean found = false;
 		for (final EntityRecord beated : beatedDuties) {
 			for (ShardEntity delivered : deliveryDuties) {
 				if (delivered.getEntity().getId().equals(beated.getId())) {
-					final Log expected = findConfirmationPair(beated, delivered, shardid, pid);
+					final Log expected = findConfirmationPair(beated, delivered, shardid, pid, events);
 					if (expected != null) {
 						found = true;
 						if (logger.isInfoEnabled()) {
@@ -169,14 +163,15 @@ public class ChangeDetector {
 			final EntityRecord beated,
 			final ShardEntity delivered,
 			final ShardIdentifier shardid, 
-			final long pid) {
+			final long pid,
+			final EntityEvent...events) {
 		Log ret = null;
 		// beated duty must belong to current non-expired plan
-		final Log beatedLog = beated.getJournal().find(pid, shardid, ATTACH);
+		final Log beatedLog = beated.getJournal().findFirst(pid, shardid, events);
 		if (beatedLog != null) {
 			final EntityState beatedState = beatedLog.getLastState();
 			if (beatedState == CONFIRMED || beatedState == RECEIVED) {
-				final Log deliLog = delivered.getJournal().find(pid, shardid, ATTACH);
+				final Log deliLog = delivered.getJournal().findFirst(pid, shardid, events);
 				if (deliLog != null) {
 					final EntityState deliState = deliLog.getLastState();
 					if (deliState == PENDING || deliState !=CONFIRMED) {
@@ -214,7 +209,7 @@ public class ChangeDetector {
 			if (!beatedDuties.stream()
 				.filter(r->r.getId().equals(prescripted.getEntity().getId()))
 				.findFirst().isPresent()) {
-				final Log changelog = prescripted.getJournal().find(pid, shardid, DETACH, REMOVE);
+				final Log changelog = prescripted.getJournal().findFirst(pid, shardid, DETACH, REMOVE);
 				if (changelog!=null && (changelog.getLastState()==PENDING || changelog.getLastState()==MISSING)) {
 					found = true;
 					if (logger.isInfoEnabled()) {

@@ -46,22 +46,36 @@ public class EntityRecord implements Comparable<EntityRecord>, Comparator<Entity
 	private String id;
 	private final ShardEntity.Type type;
 	private EntityJournal journal;
+	private ShardEntity entity;
 	
-	private EntityRecord(final String id, final ShardEntity.Type type, final EntityJournal journal) {
+	private EntityRecord(
+			final String id, 
+			final ShardEntity.Type type, 
+			final EntityJournal journal, 
+			final ShardEntity entity) {
 		this.id = requireNonNull(id);
 		this.type = requireNonNull(type);
 		this.journal = requireNonNull(journal);
+		this.entity = entity;
 	}
 	
-	public static EntityRecord fromEntity(final ShardEntity entity) {
+	public static EntityRecord fromEntity(final ShardEntity entity, final boolean packit) {
 		Validate.notNull(entity);
-		return new EntityRecord(entity.getEntity().getId(), entity.getType(), entity.getJournal());
+		return new EntityRecord(
+				entity.getEntity().getId(), 
+				entity.getType(), 
+				entity.getJournal(),
+				packit? entity : null);
 		
 	}
 
 	public String getId() {
 		return id;
 	}	
+	
+	public ShardEntity getEntity() {
+		return entity;
+	}
 	
 	public static String toStringIds(final Collection<EntityRecord> duties) {
 		if (duties!=null && duties.size()>0) {

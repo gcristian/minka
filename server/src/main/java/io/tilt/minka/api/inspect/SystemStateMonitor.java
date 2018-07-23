@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.function.Consumer;
 
 import org.apache.commons.lang.Validate;
 import org.joda.time.DateTime;
@@ -294,13 +295,15 @@ public class SystemStateMonitor {
 	private Map<String, List<Object>> buildDuties(final boolean detail) {
 		Validate.notNull(scheme);
 		final Map<String, List<Object>> byPalletId = new LinkedHashMap<>();
-		scheme.getCommitedState().findDuties(d-> {
+		final Consumer<ShardEntity> adder = d-> {
 			List<Object> pid = byPalletId.get(d.getDuty().getPalletId());
 			if (pid==null) {
 				byPalletId.put(d.getDuty().getPalletId(), pid = new ArrayList<>());
 			}
 			pid.add(detail ? d : d.getDuty().getId());
-		});
+		};
+		scheme.getCommitedState().findDuties(adder);
+		partition.getStock().forEach(adder);;
 		return byPalletId;
 	}
 

@@ -16,6 +16,9 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
+import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.toList;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,6 +32,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -101,6 +105,8 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	private static List<EntityEvent> consistentEventsOrder = Arrays.asList(
 			EntityEvent.REMOVE,
 			EntityEvent.DETACH,
+			EntityEvent.DROP,
+			EntityEvent.STOCK,
 			EntityEvent.CREATE,
 			EntityEvent.ATTACH);
 
@@ -120,6 +126,17 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		this.ended = Instant.now();
 	}
 
+	public List<ShardEntity> getShippingsFor(final EntityEvent event, final Shard shard) {
+		final Map<Shard, List<ShardEntity>> map = shippings.get(event);
+		if (map!=null) {
+				final List<ShardEntity> x = map.get(shard);
+				if (x!=null) {
+					return x.stream().collect(toList());
+				}
+		}
+		return emptyList();
+	}
+	
 	public ChangePlanState getResult() {
 		return this.changePlanState;
 	}

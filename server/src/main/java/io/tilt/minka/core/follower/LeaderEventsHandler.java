@@ -16,11 +16,12 @@
  */
 package io.tilt.minka.core.follower;
 
-import static java.util.stream.Collectors.groupingBy;
-
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Consumer;
 
@@ -40,6 +41,7 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
@@ -159,8 +161,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 
 	private void handleDuty(final List<ShardEntity> duties) {
 		try {
-			for (final Entry<EntityEvent, List<ShardEntity>> e : duties.stream()
-					.collect(groupingBy(d -> d.getJournal().find(partition.getId()).getEvent())).entrySet()) {
+			for (final Entry<EntityEvent, List<ShardEntity>> e : groupByFoundEvents(duties).entrySet()) {
 				switch (e.getKey()) {
 				case CREATE:
 					break;
@@ -169,17 +170,27 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 					break;
 				case ATTACH:
 					if (partitionManager.attach(e.getValue())) {
-						received(e);
+						markReceived(e);
 					}
 					break;
 				case DETACH:
 					if (partitionManager.dettach(e.getValue())) {
-						received(e);
+						markReceived(e);
 					}
 					break;
 				case TRANSFER:
 				case UPDATE:
 					partitionManager.update(e.getValue());
+					break;
+				case DROP:
+					if (partitionManager.drop(e.getValue())) {
+						markReceived(e);
+					}
+					break;
+				case STOCK:
+					if (partitionManager.stock(e.getValue())) {
+						markReceived(e);
+					}
 					break;
 				default:
 					logger.error("{}: ({}) Not allowed: {}", e.getKey(), config.getLoggingShardId());
@@ -190,7 +201,22 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		}
 	}
 
-	private void received(final Entry<EntityEvent, List<ShardEntity>> e) {
+	/** no special event sorting */
+	private Map<EntityEvent, List<ShardEntity>> groupByFoundEvents(final List<ShardEntity> duties) {
+		final Map<EntityEvent, List<ShardEntity>> map = new HashMap<>(EntityEvent.values().length);
+		for (ShardEntity d: duties) {
+			for (Log log: d.getJournal().findAll(partition.getId())) {
+				List<ShardEntity> list = map.get(log.getEvent());
+				if (list == null) {
+					map.put(log.getEvent(), list = new LinkedList<>());
+				}
+				list.add(d);
+			}
+		}
+		return map;
+	}
+
+	private void markReceived(final Entry<EntityEvent, List<ShardEntity>> e) {
 		e.getValue().forEach(d->d.getJournal().addEvent(
 				e.getKey(), 
 				EntityState.RECEIVED, 

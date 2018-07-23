@@ -4,10 +4,8 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -20,12 +18,11 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.ConcurrentDutyException;
 import io.tilt.minka.core.leader.StateSentry;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
-import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.ShardIdentifier;
 import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.shard.Transition;
@@ -40,7 +37,6 @@ public class CommitedState {
 
 	private static final Logger logger = LoggerFactory.getLogger(CommitedState.class);
 
-	private final Map<ShardIdentifier, Set<EntityRecord>> previousScheme = new HashMap<>();
 	private final Map<ShardIdentifier, Shard> shardsByID;
 	private final Map<Shard, ShardedPartition> partitionsByShard;
 	final Map<String, ShardEntity> palletsById;
@@ -147,47 +143,6 @@ public class CommitedState {
 		}
 	}
 	
-	public void patchOnPreviousDistribution(final Set<ShardEntity> duties) {
-		if (!previousScheme.isEmpty()) {
-			final EntityEvent event = EntityEvent.ATTACH;
-			for (Map.Entry<ShardIdentifier, Set<EntityRecord>> e: previousScheme.entrySet()) {
-				boolean found = false;
-				if (logger.isInfoEnabled()) {
-					logger.info("{}: Patching scheme ({}) w/prev. distribution journals: {}", getClass().getSimpleName(), 
-							event, EntityRecord.toStringIds(e.getValue()));
-				}
-				for (EntityRecord r: e.getValue()) {
-					for (ShardEntity d: duties) {
-						if (d.getDuty().getId().equals(r.getId())) {
-							found = true;
-							d.replaceJournal(r.getJournal());
-							write(d, findShard(s->s.getShardID().equals(e.getKey())), event, null);
-							break;
-						}
-					}
-					if (!found) {
-						logger.error("{}: Shard {} reported an unloaded duty from previous distribution: {}", 
-								getClass().getSimpleName(), e.getKey(), r.getId());
-					}
-				}
-			}
-			this.previousScheme.clear();
-		}
-	}
-	
-	/** guard the report to take it as truth once distribution runs and ShardEntity is loaded */
-	public boolean learnPreviousDistribution(final EntityRecord duty, final Shard where) {
-		boolean ret = false;
-		Set<EntityRecord> list = previousScheme.get(where.getShardID());
-		if (list==null) {
-			previousScheme.put(where.getShardID(), list = new HashSet<>());
-		}
-		
-		if (ret = list.add(duty)) {
-			stealthChange = true; 
-		}
-		return ret;
-	}
 	/**
 	 * Account the end of the duty movement operation.
 	 * Only access-point to adding and removing duties.
@@ -196,22 +151,27 @@ public class CommitedState {
 	 * @param callback	called when writting is possible
 	 * @return if there was a CommitedState change after the action 
 	 */
-	public boolean write(final ShardEntity duty, final Shard where, final EntityEvent event, final Runnable callback) {
+	public boolean commit(final ShardEntity duty, final Shard where, final EntityEvent event, final Runnable callback) {
 		final boolean add = event.is(EntityEvent.ATTACH) || event.is(EntityEvent.CREATE);
 		final boolean del = !add && (event.is(EntityEvent.DETACH) || event.is(EntityEvent.REMOVE));
 		final ShardedPartition part = getPartition(where);
+		boolean impact = false;
 		if (add) {
 			checkDuplicationFailure(duty, where);
 		} 
 		if ((add && part.add(duty)) || (del && part.remove(duty))) {
-			stealthChange = true; 
-			if (callback!=null) {
-				callback.run();
-			}
+			stealthChange = impact = true; 
+		} else if (event.is(EntityEvent.STOCK)) {
+			impact = part.stock(duty);
+		} else if (event.is(EntityEvent.DROP)) {
+			impact = part.drop(duty);
 		} else {
 			throw new ConsistencyException("Attach failure. Confirmed attach/creation already exists");
 		}
-		return true;
+		if (impact && callback!=null) {
+			callback.run();
+		}
+		return impact;
 	}
 	
 	private void checkDuplicationFailure(final ShardEntity duty, final Shard reporter) {
@@ -228,6 +188,9 @@ public class CommitedState {
 	public Collection<ShardEntity> getDutiesByShard(final Shard shard) {
 		return getPartition(shard).getDuties();
 	}
+	public Collection<ShardEntity> getStockByShard(final Shard shard) {
+		return getPartition(shard).getStock();
+	} 
 
 	public void findDuties(final Shard shard, final Pallet pallet, final Consumer<ShardEntity> consumer) {
 		for (ShardEntity e: getPartition(shard).getDuties()) {

@@ -115,7 +115,7 @@ public class Distributor implements Service {
 				.every(config.beatToMs(config.getDistributor().getPhaseFrequency()))
 				.build();
 
-		this.factory = new ChangePlanFactory(config);
+		this.factory = new ChangePlanFactory(config, leaderAware);
 	}
 
 	@java.lang.Override
@@ -193,7 +193,6 @@ public class Distributor implements Service {
 			logger.error("{}: Unexpected ", getName(), e);
 		}
 	}
-
 	
 	/**
 	 * attempt to push deliveries ready until latch
@@ -233,6 +232,10 @@ public class Distributor implements Service {
 		if (null!=changePlan) {
 			shardingState.setPlan(changePlan);
 			this.shardingState.setDistributionHealth(ClusterHealth.UNSTABLE);
+			
+			ok(changePlan);
+			
+			
 			changePlan.prepare();
 			shardingState.getUncommited().dropSnapshot();
 			if (logger.isInfoEnabled()) {
@@ -250,6 +253,11 @@ public class Distributor implements Service {
 		}
 	}
 	
+	private void ok(ChangePlan changePlan) {
+		//changePlan.
+		
+	}
+
 	/* retry already pushed deliveries with pending duties */
 	private void repushPendings(final ChangePlan changePlan) {
 		changePlan.onDeliveries(d->d.getStep() == Delivery.Step.PENDING, delivery-> {
@@ -327,7 +335,8 @@ public class Distributor implements Service {
 
 	/** @return if distribution can continue, read from storage only first time */
 	private boolean loadFromClientWhenAllOnlines() {
-	    final boolean reload = !initialAdding && (config.getDistributor().isReloadDutiesFromStorage()
+	    final boolean reload = !initialAdding && (
+	    		config.getDistributor().isReloadDutiesFromStorage()
                 && config.getDistributor().getDutiesReloadFromStoragePhaseFrequency() == counterForReloads++);
 	    
 		if (initialAdding || reload) {
@@ -340,7 +349,7 @@ public class Distributor implements Service {
 				logger.warn("{}: EventMapper user's supplier hasn't return any pallets {}",getName(), pallets);
 				initialAdding = false;
 			} else {				
-				uncommitedRepository.saveAllPalletsRaw(pallets, logger("Pallet"));
+				uncommitedRepository.loadRawPallets(pallets, logger("Pallet"));
 			}
 			
 			if (duties == null || duties.isEmpty()) {
@@ -353,7 +362,7 @@ public class Distributor implements Service {
 					logger.error("{}: Distribution suspended - Duty Built construction problem: ", getName(), e);
 					return false;
 				}
-				uncommitedRepository.saveAllDutiesRaw(duties, logger("Duty"));
+				uncommitedRepository.loadRawDuties(duties, logger("Duty"));
 				initialAdding = false;
 			}
 

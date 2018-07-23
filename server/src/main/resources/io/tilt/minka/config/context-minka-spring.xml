@@ -118,9 +118,7 @@
     ===============================================================================================-->
     
     <bean id="shardingScheme" class="io.tilt.minka.core.leader.data.ShardingState"/>
-        
-    <bean id="entityDao" class="io.tilt.minka.core.leader.EntityDao.FakeDao"/>
-    
+            
     <bean id="stageRepository" class="io.tilt.minka.core.leader.data.UncommitedRepository">
     	<constructor-arg ref="shardingScheme" />
     	<constructor-arg ref="shardId" />
@@ -134,7 +132,6 @@
         <constructor-arg ref="shardingScheme" />
         <constructor-arg ref="stageRepository" />
         <constructor-arg ref="shardId" />
-        <constructor-arg ref="entityDao" />
         <constructor-arg ref="clientHolder" />
         <constructor-arg ref="leaderAware" />
     </bean>

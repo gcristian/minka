@@ -45,10 +45,12 @@ import io.tilt.minka.core.leader.balancer.Spot;
 import io.tilt.minka.core.leader.data.CommitedState;
 import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.core.leader.data.UncommitedChanges;
+import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.utils.LogUtils;
 
@@ -66,9 +68,11 @@ class ChangePlanFactory {
 
 	private final Config config;
 	private final String name = getClass().getSimpleName();
-
-	ChangePlanFactory(final Config config) {
+	private final LeaderAware aware;
+	
+	ChangePlanFactory(final Config config, final LeaderAware aware) {
 		this.config = config;
+		this.aware = aware;
 	}
 
 	/** @return a plan if there're changes to apply or NULL if not */
@@ -101,6 +105,8 @@ class ChangePlanFactory {
 					if (balancer != null) {
 						final Migrator migra = balancePallet(scheme, pallet, balancer, creations, deletions);
 						changes |= migra.write(changePlan);
+						shipStorage(EntityEvent.ATTACH, EntityEvent.STOCK, scheme, changePlan, creations);
+						shipStorage(EntityEvent.DETACH, EntityEvent.DROP, scheme, changePlan, deletions);
 					} else {
 						if (logger.isInfoEnabled()) {
 							logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", name,
@@ -121,6 +127,32 @@ class ChangePlanFactory {
 		}
 		scheme.getUncommited().dropSnapshot();
 		return changePlan;
+	}
+
+	private void shipStorage(
+			final EntityEvent root,
+			final EntityEvent storage,
+			final ShardingState state, 
+			final ChangePlan changePlan, 
+			final Set<ShardEntity> involved) {
+		
+		final Shard myFollower = state.getCommitedState().findShard(aware.getLeaderShardId().getId());
+		for (ShardEntity in: involved.stream()
+			.filter(c->changePlan.getShippingsFor(root, myFollower).contains(c))
+			.collect(Collectors.toList())) {
+			
+			state.getCommitedState().findShards(
+					shard->!myFollower.getShardID().equals(shard.getShardID()), 
+					follower-> { 
+							in.getJournal().addEvent(
+									storage, 
+									EntityState.PREPARED, 
+									follower.getShardID(), 
+									changePlan.getId());
+							changePlan.ship(follower, in);
+					}
+			);
+		}
 	}
 
 	private Set<ShardEntity> collectAsRemoves(
@@ -229,7 +261,7 @@ class ChangePlanFactory {
 					lazy == null ? "unattached" : "from falling Shard: " + lazy, missed);
 			}
 			if (lazy != null) {
-				partition.getCommitedState().write(missed, lazy, REMOVE, ()-> {
+				partition.getCommitedState().commit(missed, lazy, REMOVE, ()-> {
 					// missing duties are a confirmation per-se from the very shards,
 					// so the ptable gets fixed right away without a realloc.
 					missed.getJournal().addEvent(REMOVE, CONFIRMED,lazy.getShardID(),changePlan.getId());					

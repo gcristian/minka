@@ -18,10 +18,12 @@ package io.tilt.minka.domain;
 
 
 import static java.util.Collections.unmodifiableList;
+import static java.util.Objects.requireNonNull;
 
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -30,6 +32,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -90,9 +93,12 @@ public class EntityJournal implements Serializable {
 		final ShardIdentifier shardid, 
 		final long planid) {
 
+		requireNonNull(event);
+		requireNonNull(state);
+		
 		// look up the right log
 		final String shid = shardid != null ? shardid.getId() : null;
-		Log log = (planid > 0) ? find_(planid, shid, event) : null;
+		Log log = (planid > 0) ? findFirst(planid, shid, event) : null;
 		if (log == null) {
 			logs.add(log = new Log(new Date(), event, shid == null ? NOT_APPLIABLE : shid, planid));
 			if (sliding || (sliding = logs.size() == DistributorSettings.MAX_JOURNAL_SIZE)) {
@@ -147,47 +153,65 @@ public class EntityJournal implements Serializable {
 	 * @return reading from latest to earliest a Log that matches given:
 	 * plan version, target shard and specific events, or any if null
 	 **/
-	public Log find(final long planid, final ShardIdentifier shardid, final EntityEvent...events) {
-		return find_(planid, shardid.getId(), events);
+	public Log findFirst(final long planid, final ShardIdentifier shardid, final EntityEvent...events) {
+		return findFirst(planid, shardid.getId(), events);
 	}
 	
-	/** 
-	 * @return reading from latest to earliest limited to the last plan
-	 * a Log that matches a target shard 
-	 **/
-	public Log find(final ShardIdentifier shardid) {
-		return find_(0, shardid.getId(), null);
+	private Log findFirst(final long planid, final String shardid, final EntityEvent...events) {
+		final Collection<Log> r = find_(planid, shardid, events);
+		if (r!=null && !r.isEmpty()) {
+			return r.iterator().next();
+		}
+		return null;
+	}
+	
+	/**
+	 * @return all events of the last plan and given @param shardid
+	 */
+	public Collection<Log> findAll(final ShardIdentifier shardid) {
+		return find_(0, shardid.getId(), EntityEvent.values());
+	}
+	public Collection<Log> findAll(final long planid, final ShardIdentifier shardid, final EntityEvent...events) {
+		return find_(planid, shardid.getId(), events);
 	}
 	
 	/** 
 	 * Descends in time (logs are stacked) until an older plan than current is reached. 
 	 * @return a Log matching plan + event + shard, whereas those args. specified or any if omitted 
 	 */
-	private Log find_(final long planid, final String shardid, final EntityEvent...events) {
-		boolean onePlanFound = false;
+	private Collection<Log> find_(
+			// 0: only the last one
+			final long planid, 
+			final String shardid, 
+			// if not provided then first apparition is valid and returned
+			final EntityEvent...events) {
+		
+		Collection<Log> ret = null;
+		long lastpid = -1;
 		for (final Iterator<Log> it = logs.descendingIterator(); it.hasNext();) {
 			final Log log = it.next();
+			// stop when no pid is provided (0) and decended more than one plan back 
+			if (planid == 0 && lastpid>-1 && lastpid !=log.getPlanId()) {
+				break;
+			}
+			lastpid = log.getPlanId();
 			if ((planid == 0 || log.getPlanId() == planid) 
 					&& (shardid == null || log.getTargetId().equals(shardid))) {
-				onePlanFound = true;
-				if (events == null) {
-					return log;
-				} else {
-					for (EntityEvent ee : events) {
-						if (log.getEvent() == ee) {
-							return log;
+				for (EntityEvent ee : events) {
+					if (log.getEvent() == ee) {
+						if (ret==null) {
+							ret = new LinkedList<>();
 						}
+						ret.add(log);
 					}
 				}
 				break;
 			} else if (planid > log.getPlanId()) {
-				// avoid phantom events
-				break;
-			} else if (planid == 0 && onePlanFound) {
+				// requested older than read: avoid phantom events
 				break;
 			}
 		}
-		return null;
+		return ret;
 	}
 
 	@JsonIgnore

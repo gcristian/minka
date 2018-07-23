@@ -20,7 +20,9 @@ import static java.util.Collections.unmodifiableCollection;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import org.apache.commons.lang.Validate;
 
@@ -41,10 +43,13 @@ import io.tilt.minka.shard.Shard;
  */
 public class ShardedPartition {
 
-	// the where
+	// the follower's shard
 	private final NetworkShardIdentifier id;
-	// the what
+	// effectively sharded (attached) on the follower's shard
 	private Map<Duty, ShardEntity> duties;
+	// kept as knowledge to inform at leader reelection 
+	// not attached at follower's shard BUT at leader's shard
+	private Set<ShardEntity> stock;
 	private Map<Pallet, ShardEntity> pallets;
 	private long lastUpdateTimestamp;
 	private long recentUpdateThreshold = 10 *1000l;
@@ -81,6 +86,7 @@ public class ShardedPartition {
 	private void init() {
 		this.duties = new TreeMap<>();
 		this.pallets = new TreeMap<>();
+		this.stock = new TreeSet<>();
 	}
 
 	public NetworkShardIdentifier getId() {
@@ -96,15 +102,6 @@ public class ShardedPartition {
 		final StringBuilder sb = new StringBuilder();
 		duties.values().forEach(i -> sb.append(i.toBrief()).append(", "));
 		return sb.toString();
-	}
-
-	public ShardEntity getFromRawDuty(final Duty t) {
-		for (Duty d : duties.keySet()) {
-			if (d.getId().equals(t.getId())) {
-				return duties.get(d);
-			}
-		}
-		return null;
 	}
 	
 	public ShardEntity getByDuty(final Duty duty) {
@@ -131,6 +128,7 @@ public class ShardedPartition {
 		all.forEach(d->duties.put(d.getDuty(), d));
 		updateLastChange();
 	}
+	// add to partition because it's currently attached: captured
 	public boolean add(final ShardEntity entity) {
 		updateLastChange();
 		if (entity.getType() == ShardEntity.Type.DUTY) {
@@ -168,5 +166,28 @@ public class ShardedPartition {
 	private void updateLastChange() {
 		this.lastUpdateTimestamp = System.currentTimeMillis();
 	}
+	
+	//////////////////////////////////////////////////////////////////////////////////
 
+	public Collection<ShardEntity> getStock() {
+		return this.stock;
+	}
+	// add to domain duties: not attached
+	public boolean stock(final ShardEntity entity) {
+		return stock.add(entity);
+	}
+	public boolean stockAll(final Collection<ShardEntity> entities) {
+		return stock.addAll(entities);
+	}
+	public boolean drop(final ShardEntity entity) {
+		return stock.remove(entity);
+	}
+	public boolean dropAll(final Collection<ShardEntity> entities) {
+		return stock.removeAll(entities);
+	}
+	public void dropAll() {
+		stock.clear();
+	}
+
+	
 }

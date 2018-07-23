@@ -1,10 +1,13 @@
 package io.tilt.minka.core.leader.data;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -17,9 +20,13 @@ import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.StateSentry;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.EntityEvent.Type;
 import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardIdentifier;
 
 /** 
  * Temporal state of modifications willing to be added to the {@linkplain CommitedState}
@@ -29,6 +36,9 @@ import io.tilt.minka.domain.ShardEntity;
 public class UncommitedChanges {
 
 	private static final Logger logger = LoggerFactory.getLogger(UncommitedChanges.class);
+
+	private final Map<ShardIdentifier, Set<EntityRecord>> previousState = new HashMap<>();
+	private final Map<Shard, Collection<ShardEntity>> previousDomain;
 
     // creations and removes willing to be attached or detached to/from shards.
 	private final Map<Pallet, ShardEntity> palletCrud;
@@ -45,6 +55,14 @@ public class UncommitedChanges {
 	private boolean snap = false;
 	private Instant lastStealthChange;
 	
+	public UncommitedChanges() {
+		this.palletCrud = new HashMap<>();
+		this.dutyCrud = new HashMap<>();
+		this.dutyMissings = new HashMap<>();
+		this.dutyDangling = new HashMap<>();
+		this.previousDomain = new HashMap<>();
+	}
+
 	/** @return a frozen state of stage, so message-events threads 
 	 * (threadpool-size independently) can still modify the instance for further change plans */
 	public synchronized UncommitedChanges snapshot() {
@@ -82,13 +100,6 @@ public class UncommitedChanges {
 		return last==null || snaptake.toEpochMilli() >=last.getHead().getTime();
 	}
 
-	public UncommitedChanges() {
-		this.palletCrud = new HashMap<>();
-		this.dutyCrud = new HashMap<>();
-		this.dutyMissings = new HashMap<>();
-		this.dutyDangling = new HashMap<>();
-	}
-
 	public void setStealthChange(final boolean value) {
 		checkNotOnSnap();
 		if (!value && snapshot!=null) {
@@ -109,6 +120,89 @@ public class UncommitedChanges {
 		return this.stealthChange;
 	}
 	
+	//=======================================================================================
+	
+	/** guard the report to take it as truth once distribution runs and ShardEntity is loaded */
+	public boolean learnPreviousDistribution(final EntityRecord duty, final Shard where) {
+		boolean ret = false;
+		
+		// a domain entity not a report
+		if (duty.getEntity() == null) {
+			Set<EntityRecord> list = previousState.get(where.getShardID());
+			if (list==null) {
+				previousState.put(where.getShardID(), list = new HashSet<>());
+			}
+			
+			final Type nature = duty.getJournal().getLast().getEvent().getType();
+			if (nature==EntityEvent.Type.ALLOCATION) {
+				if (ret = list.add(duty)) {
+					stealthChange = true; 
+				}
+			}
+		} else {
+			ret = learnPreviousDomain(duty.getEntity(), where);
+		}
+		return ret;
+	}
+
+	private  boolean learnPreviousDomain(final ShardEntity duty, final Shard where) {
+		boolean ret = false;
+		
+		final Type nature = duty.getJournal().getLast().getEvent().getType();
+		if (nature == EntityEvent.Type.DOMAIN) {
+			Collection<ShardEntity> x = previousDomain.get(where);
+			if (x==null) {
+				previousDomain.put(where, x=new ArrayList<>());
+			}
+			x.add(duty);
+		}
+		return ret;
+	}
+	
+	/** @return previous state's domain-commited entities */
+	public Set<ShardEntity> drainPreviousState() {
+		final Set<ShardEntity> drained = new HashSet<>(); 
+		for (Collection<ShardEntity> c: previousDomain.values()) {
+			drained.addAll(c);
+		}
+		previousDomain.clear();
+		return drained;
+	}
+	
+	/** fix master's duty with previous state */
+	public void patchJournalsWithPreviousState(
+			final Set<ShardEntity> duties, 
+			final BiConsumer<ShardIdentifier, ShardEntity> bc) {
+		if (!previousState.isEmpty()) {
+			final EntityEvent event = EntityEvent.ATTACH;
+			for (Map.Entry<ShardIdentifier, Set<EntityRecord>> e: previousState.entrySet()) {
+				boolean found = false;
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: Patching scheme ({}) w/prev. distribution journals: {}", getClass().getSimpleName(), 
+							event, EntityRecord.toStringIds(e.getValue()));
+				}
+				for (EntityRecord r: e.getValue()) {
+					for (ShardEntity d: duties) {
+						if (d.getDuty().getId().equals(r.getId())) {
+							found = true;
+							d.replaceJournal(r.getJournal());
+							bc.accept(e.getKey(), d);
+							break;
+						}
+					}
+					if (!found) {
+						logger.error("{}: Shard {} reported an unloaded duty from previous distribution: {}", 
+								getClass().getSimpleName(), e.getKey(), r.getId());
+					}
+				}
+			}
+			this.previousState.clear();
+		}
+	}
+	
+
+	//=======================================================================================
+
 	/** @return read only set */
 	public Collection<ShardEntity> getDutiesDangling() {
 		return Collections.unmodifiableCollection(this.dutyDangling.values());

@@ -99,8 +99,6 @@ public class PartitionManagerImpl implements PartitionManager {
 		return null;
 	}
 
-	@SuppressWarnings("unchecked")
-	// TODO refactory
 	public Void update(final Collection<ShardEntity> duties) {
 		for (ShardEntity entity : duties) {
 			if (entity.getType()==ShardEntity.Type.DUTY) {
@@ -224,6 +222,16 @@ public class PartitionManagerImpl implements PartitionManager {
 		this.domain = info;
 		this.heartbeatFactory.setDomainInfo(domain);
 		return null;
+	}
+
+	@Override
+	public boolean stock(Collection<ShardEntity> duties) {
+		return partition.stockAll(duties);
+	}
+
+	@Override
+	public boolean drop(Collection<ShardEntity> duties) {
+		return partition.dropAll(duties);
 	}
 
 }
