@@ -313,7 +313,8 @@ public class ChangePlan implements Comparable<ChangePlan> {
 			// first time here
 			return true;
 		}
-		if (deliveries.get(deliveryIdx).getEvent() == lastDelivery.getEvent()) {
+		if (deliveries.get(deliveryIdx).getEvent() == lastDelivery.getEvent()
+				|| lastDelivery.getEvent().getType()==EntityEvent.Type.REPLICA) {
 			// identical future events are parallelized
 			return true;
 		}
