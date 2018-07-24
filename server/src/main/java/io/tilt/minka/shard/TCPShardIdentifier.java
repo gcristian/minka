@@ -169,7 +169,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	private ServerSocket bookAPort(final int testPort) {
 		ServerSocket socket = null;
 		try {
-			socket = new ServerSocket(testPort);
+			socket = new ServerSocket(testPort, 1, sourceHost);
 			if (!socket.isBound()) {
 				return null;
 			}

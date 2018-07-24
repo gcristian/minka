@@ -264,9 +264,8 @@ public class Server {
 		final ResourceConfig res = new ResourceConfig(AdminEndpoint.class);
 		
 		res.property("contextConfig", tenant.getContext());
-		final HttpServer webServer = GrizzlyHttpServerFactory.createHttpServer(
-		        resolveWebServerBindAddress(tenant.getConfig()), res);
-		
+		final URI uri = resolveWebServerBindAddress(tenant.getConfig());
+		final HttpServer webServer = GrizzlyHttpServerFactory.createHttpServer(uri, res, false);
 		final ThreadPoolConfig config = ThreadPoolConfig.defaultConfig()
 				.setCorePoolSize(1)
 				.setMaxPoolSize(1);
@@ -274,13 +273,11 @@ public class Server {
 		final Iterator<NetworkListener> it = webServer.getListeners().iterator();
 		while (it.hasNext()) {
 			final NetworkListener listener = it.next();
-			logger.info("{}: {} Reconfiguring webserver listener {}", name, tenant.getConnectReference(), listener);
+			logger.info("{}: {} Configuring webserver listener {}", name, tenant.getConnectReference(), listener);
 			final TCPNIOTransport transport = listener.getTransport();
 			transport.setSelectorRunnersCount(1);
-			((GrizzlyExecutorService)transport.getWorkerThreadPool())
-				.reconfigure(config.copy().setPoolName(THREAD_NAME_WEBSERVER_WORKER));
-			((GrizzlyExecutorService)transport.getKernelThreadPool())
-				.reconfigure(config.copy().setPoolName(THREAD_NAME_WEBSERVER_KERNEL));
+			transport.setWorkerThreadPoolConfig(config.copy().setPoolName(THREAD_NAME_WEBSERVER_WORKER));
+			transport.setWorkerThreadPoolConfig(config.copy().setPoolName(THREAD_NAME_WEBSERVER_KERNEL));
 			// note the transport class has an inner channel connector disabled to configure
 			// as an instance private field which sizes the kernel pool to 10, unmodifiable.
 		}
@@ -301,9 +298,9 @@ public class Server {
     	final BootstrapConfiguration bs = config.getBootstrap();
 		final String[] webHostPort = bs.getWebServerHostPort().split(":");
 		int webPort = Integer.parseInt(webHostPort[1]);
-		final boolean webHostPortUntouched = bs.getWebServerHostPort().equals(BootstrapConfiguration.WEB_SERVER_HOST_PORT);
+		final boolean untouched = bs.getWebServerHostPort().equals(BootstrapConfiguration.WEB_SERVER_HOST_PORT);
 		String webhostport;
-		if (webHostPortUntouched) {
+		if (untouched) {
 			int brokerPort = Integer.parseInt(brokerHostPort[1]);
 			webPort = brokerPort == BrokerConfiguration.PORT ? webPort: brokerPort + 100;
 			final String host = config.getResolvedShardId().getId().split(":")[0];
