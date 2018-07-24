@@ -19,10 +19,10 @@ package io.tilt.minka.core.leader.distributor;
 import static io.tilt.minka.domain.EntityEvent.ATTACH;
 import static io.tilt.minka.domain.EntityEvent.DETACH;
 import static io.tilt.minka.domain.EntityEvent.REMOVE;
-import static io.tilt.minka.domain.EntityState.CONFIRMED;
+import static io.tilt.minka.domain.EntityState.COMMITED;
 import static io.tilt.minka.domain.EntityState.MISSING;
 import static io.tilt.minka.domain.EntityState.PENDING;
-import static io.tilt.minka.domain.EntityState.RECEIVED;
+import static io.tilt.minka.domain.EntityState.ACK;
 
 import java.util.Collection;
 import java.util.Date;
@@ -148,7 +148,7 @@ public class ChangeDetector {
 		}
 		if (log!=null) {
 			logger.info("{}: ShardID: {}, {} {} for Duties: {}", classname,
-					shardid, ATTACH, CONFIRMED, 
+					shardid, ATTACH, COMMITED, 
 					EntityRecord.toStringIds(log));
 		}
 		if (dirty!=null) {
@@ -170,14 +170,14 @@ public class ChangeDetector {
 		final Log beatedLog = beated.getJournal().findFirst(pid, shardid, events);
 		if (beatedLog != null) {
 			final EntityState beatedState = beatedLog.getLastState();
-			if (beatedState == CONFIRMED || beatedState == RECEIVED) {
+			if (beatedState == COMMITED || beatedState == ACK) {
 				final Log deliLog = delivered.getJournal().findFirst(pid, shardid, events);
 				if (deliLog != null) {
 					final EntityState deliState = deliLog.getLastState();
-					if (deliState == PENDING || deliState !=CONFIRMED) {
+					if (deliState == PENDING || deliState !=COMMITED) {
 						// expected normal situation
 						ret = deliLog;
-					} else if (deliState == CONFIRMED) {
+					} else if (deliState == COMMITED) {
 						// when cluster unstable: bad state but possible 
 						final Shard location = shardingState.getCommitedState().findDutyLocation(delivered.getDuty());
 						if (location==null || !location.getShardID().equals(shardid)) {
@@ -225,7 +225,7 @@ public class ChangeDetector {
 		
 		if (log!=null) {
 			logger.info("{}: ShardID: {}, {} {} for Duties: {}",
-					getClass().getSimpleName(), shardid, DETACH, CONFIRMED, 
+					getClass().getSimpleName(), shardid, DETACH, COMMITED, 
 					ShardEntity.toStringIds(log));
 		}
 		return found;

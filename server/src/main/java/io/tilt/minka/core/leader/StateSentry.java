@@ -18,7 +18,7 @@ package io.tilt.minka.core.leader;
 
 import static io.tilt.minka.domain.EntityEvent.DETACH;
 import static io.tilt.minka.domain.EntityEvent.REMOVE;
-import static io.tilt.minka.domain.EntityState.CONFIRMED;
+import static io.tilt.minka.domain.EntityState.COMMITED;
 import static io.tilt.minka.domain.EntityState.DANGLING;
 import static io.tilt.minka.domain.EntityState.MISSING;
 import static java.util.Collections.emptyMap;
@@ -170,7 +170,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 
 			// copy the found situation to the instance we care
 			entity.getJournal().addEvent(changelog.getEvent(),
-					CONFIRMED,
+					COMMITED,
 					shard.getShardID(),
 					changelog.getPlanId());
 			};
@@ -251,7 +251,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 				if (duty.getEntity().getId().equals(reportedDuty.getId())) {
 					final EntityState lastState = reportedDuty.getLastState();
 					switch (lastState) {
-					case CONFIRMED:
+					case COMMITED:
 					case FINALIZED:
 						found = true;
 						break;
@@ -336,7 +336,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 			if (shardingState.getUncommited().addDangling(e)) {
 				e.getJournal().addEvent(
 						DETACH, 
-						CONFIRMED, 
+						COMMITED, 
 						shard.getShardID(), 
 						e.getJournal().getLast().getPlanId());
 			}

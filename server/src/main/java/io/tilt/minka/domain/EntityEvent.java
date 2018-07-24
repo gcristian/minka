@@ -23,23 +23,23 @@ package io.tilt.minka.domain;
  */
 public enum EntityEvent {
 
-	/* user creates a duty from Client */
+	/** user creates a duty from Client */
 	CREATE('c', "Creating", Type.CRUD),
-	/* user prompts to delete as a kill state */
+	/** user prompts to delete as a kill state */
 	REMOVE('r', "Removing", Type.CRUD),
-	/* user updates something related to the duty that leader must notify the shard */
+	/** user updates something related to the duty that leader must notify the shard */
 	UPDATE('u', "Updating", Type.CRUD),
-	/* unrelated to the entity, just a message to it's delegate */
+	/** unrelated to the entity, just a message to it's delegate */
 	TRANSFER('t', "Transferring", Type.NONE),
 
-	/* leader assigns to a Shard */
+	/** leader assigns to a Shard */
 	ATTACH('a', "Attaching", Type.ALLOCATION),
-	/* leader takes off the duty from the shard for any reason may be */
+	/** leader takes off the duty from the shard for any reason may be */
 	DETACH('d', "Dettaching", Type.ALLOCATION),
 	
-	/* leader backs up it's follower's duties to other followers as a master backup */
-	STOCK('s', "Stocking", Type.DOMAIN),
-	DROP('p', "Dropping", Type.DOMAIN)
+	/** leader backs up it's follower's duties to other followers as a master backup */
+	STOCK('s', "Stocking", Type.REPLICA),
+	DROP('p', "Dropping", Type.REPLICA)
 	
 	;
 
@@ -57,14 +57,14 @@ public enum EntityEvent {
 	public Type getType() {
 		return type;
 	}
-		
+
 	public enum Type {
-		/* type creation/read/update/delete */
+		/** type creation/read/update/delete */
 		CRUD,
-		/* type of a distribution action: attach (capture) or detach (release) */
+		/** type of a distribution action: attach (capture) or detach (release) */
 		ALLOCATION, 
-		/* type of a master backup action: stocking or dropping */
-		DOMAIN, 
+		/** type of a master backup action: stocking or dropping */
+		REPLICA, 
 		// none
 		NONE
 	}

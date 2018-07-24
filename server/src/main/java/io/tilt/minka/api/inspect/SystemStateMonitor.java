@@ -220,8 +220,8 @@ public class SystemStateMonitor {
 	 */
 	public String schemeToJson(final boolean detail) {
 		Map<String, Object> m = new LinkedHashMap<>(2);
-		m.put("scheme", buildDuties(detail));
-		m.put("stage", buildStage(detail, scheme.getUncommited()));
+		m.put("commited", buildDuties(detail));
+		m.put("uncommited", buildStage(detail, scheme.getUncommited()));
 		return toJson(m);
 	}
 
@@ -416,8 +416,8 @@ public class SystemStateMonitor {
 		map.put("size-crud", table.getUncommited().getDutiesCrud().size());
 		map.put("size-missings", table.getUncommited().getDutiesMissing().size());
 		map.put("size-dangling", table.getUncommited().getDutiesDangling().size());
-		map.put("stage-change", table.getUncommited().isStealthChange());
-		map.put("scheme-change", table.getCommitedState().isStealthChange());
+		map.put("uncommited-change", table.getUncommited().isStealthChange());
+		map.put("commited-change", table.getCommitedState().isStealthChange());
 		return map;
 	}
 	
@@ -471,10 +471,10 @@ public class SystemStateMonitor {
 		map.put("id", id);
 		map.put("size", unstagedSize + stagedSize);
 		map.put("cluster-capacity", capacity);
-		map.put("size-staged", stagedSize);
-		map.put("size-unstaged", unstagedSize);
-		map.put("weight-staged", stagedWeight);
-		map.put("weight-unstaged", unstagedWeight);
+		map.put("size-commited", stagedSize);
+		map.put("size-uncommited", unstagedSize);
+		map.put("weight-committed", stagedWeight);
+		map.put("weight-uncommited", unstagedWeight);
 		String str = "0";
 		if (unstagedSize + stagedSize > 0 && stagedSize > 0) {
 			str = String.valueOf((stagedSize*100) / (unstagedSize + stagedSize)) ;

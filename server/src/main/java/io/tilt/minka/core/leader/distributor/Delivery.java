@@ -132,7 +132,7 @@ public class Delivery {
 		return this.step;
 	}
 	
-	/* recalculates state: DONE when all duties CONFIRMED */
+	/* recalculates state: DONE when all duties COMMITED */
 	public void calculateState(final Consumer<String> c) {
 		if (step == Step.ENQUEUED) {
 			if (duties.isEmpty()) {
@@ -146,7 +146,7 @@ public class Delivery {
 			for (final ShardEntity duty : duties) {
 				// look up confirmation for the specific logged event matching this delivery
 				final Log found = duty.getJournal().findFirst(getPlanId(), shard.getShardID(), getEvent());
-				if (found != null && found.getLastState() != EntityState.CONFIRMED) {
+				if (found != null && found.getLastState() != EntityState.COMMITED) {
 					noneLeft = false;
 					if (c!=null) {
 						c.accept(String.format("%s: waiting Shard %s for %s still %s for %s",

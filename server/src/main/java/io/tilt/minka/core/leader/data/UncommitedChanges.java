@@ -149,7 +149,7 @@ public class UncommitedChanges {
 		boolean ret = false;
 		
 		final Type nature = duty.getJournal().getLast().getEvent().getType();
-		if (nature == EntityEvent.Type.DOMAIN) {
+		if (nature == EntityEvent.Type.REPLICA) {
 			Collection<ShardEntity> x = previousDomain.get(where);
 			if (x==null) {
 				previousDomain.put(where, x=new ArrayList<>());

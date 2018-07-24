@@ -148,7 +148,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	private boolean detectReception(final ShardEntity shardedDuty, final StringBuilder tmp) {
 		// consider only the last action logged to this shard
 		for (final Log found : shardedDuty.getJournal().findAll(partition.getId())) { 
-			final EntityState stamp = EntityState.CONFIRMED;
+			final EntityState stamp = EntityState.COMMITED;
 			if (found.getLastState()!=stamp) {
 				if (log.isInfoEnabled()) {
 					if (tmp.length()==0) {

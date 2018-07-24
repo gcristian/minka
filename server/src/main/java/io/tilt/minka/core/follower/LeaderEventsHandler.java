@@ -219,7 +219,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 	private void markReceived(final Entry<EntityEvent, List<ShardEntity>> e) {
 		e.getValue().forEach(d->d.getJournal().addEvent(
 				e.getKey(), 
-				EntityState.RECEIVED, 
+				EntityState.ACK, 
 				partition.getId(), 
 				d.getJournal().getLast().getPlanId()));
 	}

@@ -19,7 +19,7 @@ import static io.tilt.minka.domain.EntityEvent.ATTACH;
 import static io.tilt.minka.domain.EntityEvent.CREATE;
 import static io.tilt.minka.domain.EntityEvent.DETACH;
 import static io.tilt.minka.domain.EntityEvent.REMOVE;
-import static io.tilt.minka.domain.EntityState.CONFIRMED;
+import static io.tilt.minka.domain.EntityState.COMMITED;
 import static io.tilt.minka.domain.EntityState.PREPARED;
 import static io.tilt.minka.domain.ShardEntity.toStringIds;
 
@@ -105,8 +105,8 @@ class ChangePlanFactory {
 					if (balancer != null) {
 						final Migrator migra = balancePallet(scheme, pallet, balancer, creations, deletions);
 						changes |= migra.write(changePlan);
-						shipStorage(EntityEvent.ATTACH, EntityEvent.STOCK, scheme, changePlan, creations);
-						shipStorage(EntityEvent.DETACH, EntityEvent.DROP, scheme, changePlan, deletions);
+						shipReplicas(EntityEvent.ATTACH, EntityEvent.STOCK, scheme, changePlan, creations);
+						shipReplicas(EntityEvent.DETACH, EntityEvent.DROP, scheme, changePlan, deletions);
 					} else {
 						if (logger.isInfoEnabled()) {
 							logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", name,
@@ -129,7 +129,7 @@ class ChangePlanFactory {
 		return changePlan;
 	}
 
-	private void shipStorage(
+	private void shipReplicas(
 			final EntityEvent root,
 			final EntityEvent storage,
 			final ShardingState state, 
@@ -264,7 +264,7 @@ class ChangePlanFactory {
 				partition.getCommitedState().commit(missed, lazy, REMOVE, ()-> {
 					// missing duties are a confirmation per-se from the very shards,
 					// so the ptable gets fixed right away without a realloc.
-					missed.getJournal().addEvent(REMOVE, CONFIRMED,lazy.getShardID(),changePlan.getId());					
+					missed.getJournal().addEvent(REMOVE, COMMITED,lazy.getShardID(),changePlan.getId());					
 				});
 			}
 			missed.getJournal().addEvent(CREATE, PREPARED,null,changePlan.getId());

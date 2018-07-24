@@ -54,12 +54,12 @@ import io.tilt.minka.shard.ShardIdentifier;
  * log1:  
  *   DETTACH 	PREPARED	9000	 1
  *   DETTACH 	PENDING		9000	 1
- *   DETTACH 	CONFIRMED	9000	 1
+ *   DETTACH 	COMMITED	9000	 1
  *   
  * log2:
  * 	 ATTACH 	PREPARED	9001	 1
  *   ATTACH 	PENDING		9001	 1
- *   ATACH 		CONFIRMED	9001	 1
+ *   ATACH 		COMMITED	9001	 1
  *  
  *  @author Cristian Gonzalez
  *  @since  Oct 15, 2017
@@ -140,7 +140,7 @@ public class EntityJournal implements Serializable {
 	    for (final Log log: logs) {
 	        if (log.getEvent()==EntityEvent.ATTACH) {
 	            for (final StateStamp ds: log.getStates()) {
-	                if (ds.getState()==EntityState.CONFIRMED) {
+	                if (ds.getState()==EntityState.COMMITED) {
 	                    return true;
 	                }
 	            }

@@ -10,9 +10,9 @@ public enum EntityState {
 	/** status at leader after being sent */
 	PENDING('n'),
 	/** status at followet when arrives */
-	RECEIVED('r'),
+	ACK('r'),
 	/** status at leader after the effect is confirmed */
-	CONFIRMED('c'),
+	COMMITED('c'),
 	/** status at leader when a follower falls, and at follower when absent in its delegate's report */
 	DANGLING('d'),
 	/** suddenly stop being reported from follower: no solution yet */
