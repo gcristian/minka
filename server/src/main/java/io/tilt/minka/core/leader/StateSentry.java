@@ -100,7 +100,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		if ((beat.reportsDuties()) && shard.getState().isAlive()) {
 			detectUnexpectedChanges(shard, beat.getCaptured());
 			if (shardingState.getCurrentPlan()!=null) {
-				detectInvalidShards(shard, beat.getCaptured());
+				detectInvalidSpots(shard, beat.getCaptured());
 			}
 		}
 		beat.clear();
@@ -210,14 +210,14 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	
 	/*this checks partition table looking for missing duties (not declared dangling, that's diff) */
 	private void detectUnexpectedChanges(final Shard shard, final List<EntityRecord> reportedDuties) {
-		final Set<Entry<EntityState, List<ShardEntity>>> entrySet = findAbsent(shard, reportedDuties).entrySet();
+		final Set<Entry<EntityState, List<ShardEntity>>> entrySet = findLost(shard, reportedDuties).entrySet();
 		StringBuilder log = new StringBuilder();
 		
 		for (Map.Entry<EntityState, List<ShardEntity>> e: entrySet) {
 			boolean done = false;
 			if (e.getKey()==DANGLING) { 
 				done = shardingState.getUncommited().addDangling(e.getValue());
-			} else {
+			} else if (e.getKey()==MISSING) {
 				done = shardingState.getUncommited().addMissing(e.getValue());
 			}
 			// copy the event so it's marked for later consideration
@@ -228,7 +228,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 				e.getValue().forEach(d->shardingState.getCommitedState().commit(d, shard, REMOVE, ()->{
 					d.getJournal().addEvent(
 							d.getLastEvent(),
-							e.getKey()==DANGLING ? DANGLING : MISSING, 
+							e.getKey(), 
 							null, // the last shard id 
 							d.getJournal().getLast().getPlanId());
 				}));
@@ -240,41 +240,28 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-	private Map<EntityState, List<ShardEntity>> findAbsent(final Shard shard, final List<EntityRecord> reportedDuties) {
+	private Map<EntityState, List<ShardEntity>> findLost(final Shard shard, final List<EntityRecord> reportedDuties) {
 		Map<EntityState, List<ShardEntity>> lost = null;
-		for (final ShardEntity duty : shardingState.getCommitedState().getDutiesByShard(shard)) {
+		for (final ShardEntity committed : shardingState.getCommitedState().getDutiesByShard(shard)) {
 			boolean found = false;
-			boolean foundAsDangling = false;
-			for (EntityRecord reportedDuty : reportedDuties) {
-				if (duty.getEntity().getId().equals(reportedDuty.getId())) {
-					final EntityState lastState = reportedDuty.getLastState();
-					switch (lastState) {
-					case COMMITED:
-					case FINALIZED:
-						found = true;
-						break;
-					case DANGLING:
-						foundAsDangling = true;
-						break;
-					default:
-						logger.error("{}: Follower beated a duty {} when in scheme is: {}",
-								classname, reportedDuty.getLastState(), duty.getLastState());
-						found = true;
-						break;
-					}
+			EntityState wrongState = null;
+			for (EntityRecord reported : reportedDuties) {
+				if (committed.getEntity().getId().equals(reported.getId())) {
+					found = true;
+					wrongState = lookupWrongState(shard, committed, reported);
 					break;
 				}
 			}
-			if (!found) {
-				List<ShardEntity> l;
+			if (!found || wrongState!=null) {
 				if (lost == null) {
 					lost = new HashMap<>();
 				}
-				final EntityState k = foundAsDangling ? DANGLING : MISSING;
-				if ((l = lost.get(k))==null) {
-					lost.put(k, l = new LinkedList<>());
+				final EntityState k = !found? MISSING : wrongState;
+				List<ShardEntity> list = lost.get(k);
+				if (list==null) {
+					lost.put(k, list = new LinkedList<>());
 				}
-				l.add(duty);
+				list.add(committed);
 			}
 		}
 		if (lost!=null) {
@@ -284,16 +271,45 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		}			
 		return lost !=null ? lost : emptyMap();
 	}
-	
 
-	private void detectInvalidShards(final Shard sourceShard, final List<EntityRecord> reportedCapturedDuties) {
+	/** @return NULL for Correct state or NO Match */
+	private EntityState lookupWrongState(
+			final Shard shard, 
+			final ShardEntity committed, 
+			final EntityRecord reported) {
+		
+		for (final Log r: reported.getJournal().findAll(shard.getShardID())) {
+			for (final Log c: committed.getJournal().findAll(shard.getShardID())) {
+				if (c.getEvent()==r.getEvent()) {
+					// commited-state truth is only on ATTACH and STOCK...
+					if (c.getEvent() == EntityEvent.ATTACH || c.getEvent()==EntityEvent.STOCK) {
+						final EntityState stateForThatShard = r.getLastState();
+						switch (stateForThatShard) {
+						case COMMITED:
+						case FINALIZED:
+							return null;
+						default:
+							logger.error("{}: Follower beated duty {} as {} when in scheme is: {}",
+									classname, reported.getId(), r.getLastState(), committed.getLastState());
+							return stateForThatShard;
+						}		
+					}
+				}
+			}
+		}
+		return null;
+	}
+	
+	private void detectInvalidSpots(final Shard sourceShard, final List<EntityRecord> reportedCapturedDuties) {
 		for (final EntityRecord e : reportedCapturedDuties) {
-			if (e.getJournal().getLast().getEvent().getType()==EntityEvent.Type.ALLOCATION) {
-				final Shard should = shardingState.getCommitedState().findDutyLocation(e.getId());
-				if (should==null) {
-					logger.error("unexisting duty: " + e.toString() + " reported by shard: " + sourceShard);
-				} else if (!should.equals(sourceShard)) {
-					logger.error("relocated duty: " + e.toString() + " being reported by shard: " + sourceShard);
+			for (final Log log: e.getJournal().findAll(sourceShard.getShardID())) {
+				if (log.getEvent().getType()==EntityEvent.Type.ALLOCATION && log.getLastState()==EntityState.COMMITED) {
+					final Shard should = shardingState.getCommitedState().findDutyLocation(e.getId());
+					if (should==null) {
+						logger.error("{}: Non-existing duty: {} reported by shard {} ", classname, e.toString(), sourceShard);
+					} else if (!should.equals(sourceShard)) {
+						logger.error("{}: Relocated? duty: {} reported by shard {} ", classname, e.toString(), sourceShard);
+					}
 				}
 			}
 		}

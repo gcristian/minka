@@ -97,8 +97,8 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 		final Heartbeat.Builder builder = Heartbeat.builder(sequence.getAndIncrement(), partition.getId());
 		// add reported: as confirmed if previously assigned, dangling otherwise.
 		final List<EntityRecord> tmp = new ArrayList<>(partition.getDuties().size()); 
-		final boolean packit = true; // newLeader: stock is a 1st citizen event, newleader bad used
-		boolean issues = detectChangesOnReport(builder, d->tmp.add(EntityRecord.fromEntity(d, packit)));
+		final boolean withEntity = true; // newLeader: stock is a 1st citizen event, newleader bad used
+		boolean issues = detectChangesOnReport(builder, d->tmp.add(EntityRecord.fromEntity(d, withEntity)));
 		logBeat |=issues;
 
 		final boolean exclusionExpired = includeTimestamp == 0 || (now - includeTimestamp) > includeFrequency;
@@ -135,8 +135,9 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 			c.accept(shardedDuty);
 		}
 		for (ShardEntity shardedDuty: partition.getStock()) {
-			detectReception(shardedDuty, tmp);
-			c.accept(shardedDuty);
+			if (detectReception(shardedDuty, tmp)) {
+				c.accept(shardedDuty);
+			}
 		}
 		if (tmp.length()>0 && log.isInfoEnabled()) {
 			log.info(tmp.toString());

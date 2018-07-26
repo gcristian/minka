@@ -170,12 +170,12 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 					break;
 				case ATTACH:
 					if (partitionManager.attach(e.getValue())) {
-						markReceived(e);
+						acknowledge(e);
 					}
 					break;
 				case DETACH:
 					if (partitionManager.dettach(e.getValue())) {
-						markReceived(e);
+						acknowledge(e);
 					}
 					break;
 				case TRANSFER:
@@ -184,12 +184,12 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 					break;
 				case DROP:
 					if (partitionManager.drop(e.getValue())) {
-						markReceived(e);
+						acknowledge(e);
 					}
 					break;
 				case STOCK:
 					if (partitionManager.stock(e.getValue())) {
-						markReceived(e);
+						acknowledge(e);
 					}
 					break;
 				default:
@@ -216,12 +216,20 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		return map;
 	}
 
-	private void markReceived(final Entry<EntityEvent, List<ShardEntity>> e) {
-		e.getValue().forEach(d->d.getJournal().addEvent(
-				e.getKey(), 
-				EntityState.ACK, 
-				partition.getId(), 
-				d.getJournal().getLast().getPlanId()));
+	private void acknowledge(final Entry<EntityEvent, List<ShardEntity>> e) {
+		for (ShardEntity duty: e.getValue()) {
+			final Log last = duty.getJournal().getLast();
+			final EntityState es = last.getLastState();
+			if (es==EntityState.PENDING) {
+				duty.getJournal().addEvent(
+					e.getKey(), 
+					EntityState.ACK, 
+					partition.getId(), 
+					last.getPlanId());
+			} else {
+				logger.warn("{}: ({}) Repeating reception ? {} (now {})", getName(), config.getLoggingShardId(), duty, es);
+			}
+		}
 	}
 	
 	public PartitionManager getPartitionManager() {
