@@ -1,2 +1,2 @@
 #!/bin/bash
-/usr/bin/curl -s $(./leader)/minka/admin/$1 | /usr/bin/jq .
+$(which curl) $(./leader)/minka/admin/$1?detail=true | $(which jq) .

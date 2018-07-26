@@ -1,3 +1,12 @@
 #!/bin/bash
-cmd="echo ========== $1 ==========; curl -s \$(./leader)/minka/admin/$1 | tee ./last-$1 | jq . -C"
-watch -n1 -tc $cmd
+
+# this script finds leader and requests an endpoint
+
+# -------- Dependencies ----------
+
+curl=$(which curl); tee=$(which tee); jq=$(which jq); watch=$(which watch)
+
+# --------------------------------
+
+cmd="echo ========== $1 ==========; $curl -s \$(./leader)/minka/admin/$1?detail=true | $tee ./last-$1 | $jq . -C"
+$watch -n1 -tc $cmd
