@@ -4,6 +4,14 @@ for i in `find . -name '*.java'`; do
    l=$((l+`sed '/^\s*$/d' $i | wc -l | cut -d ' ' -f1`))
    w=$((w+`wc -w $i | cut -d ' ' -f1`))
    b=$((b+`wc -c $i | cut -d ' ' -f1`))
+   x=$((x+`grep -e 'for (' -e 'while(' -e 'while (' $i | wc -l`))
+   m=$((m+`grep -e 'private ' -e 'protected ' -e 'public ' $i | wc -l`))
+   z=$((z+`grep -e 'if (' -e 'if(' $i | wc -l`))
+   y=$((y+`grep -e '->' $i | wc -l`))
 done
 kb=$((b/1000))
 echo -e "\t $c Classes with $l LOC, and $w words, sizing $kb kbytes"
+echo -e "\t $x 'loop (for,while)' keywords"
+echo -e "\t $z 'if' keywords"
+echo -e "\t $m 'elements (fields, methods, classes)' keywords"
+echo -e "\t $y lambdas"

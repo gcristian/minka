@@ -113,6 +113,10 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	}
 
 	public void enterHeartbeat(final Heartbeat hb) {
+		final Map<Pallet, ShardCapacity> cap = hb.getCapacities();
+		if (cap!=null) {
+			setCapacities(new HashMap<>(cap));
+		}
 		this.beats.add(hb);
 	}
 	

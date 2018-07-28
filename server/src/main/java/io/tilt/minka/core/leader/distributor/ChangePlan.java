@@ -153,15 +153,12 @@ public class ChangePlan implements Comparable<ChangePlan> {
 
 	void onShippingsFor(final EntityEvent event, 
 			final Shard shard, 
-			final Predicate<ShardEntity> test,
 			final Consumer<ShardEntity> c) { 
 		final Map<Shard, List<ShardEntity>> map = shippings.get(event);
 		if (map!=null) {
 				final List<ShardEntity> x = map.get(shard);
 				if (x!=null) {
-					x.stream()
-						.filter(test)
-						.forEach(c);
+					x.stream().forEach(c);
 				}
 		}
 	}

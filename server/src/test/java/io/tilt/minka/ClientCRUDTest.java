@@ -43,7 +43,7 @@ public class ClientCRUDTest {
 		final Set<Duty> duties = duties(p, 12);
 
 		final Config proto = prototypeConfig();
-		proto.getBootstrap().setNamespace("test_start_full_then_remove_add");
+		proto.getBootstrap().setNamespace("smoke-test");
 		final long distroWait = proto.beatToMs(10);
 		final Set<ServerWhitness> cluster = buildCluster(3, proto, pallets, duties);
 		sleep(1000* 60 * 10);

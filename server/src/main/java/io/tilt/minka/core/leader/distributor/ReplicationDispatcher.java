@@ -47,21 +47,22 @@ public class ReplicationDispatcher {
 			final Pallet p) {
 		
 		// not all de/allocations, only those shipped to leader's follower
-		changePlan.onShippingsFor(cause, leader, duty-> 
-			duty.getDuty().getPalletId().equals(p) && involved.contains(duty), 
-			duty-> {
-			state.getCommitedState().findShards(
-					shard->!leader.getShardID().equals(shard.getShardID()), 
-					follower-> { 
-							duty.getJournal().addEvent(
-									effect, 
-									EntityState.PREPARED, 
-									follower.getShardID(), 
-									changePlan.getId());
-							changePlan.ship(follower, duty);
-					}
-			);
+		changePlan.onShippingsFor(cause, leader, duty-> { 
+			if (duty.getDuty().getPalletId().equals(p.getId()) && involved.contains(duty)) { 				
+				state.getCommitedState().findShards(
+						shard->!leader.getShardID().equals(shard.getShardID()), 
+						follower-> { 
+								duty.getJournal().addEvent(
+										effect, 
+										EntityState.PREPARED, 
+										follower.getShardID(), 
+										changePlan.getId());
+								changePlan.ship(follower, duty);
+						}
+				);
+			}
 		});
+	
 	}
 
 	/**
@@ -78,7 +79,7 @@ public class ReplicationDispatcher {
 			state.getCommitedState().findShards(
 				shard-> !leader.getShardID().equals(shard.getShardID()), 
 				other-> {
-					if (!state.getCommitedState().getStockByShard(other).contains(committed)) {
+					if (!state.getCommitedState().getReplicasByShard(other).contains(committed)) {
 						committed.getJournal().addEvent(
 								EntityEvent.STOCK, 
 								EntityState.PREPARED, 

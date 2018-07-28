@@ -188,8 +188,8 @@ public class CommitedState {
 	public Collection<ShardEntity> getDutiesByShard(final Shard shard) {
 		return getPartition(shard).getDuties();
 	}
-	public Collection<ShardEntity> getStockByShard(final Shard shard) {
-		return getPartition(shard).getStock();
+	public Collection<ShardEntity> getReplicasByShard(final Shard shard) {
+		return getPartition(shard).getReplicas();
 	} 
 
 	public void findDuties(final Shard shard, final Pallet pallet, final Consumer<ShardEntity> consumer) {

@@ -49,7 +49,7 @@ public class ShardedPartition {
 	private Map<Duty, ShardEntity> duties;
 	// kept as knowledge to inform at leader reelection 
 	// not attached at follower's shard BUT at leader's shard
-	private Set<ShardEntity> stock;
+	private Set<ShardEntity> replicas;
 	private Map<Pallet, ShardEntity> pallets;
 	private long lastUpdateTimestamp;
 	private long recentUpdateThreshold = 10 *1000l;
@@ -86,7 +86,7 @@ public class ShardedPartition {
 	private void init() {
 		this.duties = new TreeMap<>();
 		this.pallets = new TreeMap<>();
-		this.stock = new TreeSet<>();
+		this.replicas = new TreeSet<>();
 	}
 
 	public NetworkShardIdentifier getId() {
@@ -169,24 +169,24 @@ public class ShardedPartition {
 	
 	//////////////////////////////////////////////////////////////////////////////////
 
-	public Collection<ShardEntity> getStock() {
-		return this.stock;
+	public Collection<ShardEntity> getReplicas() {
+		return unmodifiableCollection(this.replicas);
 	}
 	// add to domain duties: not attached
 	public boolean stock(final ShardEntity entity) {
-		return stock.add(entity);
+		return replicas.add(entity);
 	}
 	public boolean stockAll(final Collection<ShardEntity> entities) {
-		return stock.addAll(entities);
+		return replicas.addAll(entities);
 	}
 	public boolean drop(final ShardEntity entity) {
-		return stock.remove(entity);
+		return replicas.remove(entity);
 	}
 	public boolean dropAll(final Collection<ShardEntity> entities) {
-		return stock.removeAll(entities);
+		return replicas.removeAll(entities);
 	}
 	public void dropAll() {
-		stock.clear();
+		replicas.clear();
 	}
 
 	

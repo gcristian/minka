@@ -303,7 +303,7 @@ public class SystemStateMonitor {
 			pid.add(detail ? d : d.getDuty().getId());
 		};
 		scheme.getCommitedState().findDuties(adder);
-		partition.getStock().forEach(adder);;
+		partition.getReplicas().forEach(adder);;
 		return byPalletId;
 	}
 
