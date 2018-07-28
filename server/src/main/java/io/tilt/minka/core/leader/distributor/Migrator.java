@@ -131,7 +131,7 @@ public class Migrator {
 	}
 	
 	/** @return facility for balancers to access the entity change and distribution history */
-	public List<EntityJournal.Log> getJournal(final Duty duty) {
+	List<EntityJournal.Log> getJournal(final Duty duty) {
 	    return requireNonNull(sourceRefs.get(duty)).getJournal().getLogs();
 	}
 	

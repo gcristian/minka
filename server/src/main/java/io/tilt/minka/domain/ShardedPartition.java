@@ -58,7 +58,7 @@ public class ShardedPartition {
 		return new ShardedPartition(shardId);
 	}
 
-	public ShardedPartition(final NetworkShardIdentifier shardId) {
+	ShardedPartition(final NetworkShardIdentifier shardId) {
 		this.id = shardId;
 		init();
 	}
@@ -66,7 +66,7 @@ public class ShardedPartition {
 	/**
 	 * @return  the sum of all weights present in these duties
 	 */
-	public double getWeight() {
+	double getWeight() {
 		return getWeight_(null);
 	}
 	public double getWeight(final Pallet pallet) {

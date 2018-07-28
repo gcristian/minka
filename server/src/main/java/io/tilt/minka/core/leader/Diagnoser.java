@@ -24,7 +24,7 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 /**
  * Diagnose a health state transition for a Shard given its heartbeats, current state and last changes
  */
-public class Diagnoser {
+class Diagnoser {
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final Config config;
@@ -35,7 +35,7 @@ public class Diagnoser {
 	private final int minToBeGone;
 	private final int maxSickToGoQuarantine;
 	
-	public Diagnoser(Config config) {
+	Diagnoser(Config config) {
 		super();
 		this.config = config;
 		this.normalDelay = config.beatToMs(config.getFollower().getHeartbeatFrequency());
@@ -46,7 +46,7 @@ public class Diagnoser {
 	}
 
 	/** @return a state transition if diagnosed at all or the same transition */
-	protected Transition nextTransition(
+	Transition nextTransition(
 			final ShardState currentState,
 			final SlidingSortedSet<Transition> transitions,
 			final SlidingSortedSet<Heartbeat> beats) {

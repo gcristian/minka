@@ -50,7 +50,7 @@ import io.tilt.minka.utils.LogUtils;
  * @author Cristian Gonzalez
  * @since Nov 17, 2015
  */
-public class HeartbeatFactoryImpl implements HeartbeatFactory {
+class HeartbeatFactoryImpl implements HeartbeatFactory {
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
@@ -66,7 +66,7 @@ public class HeartbeatFactoryImpl implements HeartbeatFactory {
 	private boolean logBeat;
 	private ShardIdentifier lastLeader;
 	
-	public HeartbeatFactoryImpl(
+	HeartbeatFactoryImpl(
 			final Config config, 
 			final DependencyPlaceholder holder, 
 			final ShardedPartition partition, 

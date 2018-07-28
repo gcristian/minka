@@ -110,7 +110,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 			EntityEvent.CREATE,
 			EntityEvent.ATTACH);
 
-	protected ChangePlan(final long maxMillis, final int maxRetries) {
+	ChangePlan(final long maxMillis, final int maxRetries) {
 		this.created = Instant.now();
 		this.shippings = new HashMap<>(consistentEventsOrder.size());
 		this.deliveries = Collections.emptyList();
@@ -120,7 +120,32 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		this.id = System.currentTimeMillis();
 	}
 
-	public void obsolete() {
+	public long getId() {
+		return this.id;
+	}
+
+	@JsonIgnore
+	public Instant getCreation() {
+		return this.created;
+	}
+
+	@java.lang.Override
+	public int compareTo(ChangePlan o) {
+		return o.getCreation().compareTo(getCreation());
+	}
+
+	public ChangePlanState getResult() {
+		return this.changePlanState;
+	}
+
+	public Delivery getDelivery(final Shard shard) {
+		return deliveries.stream()
+				.filter(d -> d.getStep() == Delivery.Step.PENDING && d.getShard().equals(shard))
+				.findFirst()
+				.orElse(null);
+	}
+
+	void obsolete() {
 		this.changePlanState = ChangePlanState.CLOSED_OBSOLETE;
 		logger.warn("{}: ChangePlan going {}", getClass().getSimpleName(), changePlanState);
 		this.ended = Instant.now();
@@ -137,18 +162,14 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		return emptyList();
 	}
 	
-	public ChangePlanState getResult() {
-		return this.changePlanState;
-	}
-
 	@JsonIgnore
-	public void onDeliveries(final Predicate<Delivery> test, final Consumer<Delivery> d) {
+	void onDeliveries(final Predicate<Delivery> test, final Consumer<Delivery> d) {
 		deliveries.stream()
 				.filter(test)
 				.forEach(d);
 	}
 	
-	public int findAllNonConfirmedFromAllDeliveries(final Consumer<ShardEntity> c) {
+	int findAllNonConfirmedFromAllDeliveries(final Consumer<ShardEntity> c) {
 		int rescueCount = 0;
 		for (final Delivery delivery: deliveries) {
 			for (final ShardEntity duty: delivery.getDuties()) {
@@ -167,18 +188,11 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		}
 		return rescueCount;
 	}
-		
-	public Delivery getDelivery(final Shard shard) {
-		return deliveries.stream()
-				.filter(d -> d.getStep() == Delivery.Step.PENDING && d.getShard().equals(shard))
-				.findFirst()
-				.orElse(null);
-	}
-
+	
 	/**
 	 * transforms shippings of transfers and overrides, into a consistent gradual change plan
 	 * @return whether or not there're deliveries to distribute. */
-	public boolean prepare() {
+	boolean prepare() {
 		this.started= Instant.now();
 		int order = 0;
 		for (final EntityEvent event: consistentEventsOrder) {
@@ -205,7 +219,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		return iterator.hasNext();
 	}
 
-	public Delivery next() {
+	Delivery next() {
 		if (!hasNextParallel(null)) {
 			throw new IllegalAccessError("no permission to advance forward");
 		}
@@ -299,7 +313,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	}
     
     /** @return whether caller has permission to get next delivery   */
-	public boolean hasNextParallel(final Consumer<String> c) {
+	boolean hasNextParallel(final Consumer<String> c) {
 		if (started == null) {
 			throw new IllegalStateException("ChangePlan not prepared yet !");
 		}
@@ -332,7 +346,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	}
 
 	/** recalculates state according its deliveries states */
-	public void calculateState() {
+	void calculateState() {
 		if (this.changePlanState.isClosed()) {
 			return;
 		} else if (deliveries.isEmpty()) {
@@ -374,11 +388,11 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		}
 	}
 
-	protected long secsToExpire(final Instant expiration) {
+	long secsToExpire(final Instant expiration) {
 		return (expiration.toEpochMilli() - System.currentTimeMillis()) / 1000;
 	}
 	
-	protected long secsToExpire(final Config config) {
+	long secsToExpire(final Config config) {
 		final Instant st = started.plusMillis(
 				config.beatToMs(config.getDistributor().getPlanExpiration()));
 		return (st.toEpochMilli() - System.currentTimeMillis()) / 1000;
@@ -399,7 +413,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	 * 		{shard2:[duty3]}
 	 * }
 	 */
-	protected void ship(final Shard shard, final ShardEntity duty) {
+	void ship(final Shard shard, final ShardEntity duty) {
 		CollectionUtils.getOrPut(
 				CollectionUtils.getOrPut(
 						shippings,
@@ -411,22 +425,13 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	}
 	
 	@JsonIgnore
-	public boolean areShippingsEmpty() {
+	boolean areShippingsEmpty() {
 		return shippings.isEmpty();
 	}
 	
 	@JsonIgnore
-	public Instant getStarted() {
+	Instant getStarted() {
 		return started;
-	}
-
-	public long getId() {
-		return this.id;
-	}
-
-	@java.lang.Override
-	public int compareTo(ChangePlan o) {
-		return o.getCreation().compareTo(getCreation());
 	}
 	
 	/////// serialization ///////
@@ -464,10 +469,6 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		return ended.toString();
 	}
 	
-	@JsonIgnore
-	public Instant getCreation() {
-		return this.created;
-	}
 	public static void main(String[] args) throws InterruptedException {
 
 		final CollectionUtils.SlidingSortedSet<ChangePlan> set = CollectionUtils.sliding(5);

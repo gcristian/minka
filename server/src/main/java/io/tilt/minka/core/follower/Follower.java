@@ -71,7 +71,7 @@ public class Follower implements Service {
 	
 	private boolean lastSuccess;
 	
-	public Follower(
+	Follower(
 			final Config config, 
 			final Heartpump heartpump, 
 			final LeaderEventsHandler leaderConsumer,

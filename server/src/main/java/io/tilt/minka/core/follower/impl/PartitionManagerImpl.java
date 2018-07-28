@@ -39,7 +39,7 @@ import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.shard.DomainInfo;
 
-public class PartitionManagerImpl implements PartitionManager {
+class PartitionManagerImpl implements PartitionManager {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -51,7 +51,7 @@ public class PartitionManagerImpl implements PartitionManager {
 
 	private DomainInfo domain;
 	
-	public PartitionManagerImpl(
+	PartitionManagerImpl(
 			final DependencyPlaceholder dependencyPlaceholder, 
 			final ShardedPartition partition, 
 			final Scheduler scheduler, 
@@ -69,11 +69,13 @@ public class PartitionManagerImpl implements PartitionManager {
 				() -> releaseAll());
 	}
 
+	@Override
 	public Void releaseAllOnPolicies() {
 		scheduler.run(releaser);
 		return null;
 	}
 
+	@Override
 	public Void releaseAll() {
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: ({}) Instructing PartitionDelegate to RELEASE ALL", getClass().getSimpleName(), partition.getId());
@@ -83,6 +85,7 @@ public class PartitionManagerImpl implements PartitionManager {
 		return null;
 	}
 
+	@Override
 	public Void finalized(final Collection<ShardEntity> duties) {
 		for (ShardEntity duty : duties) {
 			if (partition.contains(duty)) {
@@ -98,7 +101,8 @@ public class PartitionManagerImpl implements PartitionManager {
 		}
 		return null;
 	}
-
+	
+	@Override
 	public Void update(final Collection<ShardEntity> duties) {
 		for (ShardEntity entity : duties) {
 			if (entity.getType()==ShardEntity.Type.DUTY) {
@@ -141,7 +145,7 @@ public class PartitionManagerImpl implements PartitionManager {
 		return null;
 	}
 	
-	
+	@Override
 	public boolean dettach(final Collection<ShardEntity> duties) {
 		return dettach_(duties, null);
 	}

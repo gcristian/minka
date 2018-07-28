@@ -71,28 +71,28 @@ public class Delivery {
 		this.step = Step.ENQUEUED;
 	}
 	@JsonIgnore
-	public int getOrder() {
+	int getOrder() {
 		return this.order;
 	}
 	
-	public void markSent() {
+	void markSent() {
 		this.sent = true;
 	}
 
 	@JsonIgnore
-	public List<ShardEntity> getDuties() {
+	List<ShardEntity> getDuties() {
 		return this.duties;
 	}
 	@JsonIgnore
-	public Shard getShard() {
+	Shard getShard() {
 		return this.shard;
 	}
 	@JsonIgnore
-	public EntityEvent getEvent() {
+	EntityEvent getEvent() {
 		return event;
 	}
 	@JsonIgnore
-	public long getPlanId() {
+	long getPlanId() {
 		return this.planId;
 	}
 	
@@ -105,7 +105,7 @@ public class Delivery {
 		DONE,
 	}
 	
-	protected int contentsByState(final BiConsumer<ShardEntity, Log> bicons) {
+	int contentsByState(final BiConsumer<ShardEntity, Log> bicons) {
 		return contentsByState_(null, bicons);
 	}
 	
@@ -186,7 +186,7 @@ public class Delivery {
 
 	@JsonProperty("state")
 	/* only for serialization */
-	final Map<EntityState, StringBuilder> getState() {
+	Map<EntityState, StringBuilder> getState() {
 		final Map<EntityState, StringBuilder> ret = new HashMap<>(3); // any of given prepared, pending, confirmed
 		for (final ShardEntity duty: duties) {
 			CollectionUtils.getOrPut(ret, duty.getLastState(), () -> new StringBuilder())

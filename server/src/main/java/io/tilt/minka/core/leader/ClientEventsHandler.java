@@ -65,7 +65,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 
 	private Date start;
 
-	public ClientEventsHandler(
+	ClientEventsHandler(
 			final Config config, 
 			final ShardingState shardingState, 
 			final Scheduler scheduler,

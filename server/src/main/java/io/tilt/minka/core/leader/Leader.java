@@ -58,7 +58,7 @@ public class Leader implements Service {
 	private Date start;
 	private Date stop;
 
-	public Leader(
+	Leader(
 			final Config config, 
 			final Proctor proctor,
 			final Distributor distributor,

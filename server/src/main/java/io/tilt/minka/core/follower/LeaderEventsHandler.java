@@ -54,7 +54,7 @@ import io.tilt.minka.shard.Clearance;
  * @author Cristian Gonzalez
  * @since Aug 6, 2016
  */
-public class LeaderEventsHandler implements Service, Consumer<Serializable> {
+class LeaderEventsHandler implements Service, Consumer<Serializable> {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -69,7 +69,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 	private Clearance lastClearance;
 	private BrokerChannel channel;
 	
-	public LeaderEventsHandler(
+	LeaderEventsHandler(
 			final Config config, 
 			final DependencyPlaceholder dependencyPlaceholder,
 			final ShardedPartition partition, 
@@ -98,7 +98,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		eventBroker.subscribe(channel,this, sinceNow, ShardEntity.class, Clearance.class, ArrayList.class);
 	}
 
-	public Clearance getLastClearance() {
+	Clearance getLastClearance() {
 		return this.lastClearance;
 	}
 
@@ -232,7 +232,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		}
 	}
 	
-	public PartitionManager getPartitionManager() {
+	PartitionManager getPartitionManager() {
 		return this.partitionManager;
 	}
 

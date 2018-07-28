@@ -71,7 +71,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	private final ShardingState shardingState;
 	private final ChangeDetector changeDetector;
 	
-	public StateSentry(final ShardingState shardingState, final Scheduler scheduler) {
+	StateSentry(final ShardingState shardingState, final Scheduler scheduler) {
 		this.shardingState = shardingState;
 		this.changeDetector = new ChangeDetector(shardingState);
 	}
@@ -317,7 +317,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-	public void shardStateTransition(final Shard shard, final ShardState prior, final Transition transition) {
+	void shardStateTransition(final Shard shard, final ShardState prior, final Transition transition) {
 		shard.applyChange(transition);
 		shardingState.getCommitedState().stealthChange(true);		
 		switch (transition.getState()) {

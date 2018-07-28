@@ -58,7 +58,7 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 
 	private Instant lastBeat;
 
-	public FollowerEventsHandler(
+	FollowerEventsHandler(
 			final Config config, 
 			final ShardingState shardingState, 
 			final BiConsumer<Heartbeat, Shard> hbConsumer,

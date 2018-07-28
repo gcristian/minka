@@ -43,7 +43,7 @@ public class CommitedState {
 	private final Map<ShardIdentifier, SlidingSortedSet<Transition>> goneShards;
 	private boolean stealthChange;
 	
-	public CommitedState() {
+	CommitedState() {
 		this.goneShards = new HashMap<>();
 		this.shardsByID = new HashMap<>();
 		this.partitionsByShard = new HashMap<>();

@@ -30,7 +30,7 @@ import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 
-public class HeartpumpImpl implements Heartpump {
+class HeartpumpImpl implements Heartpump {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -42,7 +42,7 @@ public class HeartpumpImpl implements Heartpump {
 	
 	private DateTime lastHeartbeatTimestamp;
 
-	public HeartpumpImpl(
+	HeartpumpImpl(
 			final Config config, 
 			final EventBroker eventBroker, 
 			final ShardedPartition partition,
@@ -55,10 +55,12 @@ public class HeartpumpImpl implements Heartpump {
 		this.leaderAware = leaderAware;
 	}
 
+	@Override
 	public DateTime getLastBeat() {
 		return this.lastHeartbeatTimestamp;
 	}
 
+	@Override
 	public boolean emit(final Heartbeat arg) {
 		try {
 			if (leaderAware.getLeaderShardId() == null) {
@@ -84,7 +86,7 @@ public class HeartpumpImpl implements Heartpump {
 		return false;
 	}
 
-	protected NetworkShardIdentifier getID() {
+	NetworkShardIdentifier getID() {
 		return partition.getId();
 	}
 

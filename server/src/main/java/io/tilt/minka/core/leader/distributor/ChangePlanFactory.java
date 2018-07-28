@@ -76,7 +76,7 @@ class ChangePlanFactory {
 	}
 
 	/** @return a plan if there're changes to apply or NULL if not */
-	final ChangePlan create(final ShardingState scheme, final ChangePlan previous) {
+	ChangePlan create(final ShardingState scheme, final ChangePlan previous) {
 		
 		final UncommitedChanges snapshot = scheme.getUncommited().snapshot();
 		ChangePlan changePlan = new ChangePlan(

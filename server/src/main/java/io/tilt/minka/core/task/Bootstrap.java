@@ -84,7 +84,7 @@ public class Bootstrap implements Service {
 
 
 	/* starts a new shard */
-	public Bootstrap(
+	Bootstrap(
 			final Config config, 
 			final ConfigValidator validator, 
 			final SpectatorSupplier spectatorSupplier,
