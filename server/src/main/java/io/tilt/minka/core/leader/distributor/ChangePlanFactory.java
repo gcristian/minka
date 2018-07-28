@@ -47,7 +47,6 @@ import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.core.leader.data.UncommitedChanges;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardCapacity;
@@ -89,7 +88,6 @@ class ChangePlanFactory {
 		final Set<ShardEntity> ents = new HashSet<>();
 		scheme.getCommitedState().findDuties(ents::add);
 		ents.addAll(creations);
-		boolean changes = false;
 		final Map<String, List<ShardEntity>> schemeByPallets = ents.stream()
 				.collect(Collectors.groupingBy(e -> e.getDuty().getPalletId()));
 		if (schemeByPallets.isEmpty()) {
@@ -97,62 +95,47 @@ class ChangePlanFactory {
 					name, creations.size(), deletions.size());
 			changePlan = null;
 		} else {
-			try {
-				for (final Map.Entry<String, List<ShardEntity>> e : schemeByPallets.entrySet()) {
-					final Pallet pallet = scheme.getCommitedState().getPalletById(e.getKey()).getPallet();
-					final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
-					logStatus(scheme, creations, deletions, e.getValue(), pallet, balancer);
-					if (balancer != null) {
-						final Migrator migra = balancePallet(scheme, pallet, balancer, creations, deletions);
-						changes |= migra.write(changePlan);
-						shipReplicas(EntityEvent.ATTACH, EntityEvent.STOCK, scheme, changePlan, creations);
-						shipReplicas(EntityEvent.DETACH, EntityEvent.DROP, scheme, changePlan, deletions);
-					} else {
-						if (logger.isInfoEnabled()) {
-							logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", name,
-								pallet.getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
-						}
-					}
-				}
-				// only when everything went well otherwise'd be lost
-				scheme.getUncommited().clearAllocatedMissing();
-				scheme.getUncommited().cleanAllocatedDanglings();
-				if (!changes && deletions.isEmpty()) {
-					changePlan = null;
-				}
-		    } catch (Exception e) {
-		    	changePlan = null;
-		    	logger.error("{}: Cancelling ChangePlan building", name, e);
+			if (!buildForEachPallet(scheme, changePlan, creations, deletions, schemeByPallets)) {
+				changePlan = null;
 			}
 		}
 		scheme.getUncommited().dropSnapshot();
 		return changePlan;
 	}
-
-	private void shipReplicas(
-			final EntityEvent root,
-			final EntityEvent storage,
-			final ShardingState state, 
-			final ChangePlan changePlan, 
-			final Set<ShardEntity> involved) {
-		
-		final Shard myFollower = state.getCommitedState().findShard(aware.getLeaderShardId().getId());
-		for (ShardEntity in: involved.stream()
-			.filter(c->changePlan.getShippingsFor(root, myFollower).contains(c))
-			.collect(Collectors.toList())) {
-			
-			state.getCommitedState().findShards(
-					shard->!myFollower.getShardID().equals(shard.getShardID()), 
-					follower-> { 
-							in.getJournal().addEvent(
-									storage, 
-									EntityState.PREPARED, 
-									follower.getShardID(), 
-									changePlan.getId());
-							changePlan.ship(follower, in);
+	
+	private boolean buildForEachPallet(
+			final ShardingState scheme, final ChangePlan changePlan,
+			final Set<ShardEntity> creations, final Set<ShardEntity> deletions, 
+			final Map<String, List<ShardEntity>> schemeByPallets) {
+		try {
+			boolean changes = false;
+			final ReplicationDispatcher replicator = new ReplicationDispatcher(scheme);
+			for (final Map.Entry<String, List<ShardEntity>> e : schemeByPallets.entrySet()) {
+				final Pallet pallet = scheme.getCommitedState().getPalletById(e.getKey()).getPallet();
+				final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
+				logStatus(scheme, creations, deletions, e.getValue(), pallet, balancer);
+				if (balancer != null) {
+					final Migrator migra = balancePallet(scheme, pallet, balancer, creations, deletions);
+					changes |= migra.write(changePlan);
+					replicator.dispatchReplicas(changePlan, creations, deletions, aware.getLeaderShardId(), pallet);
+				} else {
+					if (logger.isInfoEnabled()) {
+						logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", name,
+							pallet.getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
 					}
-			);
+				}
+			}
+			// only when everything went well otherwise'd be lost
+			scheme.getUncommited().clearAllocatedMissing();
+			scheme.getUncommited().cleanAllocatedDanglings();
+			if (!changes && deletions.isEmpty()) {
+				return false;
+			}
+		} catch (Exception e) {
+			logger.error("{}: Cancelling ChangePlan building", name, e);
+			return false;
 		}
+		return true;
 	}
 
 	private Set<ShardEntity> collectAsRemoves(
@@ -186,7 +169,7 @@ class ChangePlanFactory {
 		snapshot.findPalletsCrud(REMOVE::equals, PREPARED::equals, p-> {
 			scheme.getCommitedState().findDutiesByPallet(p.getPallet(), dutyDeletions::add);
 		});
-		shipDeletions(scheme, changePlan, dutyDeletions);
+		dispatchDeletions(scheme, changePlan, dutyDeletions);
 		return dutyDeletions;
 	}
 
@@ -301,7 +284,7 @@ class ChangePlanFactory {
 	}
 
 	/* by user deleted */
-	private final void shipDeletions(final ShardingState partition, final ChangePlan changePlan,
+	private final void dispatchDeletions(final ShardingState partition, final ChangePlan changePlan,
 			final Set<ShardEntity> deletions) {
 
 		for (final ShardEntity deletion : deletions) {

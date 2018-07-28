@@ -32,7 +32,6 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -45,15 +44,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.CommitedState;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal;
 import io.tilt.minka.domain.EntityJournal.Log;
-import io.tilt.minka.shard.Shard;
-import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.LogUtils;
 
@@ -151,15 +151,19 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		this.ended = Instant.now();
 	}
 
-	public List<ShardEntity> getShippingsFor(final EntityEvent event, final Shard shard) {
+	void onShippingsFor(final EntityEvent event, 
+			final Shard shard, 
+			final Predicate<ShardEntity> test,
+			final Consumer<ShardEntity> c) { 
 		final Map<Shard, List<ShardEntity>> map = shippings.get(event);
 		if (map!=null) {
 				final List<ShardEntity> x = map.get(shard);
 				if (x!=null) {
-					return x.stream().collect(toList());
+					x.stream()
+						.filter(test)
+						.forEach(c);
 				}
 		}
-		return emptyList();
 	}
 	
 	@JsonIgnore
