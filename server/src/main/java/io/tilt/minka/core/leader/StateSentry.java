@@ -173,9 +173,9 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 					changelog.getPlanId());
 			};
 			
-		if (shardingState.getCommitedState().commit(entity, shard, changelog.getEvent(), r)) {
-			// && changelog.getEvent().getType()==EntityEvent.Type.ALLOCATION) {
-			clearUncommited(changelog, entity);
+		if (shardingState.getCommitedState().commit(entity, shard, changelog.getEvent(), r)
+			&& changelog.getEvent().getType()==EntityEvent.Type.ALLOCATION) {
+			clearUncommited(changelog, entity, shard);
 		}
 		// REMOVES go this way:
 		if (changelog.getEvent()==EntityEvent.DETACH) {
@@ -188,20 +188,22 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-	private void clearUncommited(final Log changelog, final ShardEntity entity) {
+	private void clearUncommited(final Log changelog, final ShardEntity entity, Shard shard) {
 		// remove it from the stage
 		final ShardEntity crud = shardingState.getUncommited().getCrudByDuty(entity.getDuty());
 		if (crud!=null) {
-			final Instant lastEventOnCrud = crud.getJournal().getLast().getHead().toInstant();
-			boolean previousThanCrud = changelog.getHead().toInstant().isBefore(lastEventOnCrud);
-			// if the update corresponds to the last CRUD OR they're both the same event (duplicated operation)
-			if (!previousThanCrud || changelog.getEvent().getRootCause()==crud.getLastEvent()) {
-				if (!shardingState.getUncommited().removeCrud(entity)) {
-					logger.warn("{} Backstage CRUD didnt existed: {}", classname, entity);
+			for (Log f: crud.getJournal().findAll(shard.getShardID())) {
+				final Instant lastEventOnCrud = f.getHead().toInstant();
+				boolean previousThanCrud = changelog.getHead().toInstant().isBefore(lastEventOnCrud);
+				// if the update corresponds to the last CRUD OR they're both the same event (duplicated operation)
+				if (!previousThanCrud || changelog.getEvent().getRootCause()==crud.getLastEvent()) {
+					if (!shardingState.getUncommited().removeCrud(entity)) {
+						logger.warn("{} Backstage CRUD didnt existed: {}", classname, entity);
+					}
+				} else {
+					logger.warn("{}: Avoiding UncommitedChanges remove (diff & after last event: {})", 
+							classname, entity, previousThanCrud);
 				}
-			} else {
-				logger.warn("{}: Avoiding UncommitedChanges removal of CRUD as it's different and after the last event", 
-						classname, entity);
 			}
 		} else {
 			// they were not crud: (dangling/missing/..)
