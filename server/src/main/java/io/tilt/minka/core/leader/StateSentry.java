@@ -196,6 +196,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		// remove it from the stage
 		final ShardEntity crud = shardingState.getUncommited().getCrudByDuty(entity.getDuty());
 		if (crud!=null) {
+			try {
 			for (Log f: crud.getJournal().findAll(shard.getShardID())) {
 				final Instant lastEventOnCrud = f.getHead().toInstant();
 				boolean previousThanCrud = changelog.getHead().toInstant().isBefore(lastEventOnCrud);
@@ -208,6 +209,10 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 					logger.warn("{}: Avoiding UncommitedChanges remove (diff & after last event: {})", 
 							classname, entity, previousThanCrud);
 				}
+			}
+			} catch (Exception e) {
+				e.printStackTrace();
+				
 			}
 		} else {
 			// they were not crud: (dangling/missing/..)

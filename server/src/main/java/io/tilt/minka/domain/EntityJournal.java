@@ -211,7 +211,7 @@ public class EntityJournal implements Serializable {
 				break;
 			}
 		}
-		return ret;
+		return ret == null ? Collections.emptyList() : ret;
 	}
 
 	@JsonIgnore

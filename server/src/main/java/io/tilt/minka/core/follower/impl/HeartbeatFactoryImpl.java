@@ -97,8 +97,8 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 		final Heartbeat.Builder builder = Heartbeat.builder(sequence.getAndIncrement(), partition.getId());
 		// add reported: as confirmed if previously assigned, dangling otherwise.
 		final List<EntityRecord> tmp = new ArrayList<>(partition.getDuties().size()); 
-		final boolean withEntity = true; // newLeader: stock is a 1st citizen event, newleader bad used
-		boolean issues = detectChangesOnReport(builder, d->tmp.add(EntityRecord.fromEntity(d, withEntity)));
+		final boolean withEntity = newLeader;
+		boolean issues = detectChangesOnReport(builder, tmp::add, withEntity);
 		logBeat |=issues;
 
 		final boolean exclusionExpired = includeTimestamp == 0 || (now - includeTimestamp) > includeFrequency;
@@ -126,17 +126,18 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 	/* analyze reported duties and return if there're issues */
 	private boolean detectChangesOnReport(
 	        final Heartbeat.Builder builder,
-			final Consumer<ShardEntity> c) {
+			final Consumer<EntityRecord> c,
+			final boolean withEntity) {
 	    
 		boolean includeDuties = false;
 		final StringBuilder tmp = new StringBuilder();
 		for (ShardEntity shardedDuty: partition.getDuties()) {
 			includeDuties |= detectReception(shardedDuty, tmp);
-			c.accept(shardedDuty);
+			c.accept(EntityRecord.fromEntity(shardedDuty, false));
 		}
-		for (ShardEntity shardedDuty: partition.getStock()) {
+		for (ShardEntity shardedDuty: partition.getReplicas()) {
 			if (detectReception(shardedDuty, tmp)) {
-				c.accept(shardedDuty);
+				c.accept(EntityRecord.fromEntity(shardedDuty, withEntity));
 			}
 		}
 		if (tmp.length()>0 && log.isInfoEnabled()) {
