@@ -194,7 +194,7 @@ public class SystemStateMonitor {
 	 * @return			a String in json format
 	 */
 	public String currentPartitionToJson(boolean detailed) {
-		return toJson(buildFollowerDuties(partition, detailed));
+		return toJson(buildPartitionDuties(partition, detailed));
 	}
 	
 	public String palletsToJson() {
@@ -220,8 +220,8 @@ public class SystemStateMonitor {
 	 */
 	public String schemeToJson(final boolean detail) {
 		Map<String, Object> m = new LinkedHashMap<>(2);
-		m.put("commited", buildDuties(detail));
-		m.put("uncommited", buildStage(detail, scheme.getUncommited()));
+		m.put("commited", buildCommitedState(detail));
+		m.put("uncommited", buildUncommitedChanges(detail, scheme.getUncommited()));
 		return toJson(m);
 	}
 
@@ -292,7 +292,7 @@ public class SystemStateMonitor {
 		return map;
 	}
 	
-	private Map<String, List<Object>> buildDuties(final boolean detail) {
+	private Map<String, List<Object>> buildCommitedState(final boolean detail) {
 		Validate.notNull(scheme);
 		final Map<String, List<Object>> byPalletId = new LinkedHashMap<>();
 		final Consumer<ShardEntity> adder = d-> {
@@ -319,7 +319,7 @@ public class SystemStateMonitor {
 		return ret;
 	}
 	
-	private Map<String, List<Object>> buildStage(final boolean detail, final UncommitedChanges uncommitedChanges) {
+	private Map<String, List<Object>> buildUncommitedChanges(final boolean detail, final UncommitedChanges uncommitedChanges) {
 		final Map<String, List<Object>> ret = new LinkedHashMap<>(3);		
 		ret.put("crud", dutyBrief(uncommitedChanges.getDutiesCrud(), detail));
 		ret.put("dangling", dutyBrief(uncommitedChanges.getDutiesDangling(), detail));
@@ -366,7 +366,7 @@ public class SystemStateMonitor {
 						pallet.getPallet().getMetadata().getBalancer().getName(), 
 						crudSize[0], 
 						dettachedWeight[0], 
-						new DateTime(pallet.getJournal().getFirst().getHead()),
+						new DateTime(pallet.getJournal().getFirst().getHead().getTime()),
 						pallet.getPallet().getMetadata(),
 						dutyRepList
 					));

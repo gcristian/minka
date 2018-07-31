@@ -7,6 +7,8 @@ import java.util.function.Supplier;
 import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 /**
  * Note this builder does not support large binary payloads as duties are loaded into memory and transported
  * 
@@ -144,7 +146,8 @@ public class DutyBuilder {
 		public String toString() {
 			return getId();
 		}
-		
+
+		@JsonIgnore
 		public Instant getTimestamp() {
 			return timestamp;
 		}

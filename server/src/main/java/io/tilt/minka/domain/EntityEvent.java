@@ -24,45 +24,54 @@ package io.tilt.minka.domain;
 public enum EntityEvent {
 
 	/** user creates a duty from Client */
-	CREATE('c', "Creating", Type.CRUD),
+	CREATE('c', "Creating", Type.CRUD, 0),
 	/** user prompts to delete as a kill state */
-	REMOVE('r', "Removing", Type.CRUD),
+	REMOVE('r', "Removing", Type.CRUD, 3),
 	/** user updates something related to the duty that leader must notify the shard */
-	UPDATE('u', "Updating", Type.CRUD),
+	UPDATE('u', "Updating", Type.CRUD, 6),
 	/** unrelated to the entity, just a message to it's delegate */
-	TRANSFER('t', "Transferring", Type.NONE),
+	TRANSFER('t', "Transferring", Type.NONE, 7),
 
 	/** leader assigns to a Shard */
-	ATTACH('a', "Attaching", Type.ALLOCATION),
+	ATTACH('a', "Attaching", Type.ALLOC, 2),
 	/** leader takes off the duty from the shard for any reason may be */
-	DETACH('d', "Dettaching", Type.ALLOCATION),
+	DETACH('d', "Dettaching", Type.ALLOC, 4),
 	
 	/** leader backs up it's follower's duties to other followers as a master backup */
-	STOCK('s', "Stocking", Type.REPLICA),
-	DROP('p', "Dropping", Type.REPLICA)
+	STOCK('s', "Stocking", Type.REPLICA, 1),
+	DROP('p', "Dropping", Type.REPLICA, 5)
 	
 	;
 
 	private final char code;
 	private final String verb;
-	
+	private final int order;
 	private final Type type;
 
-	EntityEvent(final char code, final String verb, final Type type) {
+	EntityEvent(final char code, final String verb, final Type type, final int order) {
 	    this.code = code;
 		this.verb = verb;
 		this.type = type;
+		this.order = order;
+	}
+	
+	public static EntityEvent[] all() {
+		return new EntityEvent[] {CREATE, REMOVE, UPDATE, TRANSFER, ATTACH, DETACH, STOCK, DROP};
 	}
 	
 	public Type getType() {
 		return type;
 	}
 
+	public int getOrder() {
+		return order;
+	}
+	
 	public enum Type {
 		/** type creation/read/update/delete */
 		CRUD,
 		/** type of a distribution action: attach (capture) or detach (release) */
-		ALLOCATION, 
+		ALLOC, 
 		/** type of a master backup action: stocking or dropping */
 		REPLICA, 
 		// none

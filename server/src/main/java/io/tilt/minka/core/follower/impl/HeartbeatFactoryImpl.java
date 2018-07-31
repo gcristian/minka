@@ -20,7 +20,9 @@ package io.tilt.minka.core.follower.impl;
 import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -33,15 +35,15 @@ import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityJournal.Log;
-import io.tilt.minka.shard.ShardCapacity;
-import io.tilt.minka.shard.DomainInfo;
-import io.tilt.minka.shard.NetworkShardIdentifier;
-import io.tilt.minka.shard.ShardIdentifier;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
+import io.tilt.minka.shard.DomainInfo;
+import io.tilt.minka.shard.NetworkShardIdentifier;
+import io.tilt.minka.shard.ShardCapacity;
+import io.tilt.minka.shard.ShardIdentifier;
 import io.tilt.minka.utils.LogUtils;
 
 /**

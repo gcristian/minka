@@ -296,6 +296,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		return o1.compareTo(o2);
 	}
 
+	@JsonIgnore
 	public Type getType() {
 		return this.type;
 	}

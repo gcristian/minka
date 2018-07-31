@@ -109,7 +109,7 @@ public class Delivery {
 		return contentsByState_(null, bicons);
 	}
 	
-	protected int contentsByState(final EntityState state, final BiConsumer<ShardEntity, Log> bicons) {
+	int contentsByState(final EntityState state, final BiConsumer<ShardEntity, Log> bicons) {
 		return contentsByState_(state, bicons);
 	}
 	

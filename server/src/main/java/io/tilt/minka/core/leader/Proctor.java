@@ -145,7 +145,9 @@ class Proctor implements Service {
 		final List<Runnable> actions = new LinkedList<>();
 		shardingState.getCommitedState().findShards(null, shard-> {
 			final Transition trans = diagnoser.nextTransition(
-					shard.getState(), (SlidingSortedSet)shard.getTransitions(), shard.getHeartbeats());  
+					shard.getState(), 
+					(SlidingSortedSet)shard.getTransitions(), 
+					shard.getHeartbeats());  
 			final ShardState priorState = shard.getState();
 			
 			if (trans.getState() != priorState) {

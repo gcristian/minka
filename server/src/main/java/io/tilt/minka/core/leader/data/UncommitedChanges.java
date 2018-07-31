@@ -134,7 +134,7 @@ public class UncommitedChanges {
 			}
 			
 			final Type nature = duty.getJournal().getLast().getEvent().getType();
-			if (nature==EntityEvent.Type.ALLOCATION) {
+			if (nature==EntityEvent.Type.ALLOC) {
 				if (ret = list.add(duty)) {
 					stealthChange = true; 
 				}

@@ -55,15 +55,15 @@ class Diagnoser {
 		final long lapseStart = now - configuredLapse;
 		ShardState newState = currentState;
 		LinkedList<Heartbeat> pastLapse = null;
-		TransitionCause transitionCause = transitions.values().iterator().next().getCause();
+		TransitionCause cause = transitions.values().iterator().next().getCause();
 		
 		if (beats.size() < minToBeGone) {
 			final long max = config.beatToMs(config.getProctor().getMaxShardJoiningState());
 			if (transitions.last().getTimestamp().plusMillis(max).isBefore(Instant.now())) {
-				transitionCause = TransitionCause.JOINING_STARVED;
+				cause = TransitionCause.JOINING_STARVED;
 				newState = ShardState.GONE;
 			} else {
-				transitionCause = TransitionCause.FEW_HEARTBEATS;
+				cause = TransitionCause.FEW_HEARTBEATS;
 				newState = ShardState.JOINING;
 			}
 		} else {
@@ -72,36 +72,36 @@ class Diagnoser {
 			int pastLapseSize = pastLapse.size();
 			if (pastLapseSize > 0 && checkHealth(now, normalDelay, pastLapse)) {
 				if (pastLapseSize >= minHealthlyToGoOnline) {
-					transitionCause = TransitionCause.HEALTHLY_THRESHOLD;
+					cause = TransitionCause.HEALTHLY_THRESHOLD;
 					newState = ShardState.ONLINE;
 				} else {
-					transitionCause = TransitionCause.HEALTHLY_THRESHOLD;
+					cause = TransitionCause.HEALTHLY_THRESHOLD;
 					newState = ShardState.QUARANTINE;
 					// how many times should we support flapping before killing it
 				}
 			} else {
 				if (pastLapseSize > maxSickToGoQuarantine) {
 					if (pastLapseSize <= minToBeGone || pastLapseSize == 0) {
-						transitionCause = TransitionCause.MIN_ABSENT;
+						cause = TransitionCause.MIN_ABSENT;
 						newState = ShardState.GONE;
 					} else {
-						transitionCause = TransitionCause.MAX_SICK_FOR_ONLINE;
+						cause = TransitionCause.MAX_SICK_FOR_ONLINE;
 						newState = ShardState.QUARANTINE;
 					}
 				} else if (pastLapseSize <= minToBeGone && currentState == ShardState.QUARANTINE) {
-					transitionCause = TransitionCause.MIN_ABSENT;
+					cause = TransitionCause.MIN_ABSENT;
 					newState = ShardState.GONE;
 				} else if (pastLapseSize > 0 && currentState == ShardState.ONLINE) {
-					transitionCause = TransitionCause.SWITCH_BACK;
+					cause = TransitionCause.SWITCH_BACK;
 					newState = ShardState.QUARANTINE;
 				} else if (pastLapseSize == 0 
 						&& (currentState == ShardState.QUARANTINE || currentState == ShardState.ONLINE)) {
-					transitionCause = TransitionCause.BECAME_ANCIENT;
+					cause = TransitionCause.BECAME_ANCIENT;
 					newState = ShardState.GONE;
 				}
 			}
 		}
-		return new Transition(transitionCause, newState);
+		return new Transition(cause, newState);
 	}
 
 	private boolean checkHealth(final long now, final long normalDelay, final List<Heartbeat> onTime) {

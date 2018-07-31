@@ -46,7 +46,7 @@ public class ReplicationDispatcher {
 			final Shard leader,
 			final Pallet p) {
 		
-		// not all de/allocations, only those shipped to leader's follower
+		// not all de/allocations, only those shipped to leader's local follower (same shard)
 		changePlan.onShippingsFor(cause, leader, duty-> { 
 			if (duty.getDuty().getPalletId().equals(p.getId()) && involved.contains(duty)) { 				
 				state.getCommitedState().findShards(
