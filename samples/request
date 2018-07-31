@@ -1,2 +1,6 @@
 #!/bin/bash
-$(which curl) $(./leader)/minka/admin/$1?detail=true | $(which jq) .
+EP="$1"
+if [ ! -z ${2} ]; then
+	EP=$EP"?detail=true"
+fi
+$(which curl) $(./leader)/minka/admin/$EP | $(which jq) .

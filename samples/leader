@@ -11,6 +11,11 @@ jq=$(which jq); tr=$(which tr)
 
 # ------------------------------------------------------
 
+if [ ! -z ${LEADER} ]; then
+	echo $LEADER
+	exit 0
+fi
+
 PATH='/minka/admin/shards'
 
 for PID in `$jps -mlv | $grep io.tilt | $cut -d' ' -f1`; do
