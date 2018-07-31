@@ -114,11 +114,12 @@ public class EntityRecord implements Comparable<EntityRecord>, Comparator<Entity
 	public EntityJournal getJournal() {
         return this.journal;
     }
+	/*
 	@JsonProperty("journal")
 	private List<String> getJournal_() {
         return this.journal.getStringHistory();
     }
-		
+	*/
 	public int hashCode() {
 		final int prime = 31;
 		int res = 1;

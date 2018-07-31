@@ -63,7 +63,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		this.from = entity;
 		this.type = type;
 		this.journal = new EntityJournal();
-		this.journal.addEvent(EntityEvent.CREATE, EntityState.PREPARED, null, ChangePlan.PLAN_WITHOUT);
+		this.journal.addEvent(EntityEvent.CREATE, EntityState.PREPARED, "N/A", ChangePlan.PLAN_WITHOUT);
 	}
 	
 	public static class Builder {
@@ -260,7 +260,8 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	public EntityJournal getJournal() {
         return this.journal;
     }
-	@JsonProperty("journal")
+	
+	@JsonProperty("commitTree")
 	private List<String> getJournal_() {
         return this.journal.getStringHistory();
     }

@@ -327,11 +327,19 @@ public class SystemStateMonitor {
 		return ret;
 	}
 
-	private List<Object> buildFollowerDuties(final ShardedPartition partition, boolean entities) {
+	private Map<String, List<Object>> buildPartitionDuties(final ShardedPartition partition, boolean entities) {
 		Validate.notNull(partition);
-		final List<Object> ret = new ArrayList<>(partition.getDuties().size());
+		final Map<String, List<Object>> ret = new HashMap<>(2);
+		
+		ArrayList<Object> tmp = new ArrayList<>(partition.getDuties().size());
+		ret.put("partition", tmp);
 		for (ShardEntity e: partition.getDuties()) {
-			ret.add(entities ? e: e.getDuty());
+			tmp.add(entities ? e: e.getDuty());
+		}
+		tmp = new ArrayList<>(partition.getReplicas().size());
+		ret.put("replicas", tmp);
+		for (ShardEntity e: partition.getReplicas()) {
+			tmp.add(entities ? e: e.getDuty());
 		}
 		return ret;
 	}

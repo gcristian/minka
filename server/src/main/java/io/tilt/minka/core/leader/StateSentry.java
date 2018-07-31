@@ -98,7 +98,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		if ((beat.reportsDuties()) && shard.getState().isAlive()) {
 			detectUnexpectedChanges(shard, beat.getCaptured());
 			if (shardingState.getCurrentPlan()!=null) {
-				detectInvalidSpots(shard, beat.getCaptured());
+				//detectInvalidSpots(shard, beat.getCaptured());
 			}
 		}
 		beat.clear();
@@ -178,13 +178,13 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 			};
 			
 		if (shardingState.getCommitedState().commit(entity, shard, changelog.getEvent(), r)
-			&& changelog.getEvent().getType()==EntityEvent.Type.ALLOCATION) {
+			&& changelog.getEvent().getType()==EntityEvent.Type.ALLOC) {
 			clearUncommited(changelog, entity, shard);
 		}
 		// REMOVES go this way:
 		if (changelog.getEvent()==EntityEvent.DETACH) {
-			final Log previous = entity.getJournal().descendingIterator().next();
-			if (previous.getEvent()==EntityEvent.REMOVE) {
+			final Log previous = entity.getJournal().getPreviousLog(shard.getShardID().getId());
+			if (previous!=null && previous.getEvent()==EntityEvent.REMOVE) {
 				shardingState.getCommitedState().commit(entity, shard, previous.getEvent(), ()->{
 					logger.info("{}: Removing duty at request: {}", classname, entity);
 				});
@@ -243,7 +243,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 					d.getJournal().addEvent(
 							d.getLastEvent(),
 							e.getKey(), 
-							null, // the last shard id 
+							"N/A", // the last shard id 
 							d.getJournal().getLast().getPlanId());
 				}));
 			}

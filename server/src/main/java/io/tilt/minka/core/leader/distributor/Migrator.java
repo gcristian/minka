@@ -131,9 +131,11 @@ public class Migrator {
 	}
 	
 	/** @return facility for balancers to access the entity change and distribution history */
+	/*
 	List<EntityJournal.Log> getJournal(final Duty duty) {
 	    return requireNonNull(sourceRefs.get(duty)).getJournal().getLogs();
 	}
+	*/
 	
 	/** leave a reason for distribution exclusion */
 	public final void stuck(final Duty duty, final Spot location) {

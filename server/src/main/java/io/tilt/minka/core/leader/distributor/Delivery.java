@@ -116,9 +116,8 @@ public class Delivery {
 	private int contentsByState_(final EntityState state, final BiConsumer<ShardEntity, Log> bicons) {
 		int count = 0;
 		for (ShardEntity duty : duties) {
-			for (Log log : duty.getJournal().getLogs()) {
-				if (log.matches(getEvent(),shard.getShardID().getId(), getPlanId()) 
-						&& (state == null || log.getLastState() == state)) {
+			for (Log log : duty.getJournal().filterLogs(getPlanId(), shard.getShardID().getId(), getEvent())) {
+				if (state == null || log.getLastState() == state) {
 					bicons.accept(duty, log);
 					count++;
 					break;

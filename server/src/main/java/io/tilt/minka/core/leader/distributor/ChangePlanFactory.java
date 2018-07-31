@@ -250,7 +250,7 @@ class ChangePlanFactory {
 					missed.getJournal().addEvent(REMOVE, COMMITED,lazy.getShardID(),changePlan.getId());					
 				});
 			}
-			missed.getJournal().addEvent(CREATE, PREPARED,null,changePlan.getId());
+			missed.getJournal().addEvent(CREATE, PREPARED,"N/A",changePlan.getId());
 			partition.getUncommited().snapshot().addCrudDuty(missed);
 		}
 		if (!missing.isEmpty()) {

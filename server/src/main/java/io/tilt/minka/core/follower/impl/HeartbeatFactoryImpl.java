@@ -132,7 +132,7 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 			final boolean withEntity) {
 	    
 		boolean includeDuties = false;
-		final StringBuilder tmp = new StringBuilder();
+		Map<EntityEvent, StringBuilder> tmp = new HashMap<>(2);
 		for (ShardEntity shardedDuty: partition.getDuties()) {
 			includeDuties |= detectReception(shardedDuty, tmp);
 			c.accept(EntityRecord.fromEntity(shardedDuty, false));
@@ -142,26 +142,28 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 				c.accept(EntityRecord.fromEntity(shardedDuty, withEntity));
 			}
 		}
-		if (tmp.length()>0 && log.isInfoEnabled()) {
-			log.info(tmp.toString());
+		if (!tmp.isEmpty() && log.isInfoEnabled()) {
+			tmp.forEach((k,v)-> log.info(v.toString()));
 		}
 		return includeDuties;
 	}
 	
 	/** this confirms action to the leader */
-	private boolean detectReception(final ShardEntity shardedDuty, final StringBuilder tmp) {
+	private boolean detectReception(final ShardEntity duty, final Map<EntityEvent, StringBuilder> tmp) {
 		// consider only the last action logged to this shard
-		for (final Log found : shardedDuty.getJournal().findAll(partition.getId())) { 
+		for (final Log found : duty.getJournal().findAll(partition.getId())) { 
 			final EntityState stamp = EntityState.COMMITED;
 			if (found.getLastState()!=stamp) {
 				if (log.isInfoEnabled()) {
-					if (tmp.length()==0) {
-						tmp.append(String.format("%s: (%s) Changing %s %s to %s duties: ", 
+					StringBuilder sb = tmp.get(found.getEvent());
+					if (sb==null) {
+						sb= new StringBuilder(String.format("%s: (%s) Changing %s %s to %s duties: ", 
 								classname, partition.getId(), found.getEvent(), found.getLastState(), stamp));
+						tmp.put(found.getEvent(), sb);
 					}
-					tmp.append(shardedDuty.getDuty().getId()).append(',');
+					sb.append(duty.getDuty().getId()).append(',');
 				}
-				shardedDuty.getJournal().addEvent(
+				duty.getJournal().addEvent(
 						found.getEvent(), 
 						stamp,
 						partition.getId(), 

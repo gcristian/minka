@@ -285,15 +285,18 @@ public class ChangePlan implements Comparable<ChangePlan> {
 					if (!pair) {
 						// TODO no funciona xq planFactory.addMisingCrud reinicia con CREATE
 						// avoid unpaired danglings/missing being a/dettached
+						/*
 						if (!wasRecentlyUnifinishedlyAllocated(j)) {
 							unpaired.accept(entity);
 						}
+						*/
 					}
 				}
 			}
 		}
 	}
 
+	/*
 	private static boolean wasRecentlyUnifinishedlyAllocated(final EntityJournal j) {
 		boolean isLegitUnpair = false;
 		int maxHistory = 1; // max history back will find a VALID CREATION in some steps
@@ -312,6 +315,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		}
 		return isLegitUnpair;
 	}
+	*/
     
     /** @return whether caller has permission to get next delivery   */
 	boolean hasNextParallel(final Consumer<String> c) {
