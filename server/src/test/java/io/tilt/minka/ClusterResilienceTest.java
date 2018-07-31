@@ -11,11 +11,13 @@ import static io.tilt.minka.TestUtils.prototypeConfig;
 import static io.tilt.minka.TestUtils.shutdownServers;
 import static java.lang.Thread.sleep;
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptySet;
 import static junit.framework.Assert.assertNotNull;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
@@ -130,6 +132,60 @@ public class ClusterResilienceTest {
 		a3.getServer().shutdown();
 		final ServerWhitness a5 = createServer(proto, duties, pallets, "a5");
 		final ServerWhitness a6 = createServer(proto, duties, pallets, "a6");
+		sleep(wait * 3);
+		
+		assertDistribution(asList(a1,a4,a5,a6), duties);
+		
+		a5.getServer().shutdown();
+		a6.getServer().shutdown();
+		sleep(wait * 3);		
+		
+		assertDistribution(asList(a1,a4), duties);
+
+		a4.getServer().shutdown();
+		
+		sleep(wait * 3);
+		
+		assertTrue(a1.getServer().getClient().isCurrentLeader());
+		assertEquals(duties, a1.getCurrent());
+		
+		assertDistribution(asList(a1), duties);
+		
+		a1.getServer().shutdown();
+	}
+	
+	
+
+	@Test
+	/**
+	 * proves shards may appear and disappear anytime in the same time
+	 * while all duties are still kept distributed
+	 * proves proctor and distributor phases are never suspended
+	 * proves the leader acknowledges every situation
+	 */
+	public void test_cluster_highly_unstable_surviving() throws Exception {
+		proto.getBootstrap().setNamespace("test_cluster_highly_unstable");
+		// start with 3 (surely 1st will be leader)
+		
+		final Set<ServerWhitness> set = buildCluster(5, proto, pallets, emptySet());
+		final Collection<Duty> duties = duties(p, 50);
+		
+		set.iterator().next().getServer().getClient().addAll(duties, null);
+		
+		sleep(wait * 5);
+		assertDistribution(set, duties);
+	
+		set.iterator().next().getServer().shutdown();
+		// immediately launch a new serie of shards
+		final ServerWhitness a4 = createServer(proto, emptySet(), pallets, "a4");
+		set.add(a4);
+		sleep(wait * 5);
+		
+		assertDistribution(set, duties);
+		
+		set.iterator().next().getServer().shutdown();
+		final ServerWhitness a5 = createServer(proto, emptySet(), pallets, "a5");
+		final ServerWhitness a6 = createServer(proto, emptySet(), pallets, "a6");
 		sleep(wait * 3);
 		
 		assertDistribution(asList(a1,a4,a5,a6), duties);
