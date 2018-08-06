@@ -45,7 +45,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.wordnik.swagger.annotations.Api;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.core.leader.data.ShardingState;
+import io.tilt.minka.core.leader.data.Scheme;
 
 @Api("Minka Endpoint API")
 @Path("admin")
@@ -55,7 +55,7 @@ import io.tilt.minka.core.leader.data.ShardingState;
 public class AdminEndpoint {
 
 	@Autowired
-	private ShardingState scheme;
+	private Scheme scheme;
 	@Autowired
 	private SystemStateMonitor state;
 	@Autowired

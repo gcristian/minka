@@ -19,7 +19,7 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.FairWeightBalancer;
 import io.tilt.minka.core.leader.balancer.Spot;
 import io.tilt.minka.core.leader.balancer.PreSort;
-import io.tilt.minka.core.leader.data.ShardingState;
+import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.Shard;
@@ -101,7 +101,7 @@ public class FairWeightBalancerTest {
 		stage.put(EntityEvent.CREATE, duties);
 		stage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
-		final ShardingState table = emptyTableWithShards(p1, 5000, 5000);
+		final Scheme table = emptyTableWithShards(p1, 5000, 5000);
 		
 		final Set<Shard> shards = new HashSet<>();
 		table.getCommitedState().findShards(null, shards::add);
@@ -141,7 +141,7 @@ public class FairWeightBalancerTest {
 		stage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
 		// only empty shards at scheme
-		final ShardingState table = emptyTableWithShards(p1, 5000, 5000, 5000);
+		final Scheme table = emptyTableWithShards(p1, 5000, 5000, 5000);
 		final Set<Shard> shards = new HashSet<>();
 		table.getCommitedState().findShards(null, shards::add);
 		final Migrator m = MigratorTest.migrator(shards, ents, p1);
@@ -181,7 +181,7 @@ public class FairWeightBalancerTest {
 		stage.put(EntityEvent.CREATE, duties);
 		stage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
-		final ShardingState table = emptyTableWithShards(p1, 4000, 500, 10);
+		final Scheme table = emptyTableWithShards(p1, 4000, 500, 10);
 		final Set<Shard> shards = new HashSet<>();
 		table.getCommitedState().findShards(null, shards::add);
 		final Migrator migra = MigratorTest.migrator(shards, ents, p1);
@@ -235,7 +235,7 @@ public class FairWeightBalancerTest {
 		stage.put(EntityEvent.CREATE, duties);
 		stage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
-		final ShardingState table = emptyTableWithShards(p1, 2900, 500, 12);
+		final Scheme table = emptyTableWithShards(p1, 2900, 500, 12);
 		
 		final Set<Shard> shards = new HashSet<>();
 		table.getCommitedState().findShards(null, shards::add);
@@ -273,11 +273,11 @@ public class FairWeightBalancerTest {
 	
 	
 	/** @return shards id 1...N */
-	public ShardingState emptyTableWithShards(
+	public Scheme emptyTableWithShards(
 			final Pallet capacityPallet, 
 			final double...shardCapacities) throws Exception {
 		
-		final ShardingState ret = new ShardingState();
+		final Scheme ret = new Scheme();
 		int id = 1;
 		for (final double cap: shardCapacities) {
 			final Shard shard = ShardTest.buildShard(capacityPallet, cap, id++);
@@ -286,7 +286,7 @@ public class FairWeightBalancerTest {
 		return ret;
 	}
 	
-	public Map<Spot, Set<Duty>> stageFromTable(final ShardingState table) {
+	public Map<Spot, Set<Duty>> stageFromTable(final Scheme table) {
 		final Map<Spot, Set<Duty>> ret = new HashMap<>();
 		table.getCommitedState().findShards(null, shard-> {
 			ret.put(new Spot(shard), Collections.emptySet());
@@ -309,7 +309,7 @@ public class FairWeightBalancerTest {
 		stage.put(EntityEvent.CREATE, duties);
 		stage.put(EntityEvent.REMOVE, Collections.emptySet());
 		
-		final ShardingState table = emptyTableWithShards(p1, 10, 10, 10, 10);
+		final Scheme table = emptyTableWithShards(p1, 10, 10, 10, 10);
 		
 		final Set<Shard> shards = new HashSet<>();
 		table.getCommitedState().findShards(null, shards::add);

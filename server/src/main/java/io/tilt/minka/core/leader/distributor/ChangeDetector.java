@@ -34,7 +34,7 @@ import java.util.function.BiConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.core.leader.data.ShardingState;
+import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityRecord;
@@ -59,11 +59,11 @@ public class ChangeDetector {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
 	
-	private final ShardingState shardingState;
+	private final Scheme scheme;
 	
 	/** solely instance */
-	public ChangeDetector(final ShardingState shardingState) {
-		this.shardingState = shardingState;
+	public ChangeDetector(final Scheme scheme) {
+		this.scheme = scheme;
 	}
 
 	/** Finds sharding changes by matching entity journals for planned reallocations */
@@ -179,7 +179,7 @@ public class ChangeDetector {
 						ret = deliLog;
 					} else if (deliState == COMMITED) {
 						// when cluster unstable: bad state but possible 
-						final Shard location = shardingState.getCommitedState().findDutyLocation(delivered.getDuty());
+						final Shard location = scheme.getCommitedState().findDutyLocation(delivered.getDuty());
 						if (location==null || !location.getShardID().equals(shardid)) {
 							ret = deliLog;	
 						}

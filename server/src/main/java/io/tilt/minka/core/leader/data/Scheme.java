@@ -16,8 +16,8 @@
  */
 package io.tilt.minka.core.leader.data;
 
-import static io.tilt.minka.core.leader.data.ShardingState.ClusterHealth.STABLE;
-import static io.tilt.minka.core.leader.data.ShardingState.ClusterHealth.UNSTABLE;
+import static io.tilt.minka.core.leader.data.Scheme.ClusterHealth.STABLE;
+import static io.tilt.minka.core.leader.data.Scheme.ClusterHealth.UNSTABLE;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -43,15 +43,20 @@ import io.tilt.minka.shard.Shard;
  * @author Cristian Gonzalez
  * @since Dec 2, 2015	
  */
-public class ShardingState {
+public class Scheme {
 
 	private static final Logger logger = LoggerFactory.getLogger(CommitedState.class);
 	
 	private ClusterHealth visibilityHealth;
 	private ClusterHealth distributionHealth;
 	
+	/** record result of changes applied and verified, as a reaction to Client CRUDs or cluster changes*/
 	private final CommitedState commitedState;
+	/** Client CRUDs */
 	private final UncommitedChanges uncommitedChanges;
+	/** Cluster elected new leader: followers redirect their state to the new one: a learning process starts */
+	private LearningState learningState;
+	/** the last and the current plan in progress of verification and application */
 	private ChangePlan currentPlan;
 	private List<Runnable> observers;
 	private Long firstPlanId;
@@ -83,7 +88,7 @@ public class ShardingState {
 		INSUFFICIENT,
 	}
 
-	public ShardingState() {
+	public Scheme() {
 		this.visibilityHealth = ClusterHealth.STABLE;
 		this.distributionHealth = ClusterHealth.STABLE;
 		this.commitedState = new CommitedState();

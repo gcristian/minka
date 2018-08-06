@@ -36,21 +36,19 @@ import java.util.function.BiConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.data.CommitedState;
-import io.tilt.minka.core.leader.data.ShardingState;
+import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.UncommitedChanges;
 import io.tilt.minka.core.leader.distributor.ChangeDetector;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.leader.distributor.Delivery;
 import io.tilt.minka.core.task.Scheduler;
-import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.CommitTree.Log;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.shard.Transition;
@@ -68,16 +66,16 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
 	
-	private final ShardingState shardingState;
+	private final Scheme scheme;
 	private final ChangeDetector changeDetector;
 	
-	StateSentry(final ShardingState shardingState, final Scheduler scheduler) {
-		this.shardingState = shardingState;
-		this.changeDetector = new ChangeDetector(shardingState);
+	StateSentry(final Scheme scheme, final Scheduler scheduler) {
+		this.scheme = scheme;
+		this.changeDetector = new ChangeDetector(scheme);
 	}
 
 	/**
-	 * this's raw from Broker's message reception
+	 * Mission: watch Follower's heartbeats for changes.
 	 */
 	@Override
 	public void accept(final Heartbeat beat, final Shard shard) {
@@ -97,7 +95,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		// look for problems
 		if ((beat.reportsDuties()) && shard.getState().isAlive()) {
 			detectUnexpectedChanges(shard, beat.getCaptured());
-			if (shardingState.getCurrentPlan()!=null) {
+			if (scheme.getCurrentPlan()!=null) {
 				//detectInvalidSpots(shard, beat.getCaptured());
 			}
 		}
@@ -105,7 +103,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	}
 	
 	private void detectExpectedChanges(final Shard shard, final Heartbeat beat) {
-		final ChangePlan changePlan = shardingState.getCurrentPlan();
+		final ChangePlan changePlan = scheme.getCurrentPlan();
 		if (changePlan!=null && !changePlan.getResult().isClosed()) {
 			
 			final Delivery delivery = changePlan.getDelivery(shard);
@@ -187,7 +185,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 					changelog.getPlanId());
 			};
 			
-		if (shardingState.getCommitedState().commit(entity, shard, changelog.getEvent(), r)
+		if (scheme.getCommitedState().commit(entity, shard, changelog.getEvent(), r)
 			&& changelog.getEvent().getType()==EntityEvent.Type.ALLOC) {
 			clearUncommited(changelog, entity, shard);
 		}
@@ -195,7 +193,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		if (changelog.getEvent()==EntityEvent.DETACH) {
 			final Log previous = entity.getCommitTree().getPreviousLog(shard.getShardID().getId());
 			if (previous!=null && previous.getEvent()==EntityEvent.REMOVE) {
-				shardingState.getCommitedState().commit(entity, shard, previous.getEvent(), ()->{
+				scheme.getCommitedState().commit(entity, shard, previous.getEvent(), ()->{
 					logger.info("{}: Removing duty at request: {}", classname, entity);
 				});
 			}
@@ -204,7 +202,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 
 	private void clearUncommited(final Log changelog, final ShardEntity entity, Shard shard) {
 		// remove it from the stage
-		final ShardEntity crud = shardingState.getUncommited().getCrudByDuty(entity.getDuty());
+		final ShardEntity crud = scheme.getUncommited().getCrudByDuty(entity.getDuty());
 		if (crud!=null) {
 			try {
 			for (Log f: crud.getCommitTree().findAll(shard.getShardID())) {
@@ -212,7 +210,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 				boolean previousThanCrud = changelog.getHead().toInstant().isBefore(lastEventOnCrud);
 				// if the update corresponds to the last CRUD OR they're both the same event (duplicated operation)
 				if (!previousThanCrud || changelog.getEvent().getRootCause()==crud.getLastEvent()) {
-					if (!shardingState.getUncommited().removeCrud(entity)) {
+					if (!scheme.getUncommited().removeCrud(entity)) {
 						logger.warn("{} Backstage CRUD didnt existed: {}", classname, entity);
 					}
 				} else {
@@ -237,9 +235,9 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		for (Map.Entry<EntityState, List<ShardEntity>> e: entrySet) {
 			boolean uncommitted = false;
 			if (e.getKey()==DANGLING) { 
-				uncommitted = shardingState.getUncommited().addDangling(e.getValue());
+				uncommitted = scheme.getUncommited().addDangling(e.getValue());
 			} else if (e.getKey()==MISSING) {
-				uncommitted = shardingState.getUncommited().addMissing(e.getValue());
+				uncommitted = scheme.getUncommited().addMissing(e.getValue());
 			} else {
 				logger.warn("{} From ({}) comes Unexpected state {} for duty {}", getClass().getSimpleName(), 
 						shard, e.getKey(), ShardEntity.toStringBrief(e.getValue()));
@@ -249,7 +247,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 				if (logger.isInfoEnabled()) {
 					log.append(ShardEntity.toStringIds(e.getValue()));
 				}
-				e.getValue().forEach(d->shardingState.getCommitedState().commit(d, shard, REMOVE, ()->{
+				e.getValue().forEach(d->scheme.getCommitedState().commit(d, shard, REMOVE, ()->{
 					d.getCommitTree().addEvent(
 							d.getLastEvent(),
 							e.getKey(), 
@@ -266,7 +264,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 
 	private Map<EntityState, List<ShardEntity>> findLost(final Shard shard, final List<EntityRecord> reportedDuties) {
 		Map<EntityState, List<ShardEntity>> lost = null;
-		for (final ShardEntity committed : shardingState.getCommitedState().getDutiesByShard(shard)) {
+		for (final ShardEntity committed : scheme.getCommitedState().getDutiesByShard(shard)) {
 			boolean found = false;
 			EntityState wrongState = null;
 			for (EntityRecord reported : reportedDuties) {
@@ -339,7 +337,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 
 	/** only log */
 	private void checkAttachExistance(final Shard sourceShard, final EntityRecord e) {
-		final Shard should = shardingState.getCommitedState().findDutyLocation(e.getId());
+		final Shard should = scheme.getCommitedState().findDutyLocation(e.getId());
 		if (should==null) {
 			logger.error("{}: Non-attached duty: {} reported by shard {} ", classname, e.toString(), sourceShard);
 		} else if (!should.equals(sourceShard)) {
@@ -349,7 +347,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 
 	/** only log */
 	private void checkReplicaExistance(final Shard sourceShard, final EntityRecord e) {
-		final Collection<ShardEntity> replicas = shardingState.getCommitedState().getReplicasByShard(sourceShard);
+		final Collection<ShardEntity> replicas = scheme.getCommitedState().getReplicasByShard(sourceShard);
 		boolean found = false;
 		if (e.getEntity()!=null) {
 			found = replicas.contains(e.getEntity());
@@ -367,7 +365,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 
 	void shardStateTransition(final Shard shard, final ShardState prior, final Transition transition) {
 		shard.applyChange(transition);
-		shardingState.getCommitedState().stealthChange(true);		
+		scheme.getCommitedState().stealthChange(true);		
 		switch (transition.getState()) {
 		case GONE:
 		case QUITTED:
@@ -391,13 +389,13 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	 * to be confirmed
 	 */
 	private void recoverAndRetire(final Shard shard) {
-		final Collection<ShardEntity> dangling = shardingState.getCommitedState().getDutiesByShard(shard);
+		final Collection<ShardEntity> dangling = scheme.getCommitedState().getDutiesByShard(shard);
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: Removing fallen Shard: {} from ptable. Saving: #{} duties: {}", classname, shard,
 				dangling.size(), ShardEntity.toStringIds(dangling));
 		}
 		for (ShardEntity e: dangling) {
-			if (shardingState.getUncommited().addDangling(e)) {
+			if (scheme.getUncommited().addDangling(e)) {
 				e.getCommitTree().addEvent(
 						DETACH, 
 						COMMITED, 
@@ -405,7 +403,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 						e.getCommitTree().getLast().getPlanId());
 			}
 		}
-		shardingState.getCommitedState().removeShard(shard);		
+		scheme.getCommitedState().removeShard(shard);		
 	}
 
 

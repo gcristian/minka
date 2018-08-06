@@ -17,8 +17,8 @@
 package io.tilt.minka.core.leader;
 
 import static io.tilt.minka.broker.EventBroker.ChannelHint.EVENT_SET;
-import static io.tilt.minka.core.leader.data.ShardingState.ClusterHealth.STABLE;
-import static io.tilt.minka.core.leader.data.ShardingState.ClusterHealth.UNSTABLE;
+import static io.tilt.minka.core.leader.data.Scheme.ClusterHealth.STABLE;
+import static io.tilt.minka.core.leader.data.Scheme.ClusterHealth.UNSTABLE;
 import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
 
@@ -33,8 +33,8 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.leader.data.ShardingState;
-import io.tilt.minka.core.leader.data.ShardingState.ClusterHealth;
+import io.tilt.minka.core.leader.data.Scheme;
+import io.tilt.minka.core.leader.data.Scheme.ClusterHealth;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -64,7 +64,7 @@ class ClusterProctor implements Service {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private final Config config;
-	private final ShardingState shardingState;
+	private final Scheme scheme;
 	private final StateSentry stateSentry;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
@@ -80,7 +80,7 @@ class ClusterProctor implements Service {
 
 	ClusterProctor(
 			final Config config, 
-			final ShardingState shardingState, 
+			final Scheme scheme, 
 			final StateSentry sentry, 
 			final EventBroker eventBroker, 
 			final Scheduler scheduler, 
@@ -88,7 +88,7 @@ class ClusterProctor implements Service {
 			final LeaderAware leaderAware) {
 
 		this.config = requireNonNull(config);
-		this.shardingState = requireNonNull(shardingState);
+		this.scheme = requireNonNull(scheme);
 		this.stateSentry = requireNonNull(sentry);
 		this.eventBroker = requireNonNull(eventBroker);
 		this.scheduler = requireNonNull(scheduler);
@@ -124,7 +124,7 @@ class ClusterProctor implements Service {
 			if (!leaderAware.imLeader()) {
 				return;
 			}
-			final int size = shardingState.getCommitedState().shardsSize();
+			final int size = scheme.getCommitedState().shardsSize();
 			if (size==0) {
 				logger.warn("{}: Partition queue empty: no shards emiting heartbeats ?", getName());
 				return;
@@ -143,7 +143,7 @@ class ClusterProctor implements Service {
 	private int rankShards(final int size) {
 		final int[] sizeOnline = new int[1];
 		final List<Runnable> actions = new LinkedList<>();
-		shardingState.getCommitedState().findShards(null, shard-> {
+		scheme.getCommitedState().findShards(null, shard-> {
 			final Transition trans = diagnoser.nextTransition(
 					shard.getState(), 
 					(SlidingSortedSet)shard.getTransitions(), 
@@ -173,10 +173,10 @@ class ClusterProctor implements Service {
 		if (sizeOnline == size && analysisCounter - lastUnstableAnalysisId >= threshold) {
 			health = STABLE;
 		}
-		if (health != shardingState.getShardsHealth()) {
-			shardingState.setShardsHealth(health);
+		if (health != scheme.getShardsHealth()) {
+			scheme.setShardsHealth(health);
 			logger.warn("{}: Cluster back to: {} ({}, min unchanged analyses: {})", getName(),
-					shardingState.getShardsHealth(), lastUnstableAnalysisId, threshold);
+					scheme.getShardsHealth(), lastUnstableAnalysisId, threshold);
 		}
 	}
 	
@@ -191,8 +191,8 @@ class ClusterProctor implements Service {
 							.append(shardId.toString())
 							.toString()));
 					final StringBuilder sb = new StringBuilder();
-					shardingState.getCommitedState().findShards(null, s -> sb.append(s).append(','));
-					logger.info("{}: Health: {}, {} shard(s) going to be analyzed: {}", getName(), shardingState
+					scheme.getCommitedState().findShards(null, s -> sb.append(s).append(','));
+					logger.info("{}: Health: {}, {} shard(s) going to be analyzed: {}", getName(), scheme
 							.getShardsHealth(), sizeShards, sb.toString());
 				}
 				logger.info(String.format("%s: %s %s %s, %s, (%s/%s), Seq [%s] %s", 
@@ -213,14 +213,14 @@ class ClusterProctor implements Service {
 	private void clearShards() {
 		try {
 			if (logger.isDebugEnabled()) {
-				logger.debug("{}: Blessing {} shards", getName(), shardingState.getCommitedState().shardsSize(null));
+				logger.debug("{}: Blessing {} shards", getName(), scheme.getCommitedState().shardsSize(null));
 			}
 			final DomainInfo dom = new DomainInfo();
 			final Set<ShardEntity> allPallets = new HashSet<>();
-			shardingState.getCommitedState().findPallets(allPallets::add);
+			scheme.getCommitedState().findPallets(allPallets::add);
 			dom.setDomainPallets(allPallets);
 			
-			shardingState.getCommitedState().findShards(ShardState.GONE.negative(), 
+			scheme.getCommitedState().findShards(ShardState.GONE.negative(), 
 					shard-> eventBroker.send(
 							shard.getBrokerChannel(), 
 							EVENT_SET, 

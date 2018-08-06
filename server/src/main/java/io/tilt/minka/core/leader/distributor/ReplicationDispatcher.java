@@ -18,13 +18,16 @@ import io.tilt.minka.shard.Shard;
  * More specifically: ships {@linkplain EntityEvent.STOCK and DROP} to the {@link ChangePlan}
  * those duties affected by Attaching and Dettaching root causes.
  * 
+ * Stocked replicas are not balanced: they're not dropped, only caused by Client remove. 
+ * So eventually, everybody wil have everything. 
+ * 
  */
 class ReplicationDispatcher {
 
-	private final ShardingState state;
+	private final Scheme scheme;
 
-	ReplicationDispatcher(final ShardingState state) {
-		this.state = state;
+	ReplicationDispatcher(final Scheme state) {
+		this.scheme = state;
 	}
 	
 	void dispatchReplicas(final ChangePlan changePlan, 
@@ -33,14 +36,14 @@ class ReplicationDispatcher {
 			final NetworkShardIdentifier leaderId,
 			final Pallet p) {
 		
-		final Shard leader = state.getCommitedState().findShard(leaderId.getId());
+		final Shard leader = scheme.getCommitedState().findShard(leaderId.getId());
 		// those of current plan
 		dispatchNewLocals(EntityEvent.ATTACH, EntityEvent.STOCK, 
 				changePlan, creations, leader, p);
 		dispatchNewLocals(EntityEvent.DETACH, EntityEvent.DROP, 
 				changePlan, deletions, leader, p);
 		// those of older plans (new followers may have turned online)
-		dispatchCurrentLocals(state, changePlan, p, leader);
+		dispatchCurrentLocals(scheme, changePlan, p, leader);
 	}
 	
 	/** ChangePlan::ship leader's follower allocated duties (curr plan) to all followers */

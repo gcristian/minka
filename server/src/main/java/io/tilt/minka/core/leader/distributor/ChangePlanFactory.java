@@ -43,7 +43,7 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Spot;
 import io.tilt.minka.core.leader.data.CommitedState;
-import io.tilt.minka.core.leader.data.ShardingState;
+import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.UncommitedChanges;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.EntityEvent;
@@ -75,7 +75,7 @@ class ChangePlanFactory {
 	}
 
 	/** @return a plan if there're changes to apply or NULL if not */
-	ChangePlan create(final ShardingState scheme, final ChangePlan previous) {
+	ChangePlan create(final Scheme scheme, final ChangePlan previous) {
 		
 		final UncommitedChanges snapshot = scheme.getUncommited().snapshot();
 		ChangePlan changePlan = new ChangePlan(
@@ -109,7 +109,7 @@ class ChangePlanFactory {
 	}
 	
 	private boolean buildForEachPallet(
-			final ShardingState scheme, final ChangePlan changePlan,
+			final Scheme scheme, final ChangePlan changePlan,
 			final Set<ShardEntity> creations, final Set<ShardEntity> deletions, 
 			final Map<String, List<ShardEntity>> schemeByPallets) {
 		try {
@@ -144,7 +144,7 @@ class ChangePlanFactory {
 	}
 
 	private Set<ShardEntity> collectAsRemoves(
-			final ShardingState scheme,
+			final Scheme scheme,
 			final ChangePlan previousChange,
 			final UncommitedChanges snapshot,
 			final ChangePlan changePlan, 
@@ -178,7 +178,7 @@ class ChangePlanFactory {
 		return dutyDeletions;
 	}
 
-	private Set<ShardEntity> collectAsCreates(final ShardingState scheme,
+	private Set<ShardEntity> collectAsCreates(final Scheme scheme,
 			final ChangePlan previousChange,
 			final UncommitedChanges snapshot,
 			final ChangePlan changePlan) {
@@ -198,7 +198,7 @@ class ChangePlanFactory {
 	}
 
 	private static final Migrator balancePallet(
-			final ShardingState partition, 
+			final Scheme partition, 
 			final Pallet pallet, 
 			final Balancer balancer,
 			final Set<ShardEntity> dutyCreations, 
@@ -240,7 +240,7 @@ class ChangePlanFactory {
 		return ret;
 	}
 	
-	private void addMissingAsCrud(final ShardingState partition, final ChangePlan changePlan) {
+	private void addMissingAsCrud(final Scheme partition, final ChangePlan changePlan) {
 	    final Collection<ShardEntity> missing = partition.getUncommited().snapshot().getDutiesMissing();
 		for (final ShardEntity missed : missing) {
 			final Shard lazy = partition.getCommitedState().findDutyLocation(missed);
@@ -289,7 +289,7 @@ class ChangePlanFactory {
 	}
 
 	/* by user deleted */
-	private final void dispatchDeletions(final ShardingState partition, final ChangePlan changePlan,
+	private final void dispatchDeletions(final Scheme partition, final ChangePlan changePlan,
 			final Set<ShardEntity> deletions) {
 
 		for (final ShardEntity deletion : deletions) {
@@ -307,7 +307,7 @@ class ChangePlanFactory {
 	}
 
 	private void logStatus(
-			final ShardingState partition, 
+			final Scheme partition, 
 			final Set<ShardEntity> dutyCreations, 
 			final Set<ShardEntity> dutyDeletions,
 			final List<ShardEntity> duties,

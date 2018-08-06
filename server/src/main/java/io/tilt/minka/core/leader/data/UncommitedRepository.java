@@ -38,24 +38,24 @@ public class UncommitedRepository {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
 
-	private final ShardingState sharding;
+	private final Scheme scheme;
 	private final ShardIdentifier shardId;
 
-	public UncommitedRepository(final ShardingState shardingState, final ShardIdentifier shardId) {
+	public UncommitedRepository(final Scheme scheme, final ShardIdentifier shardId) {
 		super();
-		this.sharding = shardingState;
+		this.scheme = scheme;
 		this.shardId = shardId;
 	}
 
 	public Collection<Duty> getDuties() {
 		final List<Duty> tmp = new LinkedList<>();
-		this.sharding.getCommitedState().findDuties(d->tmp.add(d.getDuty()));
+		this.scheme.getCommitedState().findDuties(d->tmp.add(d.getDuty()));
 		return tmp;
 	}
 
 	public Collection<Pallet> getPallets() {
 		final List<Pallet> tmp = new LinkedList<>();
-		this.sharding.getCommitedState().findDuties(d->tmp.add(d.getPallet()));
+		this.scheme.getCommitedState().findDuties(d->tmp.add(d.getPallet()));
 		return tmp;
 	}
 
@@ -64,7 +64,7 @@ public class UncommitedRepository {
 	public void removeAllDuties(final Collection<ShardEntity> coll, final Consumer<Reply> callback) {
 		final List<ShardEntity> tmp = new ArrayList<>(coll.size());
 		for (ShardEntity remove : coll) {
-			final ShardEntity current = sharding.getCommitedState().getByDuty(remove.getDuty());
+			final ShardEntity current = scheme.getCommitedState().getByDuty(remove.getDuty());
 			if (current != null) {
 				tmp.add(remove);
 			} else {
@@ -73,7 +73,7 @@ public class UncommitedRepository {
 			}
 		}
 
-		sharding.getUncommited().addAllCrudDuty(tmp, (duty, added) -> {
+		scheme.getUncommited().addAllCrudDuty(tmp, (duty, added) -> {
 			if (added) {
 				tryCallback(callback, new Reply(ReplyValue.SUCCESS, duty, PREPARED, REMOVE, null));
 			} else {
@@ -91,8 +91,8 @@ public class UncommitedRepository {
 		sharding.getUncommited().patchCommitTreesWithLearningDistro(new HashSet<>(merged), (shard, patch)-> {
 			merged.remove(patch);
 			// directly commit them as THE true reality			
-			sharding.getCommitedState().commit(patch, 
-					sharding.getCommitedState().findShard(sid->sid.getShardID().equals(shard)), 
+			scheme.getCommitedState().commit(patch, 
+					scheme.getCommitedState().findShard(sid->sid.getShardID().equals(shard)), 
 					EntityEvent.ATTACH, 
 					null);
 		});
@@ -103,31 +103,19 @@ public class UncommitedRepository {
 		return !merged.isEmpty();
 	}
 
-	private Set<ShardEntity> mergeWithLearningDomain(final Set<ShardEntity> rawSet) {
-		final Set<ShardEntity> tmp = new HashSet<>(rawSet);
-		// very important: adding to the current leadership 
-		// the previous leadership's post-load added duties (CRUD) 
-		for (ShardEntity drain: sharding.getUncommited().drainLearningDomain()) {
-			boolean overwrite = true; // by default all out of new delegate
-			for (ShardEntity exRaw: rawSet) {
-				if (exRaw.equals(drain)) {
-					// preffer last updated version
-					overwrite = exRaw.getCommitTree().getLast().getHead().before(
-							drain.getCommitTree().getLast().getHead());
-					break;
-				}
-			}
-			if (overwrite) {
-				tmp.add(drain);
+	public void loadReplicas() {
+		for (final Map.Entry<Shard, Set<ShardEntity>> e: 
+			scheme.getLearningState().getReplicasByShard().entrySet()) {
+			for (ShardEntity replica: e.getValue()) {
+				scheme.getCommitedState().commit(replica, e.getKey(), EntityEvent.STOCK, null);
 			}
 		}
-		return tmp;
 	}
 
 	private ShardEntity toEntity(final Entity e) {
 		final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
 		if (e instanceof Duty) {
-			ShardEntity pallet = sharding.getCommitedState().getPalletById(((Duty)e).getPalletId());
+			ShardEntity pallet = scheme.getCommitedState().getPalletById(((Duty)e).getPalletId());
 			builder.withRelatedEntity(pallet);
 		}
 		final ShardEntity entity = builder.build();
@@ -155,7 +143,7 @@ public class UncommitedRepository {
 				ret = new Reply(ReplyValue.ERROR_ENTITY_ALREADY_EXISTS, duty.getDuty(), null, null, null);
 				tryCallback(callback, ret);
 			} else {
-				final ShardEntity pallet = sharding.getCommitedState().getPalletById(duty.getDuty().getPalletId());
+				final ShardEntity pallet = scheme.getCommitedState().getPalletById(duty.getDuty().getPalletId());
 				if (pallet==null) {
 					tryCallback(callback, new Reply(ReplyValue.ERROR_ENTITY_INCONSISTENT, duty.getDuty(), null, null, 
 							String.format("%s: Skipping Crud Event %s: Pallet ID :%s set not found or yet created", classname,
@@ -178,7 +166,7 @@ public class UncommitedRepository {
 		}
 		
 		final StringBuilder sb = new StringBuilder(tmp.size() * 5+1);
-		sharding.getUncommited().addAllCrudDuty(tmp, (duty, added)-> {
+		scheme.getUncommited().addAllCrudDuty(tmp, (duty, added)-> {
 			if (added) {
 				if (logger.isInfoEnabled()) {
 					sb.append(duty).append(',');
@@ -210,7 +198,7 @@ public class UncommitedRepository {
 
 	private ShardIdentifier fromShardId(final String id) {
 		final ShardIdentifier[] ret = {null};
-		sharding.getCommitedState().findShards(null, s->{
+		scheme.getCommitedState().findShards(null, s->{
 			if (s.getShardID().getId().equals(id)) {
 				ret[0] = s.getShardID();
 			}
@@ -222,13 +210,13 @@ public class UncommitedRepository {
 	
 	public void removeAllPallet(final Collection<ShardEntity> coll, final Consumer<Reply> callback) {
 	    for (ShardEntity pallet: coll) {
-	        final ShardEntity p = sharding.getCommitedState().getPalletById(pallet.getEntity().getId());
+	        final ShardEntity p = scheme.getCommitedState().getPalletById(pallet.getEntity().getId());
     		if (p==null) {
     			tryCallback(callback, new Reply(ReplyValue.ERROR_ENTITY_NOT_FOUND, pallet.getEntity(), null, null, 
     					String.format("%s: Skipping remove not found in CommitedState: %s", 
     							getClass().getSimpleName(), pallet.getEntity().getId())));
     		} else {
-    		    final boolean done = sharding.addCrudPallet(pallet);
+    		    final boolean done = scheme.addCrudPallet(pallet);
     		    tryCallback(callback, new Reply(done ? ReplyValue.SUCCESS : ReplyValue.ERROR_ENTITY_NOT_FOUND, 
                     pallet.getEntity(), PREPARED, REMOVE, null));
     		}
@@ -241,13 +229,13 @@ public class UncommitedRepository {
 	}
 	public void saveAllPallets(final Collection<ShardEntity> coll, final Consumer<Reply> callback) {
 		for (ShardEntity p: coll) {
-    		final ShardEntity already = sharding.getCommitedState().getPalletById(p.getEntity().getId());
+    		final ShardEntity already = scheme.getCommitedState().getPalletById(p.getEntity().getId());
     		if (already==null) {
     	        if (logger.isInfoEnabled()) {
     	            logger.info("{}: Adding New Pallets: {} with Balancer: {}", classname, p.getPallet(), 
     	                p.getPallet().getMetadata());
     	        }
-    	        final boolean added = sharding.addCrudPallet(p);
+    	        final boolean added = scheme.addCrudPallet(p);
     	        tryCallback(callback, new Reply(added ? ReplyValue.SUCCESS : ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED, 
                         p.getEntity(), null, EntityEvent.CREATE, 
                         String.format("%s: Added %s: %s", classname, added ? "": "already", p.getPallet())));
@@ -261,7 +249,7 @@ public class UncommitedRepository {
 	}
 	
 	private boolean presentInPartition(final ShardEntity duty) {
-		final Shard shardLocation = sharding.getCommitedState().findDutyLocation(duty.getDuty());
+		final Shard shardLocation = scheme.getCommitedState().findDutyLocation(duty.getDuty());
 		return shardLocation != null && shardLocation.getState().isAlive();
 	}
 

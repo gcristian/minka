@@ -36,7 +36,7 @@ import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
 import io.tilt.minka.core.leader.balancer.BalancingException;
 import io.tilt.minka.core.leader.balancer.Spot;
-import io.tilt.minka.core.leader.data.ShardingState;
+import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.EntityState;
@@ -63,7 +63,7 @@ public class Migrator {
 
 	protected static final Logger log = LoggerFactory.getLogger(Migrator.class);
 	
-	private final ShardingState scheme;
+	private final Scheme scheme;
 	private final Pallet pallet;
 	private Boolean isWeightedPallet;
 	private List<Override> overrides;
@@ -72,7 +72,7 @@ public class Migrator {
 	private Map<Duty, ShardEntity> sourceRefs;
 	
 	
-	protected Migrator(final ShardingState scheme, final Pallet pallet, final Set<ShardEntity> duties) {
+	protected Migrator(final Scheme scheme, final Pallet pallet, final Set<ShardEntity> duties) {
 		super();
 		this.scheme = requireNonNull(scheme);
 		this.pallet = requireNonNull(pallet);

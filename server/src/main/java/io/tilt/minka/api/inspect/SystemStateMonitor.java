@@ -51,7 +51,7 @@ import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.broker.impl.SocketClient;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 import io.tilt.minka.core.leader.data.CommitedState;
-import io.tilt.minka.core.leader.data.ShardingState;
+import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.UncommitedChanges;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderAware;
@@ -77,7 +77,7 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 public class SystemStateMonitor {
 
 	private final LeaderAware leaderAware; 
-	private final ShardingState scheme;
+	private final Scheme scheme;
 	private final ShardedPartition partition;
 	private final Scheduler scheduler;
 	private final EventBroker broker;
@@ -102,7 +102,7 @@ public class SystemStateMonitor {
 
 	public SystemStateMonitor(
 			final LeaderAware leaderAware, 
-			final ShardingState scheme,
+			final Scheme scheme,
 			final ShardedPartition partition,
 			final Scheduler scheduler,
 			final EventBroker broker, 
@@ -269,7 +269,7 @@ public class SystemStateMonitor {
 		return global;
 	}
 
-	private Map<String, Object> buildShards(final ShardingState scheme) {
+	private Map<String, Object> buildShards(final Scheme scheme) {
 		final Map<String, Object> map = new LinkedHashMap<>(5);
 		map.put("namespace", config.getBootstrap().getNamespace());
 		map.put("leader", leaderAware.getLeaderShardId());
@@ -382,7 +382,7 @@ public class SystemStateMonitor {
 		return ret;
 	}
 
-	private static List<Map<String, Object>> buildShardRep(final ShardingState table) {	    
+	private static List<Map<String, Object>> buildShardRep(final Scheme table) {	    
 		final List<Map<String, Object>> ret = new LinkedList<>();
 		final CommitedState.SchemeExtractor extractor = new CommitedState.SchemeExtractor(table.getCommitedState());
 		for (final Shard shard : extractor.getShards()) {
@@ -415,7 +415,7 @@ public class SystemStateMonitor {
 		return ret;
 	}
 
-	private static Map<String, Object> buildGlobal(final ShardingState table) {
+	private static Map<String, Object> buildGlobal(final Scheme table) {
 		CommitedState.SchemeExtractor extractor = new CommitedState.SchemeExtractor(table.getCommitedState());
 		final Map<String, Object> map = new LinkedHashMap<>(8);
 		map.put("size-shards", extractor.getShards().size());

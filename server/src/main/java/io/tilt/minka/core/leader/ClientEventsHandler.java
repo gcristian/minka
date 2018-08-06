@@ -35,7 +35,7 @@ import io.tilt.minka.api.ReplyValue;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.core.leader.data.ShardingState;
+import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.UncommitedRepository;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Service;
@@ -57,7 +57,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private final Config config;
-	private final ShardingState shardingState;
+	private final Scheme scheme;
 	private final Scheduler scheduler;
 	private final UncommitedRepository stageRepo;
 	private final EventBroker eventBroker;
@@ -67,14 +67,14 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 
 	ClientEventsHandler(
 			final Config config, 
-			final ShardingState shardingState, 
+			final Scheme scheme, 
 			final Scheduler scheduler,
 			final UncommitedRepository stageRepo,
 			final EventBroker eventBroker, 
 			final NetworkShardIdentifier shardId) {
 
 		this.config = config;
-		this.shardingState = shardingState;
+		this.scheme = scheme;
 		this.scheduler = scheduler;
 		this.stageRepo = stageRepo;
 		this.eventBroker = eventBroker;
@@ -115,18 +115,19 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 			if (event instanceof ShardEntity) {
 				final ShardEntity entity = (ShardEntity) event;
 				
+				/*
 				final String sid = entity.getCommitTree().getLast().getTargetId();
 				
-				/*
+				
 				final BrokerChannel origin = eventBroker.buildToTarget(
 						config, 
 						Channel.LEADTOFOLL, 
-						shardingState.getScheme().findShard(sid).getShardID());
+						scheme.getScheme().findShard(sid).getShardID());
 				eventBroker.send(origin, event);
-				*/
+				
 				
 				// make available to all followers
-				shardingState.getCommitedState().findShards(null, shard-> {
+				scheme.getCommitedState().findShards(null, shard-> {
 					eventBroker.send(
 							eventBroker.buildToTarget(
 									config, 
@@ -134,9 +135,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 									shard.getShardID()), 
 							event);
 				});
-				
-				
-				
+				*/
 				mediateOnEntity(singletonList(entity), (r)->{});
 			} else if (event instanceof List) {
 				mediateOnEntity((List)event, (r)->{});
@@ -171,7 +170,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	private void updateOrTransfer(final Consumer<Reply> callback, final ShardEntity entity) {
 		boolean sent[] = { false };
 		if (entity.getType() == ShardEntity.Type.DUTY) {
-			final Shard location = shardingState.getCommitedState().findDutyLocation(entity);
+			final Shard location = scheme.getCommitedState().findDutyLocation(entity);
 			if (location != null && location.getState().isAlive()) {
 				final Serializable payloadType = entity.getUserPayload() != null ? 
 						entity.getUserPayload().getClass().getSimpleName() : "[empty]";
@@ -183,7 +182,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 			}
 			sent[0] = eventBroker.send(location.getBrokerChannel(), entity);
 		} else if (entity.getType() == ShardEntity.Type.PALLET) {
-			shardingState.getCommitedState().filterPalletLocations(entity, shard -> {
+			scheme.getCommitedState().filterPalletLocations(entity, shard -> {
 				if (shard.getState().isAlive()) {
 					final Serializable payloadType = entity.getUserPayload() != null ? 
 							entity.getUserPayload().getClass().getSimpleName() : "[empty]";
