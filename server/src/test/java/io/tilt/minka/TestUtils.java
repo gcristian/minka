@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 import org.junit.Assert;
 
@@ -25,7 +26,7 @@ public class TestUtils {
 	public static Config prototypeConfig() {
 		final Config prototypeConfig = new Config();
 		prototypeConfig.getBootstrap().setNamespace("client-test");
-		prototypeConfig.getBootstrap().setBeatUnitMs(100l);
+		prototypeConfig.getBootstrap().setBeatUnitMs(50l);
 		return prototypeConfig;
 	}
 
@@ -42,7 +43,7 @@ public class TestUtils {
 			l.getServer().shutdown();
 		}
 		try {
-			Thread.sleep(1000l);			
+			Thread.sleep(1000l);
 		} catch (Exception e) {
 		}
 	}
@@ -65,15 +66,18 @@ public class TestUtils {
 		
 		final Set<ServerWhitness> cluster = new HashSet<>();
 		for (int i = 0 ; i < size; i++) {
-			cluster.add(createServer(config, duties, pallets, String.valueOf(i)));
+			cluster.add(createServer(i, config, duties, pallets, String.valueOf(i)));
 		}
 		
 		int max = 999;
 		while (max-->0) {
-			for (ServerWhitness w: cluster) {
-				if (w.getServer().getClient().isCurrentLeader()) {
-					return cluster;
+			if (!cluster.isEmpty()) {
+				for (ServerWhitness w: cluster) {
+					if (w.getServer().getClient().isCurrentLeader()) {
+						return cluster;
+					}
 				}
+				
 			}
 			Thread.sleep(50l);
 		}
@@ -125,11 +129,15 @@ public class TestUtils {
 				current.removeAll(d);
 			})
 			.done();
+		sleep();
+		return new ServerWhitness(server, everCaptured, everReleased, current);
+	}
+
+	private static void sleep() {
 		try {
 			Thread.sleep(500l);
 		} catch (InterruptedException e) {
 		}
-		return new ServerWhitness(server, everCaptured, everReleased, current);
 	}
 
 	public static enum Type {
