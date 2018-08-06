@@ -20,7 +20,7 @@ public class BrokerConfiguration {
 	//protected final static int RETRY_DELAY_MS = 300;
 	//private int retryDelayMs;
 	/** True: try number-consecutive open ports if specified is busy, False: break bootup */
-	protected static final boolean ENABLE_PORT_FALLBACK = true;
+	protected static final boolean ENABLE_PORT_FALLBACK = false;
 	public boolean enablePortFallback;
 	protected static final boolean USE_MACHINE_HOSTNAME = false;
 	public boolean useMachineHostname;
@@ -34,11 +34,20 @@ public class BrokerConfiguration {
 	protected final static long SHUTDOWN_TIMEOUT = SHUTDOWN_QUIET * 3;
 	private long shutdownTimeout;
 	
-	public String getHostPort() {
-		return this.hostPort;
+	public String getHost() {
+		return this.hostPort.split(":")[0];
 	}
-	public void setHostPort(String hostPort) {
-		this.hostPort = hostPort;
+	public String getPort() {
+		return this.hostPort.split(":")[1];
+	}
+	public void setHostPort(final String hostport) {
+		this.hostPort = hostport;
+	}
+	public String getHostPort() {
+		return hostPort;
+	}
+	public void setHostAndPort(final String host, final int port) {
+		this.hostPort = host + ":" + port;
 	}
 	public int getConnectionHandlerThreads() {
 		return this.connectionHandlerThreads;

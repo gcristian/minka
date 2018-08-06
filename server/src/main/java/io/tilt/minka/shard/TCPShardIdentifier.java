@@ -96,7 +96,9 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		this.sourceHost = findLANAddress(brokerStr[0], config.getBroker().getNetworkInterfase());
 		
 		config.setResolvedShardId(this);
-		take(config.getBroker().isEnablePortFallback());
+		if (config.getBroker().isEnablePortFallback()) {
+			take();
+		}
 		buildId(config);
 		
 		this.tag = buildTag(config.getBootstrap().getServerTag());
@@ -139,9 +141,9 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 
 	/*  with a best effort for helping multi-tenancy and noisy infra people */
 	@Override
-	public void take(final boolean findAnyPort) throws Exception {
+	public void take() throws Exception {
 		Exception cause = null;
-		for (int search = 0; search < (findAnyPort ? PORT_SEARCHES_MAX : 1); this.port++, search++) {
+		for (int search = 0; search < PORT_SEARCHES_MAX ; this.port++, search++) {
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: {} port {}:{} (search no.{}/{}) ", logName,
 					search == 0 ? "Testing" : "Trying fallback port", sourceHost, this.port, search, PORT_SEARCHES_MAX);
@@ -161,7 +163,7 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		this.port = configuredPort; // just going back
 		String fallbackFailed = "Fallbacks failed - try configuring a valid open port";
 		String configFailed = "To avoid boot-up failure enable configuration parameter: brokerServerPortFallback = true";
-		final Exception excp = new IllegalArgumentException(findAnyPort ? fallbackFailed : configFailed, cause);
+		final Exception excp = new IllegalArgumentException(fallbackFailed, cause);
 		logger.error("{}: No open port Available ! {}", logName, excp);
 		throw excp;
 	}

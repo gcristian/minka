@@ -82,12 +82,15 @@ public class TestUtils {
 	}
 	
 	public static ServerWhitness createServer(
+			final int portIncrement,
 			final Config refConfig,
 			final Set<Duty> duties, 
 			final Set<Pallet> pallets,
 			final String tag) {
 		
 		final Config ownConfig = new Config(refConfig.getBootstrap().getZookeeperHostPort());
+		ownConfig.getBroker().setEnablePortFallback(false);
+		ownConfig.getBroker().setHostAndPort("localhost", 7000 + portIncrement);
 		ownConfig.getBootstrap().setServerTag(tag);
 		ownConfig.getBootstrap().setNamespace(refConfig.getBootstrap().getNamespace());
 		ownConfig.getBootstrap().setBeatUnitMs(refConfig.getBootstrap().getBeatUnitMs());
