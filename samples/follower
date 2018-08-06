@@ -12,16 +12,20 @@ jq=$(which jq); tr=$(which tr)
 # ------------------------------------------------------
 
 EP="$1"
-if [ ! -z ${2} ]; then
-	EP=$EP"?detail=true"
-fi
+[ ! -z ${2} ] && EP=$EP"?detail=true"
 leader=$(./leader)
 CONTEXT="/minka/admin"
 SHARDS="$CONTEXT/shards"
 
 CMD="$($curl -s $(./leader)$SHARDS | $jq '.shards[].id["web-host-port"]' | $tr -d \")"
+declare a=0
+declare o="["
 for f in ${CMD[@]}; do
-	x=$(for i in {1..30}; do h=$h"-"; done; echo $h)
-	echo "$x $f $x"
-	$curl -s $f$CONTEXT/$EP | $jq
+	js=$($curl -s $f$CONTEXT/$EP | $jq '.' -c)
+	js="{\"follower\":\"$f\",\"$EP\":$js}"
+	[ "$a" == 0 ] && a=1 || o=$o","
+	o=$o""$js
 done
+o=$o"]"
+
+echo -n -e $o
