@@ -1,5 +1,19 @@
+                              
+                              ____
+                        __eeee8888eeee__                        
+                    _~e88              88e~_           ooooo                   oooo                        o8                       
+                 ~__e88_                _88e__~         888  oo oooooo    ooooo888 oooo  oooo   ooooooo  o888oo ooooooo  oo oooooo
+               ~___8e__                  __e8___~       888   888   888 888    888  888   888 888     888 888 888     888 888    888
+              ~___8e__                    __e8___~      888   888   888 888    888  888   888 888         888 888     888 888        
+              ~__e8e__                    __e8e__~     o888o o888o o888o  88ooo888o  888o88 8o  88ooo888   888o 88ooo88  o888o 
+                __ee____                ____ee__             
+                  _ee______          ______ee_            
+                    ee________    ________ee           Tagline:   $ta
+                      ee                ee             Address:   $ad
+                         ee          ee                WebServer: $ht
+                     =eee              eee=            Zookeeper: $zk
+                ==eee                      eee==       Namespace: $ns
 
-	_____ __   _ _____  _    _ _____ _____ _____   _____
-	  |   | \  | |    \ |    | |       |   |    | |____/   	    
-	__|__ |  \_| |____/ |____| |____   |   |____| |    \_    
-		
+
+                http://www.apache.org/licenses/LICENSE-2.0
+                

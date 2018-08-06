@@ -342,9 +342,8 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		for (int i = 0; i < deliveryIdx; i++) {
 			final Delivery d = deliveries.get(i);
 			if (d.getStep() == Delivery.Step.PENDING) {
-				if (logger.isInfoEnabled()) {
-					logger.info("{}: No more parallels: past deliveries yet pending", getClass().getSimpleName());
-				}
+				c.accept(String.format("%s: No more parallels: past deliveries yet pending", 
+						getClass().getSimpleName()));
 				return false;
 			}
 		}

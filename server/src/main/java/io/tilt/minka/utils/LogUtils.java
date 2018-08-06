@@ -33,8 +33,8 @@ public class LogUtils {
 	
 	public final static char OK = '√';
 	public final static char CRASH = '⚡';
-	public final static char HYPHEN_CHAR = '—';
-	public final static char GROSS_CHAR = '▬';
+	public final static char HYPHEN_CHAR= ' ';
+	public final static char GROSS_CHAR = '=';
 	public final static char HB_CHAR = '♥';
 	public final static char BALANCED_CHAR = '☯';
 	public final static char HEALTH_UP = '▲';
@@ -53,10 +53,10 @@ public class LogUtils {
 	}
 	public static String titleLine(final char ch, final String title) {
 		int dots = LARGE - title.length() - 2;
-		StringBuilder line = new StringBuilder();
-		grossLine(ch, dots, line);
+		StringBuilder line = new StringBuilder("      ❇  ");
+		//grossLine(ch, dots, line);
 		line.append(" ").append(title).append(" ");
-		grossLine(ch, dots, line);
+		//grossLine(ch, dots, line);
 		return line.toString();
 	}
 	private static String randomSaluteFromFile() {
@@ -71,8 +71,7 @@ public class LogUtils {
 	}
 
 	private static void grossLine(final char ch, int dots, StringBuilder line) {
-		for (int i = 0; i < (dots / 2); i++)
-			line.append(ch);
+		for (int i = 0; i < (dots / 2); i++) line.append(ch);
 	}
 
 	private static String endLine() {
