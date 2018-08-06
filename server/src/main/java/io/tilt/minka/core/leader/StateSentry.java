@@ -123,21 +123,18 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 				logger.debug("{}: no {} Delivery for heartbeat's shard: {}", getClass().getSimpleName(), 
 						Delivery.Step.PENDING, shard.getShardID().toString());
 			}			
-		} else if (lazyOrSurvivor(beat, changePlan)) {
-			shardingState.getUncommited().feedFromPreviousState(beat.getCaptured(), shard);
+		} else if (isLazyOrSurvivor(beat, changePlan)) {
+			scheme.getLearningState().learn(beat.getCaptured(), shard);
 		}
 	}
 
 	/**
 	 * @return TRUE if we must consider heartbeat reports as part of previous state
 	 */
-	private boolean lazyOrSurvivor(final Heartbeat beat, final ChangePlan changePlan) {
+	private boolean isLazyOrSurvivor(final Heartbeat beat, final ChangePlan changePlan) {
 		final boolean survivor = changePlan == null && beat.reportsDuties();
 		boolean lazy = false;
-		if (changePlan != null && changePlan.getResult().isClosed() && beat.reportsDuties()
-				// wait only 1 change-plan for the lazy followers
-				&& changePlan.getId() == shardingState.getFirstPlanId()) {
-
+		if (changePlan != null && changePlan.getResult().isClosed() && beat.reportsDuties()) {
 			long max = 0;
 			for (EntityRecord er : beat.getCaptured()) {
 				final Log l = er.getCommitTree().findOne(0, beat.getShardId(), EntityEvent.ATTACH);
@@ -145,7 +142,12 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 					max = l.getPlanId();
 				}
 			}
-			lazy = max < shardingState.getFirstPlanId();
+			lazy = max < scheme.getFirstPlanId();
+			// wait only 1 change-plan for the lazy followers
+			if (lazy && changePlan.getId() != scheme.getFirstPlanId()) {
+				lazy = false;
+				logger.error("{}: follower out of range for survivor: {}", getClass().getSimpleName(), beat.getShardId());
+			}
 		}
 		return lazy || survivor;
 	}

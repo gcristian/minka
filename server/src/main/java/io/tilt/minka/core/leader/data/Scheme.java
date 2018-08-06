@@ -130,6 +130,13 @@ public class Scheme {
 		return this.commitedState;
 	}
 
+	public LearningState getLearningState() {
+		if (learningState == null) {
+			learningState = new LearningState();
+		}
+		return learningState;
+	}
+	
 	public ClusterHealth getHealth() {
 		return this.distributionHealth == visibilityHealth 
 				&& distributionHealth == STABLE ? STABLE : UNSTABLE;

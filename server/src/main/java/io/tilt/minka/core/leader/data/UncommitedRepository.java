@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -82,13 +83,13 @@ public class UncommitedRepository {
 			}
 		});
 	}
-
+	
 	/** duties directly from client */
 	public boolean loadRawDuties(final Collection<Duty> raw, final Consumer<Reply> callback) {		
 		final Set<ShardEntity> rawSet = raw.stream().map(x-> toEntity(x)).collect(Collectors.toSet());
-		final Set<ShardEntity> merged = mergeWithLearningDomain(rawSet);
+		final Set<ShardEntity> merged = scheme.getLearningState().merge(rawSet);
 		// patch and write previous commited state
-		sharding.getUncommited().patchCommitTreesWithLearningDistro(new HashSet<>(merged), (shard, patch)-> {
+		scheme.getLearningState().patchCommitTrees(new HashSet<>(merged), (shard, patch)-> {
 			merged.remove(patch);
 			// directly commit them as THE true reality			
 			scheme.getCommitedState().commit(patch, 
