@@ -1,9 +1,12 @@
 package io.tilt.minka.core.leader.distributor;
 
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.data.ShardingState;
+import io.tilt.minka.core.leader.data.CommitedState;
+import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
@@ -55,19 +58,14 @@ class ReplicationDispatcher {
 			final Shard leader,
 			final Pallet p) {
 		
+		final CommitedState cs = scheme.getCommitedState();
 		// not all de/allocations, only those shipped to leader's local follower (same shard)
-		changePlan.onShippingsFor(cause, leader, duty-> { 
+		changePlan.onShippingsFor(cause, leader, duty-> {
+			// same pallet, and present as new CRUD (involved)
 			if (duty.getDuty().getPalletId().equals(p.getId()) && involved.contains(duty)) { 				
-				state.getCommitedState().findShards(
-						shard->!leader.getShardID().equals(shard.getShardID()), 
-						follower-> { 
-								duty.getCommitTree().addEvent(
-										effect, 
-										EntityState.PREPARED, 
-										follower.getShardID(), 
-										changePlan.getId());
-								changePlan.ship(follower, duty);
-						}
+				cs.findShards(
+						predicate(leader, duty),
+						replicate(changePlan, duty, effect)
 				);
 			}
 		});
@@ -79,25 +77,39 @@ class ReplicationDispatcher {
 	 * or if they're already stocked there, dont do it twice ! (warnings arise)
 	 */
 	private void dispatchCurrentLocals(
-			final ShardingState state, 
+			final Scheme state, 
 			final ChangePlan changePlan,
 			final Pallet pallet,
 			final Shard leader) {
 				
-		state.getCommitedState().findDuties(leader, pallet, committed-> {
-			state.getCommitedState().findShards(
-				shard-> !leader.getShardID().equals(shard.getShardID()), 
-				other-> {
-					if (!state.getCommitedState().getReplicasByShard(other).contains(committed)) {
-						committed.getCommitTree().addEvent(
-								EntityEvent.STOCK, 
-								EntityState.PREPARED, 
-								other.getShardID(), 
-								changePlan.getId());
-						changePlan.ship(other, committed);
-					}
-				}
+		final CommitedState cs = state.getCommitedState();
+		cs.findDuties(leader, pallet, replic-> {
+			cs.findShards(
+					predicate(leader, replic), 
+					replicate(changePlan, replic, EntityEvent.STOCK)
 			);
 		});
+	}
+
+	private static Consumer<Shard> replicate(
+			final ChangePlan changePlan, 
+			final ShardEntity replicated, 
+			final EntityEvent event) {
+		return nextHost-> {
+			replicated.getCommitTree().addEvent(
+					event, 
+					EntityState.PREPARED, 
+					nextHost.getShardID(), 
+					changePlan.getId());
+			changePlan.ship(nextHost, replicated);
+		};
+	}
+
+	/** @return a filter to other shards than current and not already present on host */
+	private Predicate<Shard> predicate(final Shard leader, final ShardEntity replicated) {
+		final CommitedState cs = scheme.getCommitedState();
+		return probHost-> !leader.getShardID().equals(probHost.getShardID())
+			&& !cs.getReplicasByShard(probHost).contains(replicated)
+			&& !cs.getDutiesByShard(probHost).contains(replicated);
 	}
 }

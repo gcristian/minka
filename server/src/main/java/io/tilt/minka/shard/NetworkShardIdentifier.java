@@ -34,7 +34,7 @@ public interface NetworkShardIdentifier extends ShardIdentifier {
 	void release();
 
 	/** hold any resource guaranteeing availability of the network ID */
-	void take(boolean findAny) throws Exception;
+	void take() throws Exception;
 
 	/** get the port taken */
 	int getPort();

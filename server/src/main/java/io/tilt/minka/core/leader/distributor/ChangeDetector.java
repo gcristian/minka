@@ -122,24 +122,26 @@ public class ChangeDetector {
 		for (final EntityRecord beated : beatedDuties) {
 			for (ShardEntity delivered : deliveryDuties) {
 				if (delivered.getEntity().getId().equals(beated.getId())) {
-					final Log expected = findConfirmationPair(beated, delivered, shardid, pid, events);
-					if (expected != null) {
-						found = true;
-						if (logger.isInfoEnabled()) {
-							if (log == null) {
-								log = new TreeSet<>();
+					for (EntityEvent ee: events) {
+						final Log expected = findConfirmationPair(beated, delivered, shardid, pid, ee);
+						if (expected != null) {
+							found = true;
+							if (logger.isInfoEnabled()) {
+								if (log == null) {
+									log = new TreeSet<>();
+								}
+								log.add(beated);
 							}
-							log.add(beated);
-						}
-						c.accept(expected, delivered);
-					} else {
-						final Date fact = delivered.getCommitTree().getLast().getHead();
-						final long now = System.currentTimeMillis();
-						if (now - fact.getTime() > MAX_EVENT_DATE_FOR_DIRTY) {
-							if (dirty == null) {
-								dirty = new TreeSet<>();
+							c.accept(expected, delivered);
+						} else {
+							final Date fact = delivered.getCommitTree().getLast().getHead();
+							final long now = System.currentTimeMillis();
+							if (now - fact.getTime() > MAX_EVENT_DATE_FOR_DIRTY) {
+								if (dirty == null) {
+									dirty = new TreeSet<>();
+								}
+								dirty.add(beated);
 							}
-							dirty.add(beated);
 						}
 					}
 					break;

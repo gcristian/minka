@@ -226,16 +226,18 @@ public class Distributor implements Service {
 		boolean firstTime = true;
 		ChangePlan p = changePlan;
 		ChangePlanState r = null;
+		boolean justBuilt = false;
 		while (firstTime || rebuild) {
 			if (rebuild) {
 				rebuild = false;
 				p = buildPlan(p);
+				justBuilt = true;
 			}
 			if (p != null && !p.getResult().isClosed()) {
 				if (r == ChangePlanState.RETRYING) {
 					repushPendings(p);
 				} else {
-					pushAvailable(p);
+					pushAvailable(p, justBuilt);
 				}
 				r = p.getResult();
 			}
@@ -282,14 +284,15 @@ public class Distributor implements Service {
 	}
 	
 	/* push parallel deliveries */
-	private void pushAvailable(final ChangePlan changePlan) {
+	private void pushAvailable(final ChangePlan changePlan, final boolean justBuilt) {
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: Driving ChangePlan: {}", getName(), changePlan.getId());
 		}
 		boolean deliveryValid = true;
 		
 		// lets log when it's about to expire
-		while (changePlan.hasNextParallel(logger::info) && !changePlan.getResult().isClosed()) {
+		while (changePlan.hasNextParallel(justBuilt ? (msg)-> msg.length(): logger::info) 
+				&& !changePlan.getResult().isClosed()) {
 			deliveryValid &= push(changePlan, changePlan.next(), false);
 		}	
 		if (deliveryValid) {
@@ -377,7 +380,8 @@ public class Distributor implements Service {
 					delegateFirstCall = false;
 					return false;
 				}
-			}
+			}		
+			uncommitedRepository.loadReplicas();
 			uncommitedRepository.loadRawDuties(duties, logger("Duty"));
 			delegateFirstCall = false;
 

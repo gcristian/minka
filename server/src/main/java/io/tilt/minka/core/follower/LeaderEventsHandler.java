@@ -217,16 +217,18 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 
 	private void acknowledge(final Entry<EntityEvent, List<ShardEntity>> e) {
 		for (ShardEntity duty: e.getValue()) {
-			final Log last = duty.getCommitTree().getLast();
-			final EntityState es = last.getLastState();
-			if (es==EntityState.PENDING) {
-				duty.getCommitTree().addEvent(
-					e.getKey(), 
-					EntityState.ACK, 
-					partition.getId(), 
-					last.getPlanId());
-			} else {
-				logger.warn("{}: ({}) Repeating reception ? {} (now {})", getName(), config.getLoggingShardId(), duty, es);
+			final Log last = duty.getCommitTree().findOne(0, partition.getId(), e.getKey());
+			if (last!=null) {
+				final EntityState es = last.getLastState();
+				if (es==EntityState.PENDING) {
+					duty.getCommitTree().addEvent(
+						e.getKey(), 
+						EntityState.ACK, 
+						partition.getId(), 
+						last.getPlanId());
+				} else if (es!=EntityState.PREPARED){
+					logger.warn("{}: ({}) Repeating reception ? {} (now {})", getName(), config.getLoggingShardId(), duty, es);
+				}
 			}
 		}
 	}

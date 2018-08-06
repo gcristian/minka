@@ -138,9 +138,9 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 		}
 		for (ShardEntity shardedDuty: partition.getReplicas()) {
 			// new leader or not it must be comitted
-			final boolean detected = detectReception(shardedDuty, tmp);
+			includeDuties |= detectReception(shardedDuty, tmp);
 			// replicas must be reported when new leader or when simply comitting
-			if (newLeader || detected) {
+			if (newLeader || includeDuties) {
 				c.accept(EntityRecord.fromEntity(shardedDuty, true));
 			}
 		}
