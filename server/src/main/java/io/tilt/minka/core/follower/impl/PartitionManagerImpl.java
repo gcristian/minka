@@ -153,7 +153,7 @@ class PartitionManagerImpl implements PartitionManager {
 	private boolean dettach_(final Collection<ShardEntity> duties, final Runnable cleanPartitionCallback) {
 		if (logger.isInfoEnabled()) {
 			logger.info("{}: ({}) # -{} RELEASE: {}", getClass().getSimpleName(),
-				partition.getId(), duties.size(), ShardEntity.toStringBrief(duties));
+				partition.getId(), duties.size(), ShardEntity.toStringIds(duties));
 		}
 		
 		try {
@@ -189,8 +189,8 @@ class PartitionManagerImpl implements PartitionManager {
 
 	public boolean attach(final Collection<ShardEntity> duties) {
 		if (logger.isInfoEnabled()) {
-			logger.info("{}: ({}) # +{} TAKE: {}", getClass().getSimpleName(), partition.getId(),
-				duties.size(), ShardEntity.toStringBrief(duties));
+			logger.info("{}: ({}) # +{} CAPTURE: {}", getClass().getSimpleName(), partition.getId(),
+				duties.size(), ShardEntity.toStringIds(duties));
 		}
 		// TODO si falla el cliente no nos importa... ? rollbackeamos todo ? entrariamos en un ciclo...
 		final Set<Pallet> pallets = new HashSet<>();
@@ -230,11 +230,19 @@ class PartitionManagerImpl implements PartitionManager {
 
 	@Override
 	public boolean stock(Collection<ShardEntity> duties) {
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: ({}) # +{} STOCK: {}", getClass().getSimpleName(), partition.getId(),
+				duties.size(), ShardEntity.toStringIds(duties));
+		}
 		return partition.stockAll(duties);
 	}
 
 	@Override
 	public boolean drop(Collection<ShardEntity> duties) {
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: ({}) # +{} DROP: {}", getClass().getSimpleName(), partition.getId(),
+				duties.size(), ShardEntity.toStringIds(duties));
+		}
 		return partition.dropAll(duties);
 	}
 

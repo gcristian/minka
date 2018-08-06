@@ -112,18 +112,23 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 
 	@Override
 	public void accept(final Serializable event) {
+		if (!(event instanceof Clearance)) {
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: ({}) Receiving {}", getName(), config.getLoggingShardId(), 
+						event.getClass().getSimpleName());
+			}
+		}
 		if (event instanceof ArrayList) {
-			onCollection(event);
+			onCollection((ArrayList<ShardEntity>)event);
 		} else if (event instanceof Clearance) {
-			onClearance(event);
+			onClearance((Clearance) event);
 		} else {
 			logger.error("{}: ({}) Unknown event!: {} ", getName(), config.getLoggingShardId(), 
 					event.getClass().getSimpleName());
 		}
 	}
 
-	private void onClearance(final Serializable event) {
-		final Clearance clear = ((Clearance) event);
+	private void onClearance(final Clearance clear) {
 		if (clear.getLeaderShardId().equals(leaderContainer.getLeaderShardId())) {
 			if (logger.isDebugEnabled()) {
 				logger.debug("{}: ({}) Accepting clearance from: {} (id:{})", getName(), config.getLoggingShardId(),
@@ -142,13 +147,7 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		}
 	}
 	
-	@SuppressWarnings("unchecked")
-	private void onCollection(final Serializable event) {
-		if (logger.isInfoEnabled()) {
-			logger.info("{}: ({}) Receiving {}: {}", getName(), config.getLoggingShardId(), 
-					((ArrayList<ShardEntity>) event).size(), event);
-		}
-		final List<ShardEntity> list = (ArrayList<ShardEntity>) event;
+	private void onCollection(final List<ShardEntity> list) {
 		if (list.isEmpty()) {
 			throw new IllegalStateException("leader is sending an empty duty list");
 		}
@@ -158,7 +157,7 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 				() -> handleDuty(list));
 		scheduler.run(handler);
 	}
-
+	
 	private void handleDuty(final List<ShardEntity> duties) {
 		try {
 			for (final Entry<EntityEvent, List<ShardEntity>> e : groupByFoundEvents(duties).entrySet()) {
