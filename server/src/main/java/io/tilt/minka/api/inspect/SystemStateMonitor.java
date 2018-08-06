@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -61,6 +62,7 @@ import io.tilt.minka.core.task.Semaphore;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
+import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.shard.Shard;
@@ -151,7 +153,11 @@ public class SystemStateMonitor {
 	public String plansToJson() {
 		return toJson(buildPlans().toMap());
 	}
-	
+
+	public String beatsToJson() {
+		return toJson(buildBeats());
+	}
+
 	/**
 	 * <p>
 	 * Shows metrics on the event broker's server and clients, used to communicate shards.  
@@ -221,8 +227,36 @@ public class SystemStateMonitor {
 	public String schemeToJson(final boolean detail) {
 		Map<String, Object> m = new LinkedHashMap<>(2);
 		m.put("commited", buildCommitedState(detail));
+		m.put("replicas", buildReplicas(detail));
 		m.put("uncommited", buildUncommitedChanges(detail, scheme.getUncommited()));
 		return toJson(m);
+	}
+	
+	public Map<Shard, Heartbeat> buildBeats() {
+		final Map<Shard, Heartbeat> ret = new HashMap<>();
+		this.scheme.getCommitedState().findShards(null, s-> {
+			Heartbeat last = null;
+			Iterator<Heartbeat> it=s.getHeartbeats().descend();
+			while(it.hasNext()) {
+				final Heartbeat hb = it.next();
+				if (last==null) {
+					last = hb;
+					ret.put(s, hb);
+				} else {
+					// put the last relevant to watch
+					if (hb.reportsDuties()) {
+						if (!last.reportsDuties()) {
+							last = hb;
+						} else {
+							if (hb.getCreation().isAfter(last.getCreation())) {
+								last = hb;
+							}
+						}
+					}
+				}
+			}
+		});
+		return ret;
 	}
 
 	public JSONObject buildPlans() {
@@ -295,6 +329,20 @@ public class SystemStateMonitor {
 	private Map<String, List<Object>> buildCommitedState(final boolean detail) {
 		Validate.notNull(scheme);
 		final Map<String, List<Object>> byPalletId = new LinkedHashMap<>();
+		final Consumer<ShardEntity> adder = addler(detail, byPalletId);
+		scheme.getCommitedState().findDuties(adder);
+		return byPalletId;
+	}
+
+	private Map<String, List<Object>> buildReplicas(final boolean detail) {
+		Validate.notNull(scheme);
+		final Map<String, List<Object>> byPalletId = new LinkedHashMap<>();
+		final Consumer<ShardEntity> adder = addler(detail, byPalletId);
+		partition.getReplicas().forEach(adder);;
+		return byPalletId;
+	}
+
+	private Consumer<ShardEntity> addler(final boolean detail, final Map<String, List<Object>> byPalletId) {
 		final Consumer<ShardEntity> adder = d-> {
 			List<Object> pid = byPalletId.get(d.getDuty().getPalletId());
 			if (pid==null) {
@@ -302,9 +350,7 @@ public class SystemStateMonitor {
 			}
 			pid.add(detail ? d : d.getDuty().getId());
 		};
-		scheme.getCommitedState().findDuties(adder);
-		partition.getReplicas().forEach(adder);;
-		return byPalletId;
+		return adder;
 	}
 
 	private List<Object> dutyBrief(final Collection<ShardEntity> coll, final boolean detail) {
@@ -327,19 +373,19 @@ public class SystemStateMonitor {
 		return ret;
 	}
 
-	private Map<String, List<Object>> buildPartitionDuties(final ShardedPartition partition, boolean entities) {
+	private Map<String, List<Object>> buildPartitionDuties(final ShardedPartition partition, boolean detail) {
 		Validate.notNull(partition);
-		final Map<String, List<Object>> ret = new HashMap<>(2);
+		final Map<String, List<Object>> ret = new LinkedHashMap<>(2);
 		
 		ArrayList<Object> tmp = new ArrayList<>(partition.getDuties().size());
 		ret.put("partition", tmp);
 		for (ShardEntity e: partition.getDuties()) {
-			tmp.add(entities ? e: e.getDuty());
+			tmp.add(detail ? e: e.getDuty().getId());
 		}
 		tmp = new ArrayList<>(partition.getReplicas().size());
 		ret.put("replicas", tmp);
 		for (ShardEntity e: partition.getReplicas()) {
-			tmp.add(entities ? e: e.getDuty());
+			tmp.add(detail ? e: e.getDuty().getId());
 		}
 		return ret;
 	}
@@ -390,7 +436,16 @@ public class SystemStateMonitor {
 			
 			for (final ShardEntity pallet: extractor.getPallets()) {
 				final List<DutyView> dutyRepList = new LinkedList<>();
+				final List<DutyView> repliRepList = new LinkedList<>();
 				int[] size = new int[1];
+				table.getCommitedState().findShards(null,  sh-> {
+					for (ShardEntity se: table.getCommitedState().getReplicasByShard(sh)) {
+						if (se.getDuty().getPalletId().equals(pallet.getPallet().getId())) {
+							repliRepList.add(new DutyView(se.getDuty().getId(), se.getDuty().getWeight()));
+						}
+					}
+				});
+				
 				table.getCommitedState().findDuties(shard, pallet.getPallet(), d-> {
 					size[0]++;
 					dutyRepList.add(
@@ -403,7 +458,7 @@ public class SystemStateMonitor {
 								extractor.getCapacity(pallet.getPallet(), shard),
 								size[0],
 								extractor.getWeight(pallet.getPallet(), shard),
-								dutyRepList));
+								dutyRepList, repliRepList));
 				
 			}
 			ret.add(shardView(
@@ -447,16 +502,21 @@ public class SystemStateMonitor {
 	
 	private static Map<String , Object> palletAtShardView (
 			final String id, final double capacity, final int size, final double weight, 
-			final List<DutyView> duties) {
+			final List<DutyView> duties, final List<DutyView> replicas) {
 
 		final Map<String , Object> map = new LinkedHashMap<>(5);
 		map.put("id", id);
 		map.put("size", size);
 		map.put("capacity", capacity);
 		map.put("weight", weight);
-		StringBuilder sb = new StringBuilder(duties.size() * (5 + 2));
+		
+		final StringBuilder sb = new StringBuilder(duties.size() * (5 + 2));
 		duties.forEach(d->sb.append(d.id).append(", "));
 		map.put("duties",sb.toString());
+		
+		final StringBuilder sb2 = new StringBuilder(replicas.size() * (5 + 2));
+		replicas.forEach(d->sb2.append(d.id).append(", "));
+		map.put("replicas",sb2.toString());
 		return map;
 	}
 	

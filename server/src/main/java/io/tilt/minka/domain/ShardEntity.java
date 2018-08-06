@@ -50,6 +50,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	@JsonIgnore
 	private final Entity from;
 	private final Type type;
+	@JsonIgnore
 	private CommitTree tree;
 	private EntityPayload userPayload;
 	private ShardEntity relatedEntity;

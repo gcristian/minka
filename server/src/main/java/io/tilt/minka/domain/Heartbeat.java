@@ -45,11 +45,14 @@ import io.tilt.minka.shard.Transition;
  * @author Cristian Gonzalez
  * @since Nov 5, 2015
  */
+@JsonInclude(Include.NON_EMPTY)
 public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 
 	private static final long serialVersionUID = 4828220405145911529L;
 
 	private List<EntityRecord> captured;
+	@JsonProperty(index=5, value="captured-ids")
+	private String capturedIds;
 	private Map<Pallet, ShardCapacity> shardCapacities;
 	private final NetworkShardIdentifier shardId;
 	private final DateTime creation;
@@ -133,6 +136,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 		this.sequenceId = sequenceId;
 		this.shardCapacities = shardCapacities;
 		this.reportsDuties = reportsDuties;
+		this.capturedIds = getCaptured_();
 	}
 
 	@JsonProperty(index=7, value="reports-duties")
@@ -190,9 +194,21 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 		this.shardCapacities.clear();
 	}
 
-	@JsonProperty(index=5, value="reported-duties")
+	@JsonProperty(index=5, value="captured-size")
 	private int getDutySize() {
         return this.captured!=null ? this.captured.size() : 0;
+    }
+	
+	private String getCaptured_() {
+        if (captured!=null) {
+        	final StringBuilder ret = new StringBuilder();
+        	for (EntityRecord er: captured) {
+        		ret.append(er.getId()).append(',');
+        	}
+        	return ret.toString();
+        } else {
+        	return null;
+        }
     }
 
 	@JsonProperty(index=4, value="has-warning")

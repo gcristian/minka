@@ -83,6 +83,7 @@ public class AdminEndpoint {
 		ret.put("/distro/run", "run distribution on demand");
 		ret.put("/broker", "show event broker stats");
 		ret.put("/pallets", "show pallets in scheme");
+		ret.put("/beats", "show heartbeats from follower");
 		ret.put("/shards", "show cluster members");
 		ret.put("/scheme", "show available and stage duties");
 		ret.put("/partition", "show duty partition on current shard");
@@ -155,7 +156,13 @@ public class AdminEndpoint {
 	public Response schedule() throws JsonProcessingException {
 		return Response.accepted(state.scheduleToJson()).build();
 	}
-
+	
+	@GET
+	@Path("/beats")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response beats() throws JsonProcessingException {
+        return Response.accepted(state.beatsToJson()).build();
+	}
 	@GET
 	@Path("/plans")
 	@Produces(MediaType.APPLICATION_JSON)
