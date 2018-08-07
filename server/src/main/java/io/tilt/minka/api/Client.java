@@ -152,7 +152,7 @@ public class Client {
 	public Reply add(final Duty duty) {
 		return push(singletonList(duty), EntityEvent.CREATE, null, null);
 	}
-	public void addAll(final Collection<Entity> duty, final Consumer<Reply> callback) {
+	public void addAll(final Collection<? extends Entity> duty, final Consumer<Reply> callback) {
 		push(duty, EntityEvent.CREATE, null, callback); 
 	}
 
@@ -178,7 +178,7 @@ public class Client {
 		return push(singletonList(pallet), EntityEvent.TRANSFER, userPayload, null);
 	}
 	
-	private Reply push(final Collection<Entity> raws, 
+	private Reply push(final Collection<? extends Entity> raws, 
 			final EntityEvent event, 
 			final EntityPayload userPayload, 
 			final Consumer<Reply> callback) {
@@ -250,7 +250,7 @@ public class Client {
 	}
 
 	private List<ShardEntity> toEntities(
-			final Collection<Entity> raws, 
+			final Collection<? extends Entity> raws, 
 			final EntityEvent event,
 			final EntityPayload userPayload) {
 		
