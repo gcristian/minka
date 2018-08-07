@@ -261,7 +261,7 @@ public class Client {
 				builder.withPayload(userPayload);
 			}
 			final ShardEntity tmpp = builder.build();
-			tmpp.getJournal().addEvent(
+			tmpp.getCommitTree().addEvent(
 					event, 
 					EntityState.PREPARED,  
 					this.shardId, 

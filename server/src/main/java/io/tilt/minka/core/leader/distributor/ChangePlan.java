@@ -48,8 +48,8 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.CommitedState;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityJournal;
-import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.CommitTree;
+import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.Shard;
@@ -174,7 +174,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		int rescueCount = 0;
 		for (final Delivery delivery: deliveries) {
 			for (final ShardEntity duty: delivery.getDuties()) {
-				for (final Log log : duty.getJournal().getLogs(id)) {
+				for (final Log log : duty.getCommitTree().getLogs(id)) {
 					final EntityState ls = log.getLastState();
 					if (ls==EntityState.PENDING ||
 							ls == EntityState.DANGLING ||
@@ -267,7 +267,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 				continue;
 			}
 			for (final ShardEntity entity : del.getDuties()) {
-				final EntityJournal j = entity.getJournal();
+				final CommitTree j = entity.getCommitTree();
 				if (!alreadyPaired.contains(entity) 
 						&& j.hasEverBeenDistributed() 
 						&& entity.getLastEvent() != EntityEvent.REMOVE) {
@@ -297,7 +297,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	}
 
 	/*
-	private static boolean wasRecentlyUnifinishedlyAllocated(final EntityJournal j) {
+	private static boolean wasRecentlyUnifinishedlyAllocated(final CommitTree j) {
 		boolean isLegitUnpair = false;
 		int maxHistory = 1; // max history back will find a VALID CREATION in some steps
 		for (final Iterator<Log> it = j.descendingIterator(); it.hasNext() && maxHistory > 0;) {

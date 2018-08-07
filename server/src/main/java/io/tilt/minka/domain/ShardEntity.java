@@ -50,7 +50,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	@JsonIgnore
 	private final Entity from;
 	private final Type type;
-	private EntityJournal journal;
+	private CommitTree tree;
 	private EntityPayload userPayload;
 	private ShardEntity relatedEntity;
 	
@@ -62,8 +62,8 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	private ShardEntity(final Entity entity, Type type) {
 		this.from = entity;
 		this.type = type;
-		this.journal = new EntityJournal();
-		this.journal.addEvent(EntityEvent.CREATE, EntityState.PREPARED, "N/A", ChangePlan.PLAN_WITHOUT);
+		this.tree = new CommitTree();
+		this.tree.addEvent(EntityEvent.CREATE, EntityState.PREPARED, "N/A", ChangePlan.PLAN_WITHOUT);
 	}
 	
 	public static class Builder {
@@ -98,7 +98,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		public ShardEntity build() {
 			if (from!=null) {
 				final ShardEntity t = new ShardEntity(from.getEntity(), from.getType());
-				t.replaceJournal(from.getJournal());
+				t.replaceTree(from.getCommitTree());
 				if (userPayload==null) {
 					t.setUserPayload(from.getUserPayload());
 				}
@@ -165,12 +165,12 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	}
 
 	public boolean is(EntityEvent e) {
-		return getJournal().getLast().getEvent() == e;
+		return getCommitTree().getLast().getEvent() == e;
 	}
 
 	@JsonIgnore
 	public EntityEvent getLastEvent() {
-		return getJournal().getLast().getEvent();
+		return getCommitTree().getLast().getEvent();
 	}
 	
 	private void setUserPayload(final EntityPayload userPayload) {
@@ -253,21 +253,21 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	@JsonIgnore
 	public EntityState getLastState() {
-		return getJournal().getLast().getLastState();
+		return getCommitTree().getLast().getLastState();
 	}
 
 	@JsonIgnore
-	public EntityJournal getJournal() {
-        return this.journal;
+	public CommitTree getCommitTree() {
+        return this.tree;
     }
 	
 	@JsonProperty("commitTree")
-	private List<String> getJournal_() {
-        return this.journal.getStringHistory();
+	private List<String> getCommitTree_() {
+        return this.tree.getStringHistory();
     }
 	
-	public void replaceJournal(final EntityJournal journal) {
-	    this.journal = journal;
+	public void replaceTree(final CommitTree journal) {
+	    this.tree = journal;
 	}
 	
 	public int hashCode() {

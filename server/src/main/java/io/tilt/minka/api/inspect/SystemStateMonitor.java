@@ -374,7 +374,7 @@ public class SystemStateMonitor {
 						pallet.getPallet().getMetadata().getBalancer().getName(), 
 						crudSize[0], 
 						dettachedWeight[0], 
-						new DateTime(pallet.getJournal().getFirst().getHead().getTime()),
+						new DateTime(pallet.getCommitTree().getFirst().getHead().getTime()),
 						pallet.getPallet().getMetadata(),
 						dutyRepList
 					));

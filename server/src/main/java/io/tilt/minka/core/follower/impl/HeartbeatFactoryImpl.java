@@ -34,7 +34,7 @@ import io.tilt.minka.core.follower.HeartbeatFactory;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
@@ -151,7 +151,7 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 	/** this confirms action to the leader */
 	private boolean detectReception(final ShardEntity duty, final Map<EntityEvent, StringBuilder> tmp) {
 		// consider only the last action logged to this shard
-		for (final Log found : duty.getJournal().findAll(partition.getId())) { 
+		for (final Log found : duty.getCommitTree().findAll(partition.getId())) { 
 			final EntityState stamp = EntityState.COMMITED;
 			if (found.getLastState()!=stamp) {
 				if (log.isInfoEnabled()) {
@@ -163,7 +163,7 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 					}
 					sb.append(duty.getDuty().getId()).append(',');
 				}
-				duty.getJournal().addEvent(
+				duty.getCommitTree().addEvent(
 						found.getEvent(), 
 						stamp,
 						partition.getId(), 

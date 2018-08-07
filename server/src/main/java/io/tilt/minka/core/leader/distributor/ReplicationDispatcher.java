@@ -52,7 +52,7 @@ public class ReplicationDispatcher {
 				state.getCommitedState().findShards(
 						shard->!leader.getShardID().equals(shard.getShardID()), 
 						follower-> { 
-								duty.getJournal().addEvent(
+								duty.getCommitTree().addEvent(
 										effect, 
 										EntityState.PREPARED, 
 										follower.getShardID(), 
@@ -80,7 +80,7 @@ public class ReplicationDispatcher {
 				shard-> !leader.getShardID().equals(shard.getShardID()), 
 				other-> {
 					if (!state.getCommitedState().getReplicasByShard(other).contains(committed)) {
-						committed.getJournal().addEvent(
+						committed.getCommitTree().addEvent(
 								EntityEvent.STOCK, 
 								EntityState.PREPARED, 
 								other.getShardID(), 

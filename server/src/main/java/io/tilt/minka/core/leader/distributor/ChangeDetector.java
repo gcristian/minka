@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
@@ -96,7 +96,7 @@ public class ChangeDetector {
 	private static long latestPlan(final Collection<EntityRecord> ents) {
 		long lattestPlanId = 0;
 		for (EntityRecord e: ents) {
-			final long pid = e.getJournal().getLast().getPlanId();
+			final long pid = e.getCommitTree().getLast().getPlanId();
 			if (pid > lattestPlanId) {
 				lattestPlanId = pid;
 			}
@@ -133,7 +133,7 @@ public class ChangeDetector {
 						}
 						c.accept(expected, delivered);
 					} else {
-						final Date fact = delivered.getJournal().getLast().getHead();
+						final Date fact = delivered.getCommitTree().getLast().getHead();
 						final long now = System.currentTimeMillis();
 						if (now - fact.getTime() > MAX_EVENT_DATE_FOR_DIRTY) {
 							if (dirty == null) {
@@ -167,11 +167,11 @@ public class ChangeDetector {
 			final EntityEvent...events) {
 		Log ret = null;
 		// beated duty must belong to current non-expired plan
-		final Log beatedLog = beated.getJournal().findFirst(pid, shardid, events);
+		final Log beatedLog = beated.getCommitTree().findOne(pid, shardid, events);
 		if (beatedLog != null) {
 			final EntityState beatedState = beatedLog.getLastState();
 			if (beatedState == COMMITED || beatedState == ACK) {
-				final Log deliLog = delivered.getJournal().findFirst(pid, shardid, events);
+				final Log deliLog = delivered.getCommitTree().findOne(pid, shardid, events);
 				if (deliLog != null) {
 					final EntityState deliState = deliLog.getLastState();
 					if (deliState == PENDING || deliState !=COMMITED) {
@@ -209,7 +209,7 @@ public class ChangeDetector {
 			if (!beatedDuties.stream()
 				.filter(r->r.getId().equals(prescripted.getEntity().getId()))
 				.findFirst().isPresent()) {
-				final Log changelog = prescripted.getJournal().findFirst(pid, shardid, DETACH, REMOVE);
+				final Log changelog = prescripted.getCommitTree().findOne(pid, shardid, DETACH, REMOVE);
 				if (changelog!=null && (changelog.getLastState()==PENDING || changelog.getLastState()==MISSING)) {
 					found = true;
 					if (logger.isInfoEnabled()) {

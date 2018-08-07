@@ -38,7 +38,7 @@ import io.tilt.minka.core.leader.balancer.BalancingException;
 import io.tilt.minka.core.leader.balancer.Spot;
 import io.tilt.minka.core.leader.data.ShardingState;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityJournal;
+import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.ShardCapacity;
@@ -132,7 +132,7 @@ public class Migrator {
 	
 	/** @return facility for balancers to access the entity change and distribution history */
 	/*
-	List<EntityJournal.Log> getJournal(final Duty duty) {
+	List<CommitTree.Log> getJournal(final Duty duty) {
 	    return requireNonNull(sourceRefs.get(duty)).getJournal().getLogs();
 	}
 	*/
@@ -142,7 +142,7 @@ public class Migrator {
 		requireNonNull(duty);
 		final ShardEntity e = sourceRefs.get(duty);
 		final ShardIdentifier shard = location.getId();
-		e.getJournal().addEvent(
+		e.getCommitTree().addEvent(
 				e.getLastEvent(),
 				EntityState.STUCK,
 				shard,

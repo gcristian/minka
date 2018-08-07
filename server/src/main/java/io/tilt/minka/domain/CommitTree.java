@@ -38,11 +38,11 @@ import java.util.function.Supplier;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-import io.tilt.minka.domain.EntityJournal.Log.StateStamp;
+import io.tilt.minka.domain.CommitTree.Log.StateStamp;
 import io.tilt.minka.shard.ShardIdentifier;
 
 /**
- * Operation and state registry for entities. Living within {@linkplain ShardEntity} instances.
+ * Master CRUD operations and state registry for entities. Living within {@linkplain ShardEntity} instances.
  * Facility methods for a single point of access for {@linkplain Log} instances.
  *  
  * Deliveries are organized so events occurr in this order:
@@ -63,142 +63,134 @@ import io.tilt.minka.shard.ShardIdentifier;
  *  @author Cristian Gonzalez
  *  @since  Oct 15, 2017
 */
-public class EntityJournal implements Serializable {
-	
-	private static final long serialVersionUID = -3304164448469652337L;
-	
+public class CommitTree implements Serializable {
+
 	final static SimpleDateFormat sdf = new SimpleDateFormat("yyMMdd:hhmmss.SSS");
 	@JsonIgnore
 	private boolean sliding;
-
-	@JsonIgnore
-	//private final LinkedList<Log> logs = new LinkedList<>();
-	private final CommitTree tree = new CommitTree();
-
-	public static class CommitTree implements Serializable {
 		
-		private static final long serialVersionUID = 9044973294863922841L;
-		
-		static final int MAX_PLANS = 99;
-		static final int MAX_EVENTS = EntityEvent.values().length;
-		static final int MAX_SHARDS = 99;
-		static final String SHARD_NOID = "noid";
-		
-		private final 
-			LimMap<Long, // plan ids order from older (head) to newest (tail)
-				InsMap<String,  // shard ids unordered
-					LimMap<EntityEvent, Log>>> 	// events orderd by apparition from older (head) to newest (tail) 
-						eventsByPlan = new LimMap<>(
-								MAX_PLANS, 
-								(Comparator<Long> & Serializable) Long::compare);
-		
-		void addEvent(
-				final EntityEvent event, 
-				final EntityState state, 
-				final String shardid, 
-				final long planid) {
-							
-			eventsByPlan.getOrPut(
+	private static final long serialVersionUID = 9044973294863922841L;
+	
+	static final int MAX_PLAN_HISTORY = 99;
+	static final int MAX_EVENTS = EntityEvent.values().length;
+	static final int MAX_SHARD_HISTORY = 99;
+	static final String SHARD_NOID = "noid";
+	
+	@JsonIgnore		
+	private final 
+		LimMap<Long, // plan ids order from older (head) to newest (tail)
+			InsMap<String,  // shard ids unordered
+				LimMap<EntityEvent, Log>>> 	// events orderd by apparition from older (head) to newest (tail) 
+					eventsByPlan = new LimMap<>(
+							MAX_PLAN_HISTORY, 
+							(Comparator<Long> & Serializable) Long::compare);
+	
+	void addEvent_(
+			final EntityEvent event, 
+			final EntityState state, 
+			final String shardid, 
+			final long planid) {
+						
+		eventsByPlan
+			.getOrPut(
 				planid > 0 ? planid : eventsByPlan.isEmpty() ? 0 : eventsByPlan.lastKey(), 
-				()-> new InsMap<String, LimMap<EntityEvent, Log>>(MAX_SHARDS)
-				).getOrPut(
-					shardid, 
-					()-> new LimMap<EntityEvent, Log>(
-						MAX_EVENTS,
-						(Comparator<EntityEvent> & Serializable)
-						(a, b)-> Integer.compare(a.getOrder(), b.getOrder())
-					)).getOrPut(
-						event, 
-						()-> new Log(new Date(), event, shardid, planid))
-					.addState(state);
-		}
-		
-		<I,O> O onLogs(final Function<Log, O> fnc) {
-			O o = null;
-			if (!eventsByPlan.isEmpty()) {
-				for (InsMap<String, LimMap<EntityEvent, Log>> byPlan: eventsByPlan.values()) {
-					for (LimMap<EntityEvent, Log> byShard: byPlan.values()) {
-						for (final Log byEvent: byShard.values()) {
-							o = fnc.apply(byEvent);
-							if (o!=null) {
-								return o;
-							}
+				()-> new InsMap<String, LimMap<EntityEvent, Log>>(MAX_SHARD_HISTORY))
+			.getOrPut(
+				shardid, 
+				()-> new LimMap<EntityEvent, Log>(
+					MAX_EVENTS,
+					(Comparator<EntityEvent> & Serializable)
+					(a, b)-> Integer.compare(a.getOrder(), b.getOrder())))
+			.getOrPut(
+					event, 
+					()-> new Log(new Date(), event, shardid, planid))
+			.addState(state);
+	}
+	
+	<I,O> O onLogs(final Function<Log, O> fnc) {
+		O o = null;
+		if (!eventsByPlan.isEmpty()) {
+			for (InsMap<String, LimMap<EntityEvent, Log>> byPlan: eventsByPlan.values()) {
+				for (LimMap<EntityEvent, Log> byShard: byPlan.values()) {
+					for (final Log byEvent: byShard.values()) {
+						o = fnc.apply(byEvent);
+						if (o!=null) {
+							return o;
 						}
 					}
 				}
 			}
-			return o;
 		}
-
-		Log find_(
-				final long planid, 
-				final String shardid, 
-				final Consumer<Log> c, 
-				final EntityEvent...events) {
-			
-			final InsMap<String, LimMap<EntityEvent, Log>> shards = 
-					planid == 0 ? eventsByPlan.lastEntry().getValue() : eventsByPlan.get(planid);
-			if (shards!=null) {
-				final LimMap<EntityEvent, Log> logs = shardid == null ? 
-						shards.getLast() : shards.get(shardid);
-				if (logs!=null) {
-					if (events!=null && events.length>0) {
-						for (EntityEvent ee: events) {
-							final Log x = logs.get(ee);
-							if (x!=null) {
-								if (c!=null) {
-									c.accept(x);
-								} else {
-									return x;
-								}
-							}
-						}
-					} else {
-						final Log last = logs.lastEntry().getValue();
-						if (last!=null) {
-							if (c!=null) {
-								c.accept(last);
-							} else {
-								return last;
-							}
-						}
-					}
-				}
-			}
-			return null;
-		}
-		
-
-		Log getPreviousLog(final String shardid) {
-			if (!eventsByPlan.isEmpty()) {
-				final LimMap<EntityEvent, Log> sh = eventsByPlan.lastEntry().getValue().get(shardid);
-				if (sh!=null) {
-					final Iterator<EntityEvent> it = sh.descendingKeySet().iterator();
-					if (it.hasNext()) {
-						it.next();
-					}
-					if (it.hasNext()) {
-						return sh.get(it.next());
-					}
-				}
-			}
-			return null;
-		}
-		
-		Log getFirstLog() {
-			if (eventsByPlan.firstEntry()!=null) {
-				final LimMap<EntityEvent, Log> first = eventsByPlan.firstEntry().getValue().getFirst();
-				if (first!=null) {
-					if (first.firstEntry()!=null) {
-						return first.firstEntry().getValue();
-					}
-				}
-			}
-			return null;
-		}
-		
+		return o;
 	}
 
+	Log find_(
+			final long planid, 
+			final String shardid, 
+			final Consumer<Log> c, 
+			final EntityEvent...events) {
+		
+		final InsMap<String, LimMap<EntityEvent, Log>> shards = 
+				planid == 0 ? eventsByPlan.lastEntry().getValue() : eventsByPlan.get(planid);
+		if (shards!=null) {
+			final LimMap<EntityEvent, Log> logs = shardid == null ? 
+					shards.getLast() : shards.get(shardid);
+			if (logs!=null) {
+				if (events!=null && events.length>0) {
+					for (EntityEvent ee: events) {
+						final Log x = logs.get(ee);
+						if (x!=null) {
+							if (c!=null) {
+								c.accept(x);
+							} else {
+								return x;
+							}
+						}
+					}
+				} else {
+					final Log last = logs.lastEntry().getValue();
+					if (last!=null) {
+						if (c!=null) {
+							c.accept(last);
+						} else {
+							return last;
+						}
+					}
+				}
+			}
+		}
+		return null;
+	}
+	
+
+	public Log getPreviousLog(final String shardid) {
+		if (!eventsByPlan.isEmpty()) {
+			final LimMap<EntityEvent, Log> sh = eventsByPlan.lastEntry().getValue().get(shardid);
+			if (sh!=null) {
+				final Iterator<EntityEvent> it = sh.descendingKeySet().iterator();
+				if (it.hasNext()) {
+					it.next();
+				}
+				if (it.hasNext()) {
+					return sh.get(it.next());
+				}
+			}
+		}
+		return null;
+	}
+	
+	Log getFirstLog() {
+		if (eventsByPlan.firstEntry()!=null) {
+			final LimMap<EntityEvent, Log> first = eventsByPlan.firstEntry().getValue().getFirst();
+			if (first!=null) {
+				if (first.firstEntry()!=null) {
+					return first.firstEntry().getValue();
+				}
+			}
+		}
+		return null;
+	}
+	
 	interface Common<K, V> extends Map<K, V> {
 		default V getOrPut(final K key, final Supplier<V> defaultValue) {
 			V v = get(key);
@@ -265,17 +257,13 @@ public class EntityJournal implements Serializable {
 		
 	}
 
-	public CommitTree getTree() {
-		return tree;
-	}
-
 
 	public void addEvent(
 			final EntityEvent event, 
 			final EntityState state, 
 			final ShardIdentifier shardid, 
 			final long planid) {
-		tree.addEvent(requireNonNull(event), requireNonNull(state), requireNonNull(shardid.getId()), planid);
+		addEvent_(requireNonNull(event), requireNonNull(state), requireNonNull(shardid.getId()), planid);
 	}
 	
 	public void addEvent(
@@ -283,44 +271,48 @@ public class EntityJournal implements Serializable {
 			final EntityState state, 
 			final String shardid, 
 			final long planid) {
-		tree.addEvent(requireNonNull(event), requireNonNull(state), requireNonNull(shardid), planid);
+		addEvent_(requireNonNull(event), requireNonNull(state), requireNonNull(shardid), planid);
 	}
 
 	public Log getLast() {
-		return tree.find_(0, null, null, null);		
-		//return tree2.findLast();
+		return find_(0, null, null, null);		
 	}
 	
 	public Log getFirst() {
-		return tree.getFirstLog();
+		return getFirstLog();
 	}
-	
-	@JsonIgnore
-	/** @return an unmodifiable list */
-	/*
-	public List<Log> getLogs() {
-		return unmodifiableList(logs);
-	}
-	*/
 	
 	public List<Log> filterLogs(final long pid, final String shardid, final EntityEvent ee) {
 		final List<Log> r = new LinkedList<>();
-		tree.find_(pid, shardid, r::add, ee);
+		find_(pid, shardid, r::add, ee);
 		return r;
-	}
-	
-	public Log getPreviousLog(final String shardid) {
-		return tree.getPreviousLog(shardid);
 	}
 
 	public List<Log> getLogs(final long planId) {
         final List<Log> r = new LinkedList<>();
-        tree.find_(planId, null, r::add, (EntityEvent[])null);
+        find_(planId, null, r::add, (EntityEvent[])null);
         return r;
     }
+	
+	/** @return if a log with state commited exists matching shard and event */
+	public boolean exists(final String shardid, EntityEvent ee) {
+		final Boolean x = onLogs(log-> {
+			if (log.getEvent()==ee && log.getTargetId().equals(shardid)) {
+				if (log.getLastState()==EntityState.COMMITED) {
+					return true;
+				}
+			}
+			return null;
+		});
+		if (x!=null) {
+			return x;
+		} else {
+			return false;
+		}
+	}
 
 	public boolean hasEverBeenDistributed() {
-	    tree.onLogs(log-> {
+	    onLogs(log-> {
 	        if (log.getEvent()==EntityEvent.ATTACH) {
 	            for (final StateStamp ds: log.getStates()) {
 	                if (ds.getState()==EntityState.COMMITED) {
@@ -337,12 +329,12 @@ public class EntityJournal implements Serializable {
 	 * @return reading from latest to earliest a Log that matches given:
 	 * plan version, target shard and specific events, or any if null
 	 **/
-	public Log findFirst(final long planid, final ShardIdentifier shardid, final EntityEvent...events) {
-		return findFirst(planid, shardid.getId(), events);
+	public Log findOne(final long planid, final ShardIdentifier shardid, final EntityEvent...events) {
+		return findOne(planid, shardid.getId(), events);
 	}
 	
-	private Log findFirst(final long planid, final String shardid, final EntityEvent...events) {
-		return tree.find_(planid, shardid, null, events);
+	private Log findOne(final long planid, final String shardid, final EntityEvent...events) {
+		return find_(planid, shardid, null, events);
 	}
 	
 	/**
@@ -350,12 +342,12 @@ public class EntityJournal implements Serializable {
 	 */
 	public Collection<Log> findAll(final ShardIdentifier shardid) {
 		final List<Log> r = new LinkedList<>();
-		tree.find_(0, shardid.getId(), r::add, EntityEvent.values());
+		find_(0, shardid.getId(), r::add, EntityEvent.values());
 		return r;
 	}
 	public Collection<Log> findAll(final long planid, final ShardIdentifier shardid, final EntityEvent...events) {
 		final List<Log> r = new LinkedList<>();
-		tree.find_(planid, shardid.getId(), r::add, events);
+		find_(planid, shardid.getId(), r::add, events);
 		return r;
 	}
 	
@@ -406,7 +398,7 @@ public class EntityJournal implements Serializable {
 		
 		
 		final Map<StateStamp, String> ordered = new TreeMap<>(new StateStamp.DateComparer());
-		tree.onLogs(el-> {
+		onLogs(el-> {
 			for (final StateStamp ts : el.getStates()) {
 				ordered.put(ts, String.format("%s %s: %s (%s) at %s",
 								el.getPlanId(),

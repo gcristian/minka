@@ -22,7 +22,7 @@ import io.tilt.minka.api.Reply;
 import io.tilt.minka.api.ReplyValue;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardIdentifier;
 import io.tilt.minka.domain.EntityState;
@@ -105,7 +105,7 @@ public class UncommitedRepository {
 			builder.withRelatedEntity(pallet);
 		}
 		final ShardEntity entity = builder.build();
-		entity.getJournal().addEvent(
+		entity.getCommitTree().addEvent(
 				EntityEvent.CREATE, 
 				EntityState.PREPARED, 
 				this.shardId,
@@ -141,7 +141,7 @@ public class UncommitedRepository {
 							.build();
 					// decorate with origin source (only for tracking purposes)
 					copyOrigin(duty, newone);
-					newone.getJournal().addEvent(
+					newone.getCommitTree().addEvent(
 							EntityEvent.CREATE, 
 							EntityState.PREPARED, 
 							this.shardId,
@@ -169,10 +169,10 @@ public class UncommitedRepository {
 	}
 
 	private void copyOrigin(ShardEntity source, final ShardEntity target) {
-		final Log origin = source.getJournal().getLast();
+		final Log origin = source.getCommitTree().getLast();
 		final ShardIdentifier originId = fromShardId(origin.getTargetId());
 		if (originId!=null) {
-			target.getJournal().addEvent(
+			target.getCommitTree().addEvent(
 					origin.getEvent(), 
 					origin.getLastState(), 
 					originId, 

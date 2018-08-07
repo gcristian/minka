@@ -83,7 +83,7 @@ public class Override {
 		final int[] count = new int[1];
 		scheme.getCommitedState().findDuties(getShard(), pallet, detach-> {
 			if (entities == null || !entities.contains(detach)) {
-				detach.getJournal().addEvent(EntityEvent.DETACH,
+				detach.getCommitTree().addEvent(EntityEvent.DETACH,
 						EntityState.PREPARED,
 						shard.getShardID(),
 						changePlan.getId());
@@ -111,7 +111,7 @@ public class Override {
 			for (final ShardEntity attach: entities) {
 				if (!scheme.getCommitedState().dutyExistsAt(attach, getShard())) {
 					count++;
-					attach.getJournal().addEvent(EntityEvent.ATTACH,
+					attach.getCommitTree().addEvent(EntityEvent.ATTACH,
 							EntityState.PREPARED,
 							shard.getShardID(),
 							changePlan.getId());

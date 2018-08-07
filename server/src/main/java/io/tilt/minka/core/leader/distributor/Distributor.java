@@ -49,7 +49,7 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.Shard;
@@ -429,8 +429,8 @@ public class Distributor implements Service {
 
 	private void communicateUpdates() {
 		final Set<ShardEntity> updates = shardingState.getUncommited().getDutiesCrud().stream()
-				.filter(i -> i.getJournal().getLast().getEvent() == EntityEvent.UPDATE 
-					&& i.getJournal().getLast().getLastState() == EntityState.PREPARED)
+				.filter(i -> i.getCommitTree().getLast().getEvent() == EntityEvent.UPDATE 
+					&& i.getCommitTree().getLast().getLastState() == EntityState.PREPARED)
 				.collect(Collectors.toCollection(HashSet::new));
 		if (!updates.isEmpty()) {
 			for (ShardEntity updatedDuty : updates) {

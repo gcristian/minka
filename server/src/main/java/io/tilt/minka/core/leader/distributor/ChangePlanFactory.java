@@ -152,7 +152,7 @@ class ChangePlanFactory {
 			final ShardEntity schemed = scheme.getCommitedState().getByDuty(crud.getDuty());
 			if (schemed!=null) {
 				// translate the REMOVAL event
-				schemed.getJournal().addEvent(
+				schemed.getCommitTree().addEvent(
 						crud.getLastEvent(), 
 						crud.getLastState(), 
 						scheme.getCommitedState().findDutyLocation(schemed).getShardID(), 
@@ -247,10 +247,10 @@ class ChangePlanFactory {
 				partition.getCommitedState().commit(missed, lazy, REMOVE, ()-> {
 					// missing duties are a confirmation per-se from the very shards,
 					// so the ptable gets fixed right away without a realloc.
-					missed.getJournal().addEvent(REMOVE, COMMITED,lazy.getShardID(),changePlan.getId());					
+					missed.getCommitTree().addEvent(REMOVE, COMMITED,lazy.getShardID(),changePlan.getId());					
 				});
 			}
-			missed.getJournal().addEvent(CREATE, PREPARED,"N/A",changePlan.getId());
+			missed.getCommitTree().addEvent(CREATE, PREPARED,"N/A",changePlan.getId());
 			partition.getUncommited().snapshot().addCrudDuty(missed);
 		}
 		if (!missing.isEmpty()) {
@@ -289,7 +289,7 @@ class ChangePlanFactory {
 
 		for (final ShardEntity deletion : deletions) {
 			final Shard shard = partition.getCommitedState().findDutyLocation(deletion);
-			deletion.getJournal().addEvent(DETACH, 
+			deletion.getCommitTree().addEvent(DETACH, 
 					PREPARED,
 					shard.getShardID(),
 					changePlan.getId());

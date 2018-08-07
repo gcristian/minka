@@ -45,17 +45,17 @@ public class EntityRecord implements Comparable<EntityRecord>, Comparator<Entity
 	private static final long serialVersionUID = 4519763920222729635L;
 	private String id;
 	private final ShardEntity.Type type;
-	private EntityJournal journal;
+	private CommitTree commitTree;
 	private ShardEntity entity;
 	
 	private EntityRecord(
 			final String id, 
 			final ShardEntity.Type type, 
-			final EntityJournal journal, 
+			final CommitTree journal, 
 			final ShardEntity entity) {
 		this.id = requireNonNull(id);
 		this.type = requireNonNull(type);
-		this.journal = requireNonNull(journal);
+		this.commitTree = requireNonNull(journal);
 		this.entity = entity;
 	}
 	
@@ -64,7 +64,7 @@ public class EntityRecord implements Comparable<EntityRecord>, Comparator<Entity
 		return new EntityRecord(
 				entity.getEntity().getId(), 
 				entity.getType(), 
-				entity.getJournal(),
+				entity.getCommitTree(),
 				packit? entity : null);
 		
 	}
@@ -107,15 +107,15 @@ public class EntityRecord implements Comparable<EntityRecord>, Comparator<Entity
 
 	@JsonIgnore
 	public EntityState getLastState() {
-		return getJournal().getLast().getLastState();
+		return getCommitTree().getLast().getLastState();
 	}
 
 	@JsonIgnore
-	public EntityJournal getJournal() {
-        return this.journal;
+	public CommitTree getCommitTree() {
+        return this.commitTree;
     }
 	/*
-	@JsonProperty("journal")
+	@JsonProperty("commitTree")
 	private List<String> getJournal_() {
         return this.journal.getStringHistory();
     }

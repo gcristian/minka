@@ -45,7 +45,7 @@ import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.leader.distributor.Delivery;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
@@ -171,7 +171,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 			}
 
 			// copy the found situation to the instance we care
-			entity.getJournal().addEvent(changelog.getEvent(),
+			entity.getCommitTree().addEvent(changelog.getEvent(),
 					COMMITED,
 					shard.getShardID(),
 					changelog.getPlanId());
@@ -183,7 +183,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 		// REMOVES go this way:
 		if (changelog.getEvent()==EntityEvent.DETACH) {
-			final Log previous = entity.getJournal().getPreviousLog(shard.getShardID().getId());
+			final Log previous = entity.getCommitTree().getPreviousLog(shard.getShardID().getId());
 			if (previous!=null && previous.getEvent()==EntityEvent.REMOVE) {
 				shardingState.getCommitedState().commit(entity, shard, previous.getEvent(), ()->{
 					logger.info("{}: Removing duty at request: {}", classname, entity);
@@ -197,7 +197,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		final ShardEntity crud = shardingState.getUncommited().getCrudByDuty(entity.getDuty());
 		if (crud!=null) {
 			try {
-			for (Log f: crud.getJournal().findAll(shard.getShardID())) {
+			for (Log f: crud.getCommitTree().findAll(shard.getShardID())) {
 				final Instant lastEventOnCrud = f.getHead().toInstant();
 				boolean previousThanCrud = changelog.getHead().toInstant().isBefore(lastEventOnCrud);
 				// if the update corresponds to the last CRUD OR they're both the same event (duplicated operation)
@@ -240,11 +240,11 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 					log.append(ShardEntity.toStringIds(e.getValue()));
 				}
 				e.getValue().forEach(d->shardingState.getCommitedState().commit(d, shard, REMOVE, ()->{
-					d.getJournal().addEvent(
+					d.getCommitTree().addEvent(
 							d.getLastEvent(),
 							e.getKey(), 
 							"N/A", // the last shard id 
-							d.getJournal().getLast().getPlanId());
+							d.getCommitTree().getLast().getPlanId());
 				}));
 			}
 		}
@@ -292,8 +292,8 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 			final ShardEntity committed, 
 			final EntityRecord reported) {
 		
-		for (final Log r: reported.getJournal().findAll(shard.getShardID())) {
-			for (final Log c: committed.getJournal().findAll(shard.getShardID())) {
+		for (final Log r: reported.getCommitTree().findAll(shard.getShardID())) {
+			for (final Log c: committed.getCommitTree().findAll(shard.getShardID())) {
 				if (c.getEvent()==r.getEvent()) {
 					// commited-state truth is only on ATTACH and STOCK...
 					if (c.getEvent() == EntityEvent.ATTACH || c.getEvent()==EntityEvent.STOCK) {
@@ -316,7 +316,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	
 	private void detectInvalidSpots(final Shard sourceShard, final List<EntityRecord> reportedCapturedDuties) {
 		for (final EntityRecord e : reportedCapturedDuties) {
-			for (final Log log: e.getJournal().findAll(sourceShard.getShardID())) {
+			for (final Log log: e.getCommitTree().findAll(sourceShard.getShardID())) {
 				final boolean commited = log.getLastState()==EntityState.COMMITED;
 				if (log.getEvent()==EntityEvent.ATTACH && commited) {
 					checkAttachExistance(sourceShard, e);
@@ -388,11 +388,11 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 		for (ShardEntity e: dangling) {
 			if (shardingState.getUncommited().addDangling(e)) {
-				e.getJournal().addEvent(
+				e.getCommitTree().addEvent(
 						DETACH, 
 						COMMITED, 
 						shard.getShardID(), 
-						e.getJournal().getLast().getPlanId());
+						e.getCommitTree().getLast().getPlanId());
 			}
 		}
 		shardingState.getCommitedState().removeShard(shard);		

@@ -62,7 +62,7 @@ class Transfer {
 
 		for (Shard shard: new Shard[] {source, target}) {
 			if (shard!=null) {
-				entity.getJournal().addEvent(
+				entity.getCommitTree().addEvent(
 						shard==source ? EntityEvent.DETACH : EntityEvent.ATTACH,
 						EntityState.PREPARED,
 						shard.getShardID(),

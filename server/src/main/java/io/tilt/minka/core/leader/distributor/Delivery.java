@@ -29,7 +29,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
@@ -116,7 +116,7 @@ public class Delivery {
 	private int contentsByState_(final EntityState state, final BiConsumer<ShardEntity, Log> bicons) {
 		int count = 0;
 		for (ShardEntity duty : duties) {
-			for (Log log : duty.getJournal().filterLogs(getPlanId(), shard.getShardID().getId(), getEvent())) {
+			for (Log log : duty.getCommitTree().filterLogs(getPlanId(), shard.getShardID().getId(), getEvent())) {
 				if (state == null || log.getLastState() == state) {
 					bicons.accept(duty, log);
 					count++;
@@ -144,7 +144,7 @@ public class Delivery {
 			boolean noneLeft = true;
 			for (final ShardEntity duty : duties) {
 				// look up confirmation for the specific logged event matching this delivery
-				final Log found = duty.getJournal().findFirst(getPlanId(), shard.getShardID(), getEvent());
+				final Log found = duty.getCommitTree().findOne(getPlanId(), shard.getShardID(), getEvent());
 				if (found != null && found.getLastState() != EntityState.COMMITED) {
 					noneLeft = false;
 					if (c!=null) {

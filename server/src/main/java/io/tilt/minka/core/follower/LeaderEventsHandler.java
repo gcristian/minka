@@ -41,7 +41,7 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityJournal.Log;
+import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
@@ -205,7 +205,7 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 	private Map<EntityEvent, List<ShardEntity>> groupByFoundEvents(final List<ShardEntity> duties) {
 		final Map<EntityEvent, List<ShardEntity>> map = new HashMap<>(EntityEvent.values().length);
 		for (ShardEntity d: duties) {
-			for (Log log: d.getJournal().findAll(partition.getId())) {
+			for (Log log: d.getCommitTree().findAll(partition.getId())) {
 				List<ShardEntity> list = map.get(log.getEvent());
 				if (list == null) {
 					map.put(log.getEvent(), list = new LinkedList<>());
@@ -218,10 +218,10 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 
 	private void acknowledge(final Entry<EntityEvent, List<ShardEntity>> e) {
 		for (ShardEntity duty: e.getValue()) {
-			final Log last = duty.getJournal().getLast();
+			final Log last = duty.getCommitTree().getLast();
 			final EntityState es = last.getLastState();
 			if (es==EntityState.PENDING) {
-				duty.getJournal().addEvent(
+				duty.getCommitTree().addEvent(
 					e.getKey(), 
 					EntityState.ACK, 
 					partition.getId(), 

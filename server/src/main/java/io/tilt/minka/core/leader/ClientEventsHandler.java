@@ -115,7 +115,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 			if (event instanceof ShardEntity) {
 				final ShardEntity entity = (ShardEntity) event;
 				
-				final String sid = entity.getJournal().getLast().getTargetId();
+				final String sid = entity.getCommitTree().getLast().getTargetId();
 				
 				/*
 				final BrokerChannel origin = eventBroker.buildToTarget(

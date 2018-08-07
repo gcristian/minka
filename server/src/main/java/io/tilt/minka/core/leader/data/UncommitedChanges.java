@@ -19,9 +19,9 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.StateSentry;
+import io.tilt.minka.domain.CommitTree;
+import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityEvent.Type;
-import io.tilt.minka.domain.EntityJournal.Log;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
@@ -96,7 +96,7 @@ public class UncommitedChanges {
 		if (snaptake==null) {
 			throw new RuntimeException("bad call");
 		}
-		final Log last = e.getJournal().getLast();
+		final Log last = e.getCommitTree().getLast();
 		return last==null || snaptake.toEpochMilli() >=last.getHead().getTime();
 	}
 
@@ -178,14 +178,14 @@ public class UncommitedChanges {
 			for (Map.Entry<ShardIdentifier, Set<EntityRecord>> e: previousState.entrySet()) {
 				boolean found = false;
 				if (logger.isInfoEnabled()) {
-					logger.info("{}: Patching scheme ({}) w/prev. distribution journals: {}", getClass().getSimpleName(), 
+					logger.info("{}: Patching scheme ({}) w/previous commit-trees: {}", getClass().getSimpleName(), 
 							event, EntityRecord.toStringIds(e.getValue()));
 				}
 				for (EntityRecord r: e.getValue()) {
 					for (ShardEntity d: duties) {
 						if (d.getDuty().getId().equals(r.getId())) {
 							found = true;
-							d.replaceJournal(r.getJournal());
+							d.replaceTree(r.getCommitTree());
 							bc.accept(e.getKey(), d);
 							break;
 						}
@@ -346,8 +346,8 @@ public class UncommitedChanges {
 			final Predicate<EntityState> statePredicate, 
 			final Consumer<ShardEntity> consumer) {
 		coll.stream()
-			.filter(e -> (eventPredicate == null || eventPredicate.test(e.getJournal().getLast().getEvent())) 
-				&& (statePredicate == null || (statePredicate.test(e.getJournal().getLast().getLastState()))))
+			.filter(e -> (eventPredicate == null || eventPredicate.test(e.getCommitTree().getLast().getEvent())) 
+				&& (statePredicate == null || (statePredicate.test(e.getCommitTree().getLast().getLastState()))))
 			.forEach(consumer);
 	}
 	public ShardEntity getCrudByDuty(final Duty duty) {
