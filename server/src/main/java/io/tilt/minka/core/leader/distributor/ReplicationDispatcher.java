@@ -21,7 +21,7 @@ import io.tilt.minka.shard.Shard;
  * More specifically: ships {@linkplain EntityEvent.STOCK and DROP} to the {@link ChangePlan}
  * those duties affected by Attaching and Dettaching root causes.
  * 
- * Stocked replicas are not balanced: they're not dropped, only caused by Client remove. 
+ * Stocked replicas are not balanced: they're not dropped, except caused by Client remove. 
  * So eventually, everybody wil have everything. 
  * 
  */

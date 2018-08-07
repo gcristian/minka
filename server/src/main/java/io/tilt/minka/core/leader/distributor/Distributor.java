@@ -38,6 +38,7 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Reply;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.balancer.Balancer;
+import io.tilt.minka.core.leader.data.CommitedState;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.Scheme.ClusterHealth;
 import io.tilt.minka.core.leader.data.UncommitedRepository;
@@ -381,7 +382,7 @@ public class Distributor implements Service {
 					return false;
 				}
 			}		
-			uncommitedRepository.loadReplicas();
+			scheme.getCommitedState().loadReplicas(scheme.getLearningState().getReplicasByShard());
 			uncommitedRepository.loadRawDuties(duties, logger("Duty"));
 			delegateFirstCall = false;
 

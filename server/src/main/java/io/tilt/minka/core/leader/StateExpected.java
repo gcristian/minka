@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.core.leader.distributor;
+package io.tilt.minka.core.leader;
 
 import static io.tilt.minka.domain.EntityEvent.ATTACH;
 import static io.tilt.minka.domain.EntityEvent.DETACH;
@@ -35,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.data.Scheme;
+import io.tilt.minka.core.leader.distributor.Delivery;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityRecord;
@@ -52,7 +53,7 @@ import io.tilt.minka.shard.ShardIdentifier;
  * @author Cristian Gonzalez
  * @since Mar 7, 2018
  */
-public class ChangeDetector {
+public class StateExpected {
 
 	private static final int MAX_EVENT_DATE_FOR_DIRTY = 10000;
 	
@@ -62,7 +63,7 @@ public class ChangeDetector {
 	private final Scheme scheme;
 	
 	/** solely instance */
-	public ChangeDetector(final Scheme scheme) {
+	public StateExpected(final Scheme scheme) {
 		this.scheme = scheme;
 	}
 

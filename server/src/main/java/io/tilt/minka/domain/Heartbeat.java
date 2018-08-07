@@ -29,7 +29,6 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -37,8 +36,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
-import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.NetworkShardIdentifier;
+import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.Transition;
 
 /**

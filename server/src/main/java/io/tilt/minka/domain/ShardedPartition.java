@@ -32,7 +32,7 @@ import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.Shard;
 
 /**
- * At leader, the ChangeDetector read-writes to maintain the knowledge about where is what. 
+ * At leader, the StateExpected read-writes to maintain the knowledge about where is what. 
  * At follower, feeds the HeartbeatFactory agent. 
  * An effectively assigned, running and continuously confirmed 
  * set of {@linkplain ShardEntity} in a given {@linkplain Shard}

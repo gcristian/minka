@@ -32,7 +32,7 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 
-
+@SuppressWarnings({ "rawtypes", "unchecked" })
 public class ClientCRUDTest {
 
 	@Test
@@ -229,7 +229,6 @@ public class ClientCRUDTest {
 		
 		shutdownServers(cluster, true);
 	}
-	
 	
 	@Test
     public void test_start_empty_then_repeat_add_and_removes() throws Exception {

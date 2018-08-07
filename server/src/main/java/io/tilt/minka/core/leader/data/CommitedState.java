@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -140,6 +141,14 @@ public class CommitedState {
 				goneShards.put(shard.getShardID(), set = CollectionUtils.sliding(max));
 			}
 			set.add(it.next());
+		}
+	}
+	
+	public void loadReplicas(final Map<Shard, Set<ShardEntity>> replicas) {
+		for (final Map.Entry<Shard, Set<ShardEntity>> e: replicas.entrySet()) {
+			for (ShardEntity replica: e.getValue()) {
+				commit(replica, e.getKey(), EntityEvent.STOCK, null);
+			}
 		}
 	}
 	

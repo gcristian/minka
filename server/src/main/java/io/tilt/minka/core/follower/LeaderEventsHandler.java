@@ -227,7 +227,8 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 						partition.getId(), 
 						last.getPlanId());
 				} else if (es!=EntityState.PREPARED){
-					logger.warn("{}: ({}) Repeating reception ? {} (now {})", getName(), config.getLoggingShardId(), duty, es);
+					logger.warn("{}: ({}) Repeating reception ? {} (now {})", getName(), 
+							config.getLoggingShardId(), duty, es);
 				}
 			}
 		}

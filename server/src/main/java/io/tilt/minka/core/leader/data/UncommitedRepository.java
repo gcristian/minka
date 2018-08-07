@@ -104,15 +104,6 @@ public class UncommitedRepository {
 		return !merged.isEmpty();
 	}
 
-	public void loadReplicas() {
-		for (final Map.Entry<Shard, Set<ShardEntity>> e: 
-			scheme.getLearningState().getReplicasByShard().entrySet()) {
-			for (ShardEntity replica: e.getValue()) {
-				scheme.getCommitedState().commit(replica, e.getKey(), EntityEvent.STOCK, null);
-			}
-		}
-	}
-
 	private ShardEntity toEntity(final Entity e) {
 		final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
 		if (e instanceof Duty) {

@@ -80,6 +80,7 @@ public class Delivery {
 	}
 
 	@JsonIgnore
+	public
 	List<ShardEntity> getDuties() {
 		return this.duties;
 	}

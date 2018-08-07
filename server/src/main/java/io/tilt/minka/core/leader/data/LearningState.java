@@ -108,7 +108,7 @@ public class LearningState {
 		return null;
 	}
 	
-	Map<Shard, Set<ShardEntity>> getReplicasByShard() {
+	public Map<Shard, Set<ShardEntity>> getReplicasByShard() {
 		return replicas;
 	}
 

@@ -59,7 +59,7 @@ import io.tilt.minka.utils.LogUtils;
  * @author Cristian Gonzalez
  * @since Dec 2, 2015
  */
-class ClusterProctor implements Service {
+class ShardKeeper implements Service {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -71,14 +71,14 @@ class ClusterProctor implements Service {
 	private final NetworkShardIdentifier shardId;
 	private final LeaderAware leaderAware;
 	private final Agent analyzer;
-	private final Diagnoser diagnoser;
+	private final Transitioner transitioner;
 
 	private int analysisCounter;
 	private int lastUnstableAnalysisId = 1;
 	private Instant lastAnalysys;
 	
 
-	ClusterProctor(
+	ShardKeeper(
 			final Config config, 
 			final Scheme scheme, 
 			final StateSentry sentry, 
@@ -104,7 +104,7 @@ class ClusterProctor implements Service {
 				.every(config.beatToMs(config.getProctor().getPhaseFrequency()))
 				.build();
 		this.lastAnalysys = now();
-		this.diagnoser = new Diagnoser(config);
+		this.transitioner = new Transitioner(config);
 	}
 
 	@Override
@@ -144,7 +144,7 @@ class ClusterProctor implements Service {
 		final int[] sizeOnline = new int[1];
 		final List<Runnable> actions = new LinkedList<>();
 		scheme.getCommitedState().findShards(null, shard-> {
-			final Transition trans = diagnoser.nextTransition(
+			final Transition trans = transitioner.nextTransition(
 					shard.getState(), 
 					(SlidingSortedSet)shard.getTransitions(), 
 					shard.getHeartbeats());  

@@ -46,7 +46,7 @@ public class Leader implements Service {
 	public final static Logger logger = LoggerFactory.getLogger(Leader.class);
 
 	private final Config config;
-	private final ClusterProctor clusterProctor;
+	private final ShardKeeper shardKeeper;
 	private final Distributor distributor;
 	private final FollowerEventsHandler followerEventsHandler;
 	private final ClientEventsHandler clientEventsHandler;
@@ -60,7 +60,7 @@ public class Leader implements Service {
 
 	Leader(
 			final Config config, 
-			final ClusterProctor clusterProctor,
+			final ShardKeeper shardKeeper,
 			final Distributor distributor,
 			final FollowerEventsHandler followerEventsHandler,
 			final ClientEventsHandler clientEventsHandler,
@@ -71,7 +71,7 @@ public class Leader implements Service {
 
 		super();
 		this.config = config;
-		this.clusterProctor = clusterProctor;
+		this.shardKeeper = shardKeeper;
 		this.distributor = distributor;
 		this.followerEventsHandler = followerEventsHandler;
 		this.clientEventsHandler = clientEventsHandler;
@@ -108,7 +108,7 @@ public class Leader implements Service {
 						final long e = DateTime.now().getMillis() - config.loadTime.getMillis();
 						logger.info("{}: {} msec since load till leader election", getName(), e);
 						// start analyzing the shards and distribute duties
-						clusterProctor.start();
+						shardKeeper.start();
 						distributor.start();
 						// start listening events from followers and clients alike
 						followerEventsHandler.start();
@@ -140,7 +140,7 @@ public class Leader implements Service {
 			this.stop = new Date();
 			this.start = null;
 			logger.info("{}: Stopping ({})", getName(), !served ? "never served" : "paid my duty");
-			clusterProctor.stop();
+			shardKeeper.stop();
 			distributor.stop();
 			followerEventsHandler.stop();
 			clientEventsHandler.stop();
