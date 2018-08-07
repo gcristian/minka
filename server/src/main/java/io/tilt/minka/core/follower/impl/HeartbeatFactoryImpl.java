@@ -85,14 +85,7 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 	public Heartbeat create(final boolean forceFullReport) {
 		final long now = System.currentTimeMillis();
 		
-		boolean newLeader = false; 
-		final NetworkShardIdentifier leader = leaderAware.getLeaderShardId();
-		if (leader!=null && !leader.equals(lastLeader)) {
-			this.lastLeader = leader;
-			newLeader = true;
-			// put last inc. timestamp older so exclusion expires and full report beats follows 
-			includeTimestamp = (now - includeFrequency) + 1;
-		}
+		boolean newLeader = theresNewLeader(now);
 		logBeat |=newLeader;
 		
 		// this's used only if there's nothing important to report (differences, absences, etc)
@@ -102,15 +95,19 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 		boolean issues = detectChangesOnReport(builder, tmp::add, newLeader);
 		logBeat |=issues;
 
-		final boolean exclusionExpired = includeTimestamp == 0 || (now - includeTimestamp) > includeFrequency;
-		final boolean doFullReport = forceFullReport || issues || exclusionExpired || partition.wasRecentlyUpdated() || newLeader;
-		if (doFullReport) {
+		if (reportCapture(forceFullReport, now, newLeader, issues)) {
 			tmp.forEach(builder::addCaptured);
 			builder.reportsCapture();
 			includeTimestamp = now;
 		}
+		
 		addReportedCapacities(builder);
 		final Heartbeat hb = builder.build();
+		logging(hb);
+		return hb;
+	}
+
+	private void logging(final Heartbeat hb) {
 		if (log.isDebugEnabled()) {
 			logDebugNicely(hb);
 		} else if (log.isInfoEnabled() && logBeat) {
@@ -121,7 +118,28 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 					.append(EntityRecord.toStringIds(hb.getCaptured()))
 					.append(")").toString() : "");
 		}
-		return hb;
+	}
+
+	private boolean reportCapture(final boolean forceFullReport, final long now, boolean newLeader, boolean issues) {
+		final boolean exclusionExpired = includeTimestamp == 0 
+				|| (now - includeTimestamp) > includeFrequency;
+		return forceFullReport 
+				|| issues 
+				|| exclusionExpired 
+				|| partition.wasRecentlyUpdated() 
+				|| newLeader;
+	}
+
+	private boolean theresNewLeader(final long now) {
+		boolean newLeader = false; 
+		final NetworkShardIdentifier leader = leaderAware.getLeaderShardId();
+		if (leader!=null && !leader.equals(lastLeader)) {
+			this.lastLeader = leader;
+			newLeader = true;
+			// put last inc. timestamp older so exclusion expires and full report beats follows 
+			includeTimestamp = (now - includeFrequency) + 1;
+		}
+		return newLeader;
 	}
 	
 	/* analyze reported duties and return if there're issues */
