@@ -19,6 +19,7 @@ package io.tilt.minka.core.leader.distributor;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -78,9 +79,10 @@ public class Distributor implements Service {
 	private final LeaderAware leaderAware;
     private final Agent distributor;
 
-	private boolean initialAdding;
+	private boolean delegateFirstCall;
 	private int counterForReloads;
 	private int counterForDistro;
+	private int counterForAvoids;
 	private ChangePlanFactory factory;
 	private Instant lastStealthBlocked;
 
@@ -104,7 +106,7 @@ public class Distributor implements Service {
 		this.leaderAware = leaderAware;
 
 		this.dependencyPlaceholder = dependencyPlaceholder;
-		this.initialAdding = true;
+		this.delegateFirstCall = true;
 
 		this.distributor = scheduler.getAgentFactory()
 				.create(Action.DISTRIBUTOR, 
@@ -136,62 +138,83 @@ public class Distributor implements Service {
 
 	private void distribute() {
 		try {
-			// also if this's a de-frozening thread
-			if (!leaderAware.imLeader()) {
-				logger.warn("{}: ({}) Suspending distribution: not leader anymore ! ", getName(), shardId);
-				return;
+			if (phaseAuthorized()) {
+				counterForDistro++;
+				logStatus();
+				drive(shardingState.getCurrentPlan());
+				communicateUpdates();
+				logger.info(LogUtils.END_LINE);
 			}
-			final boolean changes = config.getDistributor().isRunOnStealthMode() &&
-					(shardingState.getCommitedState().isStealthChange() 
-					|| shardingState.getUncommited().isStealthChange());
-			// skip if unstable unless a plan in progress or expirations will occurr and dismiss
-			final ChangePlan currPlan = shardingState.getCurrentPlan();
-			
-			final boolean noPlan = currPlan==null || currPlan.getResult().isClosed();
-			
-			if (noPlan && shardingState.getShardsHealth() == ClusterHealth.UNSTABLE) {
-				logger.warn("{}: ({}) Suspending distribution until reaching cluster stability", getName(), shardId);
-				return;
-			} else if (!changes && noPlan) {
-				return;
-			} else if (changes && noPlan) {
-				if (shardingState.getUncommited().isStealthChange()) {
-					final long threshold = config.beatToMs(config.getDistributor().getStealthHoldThreshold());
-					if (!shardingState.getUncommited().stealthOverThreshold(threshold)) {						
-						if (lastStealthBlocked==null) {
-							lastStealthBlocked = Instant.now();
-						} else if (System.currentTimeMillis() - lastStealthBlocked.toEpochMilli() > 
-							config.beatToMs(config.getDistributor().getPhaseFrequency() * 5)) {
-							lastStealthBlocked = null;
-							logger.warn("{}: Phase release: threshold ", getName());
-						} else {
-							logger.info("{}: Phase hold: stage's stealth-change over time distance threshold", getName());
-							return;
-						}
-					}					
-				}
-			}
-			
-			final int online = shardingState.getCommitedState().shardsSize(ShardState.ONLINE.filter());
-			final int min = config.getProctor().getMinShardsOnlineBeforeSharding();
-			if (online < min) {
-				logger.warn("{}: Suspending distribution: not enough online shards (min:{}, now:{})", getName(), min, online);
-				return;
-			}
-			
-			if (!loadFromClientWhenAllOnlines()) {
-				return;
-			}
-			counterForDistro++;
-			logStatus();
-			
-			// distribution
-			drive(currPlan);
-			communicateUpdates();
-			logger.info(LogUtils.END_LINE);
 		} catch (Exception e) {
 			logger.error("{}: Unexpected ", getName(), e);
 		}
+	}
+
+	/** @return FALSE among many reasons to avoid phase execution */
+	private boolean phaseAuthorized() {
+		// also if this's a de-frozening thread
+		if (!leaderAware.imLeader()) {
+			logger.warn("{}: ({}) Suspending distribution: not leader anymore ! ", getName(), shardId);
+			return false;
+		}
+		// skip if unstable unless a plan in progress or expirations will occurr and dismiss
+		final ChangePlan currPlan = shardingState.getCurrentPlan();
+		final boolean noPlan = currPlan==null || currPlan.getResult().isClosed();
+		final boolean changes = config.getDistributor().isRunOnStealthMode() &&
+				(shardingState.getCommitedState().isStealthChange() 
+				|| shardingState.getUncommited().isStealthChange());
+		
+		if (noPlan && shardingState.getShardsHealth() == ClusterHealth.UNSTABLE) {
+			if (counterForAvoids++<10) {
+				if (counterForAvoids==0) {
+					logger.warn("{}: ({}) Suspending distribution until reaching cluster stability", getName(), shardId);
+				}
+				return false;
+			} else {
+				logger.error("{}: ({}) Cluster unstable but too many phase avoids", getName(), shardId);
+				counterForAvoids = 0;
+			}
+		}
+		
+		if (!changes && noPlan) {
+			return false;
+		} else if (changes && noPlan && !changesFurtherEnough()) {
+			return false;
+		}
+		
+		final int online = shardingState.getCommitedState().shardsSize(ShardState.ONLINE.filter());
+		final int min = config.getProctor().getMinShardsOnlineBeforeSharding();
+		if (online < min) {
+			logger.warn("{}: Suspending distribution: not enough online shards (min:{}, now:{})", getName(), min, online);
+			return false;
+		}
+		
+		if (!loadDutiesOnClusterStable()) {
+			return false;
+		}
+		
+		return true;
+	}
+
+	/** @return TRUE to release distribution phase considering uncommited stealthing */
+	private boolean changesFurtherEnough() {
+		if (shardingState.getUncommited().isStealthChange()) {
+			final long threshold = config.beatToMs(config.getDistributor().getStealthHoldThreshold());
+			if (!shardingState.getUncommited().stealthOverThreshold(threshold)) {						
+				if (lastStealthBlocked==null) {
+					lastStealthBlocked = Instant.now();
+				} else if (System.currentTimeMillis() - lastStealthBlocked.toEpochMilli() >
+					// safety release policy
+					config.beatToMs(config.getDistributor().getPhaseFrequency() * 5)) {
+					lastStealthBlocked = null;
+					logger.warn("{}: Phase release: threshold ", getName());
+				} else {
+					logger.info("{}: Phase hold: stage's stealth-change over time distance threshold", getName());
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 	
 	/**
@@ -231,11 +254,7 @@ public class Distributor implements Service {
 		final ChangePlan changePlan = factory.create(shardingState, previous);
 		if (null!=changePlan) {
 			shardingState.setPlan(changePlan);
-			this.shardingState.setDistributionHealth(ClusterHealth.UNSTABLE);
-			
-			ok(changePlan);
-			
-			
+			this.shardingState.setDistributionHealth(ClusterHealth.UNSTABLE);			
 			changePlan.prepare();
 			shardingState.getUncommited().dropSnapshot();
 			if (logger.isInfoEnabled()) {
@@ -251,11 +270,6 @@ public class Distributor implements Service {
 			shardingState.getUncommited().setStealthChange(false);
 			return null;
 		}
-	}
-	
-	private void ok(ChangePlan changePlan) {
-		//changePlan.
-		
 	}
 
 	/* retry already pushed deliveries with pending duties */
