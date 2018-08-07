@@ -27,6 +27,7 @@ import org.junit.Test;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
+import io.tilt.minka.api.Server;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 
 
@@ -153,61 +154,59 @@ public class ClusterResilienceTest {
 		
 		a1.getServer().shutdown();
 	}
-	
-	
 
 	@Test
 	/**
-	 * proves shards may appear and disappear anytime in the same time
-	 * while all duties are still kept distributed
-	 * proves proctor and distributor phases are never suspended
-	 * proves the leader acknowledges every situation
+	 * proves replication feature works well that is, client posted CRUD after 1st
+	 * distribution (duties loaded from delegates) survive the fall of their current
+	 * leader, and get accounted as a previous state and distribution by the new
+	 * leader.
 	 */
-	public void test_cluster_highly_unstable_surviving() throws Exception {
-		proto.getBootstrap().setNamespace("test_cluster_highly_unstable");
+	public void test_duties_after_load_survive_leader_fall_smoke() throws Exception {
+		proto.getBootstrap().setNamespace("tito-testito");
 		// start with 3 (surely 1st will be leader)
 		
-		final Set<ServerWhitness> set = buildCluster(5, proto, pallets, emptySet());
-		final Collection<Duty> duties = duties(p, 50);
+		final Set<ServerWhitness> set = buildCluster(2, proto, pallets, emptySet());
+		final Collection<Duty> duties = duties(p, 20);
+		
+		sleep(wait * 5);
 		
 		set.iterator().next().getServer().getClient().addAll(duties, null);
 		
 		sleep(wait * 5);
-		assertDistribution(set, duties);
+ 		//assertDistribution(set, duties);
 	
-		set.iterator().next().getServer().shutdown();
-		// immediately launch a new serie of shards
-		final ServerWhitness a4 = createServer(proto, emptySet(), pallets, "a4");
-		set.add(a4);
-		sleep(wait * 5);
+		final ServerWhitness leader = TestUtils.pickAServer(set, true);
+		leader.getServer().shutdown();
 		
+		sleep(wait * 10);
+		set.remove(leader);
 		assertDistribution(set, duties);
-		
-		set.iterator().next().getServer().shutdown();
-		final ServerWhitness a5 = createServer(proto, emptySet(), pallets, "a5");
-		final ServerWhitness a6 = createServer(proto, emptySet(), pallets, "a6");
-		sleep(wait * 3);
-		
-		assertDistribution(asList(a1,a4,a5,a6), duties);
-		
-		a5.getServer().shutdown();
-		a6.getServer().shutdown();
-		sleep(wait * 3);		
-		
-		assertDistribution(asList(a1,a4), duties);
-
-		a4.getServer().shutdown();
-		
-		sleep(wait * 3);
-		
-		assertTrue(a1.getServer().getClient().isCurrentLeader());
-		assertEquals(duties, a1.getCurrent());
-		
-		assertDistribution(asList(a1), duties);
-		
-		a1.getServer().shutdown();
+				
+		shutdownServers(set);
 	}
-	
+
+	@Test
+	public void test_duties_after_load_survive_leader_fall_heavy() throws Exception {
+		proto.getBootstrap().setNamespace("tito-testito");
+		
+		final int servers = 5;
+		final Set<ServerWhitness> set = buildCluster(servers, proto, pallets, emptySet());
+		final Collection<Duty> duties = duties(p, 10);
+		sleep(wait * 10);
+		set.iterator().next().getServer().getClient().addAll(duties, null);
+		for (int i = 0 ; i < servers; i ++) {
+			sleep(wait * 10);
+	 		assertDistribution(set, duties);
+			final ServerWhitness leader = TestUtils.pickAServer(set, true);
+			leader.getServer().shutdown();
+			set.remove(leader);
+		}
+		
+ 		assertDistribution(set, duties);		
+		shutdownServers(set);
+	}
+
 	@Test
 	public void test_cluster_size_increase_decrease_all_balancers() throws Exception {
 		for (BalancerMetadata meta: balancers()) {

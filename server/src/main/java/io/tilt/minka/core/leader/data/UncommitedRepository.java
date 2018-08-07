@@ -6,6 +6,7 @@ import static io.tilt.minka.domain.EntityState.PREPARED;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -83,19 +84,44 @@ public class UncommitedRepository {
 	}
 
 	/** duties directly from client */
-	public void loadRawDuties(final Collection<Duty> coll, final Consumer<Reply> callback) {
-		final Set<ShardEntity> rawSet = coll.stream().map(x-> toEntity(x)).collect(Collectors.toSet());
+	public boolean loadRawDuties(final Collection<Duty> raw, final Consumer<Reply> callback) {		
+		final Set<ShardEntity> rawSet = raw.stream().map(x-> toEntity(x)).collect(Collectors.toSet());
+		final Set<ShardEntity> merged = mergeWithLearningDomain(rawSet);
 		// patch and write previous commited state
-		sharding.getUncommited().patchJournalsWithPreviousState(rawSet, (shardid, patched)-> {
-			sharding.getCommitedState().commit(patched, 
-					sharding.getCommitedState().findShard(sid->sid.getShardID().equals(shardid)), 
+		sharding.getUncommited().patchCommitTreesWithLearningDistro(new HashSet<>(merged), (shard, patch)-> {
+			merged.remove(patch);
+			// directly commit them as THE true reality			
+			sharding.getCommitedState().commit(patch, 
+					sharding.getCommitedState().findShard(sid->sid.getShardID().equals(shard)), 
 					EntityEvent.ATTACH, 
 					null);
 		});
+		
+		if (!merged.isEmpty()) {
+			saveAllDuties(merged, callback);
+		}
+		return !merged.isEmpty();
+	}
+
+	private Set<ShardEntity> mergeWithLearningDomain(final Set<ShardEntity> rawSet) {
+		final Set<ShardEntity> tmp = new HashSet<>(rawSet);
 		// very important: adding to the current leadership 
 		// the previous leadership's post-load added duties (CRUD) 
-		rawSet.addAll(sharding.getUncommited().drainPreviousState());
-		saveAllDuties(rawSet, callback);
+		for (ShardEntity drain: sharding.getUncommited().drainLearningDomain()) {
+			boolean overwrite = true; // by default all out of new delegate
+			for (ShardEntity exRaw: rawSet) {
+				if (exRaw.equals(drain)) {
+					// preffer last updated version
+					overwrite = exRaw.getCommitTree().getLast().getHead().before(
+							drain.getCommitTree().getLast().getHead());
+					break;
+				}
+			}
+			if (overwrite) {
+				tmp.add(drain);
+			}
+		}
+		return tmp;
 	}
 
 	private ShardEntity toEntity(final Entity e) {

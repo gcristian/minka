@@ -1,7 +1,10 @@
 package io.tilt.minka.core.leader.data;
 
+import static java.util.Arrays.asList;
+
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,7 +41,7 @@ public class UncommitedChanges {
 	private static final Logger logger = LoggerFactory.getLogger(UncommitedChanges.class);
 
 	private final Map<ShardIdentifier, Set<EntityRecord>> previousState = new HashMap<>();
-	private final Map<Shard, Collection<ShardEntity>> previousDomain;
+	private final Map<Shard, Set<ShardEntity>> previousDomain;
 
     // creations and removes willing to be attached or detached to/from shards.
 	private final Map<Pallet, ShardEntity> palletCrud;
@@ -112,7 +115,11 @@ public class UncommitedChanges {
 				return;
 			}
 		}
-		this.stealthChange = value;
+		if (value) {
+			turnOnStealth(value);
+		} else {
+			this.stealthChange = value;
+		}
 	}
 	/** @return true when the stage has changes worthy of distribution phase run  */
 	public boolean isStealthChange() {
@@ -123,44 +130,81 @@ public class UncommitedChanges {
 	//=======================================================================================
 	
 	/** guard the report to take it as truth once distribution runs and ShardEntity is loaded */
-	public boolean learnPreviousDistribution(final EntityRecord duty, final Shard where) {
-		boolean ret = false;
-		
-		// a domain entity not a report
-		if (duty.getEntity() == null) {
-			Set<EntityRecord> list = previousState.get(where.getShardID());
-			if (list==null) {
-				previousState.put(where.getShardID(), list = new HashSet<>());
+	public void feedFromPreviousState(final Collection<EntityRecord> records, final Shard where) {
+		// changePlan is NULL only before 1st distribution
+		// there's been a change of leader: i'm initiating with older followers
+		final Map<EntityEvent.Type, StringBuilder> logmap = new HashMap<>(2);
+		for (EntityRecord record: records) {
+			EntityEvent lpv = learnPreviousDistro(record, where);
+			EntityEvent lpd = null;
+			if (record.getEntity() != null) {
+				lpd = learnPreviousDomain(record.getEntity(), where, false);
 			}
-			
-			final Type nature = duty.getJournal().getLast().getEvent().getType();
-			if (nature==EntityEvent.Type.ALLOC) {
-				if (ret = list.add(duty)) {
-					stealthChange = true; 
+			if (logger.isInfoEnabled()) {
+				for (EntityEvent ee: asList(lpv, lpd)) {
+					if (ee!=null) {
+						StringBuilder sb = logmap.get(ee.getType());
+						if (sb==null) {
+							logmap.put(ee.getType(), sb = new StringBuilder());
+						}
+						sb.append(record.getId()).append(',');
+					}
 				}
 			}
-		} else {
-			ret = learnPreviousDomain(duty.getEntity(), where);
 		}
-		return ret;
+		if (!logmap.isEmpty()) {
+			logmap.entrySet().forEach(e->
+					logger.info("{}: Learnt type {} at [{}] {}", getClass().getSimpleName(), e.getKey(), 
+							where, e.getValue().toString()));
+		}
 	}
 
-	private  boolean learnPreviousDomain(final ShardEntity duty, final Shard where) {
-		boolean ret = false;
-		
-		final Type nature = duty.getJournal().getLast().getEvent().getType();
-		if (nature == EntityEvent.Type.REPLICA) {
-			Collection<ShardEntity> x = previousDomain.get(where);
-			if (x==null) {
-				previousDomain.put(where, x=new ArrayList<>());
+	private EntityEvent learnPreviousDistro(final EntityRecord record, final Shard where) {
+		// TODO add another constraint to avoid blindly trusting the shard
+		// check the log is really the last (another shard could say the same, who to trust ?)
+		// the beat comes from A, and there's an Attach on A: pretty confident...could be a lattest Attach on B
+		// and another beat from B saying the same... and actually being the real trustworthy
+		if (record.getCommitTree().exists(where.getShardID().getId(), EntityEvent.ATTACH)) {
+			Set<EntityRecord> set = previousState.get(where.getShardID());
+			if (set==null) {
+				previousState.put(where.getShardID(), set = new HashSet<>());
 			}
-			x.add(duty);
+			if (record.getEntity()!=null) {
+				learnPreviousDomain(record.getEntity(), where, false);
+			}
+			if (set.add(record)) {
+				return EntityEvent.ATTACH;
+			}
 		}
-		return ret;
+		return null;
 	}
-	
+
+	private EntityEvent learnPreviousDomain(final ShardEntity duty, final Shard where, final boolean stockCheck) {
+		if (!stockCheck || duty.getCommitTree().exists(where.getShardID().getId(), EntityEvent.STOCK)) {
+			Set<ShardEntity> byShard = previousDomain.get(where);
+			if (byShard==null) {
+				previousDomain.put(where, byShard=new HashSet<>());
+			}
+			// dont replace it
+			final boolean existed = byShard.contains(duty);
+			if (!existed) {
+				final CommitTree fresh = new CommitTree();
+				fresh.addEvent(
+					EntityEvent.CREATE, 
+					EntityState.PREPARED, 
+					where.getShardID(), 
+					0);
+				duty.replaceTree(fresh);
+			}
+			if (existed || byShard.add(duty)) {
+				return EntityEvent.STOCK;
+			}
+		}
+		return null;
+	}
+
 	/** @return previous state's domain-commited entities */
-	public Set<ShardEntity> drainPreviousState() {
+	public Set<ShardEntity> drainLearningDomain() {
 		final Set<ShardEntity> drained = new HashSet<>(); 
 		for (Collection<ShardEntity> c: previousDomain.values()) {
 			drained.addAll(c);
@@ -169,10 +213,20 @@ public class UncommitedChanges {
 		return drained;
 	}
 	
-	/** fix master's duty with previous state */
-	public void patchJournalsWithPreviousState(
+	
+	boolean isPreviousState() {
+		return !this.previousState.isEmpty();
+	}
+	
+	boolean isPreviousDomain() {
+		return !this.previousDomain.isEmpty();
+	}
+	
+	/** @return TRUE if fixed master's duty with previous state */
+	public boolean patchCommitTreesWithLearningDistro(
 			final Set<ShardEntity> duties, 
 			final BiConsumer<ShardIdentifier, ShardEntity> bc) {
+		boolean ret = false;
 		if (!previousState.isEmpty()) {
 			final EntityEvent event = EntityEvent.ATTACH;
 			for (Map.Entry<ShardIdentifier, Set<EntityRecord>> e: previousState.entrySet()) {
@@ -187,6 +241,7 @@ public class UncommitedChanges {
 							found = true;
 							d.replaceTree(r.getCommitTree());
 							bc.accept(e.getKey(), d);
+							ret = true;
 							break;
 						}
 					}
@@ -198,6 +253,7 @@ public class UncommitedChanges {
 			}
 			this.previousState.clear();
 		}
+		return ret;
 	}
 	
 
@@ -208,7 +264,7 @@ public class UncommitedChanges {
 		return Collections.unmodifiableCollection(this.dutyDangling.values());
 	}
 	
-	private void evalStealth(final boolean value) {
+	private void turnOnStealth(final boolean value) {
 		if (value) {
 			stealthChange = true;
 			lastStealthChange = Instant.now();
@@ -228,13 +284,13 @@ public class UncommitedChanges {
 		for (ShardEntity d: dangling) {
 			added |= this.dutyDangling.put(d.getDuty(), d) == null;
 		}
-		evalStealth(added);
+		turnOnStealth(added);
 		return added;
 	}
 	
 	public boolean addDangling(final ShardEntity dangling) {
 		final boolean added = this.dutyDangling.put(dangling.getDuty(), dangling) == null;
-		evalStealth(added);
+		turnOnStealth(added);
 		return added;
 
 	}
@@ -265,7 +321,7 @@ public class UncommitedChanges {
 		// the uniqueness of it's wrapped object doesnt define the uniqueness of the wrapper
 		// updates and transfer go in their own manner
 		final boolean added = dutyCrud.put(duty.getDuty(), duty) == null;
-		evalStealth(added);
+		turnOnStealth(added);
 		return added;
 	}
 
@@ -278,7 +334,7 @@ public class UncommitedChanges {
 			callback.accept(e.getDuty(), v);
 			added |= v;
 		}
-		evalStealth(added);
+		turnOnStealth(added);
 	}
 	
 	public Collection<ShardEntity> getDutiesCrud() {
@@ -290,7 +346,7 @@ public class UncommitedChanges {
 		// consistency check: only if they're the same action 
 		if (candidate!=null) {// && candidate.getLastEvent()==entity.getLastEvent().getRootCause()) {
 			removed =this.dutyCrud.remove(entity.getDuty()) != null;
-			evalStealth(removed);
+			turnOnStealth(removed);
 		}
 		return removed;
 	}
@@ -313,14 +369,14 @@ public class UncommitedChanges {
 		for (ShardEntity d: duties) {
 			added |= dutyMissings.put(d.getDuty(), d) == null;
 		}
-		evalStealth(added);
+		turnOnStealth(added);
 		return true;
 	}
 
 	public void removeCrudDuties() {
 		checkNotOnSnap();
 		this.dutyCrud.clear();
-		evalStealth(true);
+		turnOnStealth(true);
 	}
 	public int sizeDutiesCrud(final Predicate<EntityEvent> event, final Predicate<EntityState> state) {
 		final int[] size = new int[1];

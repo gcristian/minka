@@ -188,7 +188,9 @@ public class Delivery {
 	Map<EntityState, StringBuilder> getState() {
 		final Map<EntityState, StringBuilder> ret = new HashMap<>(3); // any of given prepared, pending, confirmed
 		for (final ShardEntity duty: duties) {
-			CollectionUtils.getOrPut(ret, duty.getLastState(), () -> new StringBuilder())
+			ChangePlan.getOrPut(ret, 
+					duty.getCommitTree().findOne(this.planId, this.shard.getShardID(), this.event).getLastState(), 
+					() -> new StringBuilder())
 					.append(duty.getDuty().getId())
 					.append(", ");
 		}

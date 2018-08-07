@@ -43,6 +43,7 @@ public class ClientCRUDTest {
 		final Set<Duty> duties = duties(p, 12);
 
 		final Config proto = prototypeConfig();
+		proto.getBootstrap().setBeatUnitMs(300);
 		proto.getBootstrap().setNamespace("smoke-test");
 		final long distroWait = proto.beatToMs(10);
 		final Set<ServerWhitness> cluster = buildCluster(3, proto, pallets, duties);

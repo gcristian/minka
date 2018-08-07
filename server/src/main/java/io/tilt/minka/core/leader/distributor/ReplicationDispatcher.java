@@ -11,9 +11,15 @@ import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.Shard;
 
 /**
- * Replication mechanism know-how on spreading to followers
+ * Replication mechanism know-how to allow Leader fall.
+ * I.e.: leader's post-load affected duties by all CRUD operations (after distribution)
+ * to be reported by SURVIVING followers, to the new Leader.   
+ * 
+ * More specifically: ships {@linkplain EntityEvent.STOCK and DROP} to the {@link ChangePlan}
+ * those duties affected by Attaching and Dettaching root causes.
+ * 
  */
-public class ReplicationDispatcher {
+class ReplicationDispatcher {
 
 	private final ShardingState state;
 
@@ -29,16 +35,16 @@ public class ReplicationDispatcher {
 		
 		final Shard leader = state.getCommitedState().findShard(leaderId.getId());
 		// those of current plan
-		dispatchLocalAllocations(EntityEvent.ATTACH, EntityEvent.STOCK, 
+		dispatchNewLocals(EntityEvent.ATTACH, EntityEvent.STOCK, 
 				changePlan, creations, leader, p);
-		dispatchLocalAllocations(EntityEvent.DETACH, EntityEvent.DROP, 
+		dispatchNewLocals(EntityEvent.DETACH, EntityEvent.DROP, 
 				changePlan, deletions, leader, p);
 		// those of older plans (new followers may have turned online)
-		dispatchLocalAttached(state, changePlan, p, leader);
+		dispatchCurrentLocals(state, changePlan, p, leader);
 	}
 	
 	/** ChangePlan::ship leader's follower allocated duties (curr plan) to all followers */
-	private void dispatchLocalAllocations(
+	private void dispatchNewLocals(
 			final EntityEvent cause,
 			final EntityEvent effect,
 			final ChangePlan changePlan, 
@@ -69,7 +75,7 @@ public class ReplicationDispatcher {
 	 * check if they were created before the shard's online
 	 * or if they're already stocked there, dont do it twice ! (warnings arise)
 	 */
-	private void dispatchLocalAttached(
+	private void dispatchCurrentLocals(
 			final ShardingState state, 
 			final ChangePlan changePlan,
 			final Pallet pallet,

@@ -348,48 +348,50 @@ public class Distributor implements Service {
 	}
 
 	/** @return if distribution can continue, read from storage only first time */
-	private boolean loadFromClientWhenAllOnlines() {
-	    final boolean reload = !initialAdding && (
+	private boolean loadDutiesOnClusterStable() {
+	    final boolean reload = !delegateFirstCall && (
 	    		config.getDistributor().isReloadDutiesFromStorage()
                 && config.getDistributor().getDutiesReloadFromStoragePhaseFrequency() == counterForReloads++);
 	    
-		if (initialAdding || reload) {
+	    boolean ret = true;
+	    
+		if (delegateFirstCall || reload) {
 		    counterForReloads = 0;
 			logger.info("{}: reloading duties from storage", getName());
-			final Set<Duty> duties = reloadDutiesFromStorage();
 			final Set<Pallet> pallets = reloadPalletsFromStorage();
+			final Set<Duty> duties = reloadDutiesFromStorage();
 						
 			if (pallets == null || pallets.isEmpty()) {
 				logger.warn("{}: EventMapper user's supplier hasn't return any pallets {}",getName(), pallets);
-				initialAdding = false;
 			} else {				
 				uncommitedRepository.loadRawPallets(pallets, logger("Pallet"));
 			}
 			
 			if (duties == null || duties.isEmpty()) {
 				logger.warn("{}: EventMapper user's supplier hasn't return any duties: {}",getName(), duties);
-				initialAdding = false;
 			} else {
 				try {
 					duties.forEach(d -> Task.validateBuiltParams(d));
 				} catch (Exception e) {
 					logger.error("{}: Distribution suspended - Duty Built construction problem: ", getName(), e);
+					delegateFirstCall = false;
 					return false;
 				}
-				uncommitedRepository.loadRawDuties(duties, logger("Duty"));
-				initialAdding = false;
 			}
+			uncommitedRepository.loadRawDuties(duties, logger("Duty"));
+			delegateFirstCall = false;
 
-			if (shardingState.getUncommited().getDutiesCrud().isEmpty()) {
+			final Collection<ShardEntity> crudReady = shardingState.getUncommited().getDutiesCrud();
+			if (crudReady.isEmpty()) {
 				logger.warn("{}: Aborting first distribution (no CRUD duties)", getName());
-				return false;
+				ret = false;
 			} else {
-				logger.info("{}: reported {} entities for sharding...", getName(), duties.size());
+				logger.info("{}: reported {} entities for sharding...", getName(), crudReady.size());
 			}
 		} else {
 			checkUnexistingDutiesFromStorage();
 		}
-		return true;
+		return ret;
 	}
 
 	private Consumer<Reply> logger(final String type) {
@@ -419,7 +421,6 @@ public class Distributor implements Service {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	private Set<Duty> reloadDutiesFromStorage() {
 		Set<Duty> duties = null;
 		try {

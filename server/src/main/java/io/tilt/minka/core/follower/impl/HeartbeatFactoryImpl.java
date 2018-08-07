@@ -99,8 +99,7 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 		final Heartbeat.Builder builder = Heartbeat.builder(sequence.getAndIncrement(), partition.getId());
 		// add reported: as confirmed if previously assigned, dangling otherwise.
 		final List<EntityRecord> tmp = new ArrayList<>(partition.getDuties().size()); 
-		final boolean withEntity = newLeader;
-		boolean issues = detectChangesOnReport(builder, tmp::add, withEntity);
+		boolean issues = detectChangesOnReport(builder, tmp::add, newLeader);
 		logBeat |=issues;
 
 		final boolean exclusionExpired = includeTimestamp == 0 || (now - includeTimestamp) > includeFrequency;
@@ -129,17 +128,20 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 	private boolean detectChangesOnReport(
 	        final Heartbeat.Builder builder,
 			final Consumer<EntityRecord> c,
-			final boolean withEntity) {
+			final boolean newLeader) {
 	    
 		boolean includeDuties = false;
 		Map<EntityEvent, StringBuilder> tmp = new HashMap<>(2);
 		for (ShardEntity shardedDuty: partition.getDuties()) {
 			includeDuties |= detectReception(shardedDuty, tmp);
-			c.accept(EntityRecord.fromEntity(shardedDuty, false));
+			c.accept(EntityRecord.fromEntity(shardedDuty, newLeader));
 		}
 		for (ShardEntity shardedDuty: partition.getReplicas()) {
-			if (detectReception(shardedDuty, tmp)) {
-				c.accept(EntityRecord.fromEntity(shardedDuty, withEntity));
+			// new leader or not it must be comitted
+			final boolean detected = detectReception(shardedDuty, tmp);
+			// replicas must be reported when new leader or when simply comitting
+			if (newLeader || detected) {
+				c.accept(EntityRecord.fromEntity(shardedDuty, true));
 			}
 		}
 		if (!tmp.isEmpty() && log.isInfoEnabled()) {

@@ -54,6 +54,7 @@ public class ShardingState {
 	private final UncommitedChanges uncommitedChanges;
 	private ChangePlan currentPlan;
 	private List<Runnable> observers;
+	private Long firstPlanId;
 	
 	/**
 	 * status for the cluster taken as Avg. for the last 5 cycles
@@ -93,6 +94,13 @@ public class ShardingState {
 		return this.currentPlan;
 	}
 
+	public Long getFirstPlanId() {
+		return firstPlanId;
+	}
+	public void setFirstPlanId(Long firstPlanId) {
+		this.firstPlanId = firstPlanId;
+	}
+	
 	public void setPlan(final ChangePlan change) {
 		this.currentPlan = change;
 		notifyObservers();

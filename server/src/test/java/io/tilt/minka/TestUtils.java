@@ -157,11 +157,12 @@ public class TestUtils {
 			final Collection<Duty> duties) {
 		final Set<Duty> tmp = new HashSet<>();
 		for (ServerWhitness w: cluster) {
-			assertTrue(w.getCurrent().size()>0);
+			assertTrue("whitness without current (0)", w.getCurrent().size()>0);
 			assertTrue(tmp.addAll(w.getCurrent()));
 		}
-		assertEquals("different size of expected distribution ", duties.size(), tmp.size());
-		assertEquals("different content of expected distribution", duties, tmp);
+		final String prep = "cluster-size:" + cluster.size() + ";duties-size:" + duties.size();
+		assertEquals(prep + " diff. size of expected distro:", duties.size(), tmp.size());
+		assertEquals(prep + " diff. content of expected distro:", duties, tmp);
 	}
 	
 

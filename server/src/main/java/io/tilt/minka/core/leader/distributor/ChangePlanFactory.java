@@ -82,6 +82,11 @@ class ChangePlanFactory {
 				config.beatToMs(config.getDistributor().getPlanExpiration()), 
 				config.getDistributor().getPlanMaxRetries());
 		
+		// to record initial pid and detect lazy surviving followers
+		if (scheme.getCurrentPlan() == null && previous == null) {
+			scheme.setFirstPlanId(changePlan.getId());
+		}
+
 		final Set<ShardEntity> creations = collectAsCreates(scheme, previous, snapshot, changePlan);		
 		final Set<ShardEntity> deletions = collectAsRemoves(scheme, previous, snapshot, changePlan, creations);
 		

@@ -125,21 +125,31 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 				logger.debug("{}: no {} Delivery for heartbeat's shard: {}", getClass().getSimpleName(), 
 						Delivery.Step.PENDING, shard.getShardID().toString());
 			}			
-		} else if (changePlan == null && beat.reportsDuties()) {
-			// changePlan is NULL only before 1st distribution
-			// there's been a change of leader: i'm initiating with older followers
-			final StringBuilder log = new StringBuilder();
-			for (EntityRecord e: beat.getCaptured()) {
-				//L: prepared, L: pending, F: received, C: confirmed, L: ack.
-				boolean learnt = shardingState.getUncommited().learnPreviousDistribution(e, shard);
-				if (learnt && logger.isInfoEnabled()) {
-					log.append(e.getId()).append(',');
+		} else if (lazyOrSurvivor(beat, changePlan)) {
+			shardingState.getUncommited().feedFromPreviousState(beat.getCaptured(), shard);
+		}
+	}
+
+	/**
+	 * @return TRUE if we must consider heartbeat reports as part of previous state
+	 */
+	private boolean lazyOrSurvivor(final Heartbeat beat, final ChangePlan changePlan) {
+		final boolean survivor = changePlan == null && beat.reportsDuties();
+		boolean lazy = false;
+		if (changePlan != null && changePlan.getResult().isClosed() && beat.reportsDuties()
+				// wait only 1 change-plan for the lazy followers
+				&& changePlan.getId() == shardingState.getFirstPlanId()) {
+
+			long max = 0;
+			for (EntityRecord er : beat.getCaptured()) {
+				final Log l = er.getCommitTree().findOne(0, beat.getShardId(), EntityEvent.ATTACH);
+				if (l != null && max < l.getPlanId()) {
+					max = l.getPlanId();
 				}
 			}
-			if (log.length()>0) {
-				logger.info("{}: Learnt at [{}] {}", getClass().getSimpleName(), shard, log.toString());
-			}
+			lazy = max < shardingState.getFirstPlanId();
 		}
+		return lazy || survivor;
 	}
 
 	private void logging(final Shard shard, final ChangePlan changePlan, final Map<EntityEvent, StringBuilder> logg) {
