@@ -26,7 +26,9 @@ import static io.tilt.minka.domain.EntityState.ACK;
 
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.BiConsumer;
@@ -117,7 +119,7 @@ public class StateExpected {
 			final BiConsumer<Log, ShardEntity> c,
 			final long pid,
 			final EntityEvent...events) {
-		Set<EntityRecord> log = null;
+		final Map<EntityEvent, Set<EntityRecord>> byEvent = new HashMap<>(events.length);
 		Set<EntityRecord> dirty = null;
 		boolean found = false;
 		for (final EntityRecord beated : beatedDuties) {
@@ -128,8 +130,9 @@ public class StateExpected {
 						if (expected != null) {
 							found = true;
 							if (logger.isInfoEnabled()) {
+								Set<EntityRecord> log = byEvent.get(ee);
 								if (log == null) {
-									log = new TreeSet<>();
+									byEvent.put(ee, log = new TreeSet<>());
 								}
 								log.add(beated);
 							}
@@ -149,10 +152,11 @@ public class StateExpected {
 				}
 			}
 		}
-		if (log!=null) {
-			logger.info("{}: ShardID: {}, {} {} for Duties: {}", classname,
-					shardid, ATTACH, COMMITED, 
-					EntityRecord.toStringIds(log));
+		if (!byEvent.isEmpty()) {
+			byEvent.entrySet().forEach(e->
+				logger.info("{}: ShardID: {}, {} {} for Duties: {}", classname,
+					shardid, e.getKey(), COMMITED, 
+					EntityRecord.toStringIds(e.getValue())));
 		}
 		if (dirty!=null) {
 			logger.warn("{}: ShardID: {}, Reporting DIRTY partition event for Duties: {}", classname,

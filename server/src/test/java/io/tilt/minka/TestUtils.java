@@ -26,7 +26,8 @@ public class TestUtils {
 	public static Config prototypeConfig() {
 		final Config prototypeConfig = new Config();
 		prototypeConfig.getBootstrap().setNamespace("client-test");
-		prototypeConfig.getBootstrap().setBeatUnitMs(50l);
+		// after stocking and committreees cannot reduce BEAT size below 100 (was 50 before)
+		prototypeConfig.getBootstrap().setBeatUnitMs(100l);
 		return prototypeConfig;
 	}
 

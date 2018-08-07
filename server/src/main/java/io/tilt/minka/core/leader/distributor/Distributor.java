@@ -166,7 +166,7 @@ public class Distributor implements Service {
 				|| scheme.getUncommited().isStealthChange());
 		
 		if (noPlan && scheme.getShardsHealth() == ClusterHealth.UNSTABLE) {
-			if (counterForAvoids++<10) {
+			if (counterForAvoids++<30) {
 				if (counterForAvoids==0) {
 					logger.warn("{}: ({}) Suspending distribution until reaching cluster stability", getName(), shardId);
 				}
