@@ -59,7 +59,7 @@ import io.tilt.minka.utils.LogUtils;
  * @author Cristian Gonzalez
  * @since Dec 2, 2015
  */
-class Proctor implements Service {
+class ClusterProctor implements Service {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -78,7 +78,7 @@ class Proctor implements Service {
 	private Instant lastAnalysys;
 	
 
-	Proctor(
+	ClusterProctor(
 			final Config config, 
 			final ShardingState shardingState, 
 			final StateSentry sentry, 

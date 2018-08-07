@@ -13,8 +13,8 @@ public class DistributorSettings {
 	private boolean reloadDutiesFromStorage;
 	protected static final int DUTIES_RELOAD_FROM_STORAGE_PHASE_FREQUENCY = 10;
 	private int dutiesReloadFromStoragePhaseFrequency;
-	/* 10 seconds to let the Proctor discover all Followers before distributing */
-	protected final static long START_DELAY = 1;
+	/* 10 seconds to let the ClusterProctor discover all Followers before distributing */
+	protected final static long START_DELAY = 5; // was in 1 in august
 	private long startDelay;
 	protected final static long PHASE_FREQUENCY = 2;
 	private long phaseFrequency;

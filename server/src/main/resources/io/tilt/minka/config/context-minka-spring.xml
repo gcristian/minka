@@ -143,7 +143,7 @@
     </bean>
     
     <!-- Pastorea los followers -->
-    <bean id="proctor" class="io.tilt.minka.core.leader.Proctor">
+    <bean id="proctor" class="io.tilt.minka.core.leader.ClusterProctor">
         <constructor-arg ref="config" />
         <constructor-arg ref="shardingScheme" />
         <constructor-arg ref="schemeSentry" />
