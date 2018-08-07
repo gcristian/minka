@@ -247,6 +247,7 @@ public class Server {
 			if (tenant.getConfig().getBootstrap().isEnableWebserver()) {
 				startWebserver();
 				logger.info(LogUtils.getGreetings(
+						config.getBootstrap().getZookeeperHostPort(),
 						config.getResolvedShardId(), 
 						config.getBootstrap().getNamespace(), 
 						config.getBootstrap().getWebServerHostPort()));

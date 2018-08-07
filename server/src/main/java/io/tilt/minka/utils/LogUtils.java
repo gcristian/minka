@@ -18,6 +18,7 @@ package io.tilt.minka.utils;
 
 import java.nio.charset.Charset;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.util.StreamUtils;
 
 import io.tilt.minka.shard.ShardIdentifier;
@@ -60,7 +61,7 @@ public class LogUtils {
 	}
 	private static String randomSaluteFromFile() {
 		try {
-			final int num = 2;
+			final int num = 1;
 			return StreamUtils.copyToString(
 					LogUtils.class.getResourceAsStream("salutation" + num + ".txt"), 
 					Charset.forName("utf-8"));
@@ -81,16 +82,26 @@ public class LogUtils {
 		return line.toString();
 	}
 	
-	public static String getGreetings(final ShardIdentifier id, final String namespace, final String webserverHostPort) {
+	public static String getGreetings(final String zkhost, final ShardIdentifier id, final String namespace, final String webserverHostPort) {
 		final String nl = System.getProperty("line.separator");
 		StringBuilder sb = new StringBuilder(nl);
 		grossLine(GROSS_CHAR, LARGE * 2, sb);
 		sb.append(nl).append(nl);
-		sb.append(logo);
-		sb.append("\tNamespace: ").append(namespace).append(nl).append(nl);
-		sb.append("\tTCP Broker: ").append(id.getId()).append(nl);
-		sb.append("\tTag: ").append(id.getTag()).append(nl);
-		sb.append("\tAPI: ").append(webserverHostPort).append("/minka/admin/help").append(nl).append(nl);
+		
+		String a = logo;
+		a = StringUtils.replace(a, "$ns", namespace);
+		a = StringUtils.replace(a, "$ta", id.getTag());
+		a = StringUtils.replace(a, "$zk", zkhost);
+		a = StringUtils.replace(a, "$ht", webserverHostPort + "/minka/admin/help");
+		a = StringUtils.replace(a, "$ad", id.getId());
+		sb.append(a);
+		/*
+		sb.append("\tNamespace ").append(namespace).append(nl).append(nl);
+		sb.append("\tTag:      ").append(id.getTag()).append(nl);
+		sb.append("\tAddress:  ").append(id.getId()).append(nl);
+		sb.append("\tHTTP:     ").append(webserverHostPort).append("/minka/admin/help").append(nl);
+		sb.append("\tZokeeper: ").append(zkhost).append(nl).append(nl);
+		*/
 		sb.append(END_LINE);
 		return sb.toString();
 	}
