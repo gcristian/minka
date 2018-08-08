@@ -92,4 +92,11 @@ public class Reply {
 	public void setMessage(final String message) {
 		this.message = message;
 	}
+	public String toMessage() {
+		return new StringBuilder(toString())
+				.append(" >> ").append(message)
+				.append(", entity:").append(entity)
+				.append(", state:").append(state)
+				.toString();
+	}
 }
