@@ -192,14 +192,32 @@
       
     ===============================================================================================-->
     
-    
-    <bean id="systemState" class="io.tilt.minka.api.inspect.SystemStateMonitor">
+    <bean id="leaderMonitor" class="io.tilt.minka.api.inspect.LeaderMonitor">
         <constructor-arg ref="leaderAware"/>
+        <constructor-arg ref="config"/>
         <constructor-arg ref="shardingScheme"/>
         <constructor-arg ref="partition"/>
+    </bean>
+    
+    <bean id="followerMonitor" class="io.tilt.minka.api.inspect.FollowerMonitor">
+        <constructor-arg ref="shardingScheme"/>
+        <constructor-arg ref="partition"/>
+    </bean>
+
+    <bean id="crossMonitor" class="io.tilt.minka.api.inspect.CrossMonitor">
+        <constructor-arg ref="shardingScheme"/>
         <constructor-arg ref="scheduler"/>
         <constructor-arg ref="eventBroker"/>
         <constructor-arg ref="config"/>
+    </bean>    
+    
+    <bean id="systemStateMonitor" class="io.tilt.minka.api.inspect.SystemStateMonitor">
+        <constructor-arg ref="config"/>
+        <constructor-arg ref="leaderMonitor"/>
+        <constructor-arg ref="followerMonitor"/>
+        <constructor-arg ref="crossMonitor"/>
+        <constructor-arg ref="leaderAware"/>
+        <constructor-arg ref="scheduler"/>
     </bean>
     
     <!-- Integracion con el cliente  -->
@@ -210,7 +228,7 @@
         <constructor-arg ref="clientEventsHandler" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderAware" />
-        <constructor-arg ref="systemState" />
+        <constructor-arg ref="leaderMonitor" />
         <constructor-arg ref="partition" />
     </bean>
     
@@ -229,7 +247,6 @@
         <constructor-arg ref="leaderAware" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="eventBroker" />
-        <constructor-arg ref="systemState" />
     </bean>
     
 </beans>

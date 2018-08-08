@@ -66,15 +66,12 @@ public class Bootstrap implements Service {
 	private final LeaderAware leaderAware;
 	private final ShardIdentifier shardId;
 	private final EventBroker eventBroker;
-	private final SystemStateMonitor systemStateMonitor;
 	private final SpectatorSupplier spectatorSupplier;
 	private final String leaderLatchPath;
 	
 	private final Agent bootLeadershipCandidate;
 	private final Agent readyAwareBooting;
 	private final Agent unconfidentLeader;
-	private final Agent coredumper;
-	
 	
 	private Date start;
 	private Locks locks;
@@ -95,8 +92,7 @@ public class Bootstrap implements Service {
 			final Scheduler scheduler,
 			final LeaderAware leaderAware, 
 			final ShardIdentifier shardId, 
-			final EventBroker eventBroker,
-			final SystemStateMonitor systemStateMonitor) {
+			final EventBroker eventBroker) {
 
 		this.config = requireNonNull(config, "a unique service name is required (within the ZK ensemble)");
 		this.validator = requireNonNull(validator);
@@ -108,14 +104,12 @@ public class Bootstrap implements Service {
 		this.leaderAware = requireNonNull(leaderAware);
 		this.shardId = requireNonNull(shardId);
 		this.eventBroker = requireNonNull(eventBroker);
-		this.systemStateMonitor = requireNonNull(systemStateMonitor);
 
 		this.repostulationCounter = 0;
 
 		this.bootLeadershipCandidate = createCandidate();
 		this.readyAwareBooting = createBootup();
 		this.unconfidentLeader = createUnconfident();
-		this.coredumper = createStateMonitor();
 		
 		if (autoStart) {
 			start();
@@ -145,17 +139,6 @@ public class Bootstrap implements Service {
 				.build();
 	}
 	
-	private Agent createStateMonitor() {
-		return scheduler
-				.getAgentFactory().create(
-						Action.BOOTSTRAP_COREDUMP,
-						PriorityLock.HIGH_ISOLATED,
-						Frequency.PERIODIC, 
-						() -> stateMonitor())
-				.every(config.beatToMs(config.getBootstrap().getCoreDumpFrequency()))
-				.build();
-	}
-
 	private Agent createUnconfident() {
 		return scheduler
 				.getAgentFactory().create(
@@ -170,6 +153,7 @@ public class Bootstrap implements Service {
 	
 	@Override
 	public void start() {
+		
 	    this.start = new Date();
 		// check configuration is valid and not unstable-prone
 		validator.validate(config, dependencyPlaceholder.getMaster());
@@ -181,9 +165,6 @@ public class Bootstrap implements Service {
 		// after booting to avoid booting's failure race condition with restart()
 		locks.setConnectionLostCallback(() -> restart());
 		eventBroker.start(); // enable the principal service
-		if (config.getBootstrap().isEnableCoreDump()) {
-			scheduler.schedule(coredumper);
-		}
 	}
 
 	@Override
@@ -244,46 +225,6 @@ public class Bootstrap implements Service {
 		}
 	}
 	
-	private final Map<String, String> lastJsons = new HashMap<>();
-	private boolean saveOnDiff(final String key, final Instant now, final String value) {
-		boolean ret = false;
-		final String last = lastJsons.get(key);
-		if (last==null || !last.contentEquals(value)) {
-			lastJsons.put(key, value);
-			final StringBuilder filepath = new StringBuilder()
-					.append(config.getBootstrap().getCoreDumpFilepath())
-					.append("/minka-")
-					.append(key)
-					.append("-")
-					.append(config.getBootstrap().getServerTag());
-			if (!config.getBootstrap().isCoreDumpOverwrite()) {
-				filepath.append("-").append(now.toString());
-			}
-			filepath.append(".json");
-			try {
-				FileUtils.writeStringToFile(new File(filepath.toString()), value, Charset.defaultCharset());
-			} catch (IOException e) {
-			}
-			ret = true;
-		}
-		return ret;
-	}
-	protected void stateMonitor() {
-		final Instant now = Instant.now();
-		saveOnDiff("config", now, config.toJson());
-		saveOnDiff("schedule", now, systemStateMonitor.scheduleToJson(false));
-		saveOnDiff("shards", now, systemStateMonitor.shardsToJson());
-		saveOnDiff("broker", now, systemStateMonitor.brokerToJson());
-		saveOnDiff("partition", now, systemStateMonitor.currentPartitionToJson(false));
-		
-		if (leader.inService()) {
-			saveOnDiff("plans", now, systemStateMonitor.plansToJson());
-			saveOnDiff("distro", now, systemStateMonitor.distributionToJson());
-			saveOnDiff("scheme", now, systemStateMonitor.schemeToJson(true));
-			saveOnDiff("pallets", now, systemStateMonitor.palletsToJson());
-		}
-	}
-
 	/**
 	 * if config allows leadership candidate: 
 	 * postulate and keep retrying until postulation is accepted 

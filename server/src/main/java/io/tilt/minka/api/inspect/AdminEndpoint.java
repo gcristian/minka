@@ -57,7 +57,11 @@ public class AdminEndpoint {
 	@Autowired
 	private Scheme scheme;
 	@Autowired
-	private SystemStateMonitor state;
+	private CrossMonitor global;
+	@Autowired
+	private FollowerMonitor follower;
+	@Autowired
+	private LeaderMonitor distribution;
 	@Autowired
 	private Config config;
 
@@ -103,7 +107,7 @@ public class AdminEndpoint {
 	@Path("/distro")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response status() throws JsonProcessingException {
-		return Response.accepted(state.distributionToJson()).build();
+		return Response.accepted(distribution.distributionToJson()).build();
 	}
 
 	@POST
@@ -118,28 +122,28 @@ public class AdminEndpoint {
 	@Path("/broker")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response broker() throws JsonProcessingException {
-		return Response.accepted(state.brokerToJson()).build();
+		return Response.accepted(global.brokerToJson()).build();
 	}
 
 	@GET
 	@Path("/pallets")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response pallets() throws JsonProcessingException {
-		return Response.accepted(state.palletsToJson()).build();
+		return Response.accepted(distribution.palletsToJson()).build();
 	}
 	                    
 	@GET
 	@Path("/shards")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response shards() throws JsonProcessingException {
-		return Response.accepted(state.shardsToJson()).build();
+		return Response.accepted(distribution.shardsToJson()).build();
 	}
 
 	@GET
 	@Path("/scheme")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response scheme(@QueryParam("detail") final boolean detail) throws JsonProcessingException {
-		return Response.accepted(state.schemeToJson(detail)).build();
+		return Response.accepted(distribution.schemeToJson(detail)).build();
 	}
 
 	@GET
@@ -147,27 +151,27 @@ public class AdminEndpoint {
 	@Produces(MediaType.APPLICATION_JSON)
 	/** @return the follower's sharded partition entities */
 	public Response shardedDuties(@QueryParam("detail") final boolean detail) throws JsonProcessingException {
-		return Response.accepted(state.currentPartitionToJson(detail)).build();
+		return Response.accepted(follower.currentPartitionToJson(detail)).build();
 	}
 
 	@GET
 	@Path("/scheduler")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response schedule(@QueryParam("detail") final boolean detail) throws JsonProcessingException {
-		return Response.accepted(state.scheduleToJson(detail)).build();
+		return Response.accepted(global.scheduleToJson(detail)).build();
 	}
 	
 	@GET
 	@Path("/beats")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response beats() throws JsonProcessingException {
-        return Response.accepted(state.beatsToJson()).build();
+        return Response.accepted(follower.beatsToJson()).build();
 	}
 	@GET
 	@Path("/plans")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response plans() throws JsonProcessingException {
-        return Response.accepted(state.plansToJson()).build();
+        return Response.accepted(distribution.plansToJson()).build();
 	}
 	
 	public enum Format {

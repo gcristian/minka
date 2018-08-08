@@ -29,7 +29,7 @@ import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.inspect.SystemStateMonitor;
+import io.tilt.minka.api.inspect.LeaderMonitor;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
@@ -67,7 +67,7 @@ public class Client {
 	private final ShardIdentifier shardId;
 	private final Config config;
 	private final LeaderAware leaderAware;
-	private final SystemStateMonitor state;
+	private final LeaderMonitor leaderMonitor;
 	private final ShardedPartition partition;
 
 	protected Client(
@@ -77,7 +77,7 @@ public class Client {
 			final ClientEventsHandler mediator, 
 			final ShardIdentifier shardId, 
 			final ZookeeperLeaderAware leaderAware, 
-			final SystemStateMonitor state,
+			final LeaderMonitor leaderMonitor,
 			final ShardedPartition partition) {
 		this.config = config;
 		this.leader = leader;
@@ -85,7 +85,7 @@ public class Client {
 		this.clientMediator = mediator;
 		this.shardId = shardId;
 		this.leaderAware = leaderAware;
-		this.state = state;
+		this.leaderMonitor = leaderMonitor;
 		this.partition = partition;
 	}
 
@@ -94,7 +94,7 @@ public class Client {
 	 * @return a nonempty Status only when the curent shard is the Leader 
 	 */
 	public Map<String, Object> getStatus() {
-		return state.buildDistribution();
+		return leaderMonitor.buildDistribution();
 	}
 	/**
 	* Remove duties already running/distributed by Minka

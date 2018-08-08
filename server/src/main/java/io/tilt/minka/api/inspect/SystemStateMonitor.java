@@ -16,27 +16,14 @@
  */
 package io.tilt.minka.api.inspect;
 
-import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
-
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.Charset;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.function.Consumer;
 
-import org.apache.commons.lang.Validate;
-import org.joda.time.DateTime;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import org.apache.commons.io.FileUtils;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
@@ -46,28 +33,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.broker.EventBroker.BrokerChannel;
-import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.broker.impl.SocketClient;
-import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
-import io.tilt.minka.core.leader.data.CommitedState;
-import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.core.leader.data.UncommitedChanges;
-import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
-import io.tilt.minka.core.task.Semaphore;
+import io.tilt.minka.core.task.Scheduler.Frequency;
+import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
-import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityState;
-import io.tilt.minka.domain.Heartbeat;
-import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardedPartition;
-import io.tilt.minka.shard.Shard;
-import io.tilt.minka.utils.CollectionUtils;
-import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 
 /**
  * Read only views built at request about the system state  
@@ -78,18 +49,15 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
  */
 public class SystemStateMonitor {
 
-	private final LeaderAware leaderAware; 
-	private final Scheme scheme;
-	private final ShardedPartition partition;
-	private final Scheduler scheduler;
-	private final EventBroker broker;
+	private final LeaderMonitor leader;
+	private final FollowerMonitor follower;
+	private final CrossMonitor cross;
+	private final LeaderAware leaderAware;
 	private final Config config;
 	
-	private final ChangePlan[] lastPlan = {null};
-	private final SlidingSortedSet<String> changePlanHistory;
-	private final SlidingSortedSet<Long> planids;
+	private final Agent coredumper;
 	
-	public static final ObjectMapper mapper; 
+	static final ObjectMapper mapper; 
 	static {
 		mapper = new ObjectMapper();
 		mapper.setVisibility(PropertyAccessor.ALL, Visibility.NONE);
@@ -102,525 +70,87 @@ public class SystemStateMonitor {
 		mapper.configure(Feature.WRITE_NUMBERS_AS_STRINGS, true);
 	}
 
+	private final Map<String, String> lastJsons = new HashMap<>();
+	
 	public SystemStateMonitor(
+			final Config config,
+			final LeaderMonitor leader, 
+			final FollowerMonitor follower, 
+			final CrossMonitor cross,
 			final LeaderAware leaderAware, 
-			final Scheme scheme,
-			final ShardedPartition partition,
-			final Scheduler scheduler,
-			final EventBroker broker, 
-			final Config config) {
+			final Scheduler scheduler) {
+		super();
+		this.config = config;
+		this.leader = leader;
+		this.follower = follower;
+		this.cross = cross;
+		this.leaderAware = leaderAware;
+		this.coredumper = createStateMonitor(scheduler);
 		
-		this.leaderAware = requireNonNull(leaderAware);
-		this.scheme = requireNonNull(scheme);
-		this.scheduler = requireNonNull(scheduler);
-		this.partition = requireNonNull(partition);
-		this.broker = requireNonNull(broker);
-		this.config = requireNonNull(config);
-		
-		this.changePlanHistory = CollectionUtils.sliding(20);
-		this.planids = CollectionUtils.sliding(10);
-		
-		scheme.addChangeObserver(()->{
-			try {
-				if (lastPlan[0]!=null) {
-					if (!lastPlan[0].equals(scheme.getCurrentPlan())) {
-						changePlanHistory.add(toJson(lastPlan[0]));
-						planids.add(lastPlan[0].getId());
-					}
-				}
-				lastPlan[0] = scheme.getCurrentPlan();
-			} catch (Exception e) {
-			}
-		});
-	}
+		if (config.getBootstrap().isEnableCoreDump()) {
+			scheduler.schedule(coredumper);
+		}
 
-	private String toJson(final Object o) {
+	}
+	
+	static String toJson(final Object o) {
 		try {
 			return mapper.writeValueAsString(o);
 		} catch (JsonProcessingException e) {
 			return "";
 		}
 	}
-	
-	/**
-	 * <p>
-	 * Gives detailed information on change plans built in distributor phase
-	 * to accomodate duties into shards. Including any on-going plan, and historic plans.
-	 * <p>
-	 * Non-Empty only when the current server is the Leader.
-	 * @return			a String in json format
-	 */
-	public String plansToJson() {
-		return toJson(buildPlans().toMap());
+
+	public Agent createStateMonitor(final Scheduler scheduler) {
+		return scheduler
+				.getAgentFactory().create(
+						Action.BOOTSTRAP_COREDUMP,
+						PriorityLock.HIGH_ISOLATED,
+						Frequency.PERIODIC, 
+						() -> stateMonitor())
+				.every(config.beatToMs(config.getBootstrap().getCoreDumpFrequency()))
+				.build();
 	}
 
-	public String beatsToJson() {
-		return toJson(buildBeats());
-	}
-
-	/**
-	 * <p>
-	 * Shows metrics on the event broker's server and clients, used to communicate shards.  
-	 * Each shard has at least one server to listen events from the leader and one client to send
-	 * events to the leader. The Leader has one server to listen events from all followers, and 
-	 * one client for each follower that sends events to.  
-	 * <p>
-	 * Full when the current server is the Leader, self broker information when the server is a Follower.
-	 * @return			a String in json format
-	 */
-	public String brokerToJson() {
-		return toJson(buildBroker());
-	}
-
-	/**
-	 * <p>
-	 * Gives detailed information on the shards, members of the cluster within the namespace, reporting to the leader.
-	 * <p>
-	 * Full when the current server is the Leader, self shard info. when the server is a Follower.
-	 * @return			a String in json format
-	 */
-	public String shardsToJson()  {
-		return toJson(buildShards(scheme));
-	}
-
-	/**
-	 * <p>
-	 * Gives detailed information on distributed duties and their shard locations
-	 * <p>
-	 * Non-Empty only when the current server is the Leader.
-	 * @return			a String in json format
-	 */
-	public String distributionToJson() {
-		return toJson(buildDistribution());
-	}
-
-	/**
-	 * <p>
-	 * Shows the duties captured by the shard.
-	 * @return			a String in json format
-	 */
-	public String currentPartitionToJson(boolean detailed) {
-		return toJson(buildPartitionDuties(partition, detailed));
-	}
-	
-	public String palletsToJson() {
-		return toJson(buildPallets());
-	}
-
-	/**
-	 * <p>
-	 * Shows the state of the scheduler 
-	 * <p>
-	 * Non-Empty only when the current server is the Leader.
-	 * @return			a String in json format
-	 */
-	public String scheduleToJson(final boolean detail) {
-		return toJson(buildSchedule(scheduler, detail));
-	}
-
-	/**
-	 * 
-	 * <p>
-	 * Non-Empty only when the current server is the Leader.
-	 * @return			a String in json format
-	 */
-	public String schemeToJson(final boolean detail) {
-		Map<String, Object> m = new LinkedHashMap<>(2);
-		m.put("commited", buildCommitedState(detail));
-		m.put("replicas", buildReplicas(detail));
-		m.put("uncommited", buildUncommitedChanges(detail, scheme.getUncommited()));
-		return toJson(m);
-	}
-	
-	public Map<Shard, Heartbeat> buildBeats() {
-		final Map<Shard, Heartbeat> ret = new HashMap<>();
-		this.scheme.getCommitedState().findShards(null, s-> {
-			Heartbeat last = null;
-			Iterator<Heartbeat> it=s.getHeartbeats().descend();
-			while(it.hasNext()) {
-				final Heartbeat hb = it.next();
-				if (last==null) {
-					last = hb;
-					ret.put(s, hb);
-				} else {
-					// put the last relevant to watch
-					if (hb.reportsDuties()) {
-						if (!last.reportsDuties()) {
-							last = hb;
-						} else {
-							if (hb.getCreation().isAfter(last.getCreation())) {
-								last = hb;
-							}
-						}
-					}
-				}
+	private boolean saveOnDiff(final String key, final Instant now, final String value) {
+		boolean ret = false;
+		final String last = lastJsons.get(key);
+		if (last==null || !last.contentEquals(value)) {
+			lastJsons.put(key, value);
+			final StringBuilder filepath = new StringBuilder()
+					.append(config.getBootstrap().getCoreDumpFilepath())
+					.append("/minka-")
+					.append(key)
+					.append("-")
+					.append(config.getBootstrap().getServerTag());
+			if (!config.getBootstrap().isCoreDumpOverwrite()) {
+				filepath.append("-").append(now.toString());
 			}
-		});
-		return ret;
-	}
-
-	public JSONObject buildPlans() {
-		final JSONObject js = new JSONObject();
-		try {
-			final JSONArray arr = new JSONArray();
-			js.put("size", changePlanHistory.size());
-			changePlanHistory.values().forEach(s-> arr.put(new JSONObject(s)));
-			js.put("ids", this.planids.values());
-			if (lastPlan[0]!=null && !lastPlan[0].getResult().isClosed()) {
-				js.put("current", new JSONObject(toJson(lastPlan[0])));
-			} else if (lastPlan[0]!=null) {
-				arr.put(new JSONObject(toJson(lastPlan[0])));
+			filepath.append(".json");
+			try {
+				FileUtils.writeStringToFile(new File(filepath.toString()), value, Charset.defaultCharset());
+			} catch (IOException e) {
 			}
-			
-			js.put("history", arr);
-		} catch (Exception e) {
-		}
-		return js;
-	}
-
-	private Map<String, Object> buildBroker() {
-		final Map<String, Object> global = new LinkedHashMap<>(3);
-		global.put("myself", config.getBroker().getHostPort());
-		global.put("inbound", broker.getReceptionMetrics());
-		final Set<Entry<BrokerChannel, Object>> entryset = broker.getSendMetrics().entrySet();
-		final Map<Channel, Map<String, Object>> clients = new LinkedHashMap<>(entryset.size());
-		for (Entry<BrokerChannel, Object> e: entryset) {
-			Map<String, Object> shardsByChannel = clients.get(e.getKey().getChannel());
-			if (shardsByChannel==null) {
-				clients.put(e.getKey().getChannel(), shardsByChannel=new LinkedHashMap<>());
-			}
-			final Map<String, String> brief = new LinkedHashMap<>(4);
-			if (e.getValue() instanceof SocketClient) {
-				final SocketClient sc = (SocketClient)e.getValue();				
-				brief.put("queue-size", String.valueOf(sc.getQueueSize()));
-				brief.put("sent-counter", String.valueOf(sc.getSentCounter()));
-				brief.put("alive", String.valueOf(sc.getAlive()));
-				brief.put("retry-counter", String.valueOf(sc.getRetry()));
-			}
-			shardsByChannel.put(e.getKey().getAddress().toString(), brief);
-		}
-		global.put("outbound", clients);
-		return global;
-	}
-
-	private Map<String, Object> buildShards(final Scheme scheme) {
-		final Map<String, Object> map = new LinkedHashMap<>(5);
-		map.put("namespace", config.getBootstrap().getNamespace());
-		map.put("leader", leaderAware.getLeaderShardId());
-		map.put("previous", leaderAware.getAllPreviousLeaders());
-		final Map<String, List<String>> tmp = new HashMap<>();
-		scheme.getCommitedState().getGoneShards().entrySet().forEach(e-> {
-			tmp.put(e.getKey().getId(), e.getValue().values().stream().map(c->c.toString()).collect(toList()));
-		});
-		map.put("gone", tmp);
-		final List<Shard> list = new ArrayList<>();
-		scheme.getCommitedState().findShards(null, list::add);
-		map.put("shards", list);
-		return map;
-	}
-	
-	public Map<String, Object> buildDistribution() {
-		final Map<String, Object> map = new LinkedHashMap<>(2);
-		map.put("global", buildGlobal(scheme));
-		map.put("distribution", buildShardRep(scheme));
-		return map;
-	}
-	
-	private Map<String, List<Object>> buildCommitedState(final boolean detail) {
-		Validate.notNull(scheme);
-		final Map<String, List<Object>> byPalletId = new LinkedHashMap<>();
-		final Consumer<ShardEntity> adder = addler(detail, byPalletId);
-		scheme.getCommitedState().findDuties(adder);
-		return byPalletId;
-	}
-
-	private Map<String, List<Object>> buildReplicas(final boolean detail) {
-		Validate.notNull(scheme);
-		final Map<String, List<Object>> byPalletId = new LinkedHashMap<>();
-		final Consumer<ShardEntity> adder = addler(detail, byPalletId);
-		partition.getReplicas().forEach(adder);;
-		return byPalletId;
-	}
-
-	private Consumer<ShardEntity> addler(final boolean detail, final Map<String, List<Object>> byPalletId) {
-		final Consumer<ShardEntity> adder = d-> {
-			List<Object> pid = byPalletId.get(d.getDuty().getPalletId());
-			if (pid==null) {
-				byPalletId.put(d.getDuty().getPalletId(), pid = new ArrayList<>());
-			}
-			pid.add(detail ? d : d.getDuty().getId());
-		};
-		return adder;
-	}
-
-	private List<Object> dutyBrief(final Collection<ShardEntity> coll, final boolean detail) {
-		List<Object> ret = new ArrayList<>();
-		if (detail) {
-			coll.stream()
-				.map(d->d.getDuty().getId())
-				.forEach(ret::add);
-		} else {
-			coll.forEach(ret::add);
+			ret = true;
 		}
 		return ret;
 	}
 	
-	private Map<String, List<Object>> buildUncommitedChanges(final boolean detail, final UncommitedChanges uncommitedChanges) {
-		final Map<String, List<Object>> ret = new LinkedHashMap<>(3);		
-		ret.put("crud", dutyBrief(uncommitedChanges.getDutiesCrud(), detail));
-		ret.put("dangling", dutyBrief(uncommitedChanges.getDutiesDangling(), detail));
-		ret.put("missing", dutyBrief(uncommitedChanges.getDutiesMissing(), detail));
-		return ret;
-	}
-
-	private Map<String, List<Object>> buildPartitionDuties(final ShardedPartition partition, boolean detail) {
-		Validate.notNull(partition);
-		final Map<String, List<Object>> ret = new LinkedHashMap<>(2);
+	protected void stateMonitor() {
+		final Instant now = Instant.now();
+		saveOnDiff("config", now, config.toJson());
+		saveOnDiff("schedule", now, cross.scheduleToJson(false));
+		saveOnDiff("shards", now, leader.shardsToJson());
+		saveOnDiff("broker", now, cross.brokerToJson());
+		saveOnDiff("partition", now, follower.currentPartitionToJson(false));
+		saveOnDiff("beats", now, follower.beatsToJson());
 		
-		ArrayList<Object> tmp = new ArrayList<>(partition.getDuties().size());
-		ret.put("partition", tmp);
-		for (ShardEntity e: partition.getDuties()) {
-			tmp.add(detail ? e: e.getDuty().getId());
+		if (leaderAware.imLeader()) {
+			saveOnDiff("plans", now, leader.plansToJson());
+			saveOnDiff("distro", now, leader.distributionToJson());
+			saveOnDiff("scheme", now, leader.schemeToJson(true));
+			saveOnDiff("pallets", now, leader.palletsToJson());
 		}
-		tmp = new ArrayList<>(partition.getReplicas().size());
-		ret.put("replicas", tmp);
-		for (ShardEntity e: partition.getReplicas()) {
-			tmp.add(detail ? e: e.getDuty().getId());
-		}
-		return ret;
-	}
-		
-	private List<Map<String, Object>> buildPallets() {
-		
-		final CommitedState.SchemeExtractor extractor = new CommitedState.SchemeExtractor(scheme.getCommitedState());
-		final List<Map<String, Object>> ret = new ArrayList<>(extractor.getPallets().size());
-		for (final ShardEntity pallet: extractor.getPallets()) {
-			
-			final double[] dettachedWeight = {0};
-			final int[] crudSize = new int[1];
-			scheme.getUncommited().findDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, e-> {
-				if (e.getDuty().getPalletId().equals(pallet.getPallet().getId())) {
-					crudSize[0]++;
-					dettachedWeight[0]+=e.getDuty().getWeight();
-				}
-			});
-								
-
-			final List<DutyView> dutyRepList = new ArrayList<>();
-			scheme.getCommitedState().findDutiesByPallet(pallet.getPallet(), 
-					d -> dutyRepList.add(new DutyView(
-									d.getDuty().getId(),
-									d.getDuty().getWeight())));
-			
-			ret.add(palletView(
-						pallet.getPallet().getId(),
-						extractor.getCapacityTotal(pallet.getPallet()),
-						extractor.getSizeTotal(pallet.getPallet()),
-						extractor.getWeightTotal(pallet.getPallet()),
-						pallet.getPallet().getMetadata().getBalancer().getName(), 
-						crudSize[0], 
-						dettachedWeight[0], 
-						new DateTime(pallet.getCommitTree().getFirst().getHead().getTime()),
-						pallet.getPallet().getMetadata(),
-						dutyRepList
-					));
-		}
-		return ret;
 	}
 
-	private static List<Map<String, Object>> buildShardRep(final Scheme table) {	    
-		final List<Map<String, Object>> ret = new LinkedList<>();
-		final CommitedState.SchemeExtractor extractor = new CommitedState.SchemeExtractor(table.getCommitedState());
-		for (final Shard shard : extractor.getShards()) {
-			final List<Map<String , Object>> palletsAtShard =new LinkedList<>();
-			
-			for (final ShardEntity pallet: extractor.getPallets()) {
-				final List<DutyView> dutyRepList = new LinkedList<>();
-				final List<DutyView> repliRepList = new LinkedList<>();
-				int[] size = new int[1];
-				table.getCommitedState().findShards(null,  sh-> {
-					for (ShardEntity se: table.getCommitedState().getReplicasByShard(sh)) {
-						if (se.getDuty().getPalletId().equals(pallet.getPallet().getId())) {
-							repliRepList.add(new DutyView(se.getDuty().getId(), se.getDuty().getWeight()));
-						}
-					}
-				});
-				
-				table.getCommitedState().findDuties(shard, pallet.getPallet(), d-> {
-					size[0]++;
-					dutyRepList.add(
-						new DutyView(
-								d.getDuty().getId(),
-								d.getDuty().getWeight()));});
-				palletsAtShard.add(
-						palletAtShardView(
-								pallet.getPallet().getId(),
-								extractor.getCapacity(pallet.getPallet(), shard),
-								size[0],
-								extractor.getWeight(pallet.getPallet(), shard),
-								dutyRepList, repliRepList));
-				
-			}
-			ret.add(shardView(
-					shard.getShardID().getId(),
-					shard.getFirstTimeSeen(),
-					palletsAtShard, 
-					shard.getState().toString()));
-		}
-		return ret;
-	}
-
-	private static Map<String, Object> buildGlobal(final Scheme table) {
-		CommitedState.SchemeExtractor extractor = new CommitedState.SchemeExtractor(table.getCommitedState());
-		final Map<String, Object> map = new LinkedHashMap<>(8);
-		map.put("size-shards", extractor.getShards().size());
-		map.put("size-pallets", extractor.getPallets().size());
-		map.put("size-scheme", extractor.getSizeTotal());
-		map.put("size-crud", table.getUncommited().getDutiesCrud().size());
-		map.put("size-missings", table.getUncommited().getDutiesMissing().size());
-		map.put("size-dangling", table.getUncommited().getDutiesDangling().size());
-		map.put("uncommited-change", table.getUncommited().isStealthChange());
-		map.put("commited-change", table.getCommitedState().isStealthChange());
-		return map;
-	}
-	
-	
-	private static Map<String, Object> shardView(
-			final String shardId, 
-			final Instant creation, 
-			final List<Map<String, Object>> pallets, 
-			final String status) {
-			
-		final Map<String, Object> map = new LinkedHashMap<>(4);
-		map.put("shard-id", shardId);
-		map.put("creation", creation.toString());
-		map.put("status", status);
-		map.put("pallets", pallets);
-		return map;
-	}
-	
-	
-	private static Map<String , Object> palletAtShardView (
-			final String id, final double capacity, final int size, final double weight, 
-			final List<DutyView> duties, final List<DutyView> replicas) {
-
-		final Map<String , Object> map = new LinkedHashMap<>(5);
-		map.put("id", id);
-		map.put("size", size);
-		map.put("capacity", capacity);
-		map.put("weight", weight);
-		
-		final StringBuilder sb = new StringBuilder(duties.size() * (5 + 2));
-		duties.forEach(d->sb.append(d.id).append(", "));
-		map.put("duties",sb.toString());
-		
-		final StringBuilder sb2 = new StringBuilder(replicas.size() * (5 + 2));
-		replicas.forEach(d->sb2.append(d.id).append(", "));
-		map.put("replicas",sb2.toString());
-		return map;
-	}
-	
-	private static class DutyView {
-		private final String id;
-		private final double weight;
-		protected DutyView(final String id, final double weight) {
-			super();
-			this.id = id;
-			this.weight = weight;
-		}
-	}
-	
-	private static Map<String, Object> palletView(final String id, final double capacity, final int stagedSize, 
-			final double stagedWeight, final String balancer, final int unstagedSize, 
-			final double unstagedWeight, final DateTime creation, final BalancerMetadata meta, 
-			final List<DutyView> duties) {
-		
-		final Map<String, Object> map = new LinkedHashMap<>(12);
-		map.put("id", id);
-		map.put("size", unstagedSize + stagedSize);
-		map.put("cluster-capacity", capacity);
-		map.put("size-commited", stagedSize);
-		map.put("size-uncommited", unstagedSize);
-		map.put("weight-committed", stagedWeight);
-		map.put("weight-uncommited", unstagedWeight);
-		String str = "0";
-		if (unstagedSize + stagedSize > 0 && stagedSize > 0) {
-			str = String.valueOf((stagedSize*100) / (unstagedSize + stagedSize)) ;
-		}
-		map.put("allocation", str + "%");
-		map.put("creation", creation.toString());
-		map.put("balancer-metadata", meta); 
-		map.put("balancer", balancer);
-		StringBuilder sb = new StringBuilder(duties.size() * (5 + 2 + 5));
-		duties.forEach(d->sb.append(d.id).append(":").append(d.weight).append(","));
-		map.put("duties", sb.toString());
-		return map;
-	}
-	
-	private Map<String, Object> buildSchedule(final Scheduler schedule, final boolean detail) {
-		final Set<Entry<Action, Agent>> entrySet = schedule.getAgents().entrySet();
-		final Map<String, Object> ret = new LinkedHashMap<>(entrySet.size() + 4);
-		try {
-			final ScheduledThreadPoolExecutor executor = schedule.getExecutor();
-			final long now = System.currentTimeMillis();
-			ret.put("queue-size", executor.getQueue().size());
-			ret.put("corepool-size", executor.getCorePoolSize());
-			ret.put("tasks-count", executor.getTaskCount());
-			ret.put("tasks-completed", executor.getCompletedTaskCount());
-			
-			final Map<String, List> byFrequency = new LinkedHashMap<>(2);
-			for (final Entry<Semaphore.Action, Scheduler.Agent> e: entrySet) {
-				final Agent sync = e.getValue();
-				final Map<String, String> mapped = agentToMap(now, detail, sync);
-				
-				List byTask = byFrequency.get(sync.getFrequency().name());
-				if (byTask==null) {
-					byFrequency.put(sync.getFrequency().name(), byTask = new LinkedList<>());
-				}
-				byTask.add(mapped);
-			}
-			ret.put("agents", byFrequency);
-			
-		} catch (Throwable t) {
-		}
-		return ret;
-	}
-
-	private Map<String, String> agentToMap(final long now, final boolean detail, final Agent sync) {
-		final Map<String, String> t = new LinkedHashMap<>(9);
-		t.put("task", sync.getAction().name());
-		if (detail && sync.getFrequency()==Scheduler.Frequency.PERIODIC) {
-			t.put("frequency-unit", String.valueOf(sync.getTimeUnit()));
-			t.put("frequency-time", String.valueOf(sync.getPeriodicDelay()));
-		}
-		if (detail && sync.getDelay()>0) {
-			t.put("start-delay", String.valueOf(sync.getDelay()));
-		}
-		if (detail && sync.getLastQueueWait()>0) {
-			t.put("blocked-last", String.valueOf(sync.getLastQueueWait()));
-		}
-		t.put("blocked-accum", String.valueOf(sync.getAccumulatedWait()));
-		if (detail) { 	
-			t.put("last-run", String.valueOf(sync.getLastTimestamp()));
-		}
-		if (sync.getLastSuccessfulTimestamp()!=sync.getLastTimestamp()) {
-			t.put("last-run-success", String.valueOf(sync.getLastSuccessfulTimestamp()));
-		}
-		if (sync.getFrequency()==Scheduler.Frequency.PERIODIC) {
-			t.put("last-run-distance", String.valueOf(now - sync.getLastTimestamp()));
-		}
-		if (sync.getLastSuccessfulDuration()>0) {
-			t.put("last-run-duration", String.valueOf(sync.getLastSuccessfulDuration()));
-		}
-		t.put("duration-accum", String.valueOf(sync.getAccumulatedDuration()));
-		if (sync.getLastException() != null) { 
-			t.put("exception", sync.getLastException().toString());
-		}
-		if (detail) { 
-			t.put("lambda", sync.getTask().getClass().getSimpleName());
-		}
-		return t;
-	}
-
-	
 }
