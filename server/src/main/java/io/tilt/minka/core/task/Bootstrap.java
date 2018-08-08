@@ -271,7 +271,7 @@ public class Bootstrap implements Service {
 	protected void stateMonitor() {
 		final Instant now = Instant.now();
 		saveOnDiff("config", now, config.toJson());
-		saveOnDiff("schedule", now, systemStateMonitor.scheduleToJson());
+		saveOnDiff("schedule", now, systemStateMonitor.scheduleToJson(false));
 		saveOnDiff("shards", now, systemStateMonitor.shardsToJson());
 		saveOnDiff("broker", now, systemStateMonitor.brokerToJson());
 		saveOnDiff("partition", now, systemStateMonitor.currentPartitionToJson(false));

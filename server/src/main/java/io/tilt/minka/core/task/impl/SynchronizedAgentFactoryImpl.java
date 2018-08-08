@@ -26,8 +26,7 @@ import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
 
-public class SynchronizedAgentFactoryImpl extends SynchronizedFactoryImpl
-	implements Agent, AgentFactory {
+public class SynchronizedAgentFactoryImpl extends SynchronizedFactoryImpl implements Agent, AgentFactory {
 
 	private long delay;
 	private long periodicDelay;

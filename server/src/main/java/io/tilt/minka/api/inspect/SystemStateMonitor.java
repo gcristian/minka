@@ -214,8 +214,8 @@ public class SystemStateMonitor {
 	 * Non-Empty only when the current server is the Leader.
 	 * @return			a String in json format
 	 */
-	public String scheduleToJson() {
-		return toJson(buildSchedule(scheduler));
+	public String scheduleToJson(final boolean detail) {
+		return toJson(buildSchedule(scheduler, detail));
 	}
 
 	/**
@@ -557,7 +557,7 @@ public class SystemStateMonitor {
 		return map;
 	}
 	
-	private Map<String, Object> buildSchedule(final Scheduler schedule) {
+	private Map<String, Object> buildSchedule(final Scheduler schedule, final boolean detail) {
 		final Set<Entry<Action, Agent>> entrySet = schedule.getAgents().entrySet();
 		final Map<String, Object> ret = new LinkedHashMap<>(entrySet.size() + 4);
 		try {
@@ -568,33 +568,58 @@ public class SystemStateMonitor {
 			ret.put("tasks-count", executor.getTaskCount());
 			ret.put("tasks-completed", executor.getCompletedTaskCount());
 			
-			
+			final Map<String, List> byFrequency = new LinkedHashMap<>(2);
 			for (final Entry<Semaphore.Action, Scheduler.Agent> e: entrySet) {
 				final Agent sync = e.getValue();
+				final Map<String, String> mapped = agentToMap(now, detail, sync);
 				
-				final Map<String, String> t = new LinkedHashMap<>(9);
-				t.put("enum", e.getKey().name());
-				t.put("frequency", sync.getFrequency().name());
-				t.put("periodic-delay", String.valueOf(sync.getPeriodicDelay()));
-				t.put("start-delay", String.valueOf(sync.getDelay()));
-				t.put("time-unit", String.valueOf(sync.getTimeUnit()));
-
-				final long timestamp = now - sync.getLastExecutionTimestamp();
-				t.put("timestamp", String.valueOf(timestamp));
-				final long stime = now - sync.getLastSuccessfulExecutionTimestamp();
-				if (stime!=timestamp) {
-					t.put("success-timestamp", String.valueOf(stime));
+				List byTask = byFrequency.get(sync.getFrequency().name());
+				if (byTask==null) {
+					byFrequency.put(sync.getFrequency().name(), byTask = new LinkedList<>());
 				}
-				t.put("success-elapsed", String.valueOf(sync.getLastSuccessfulExecutionLapse()));
-				if (sync.getLastException() != null) { 
-					t.put("exception", sync.getLastException().toString());
-				}
-				ret.put(sync.getTask().getClass().getSimpleName(), t);
+				byTask.add(mapped);
 			}
+			ret.put("agents", byFrequency);
 			
 		} catch (Throwable t) {
 		}
 		return ret;
+	}
+
+	private Map<String, String> agentToMap(final long now, final boolean detail, final Agent sync) {
+		final Map<String, String> t = new LinkedHashMap<>(9);
+		t.put("task", sync.getAction().name());
+		if (detail && sync.getFrequency()==Scheduler.Frequency.PERIODIC) {
+			t.put("frequency-unit", String.valueOf(sync.getTimeUnit()));
+			t.put("frequency-time", String.valueOf(sync.getPeriodicDelay()));
+		}
+		if (detail && sync.getDelay()>0) {
+			t.put("start-delay", String.valueOf(sync.getDelay()));
+		}
+		if (detail && sync.getLastQueueWait()>0) {
+			t.put("blocked-last", String.valueOf(sync.getLastQueueWait()));
+		}
+		t.put("blocked-accum", String.valueOf(sync.getAccumulatedWait()));
+		if (detail) { 	
+			t.put("last-run", String.valueOf(sync.getLastTimestamp()));
+		}
+		if (sync.getLastSuccessfulTimestamp()!=sync.getLastTimestamp()) {
+			t.put("last-run-success", String.valueOf(sync.getLastSuccessfulTimestamp()));
+		}
+		if (sync.getFrequency()==Scheduler.Frequency.PERIODIC) {
+			t.put("last-run-distance", String.valueOf(now - sync.getLastTimestamp()));
+		}
+		if (sync.getLastSuccessfulDuration()>0) {
+			t.put("last-run-duration", String.valueOf(sync.getLastSuccessfulDuration()));
+		}
+		t.put("duration-accum", String.valueOf(sync.getAccumulatedDuration()));
+		if (sync.getLastException() != null) { 
+			t.put("exception", sync.getLastException().toString());
+		}
+		if (detail) { 
+			t.put("lambda", sync.getTask().getClass().getSimpleName());
+		}
+		return t;
 	}
 
 	

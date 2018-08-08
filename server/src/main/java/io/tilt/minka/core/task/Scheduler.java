@@ -42,11 +42,11 @@ public interface Scheduler extends Semaphore {
 		Runnable getTask();
 
 		//void cancel();
-		long getLastExecutionTimestamp();
+		long getLastTimestamp();
 
-		long getLastSuccessfulExecutionTimestamp();
+		long getLastSuccessfulTimestamp();
 
-		long getLastSuccessfulExecutionLapse();
+		long getLastSuccessfulDuration();
 
 		Exception getLastException();
 
@@ -96,6 +96,10 @@ public interface Scheduler extends Semaphore {
 	/* a task that needs synchronization with other tasks */
 	public interface Synchronized extends TimedTask {
 		PriorityLock getPriority();
+		void enqueued();
+		int getLastQueueWait();
+		int getAccumulatedWait();
+		long getAccumulatedDuration();
 	}
 
 	public interface SynchronizedFactory {

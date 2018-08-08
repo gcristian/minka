@@ -27,12 +27,20 @@ import io.tilt.minka.core.task.Scheduler.SynchronizedFactory;
 import io.tilt.minka.core.task.Semaphore.Action;
 
 public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactory {
+	
 	private final Action action;
 	private final PriorityLock priority;
 	private final Runnable task;
-	private long lastExecutionTimestamp;
-	private long lastSuccessfulExecutionTimestamp;
-	private long lastSuccessfulExecutionLapse;
+	
+	private long lastTimestamp;
+	private long lastSuccessfulTimestamp;
+	private long lastSuccessfulDuration;
+	private long accumulatedDuration;
+	
+	
+	private int accumulatedWait;
+	private int lastQueueWait;
+	private long lastEnqueued;
 
 	private Exception lastException;
 
@@ -55,6 +63,24 @@ public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactor
 		return new SynchronizedFactoryImpl(action, priority, task);
 	}
 
+	@Override
+	public void execute() {
+		final long start = lastTimestamp = System.currentTimeMillis();
+		lastQueueWait = (int)(start - lastEnqueued);
+		accumulatedWait+=lastQueueWait;
+		try {
+			task.run();
+			lastSuccessfulTimestamp = start;
+			lastSuccessfulDuration = System.currentTimeMillis() - start;
+		} catch (Exception e) {
+			Scheduler.logger.error("Untrapped exception running synchronized action", e);
+			this.lastException = e;
+		} finally {
+			this.lastTimestamp = start;
+			accumulatedDuration += lastSuccessfulDuration;
+		}
+	}
+	
 	@Override
 	public Action getAction() {
 		return action;
@@ -88,37 +114,34 @@ public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactor
 		StringBuilder sb = new StringBuilder().append("Ag:").append(getAction())
 				.append(",").append("T:").append(cname);
 		return sb.toString();
+	}	
+	
+	@Override
+	public int getLastQueueWait() {
+		return lastQueueWait;
+	}
+	@Override
+	public int getAccumulatedWait() {
+		return accumulatedWait;
+	}
+	@Override
+	public long getAccumulatedDuration() {
+		return accumulatedDuration;
+	}
+	
+	@Override
+	public long getLastSuccessfulTimestamp() {
+		return lastSuccessfulTimestamp;
 	}
 
 	@Override
-	public void execute() {
-		final long start = System.currentTimeMillis();
-		this.lastExecutionTimestamp = start;
-		try {
-			task.run();
-			this.lastSuccessfulExecutionTimestamp = start;
-			this.lastSuccessfulExecutionLapse = System.currentTimeMillis() - start;
-		} catch (Exception e) {
-			Scheduler.logger.error("Untrapped exception running synchronized action", e);
-			this.lastException = e;
-		} finally {
-			this.lastExecutionTimestamp = start;
-		}
+	public long getLastSuccessfulDuration() {
+		return this.lastSuccessfulDuration;
 	}
 
 	@Override
-	public long getLastSuccessfulExecutionTimestamp() {
-		return lastSuccessfulExecutionTimestamp;
-	}
-
-	@Override
-	public long getLastSuccessfulExecutionLapse() {
-		return this.lastSuccessfulExecutionLapse;
-	}
-
-	@Override
-	public long getLastExecutionTimestamp() {
-		return lastExecutionTimestamp;
+	public long getLastTimestamp() {
+		return lastTimestamp;
 	}
 
 	@Override
@@ -130,6 +153,11 @@ public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactor
 	public Runnable getTask() {
 		// TODO Auto-generated method stub
 		return task;
+	}
+	
+	@Override
+	public void enqueued() {
+		lastEnqueued = System.currentTimeMillis();
 	}
 
 	/*

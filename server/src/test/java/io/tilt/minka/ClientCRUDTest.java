@@ -35,7 +35,7 @@ import io.tilt.minka.api.Pallet;
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class ClientCRUDTest {
 
-	//@Test
+	@Test
     public void test_smoke() throws Exception {
 
 		final Pallet p = Pallet.builder("p-tsftra").build();
