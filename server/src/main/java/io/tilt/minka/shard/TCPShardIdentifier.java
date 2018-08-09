@@ -230,10 +230,17 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 			.append(Instant.now().get(ChronoField.MILLI_OF_SECOND));
 	}
 
-	/** trying to find a LAN candidate address */
-	private InetAddress findLANAddress(final String specifiedAddress, final String specifiedInterfase) {
+	/** 
+	 * @return trying to find a LAN candidate address 
+	 * @param both nullables 
+	 */
+	public static InetAddress findLANAddress() {
+		return findLANAddress(null, null);
+	}
+	public static InetAddress findLANAddress(final String specifiedAddress, final String specifiedInterfase) {
 		InetAddress fallback = null;
-		boolean specified;
+		InetAddress fallback2 = null;
+		boolean specified = false;
 		try {
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Looking for configured network interfase/address: {}/{}", logName,
@@ -242,7 +249,8 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 			final Enumeration<NetworkInterface> nis = NetworkInterface.getNetworkInterfaces();
 			while (nis.hasMoreElements()) {
 				final NetworkInterface ni = nis.nextElement();
-				if (specified = specifiedInterfase.contains(ni.getName())) {
+				if (specifiedInterfase!=null 
+						&& (specified = specifiedInterfase.contains(ni.getName()))) {
 					if (ni.isLoopback()) {
 						logger.warn("{}: Loopback address not recomended !!", logName);
 					}
@@ -261,7 +269,9 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 						}
 					}
 					if (ia.isSiteLocalAddress()) {
-						fallback = fallback == null ? ia : fallback;
+						if (!ia.getHostAddress().startsWith("192.") || fallback == null) {
+							fallback = ia;
+						}
 						if (specified) {
 							return ia;
 						}
