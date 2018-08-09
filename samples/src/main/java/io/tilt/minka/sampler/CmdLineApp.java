@@ -55,7 +55,7 @@ public class CmdLineApp {
 		ownConfig.getBootstrap().setZookeeperHostPort(quest.get(Quest.zk));
 		
 		ownConfig.getBroker().setEnablePortFallback(true);
-		ownConfig.getBootstrap().setBeatUnitMs(50);
+		ownConfig.getBootstrap().setBeatUnitMs(100);
 		ownConfig.getBootstrap().setDropVMLimit(true);
 		ownConfig.getBootstrap().setEnableCoreDump(true);
 		ownConfig.getBootstrap().setCoreDumpFilepath("/tmp/");
@@ -129,13 +129,13 @@ public class CmdLineApp {
 				System.out.print("\t( " + suggest.get(q) + " ? ) ");
 				if (scan.hasNextLine()) {
 					String line = scan.nextLine();
-					if (line==null || line.length()<1) {
-						line = quest.put(q, suggest.get(q));
+					if ((line==null || line.length()<1)&& suggest.containsKey(q)) {
+						quest.put(q, suggest.get(q));
 						break;
 					} else if (line.equalsIgnoreCase("quit")) {
 						break;
 					} else {
-						line = quest.put(q, line);
+						quest.put(q, line);
 						break;
 					}
 				} else {
