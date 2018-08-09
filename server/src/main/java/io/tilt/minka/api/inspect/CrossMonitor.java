@@ -144,6 +144,7 @@ public class CrossMonitor {
 	private Map<String, String> agentToMap(final long now, final boolean detail, final Agent sync) {
 		final Map<String, String> t = new LinkedHashMap<>(9);
 		t.put("task", sync.getAction().name());
+		t.put("cycle", String.valueOf(sync.getCounter()));
 		if (detail && sync.getFrequency()==Scheduler.Frequency.PERIODIC) {
 			t.put("frequency-unit", String.valueOf(sync.getTimeUnit()));
 			t.put("frequency-time", String.valueOf(sync.getPeriodicDelay()));
@@ -163,6 +164,11 @@ public class CrossMonitor {
 		}
 		if (sync.getFrequency()==Scheduler.Frequency.PERIODIC) {
 			t.put("last-run-distance", String.valueOf(now - sync.getLastTimestamp()));
+			final long fairDistance = sync.getTimeUnit().toMillis(sync.getPeriodicDelay());
+			final long lastFairRun = System.currentTimeMillis() - (fairDistance * 2);
+			if (lastFairRun > sync.getLastTimestamp()) {
+				t.put("ERROR", "last fair run is too far away");
+			}
 		}
 		if (sync.getLastSuccessfulDuration()>0) {
 			t.put("last-run-duration", String.valueOf(sync.getLastSuccessfulDuration()));

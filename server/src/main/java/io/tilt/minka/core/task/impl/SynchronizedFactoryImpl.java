@@ -41,6 +41,7 @@ public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactor
 	private int accumulatedWait;
 	private int lastQueueWait;
 	private long lastEnqueued;
+	private long counter;
 
 	private Exception lastException;
 
@@ -69,6 +70,7 @@ public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactor
 		lastQueueWait = (int)(start - lastEnqueued);
 		accumulatedWait+=lastQueueWait;
 		try {
+			counter++;
 			task.run();
 			lastSuccessfulTimestamp = start;
 			lastSuccessfulDuration = System.currentTimeMillis() - start;
@@ -127,6 +129,10 @@ public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactor
 	@Override
 	public long getAccumulatedDuration() {
 		return accumulatedDuration;
+	}
+	@Override
+	public long getCounter() {
+		return counter;
 	}
 	
 	@Override

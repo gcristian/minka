@@ -100,6 +100,7 @@ public interface Scheduler extends Semaphore {
 		int getLastQueueWait();
 		int getAccumulatedWait();
 		long getAccumulatedDuration();
+		long getCounter();
 	}
 
 	public interface SynchronizedFactory {
