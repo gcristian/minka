@@ -154,16 +154,31 @@ public class ChangePlan implements Comparable<ChangePlan> {
 
 	void onShippingsFor(final EntityEvent event, 
 			final Shard shard, 
-			final Consumer<ShardEntity> c) { 
-		final Map<Shard, List<ShardEntity>> map = shippings.get(event);
-		if (map!=null) {
+			final Consumer<ShardEntity> c) {
+		if (shard == null) {
+			onShippingsFor_(event, c);
+		} else {
+			final Map<Shard, List<ShardEntity>> map = shippings.get(event);
+			if (map!=null) {
 				final List<ShardEntity> x = map.get(shard);
 				if (x!=null) {
 					x.stream().forEach(c);
 				}
+			}
 		}
 	}
-	
+
+	void onShippingsFor_(final EntityEvent event, final Consumer<ShardEntity> c) { 
+		final Map<Shard, List<ShardEntity>> map = shippings.get(event);
+		if (map!=null) {
+			for (List<ShardEntity> x : map.values()) {
+				if (x!=null) {
+					x.stream().forEach(c);
+				}
+			}
+		}
+	}
+
 	@JsonIgnore
 	void onDeliveries(final Predicate<Delivery> test, final Consumer<Delivery> d) {
 		deliveries.stream()

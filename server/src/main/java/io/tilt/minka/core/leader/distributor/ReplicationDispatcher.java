@@ -43,8 +43,11 @@ class ReplicationDispatcher {
 		// those of current plan
 		dispatchNewLocals(EntityEvent.ATTACH, EntityEvent.STOCK, 
 				changePlan, creations, leader, p);
-		dispatchNewLocals(EntityEvent.DETACH, EntityEvent.DROP, 
-				changePlan, deletions, leader, p);
+		
+		// el detach esta muy mal: donde se haga un REMOVE (no detach) tengo que enviar luego un DROP
+		dispatchNewLocals(EntityEvent.REMOVE, EntityEvent.DROP, 
+				changePlan, deletions, null, p);
+		
 		// those of older plans (new followers may have turned online)
 		dispatchCurrentLocals(scheme, changePlan, p, leader);
 	}
@@ -55,16 +58,37 @@ class ReplicationDispatcher {
 			final EntityEvent effect,
 			final ChangePlan changePlan, 
 			final Set<ShardEntity> involved,
-			final Shard leader,
+			final Shard target,
 			final Pallet p) {
 		
 		final CommitedState cs = scheme.getCommitedState();
 		// not all de/allocations, only those shipped to leader's local follower (same shard)
-		changePlan.onShippingsFor(cause, leader, duty-> {
+		changePlan.onShippingsFor(cause, target, duty-> {
 			// same pallet, and present as new CRUD (involved)
 			if (duty.getDuty().getPalletId().equals(p.getId()) && involved.contains(duty)) { 				
 				cs.findShards(
-						predicate(leader, duty),
+						attachPredicate(target, duty),
+						replicate(changePlan, duty, effect)
+				);
+			}
+		});
+	
+	}
+	
+	private void dispatchKillingLocals(
+			final EntityEvent cause,
+			final EntityEvent effect,
+			final ChangePlan changePlan, 
+			final Set<ShardEntity> involved,
+			final Pallet p) {
+		
+		final CommitedState cs = scheme.getCommitedState();
+		// not all de/allocations, only those shipped to leader's local follower (same shard)
+		changePlan.onShippingsFor(cause, null, duty-> {
+			// same pallet, and present as new CRUD (involved)
+			if (duty.getDuty().getPalletId().equals(p.getId()) && involved.contains(duty)) { 				
+				cs.findShards(
+						removePredicate(target, duty),
 						replicate(changePlan, duty, effect)
 				);
 			}
@@ -85,12 +109,13 @@ class ReplicationDispatcher {
 		final CommitedState cs = state.getCommitedState();
 		cs.findDuties(leader, pallet, replic-> {
 			cs.findShards(
-					predicate(leader, replic), 
+					attachPredicate(leader, replic), 
 					replicate(changePlan, replic, EntityEvent.STOCK)
 			);
 		});
 	}
 
+	/** it might be stock or drop */
 	private static Consumer<Shard> replicate(
 			final ChangePlan changePlan, 
 			final ShardEntity replicated, 
@@ -106,10 +131,15 @@ class ReplicationDispatcher {
 	}
 
 	/** @return a filter to other shards than current and not already present on host */
-	private Predicate<Shard> predicate(final Shard leader, final ShardEntity replicated) {
+	private Predicate<Shard> attachPredicate(final Shard leader, final ShardEntity replicated) {
 		final CommitedState cs = scheme.getCommitedState();
 		return probHost-> !leader.getShardID().equals(probHost.getShardID())
 			&& !cs.getReplicasByShard(probHost).contains(replicated)
 			&& !cs.getDutiesByShard(probHost).contains(replicated);
+	}
+	private Predicate<Shard> removePredicate(final Shard leader, final ShardEntity replicated) {
+		final CommitedState cs = scheme.getCommitedState();
+		return probHost-> (leader == null || (leader!=null &&!leader.getShardID().equals(probHost.getShardID())))
+			&& cs.getReplicasByShard(probHost).contains(replicated);
 	}
 }

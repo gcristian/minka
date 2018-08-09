@@ -92,7 +92,7 @@ public class CmdLineApp {
 	}
 	
 	public static void main(String[] args) {
-		new CmdLineApp().run();	
+		new CmdLineApp().run();
 	}
 
 	private void run() {
