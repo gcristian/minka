@@ -57,13 +57,13 @@ import io.tilt.minka.core.follower.Follower;
 public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 
 	@JsonIgnore
-	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private static final Logger logger = LoggerFactory.getLogger(TCPShardIdentifier.class);
 
 	private static final long serialVersionUID = 3233785408081305735L;
 	private static final Random random = new Random();
 	private static final int PORT_SEARCHES_MAX = 100;
 	@JsonIgnore
-	private final String logName = getClass().getSimpleName();
+	private static final String logName = TCPShardIdentifier.class.getSimpleName();
 
 	private String id;
 	@JsonIgnore

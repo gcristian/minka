@@ -350,50 +350,7 @@ public class CommitTree implements Serializable {
 		find_(planid, shardid.getId(), r::add, events);
 		return r;
 	}
-	
-	/** 
-	 * Descends in time (logs are stacked) until an older plan than current is reached. 
-	 * @return a Log matching plan + event + shard, whereas those args. specified or any if omitted 
-	 */
-	/*
-	private Collection<Log> find_(
-			// 0: only the last one
-			final long planid, 
-			final String shardid, 
-			// if not provided then first apparition is valid and returned
-			final EntityEvent...events) {
-		
-		Collection<Log> ret = null;
-		long lastpid = -1;
-		for (final Iterator<Log> it = logs.descendingIterator(); it.hasNext();) {
-			final Log log = it.next();
-			// stop when no pid is provided (0) and decended more than one plan back 
-			if (planid == 0 && lastpid>-1 && lastpid !=log.getPlanId()) {
-				break;
-			}
-			lastpid = log.getPlanId();
-			if ((planid == 0 || log.getPlanId() == planid) 
-					&& (shardid == null || log.getTargetId().equals(shardid))) {
-				for (EntityEvent ee : events) {
-					if (log.getEvent() == ee) {
-						if (ret==null) {
-							ret = new LinkedList<>();
-						}
-						ret.add(log);
-					}
-				}
-				break;
-			} else if (planid > log.getPlanId()) {
-				// requested older than read: avoid phantom events
-				break;
-			}
-		}
-		return ret == null ? Collections.emptyList() : ret;
-	}
-*/
-	
-	
-	@JsonIgnore
+		@JsonIgnore
 	protected List<String> getStringHistory() {
 		
 		
@@ -411,9 +368,6 @@ public class CommitTree implements Serializable {
 		});
 		return new ArrayList<>(ordered.values());
 	}
-	
-	
-	/*
 	
 	/**
 	 * Registry of an {@linkplain EntityEvent} with a list of {@linkplain StateStamp}, 

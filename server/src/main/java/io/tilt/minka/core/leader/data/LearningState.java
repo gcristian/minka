@@ -25,7 +25,7 @@ import io.tilt.minka.shard.ShardIdentifier;
  * with entities whose CommitTrees have commits with plan-id smaller than first {@linkplain ChangePlan} id.
  * Meaning: leader is in presence of a previous cluster session with an already distributed state. 
  * When: only before 1st distribution, usage and impact does not goes beyond.
- * Action: save distribution and replication reports, until required by {@linkplain Distributor} phase. 
+ * Action: save distribution and replication reports, until required by {@linkplain PhaseLoader} phase. 
  */
 public class LearningState {
 

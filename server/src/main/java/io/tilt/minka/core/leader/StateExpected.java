@@ -16,13 +16,12 @@
  */
 package io.tilt.minka.core.leader;
 
-import static io.tilt.minka.domain.EntityEvent.ATTACH;
 import static io.tilt.minka.domain.EntityEvent.DETACH;
 import static io.tilt.minka.domain.EntityEvent.REMOVE;
+import static io.tilt.minka.domain.EntityState.ACK;
 import static io.tilt.minka.domain.EntityState.COMMITED;
 import static io.tilt.minka.domain.EntityState.MISSING;
 import static io.tilt.minka.domain.EntityState.PENDING;
-import static io.tilt.minka.domain.EntityState.ACK;
 
 import java.util.Collection;
 import java.util.Date;
@@ -37,9 +36,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.data.Scheme;
+import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.leader.distributor.Delivery;
-import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.CommitTree.Log;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
@@ -87,7 +87,7 @@ public class StateExpected {
 		}
 		found|=onFoundDetachments(source, beat.getCaptured(), delivery.getDuties(), bicons, pid);
 
-		if (false && lattestPlanId<pid && !found) {
+		if (lattestPlanId<pid && !found) {
 			// delivery found, no change but expected ? 
 			logger.warn("{}: Ignoring shard's ({}) heartbeats with a previous Journal: {} (current: {})", 
 				getClass().getSimpleName(), source.toString(), lattestPlanId, pid);

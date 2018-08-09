@@ -86,7 +86,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 
 		// look for problems
 		if ((beat.reportsDuties()) && shard.getState().isAlive()) {
-			unexpected.detect(shard, beat.getCaptured());
+			unexpected.detectAndReact(shard, beat.getCaptured());
 		}
 		beat.clear();
 	}

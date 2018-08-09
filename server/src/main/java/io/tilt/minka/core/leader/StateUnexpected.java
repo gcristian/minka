@@ -41,7 +41,7 @@ import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.Shard;
 
 /**
- * Detect any inconsistency comming within the Heartbeat
+ * Detect and react to any inconsistency comming within the Heartbeat
  */
 class StateUnexpected {
 
@@ -53,8 +53,8 @@ class StateUnexpected {
 		this.scheme = scheme;
 	}
 	
-	/*this checks partition table looking for missing duties (not declared dangling, that's diff) */
-	void detect(final Shard shard, final List<EntityRecord> reportedDuties) {
+	/* this checks partition table looking for missing duties (not declared dangling, that's diff) */
+	void detectAndReact(final Shard shard, final List<EntityRecord> reportedDuties) {
 		final Set<Entry<EntityState, List<ShardEntity>>> entrySet = findLost(shard, reportedDuties).entrySet();
 		StringBuilder log = new StringBuilder();
 		

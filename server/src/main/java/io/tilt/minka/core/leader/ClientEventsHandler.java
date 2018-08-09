@@ -114,28 +114,6 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 		if (inService()) {
 			if (event instanceof ShardEntity) {
 				final ShardEntity entity = (ShardEntity) event;
-				
-				/*
-				final String sid = entity.getCommitTree().getLast().getTargetId();
-				
-				
-				final BrokerChannel origin = eventBroker.buildToTarget(
-						config, 
-						Channel.LEADTOFOLL, 
-						scheme.getScheme().findShard(sid).getShardID());
-				eventBroker.send(origin, event);
-				
-				
-				// make available to all followers
-				scheme.getCommitedState().findShards(null, shard-> {
-					eventBroker.send(
-							eventBroker.buildToTarget(
-									config, 
-									Channel.LEADTOFOLL, 
-									shard.getShardID()), 
-							event);
-				});
-				*/
 				mediateOnEntity(singletonList(entity), (r)->{});
 			} else if (event instanceof List) {
 				mediateOnEntity((List)event, (r)->{});
