@@ -200,8 +200,8 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	private void buildId(final Config config) {
 		String id = null;
 		if (sourceHost != null) {
-			if (!sourceHost.getHostName().isEmpty() && config.getBroker().isUseMachineHostname()) {
-				id = sourceHost.getHostName();
+			if (config.getBroker().isUseMachineHostname() && !sourceHost.getHostAddress().isEmpty()) {
+				id = sourceHost.getHostAddress();
 				if (logger.isInfoEnabled()) {
 					logger.info("{}: Using system's hostname enabled by config: {}", logName, id);	
 				}
@@ -239,7 +239,6 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	}
 	public static InetAddress findLANAddress(final String specifiedAddress, final String specifiedInterfase) {
 		InetAddress fallback = null;
-		InetAddress fallback2 = null;
 		boolean specified = false;
 		try {
 			if (logger.isInfoEnabled()) {
@@ -258,26 +257,28 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 						logger.info("{}: Specified Interfase found: {}", logName, ni.getName());
 					}
 				}
-				final Enumeration<InetAddress> ias = ni.getInetAddresses();
-				while (ias.hasMoreElements()) {
-					final InetAddress ia = ias.nextElement();
-					if (ia.getHostName().equals(specifiedAddress)) {
-						specified &= true;
-						if (logger.isInfoEnabled()) {
-							logger.info("{}: Specified Host address found: {}:{} with Hostname {}",
-								logName, ia.getHostAddress(), ia.getHostName());
+				if (!ni.isLoopback() && ni.isUp()) {
+					final Enumeration<InetAddress> ias = ni.getInetAddresses();
+					while (ias.hasMoreElements()) {
+						final InetAddress ia = ias.nextElement();
+						if (ia.getHostName().equals(specifiedAddress)) {
+							specified &= true;
+							if (logger.isInfoEnabled()) {
+								logger.info("{}: Specified Host address found: {}:{}",
+									logName, ia.getHostAddress());
+							}
 						}
-					}
-					if (ia.isSiteLocalAddress()) {
-						if (!ia.getHostAddress().startsWith("192.") || fallback == null) {
-							fallback = ia;
+						if (ia.isSiteLocalAddress()) {
+							if (!ia.getHostAddress().startsWith("192.") || fallback == null) {
+								fallback = ia;
+							}
+							if (specified) {
+								return ia;
+							}
+						} else if (specified) {
+							logger.warn("{}: Specified Address: {} is not LAN candidate (local)",
+									logName, ia.getHostAddress());
 						}
-						if (specified) {
-							return ia;
-						}
-					} else if (specified) {
-						logger.warn("{}: Specified Address: {} is not LAN candidate (local)",
-								logName, ia.getHostAddress());
 					}
 				}
 			}
@@ -293,6 +294,47 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		}
 	}
 
+	public static void main(String[] args) throws Exception {
+		mama();
+		//System.out.println(findLANAddress().getHostAddress());
+	}
+	
+	public static void mama() throws Exception {
+			final Enumeration<NetworkInterface> nis = NetworkInterface.getNetworkInterfaces();
+			while (nis.hasMoreElements()) {
+				System.out.println("=================================================");
+				final NetworkInterface ni = nis.nextElement();
+				System.out.println("NI name     " + ni.getName());
+				System.out.println("NI loopback " + ni.isLoopback());
+				System.out.println("NI P2P      " + ni.isPointToPoint());
+				System.out.println("NI up       " + ni.isUp());
+				System.out.println("NI virtual  " + ni.isVirtual());
+				final Enumeration<InetAddress> ias = ni.getInetAddresses();
+				while (ias.hasMoreElements()) {
+					final InetAddress ia = ias.nextElement();
+					System.out.println(". . . . . . . . . . . . . . . . . . . . .");
+					System.out.println("\tIA host addr " + ia.getHostAddress());
+					System.out.println("\tIA localhost " + ia.getLocalHost());
+					System.out.println("\tIA host name " + ia.getHostName());
+					System.out.println("\tIA canonical " + ia.getCanonicalHostName());
+					System.out.println("\tIA loopback addr " + ia.getLoopbackAddress());
+					System.out.println("\tIA addr          " + ia.getAddress());
+
+					System.out.println("\t\t IA site local " + ia.isSiteLocalAddress());
+					System.out.println("\t\t IA link local " + ia.isLinkLocalAddress());
+					System.out.println("\t\t IA any local  " + ia.isAnyLocalAddress());
+					/*
+					System.out.println("\t\t IA MC global  " + ia.isMCGlobal());
+					System.out.println("\t\t IA MC link    " + ia.isMCLinkLocal());
+					System.out.println("\t\t IA MC node    " + ia.isMCNodeLocal());
+					System.out.println("\t\t IA MC org     " + ia.isMCOrgLocal());
+					System.out.println("\t\t IA MC site    " + ia.isMCSiteLocal());
+					*/
+					System.out.println("\t\t IA multicast  " + ia.isMulticastAddress());
+
+				}
+			}
+	}
 	@Override
 	public int getPort() {
 		return this.port;
