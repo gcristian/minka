@@ -28,4 +28,4 @@ for f in ${CMD[@]}; do
 done
 o=$o"]"
 
-echo -n -e $o
+echo -n -e "$o" | $jq -s . 
