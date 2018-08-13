@@ -1,5 +1,8 @@
 #!/bin/bash
 EP="$1"
+if [ -z "$1" ]; then
+	EP="help"
+fi
 if [ ! -z ${2} ]; then
 	EP=$EP"?detail=true"
 fi

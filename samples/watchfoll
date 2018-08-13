@@ -9,4 +9,5 @@ curl=$(which curl); tee=$(which tee); jq=$(which jq); watch=$(which watch)
 # --------------------------------
 
 
-$watch -n1 -tc "echo \" _____________  $1 _____________\"; ./follower-request $1 $2 | $jq . -C"
+[ -z "$1" ] && echo -e "\nUsage: ./watchfoll [help]\n" && exit 1
+$watch -n1 -tc "echo \" _____________  $1 _____________\"; ./askfoll $1 $2 | $jq . -C"

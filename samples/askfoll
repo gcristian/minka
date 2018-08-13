@@ -12,6 +12,7 @@ jq=$(which jq); tr=$(which tr)
 # ------------------------------------------------------
 
 EP="$1"
+[ -z "$1" ] && EP="help"
 [ ! -z ${2} ] && EP=$EP"?detail=true"
 leader=$(./leader)
 CONTEXT="/minka/admin"

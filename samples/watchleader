@@ -8,6 +8,7 @@ curl=$(which curl); tee=$(which tee); jq=$(which jq); watch=$(which watch)
 
 # --------------------------------
 
+[ -z "$1" ] && echo -e "\nUsage: ./watchleader [help]\n" && exit 1
 EP="/minka/admin/$1"
 if [ ! -z ${2} ]; then
 	EP=$EP"?detail=true"
