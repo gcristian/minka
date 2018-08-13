@@ -69,6 +69,7 @@ public class Client {
 	private final LeaderAware leaderAware;
 	private final LeaderMonitor leaderMonitor;
 	private final ShardedPartition partition;
+	private EventMapper eventMapper;
 
 	protected Client(
 			final Config config, 
@@ -273,6 +274,13 @@ public class Client {
 
 	public String getShardIdentity() {
 		return this.shardId.getId();
+	}
+	
+	public EventMapper getEventMapper() {
+		return this.eventMapper;
+	}
+	public void setEventMapper(EventMapper eventMapper) {
+		this.eventMapper = eventMapper;
 	}
 	
 

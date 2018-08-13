@@ -150,7 +150,9 @@ public class CmdLineApp {
 		System.out.println("Now enter tasks");
 		final String remem = "(type quit to finish, or \n alphanumeric, preffer propercase, \n 32 chars max, no spaces, "
 				+ "\n mnemotecnic, like 'paralelo55' or 'chapulin22' "
-				+ "[! task-id] to delete a task)" ;
+				+ "[! task-id] to delete a task)" 
+				+ "[# pallet-id weight] to report capacity for a pallet)" ;
+		
 		
 		System.out.println(remem);
 		

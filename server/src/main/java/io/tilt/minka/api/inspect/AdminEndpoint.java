@@ -25,8 +25,10 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import javax.inject.Singleton;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -44,7 +46,13 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.wordnik.swagger.annotations.Api;
 
+import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.Pallet;
+import io.tilt.minka.api.PalletBuilder;
+import io.tilt.minka.api.Reply;
+import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.Scheme;
 
 @Api("Minka Endpoint API")
@@ -64,6 +72,8 @@ public class AdminEndpoint {
 	private LeaderMonitor distribution;
 	@Autowired
 	private Config config;
+	@Autowired
+	private Client client;
 
 	/*
 	
@@ -108,14 +118,6 @@ public class AdminEndpoint {
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response status() throws JsonProcessingException {
 		return Response.accepted(distribution.distributionToJson()).build();
-	}
-
-	@POST
-	@Path("/distro/run")
-	@Produces(MediaType.APPLICATION_JSON)
-	public Response runDistro() throws JsonProcessingException {
-		scheme.getCommitedState().stealthChange(true);
-		return Response.accepted().build();
 	}
 
 	@GET
@@ -173,6 +175,77 @@ public class AdminEndpoint {
 	public Response plans() throws JsonProcessingException {
         return Response.accepted(distribution.plansToJson()).build();
 	}
+	
+	// =========================================================================================================
+	
+	@POST
+	@Path("/distro/run")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response runDistro() throws JsonProcessingException {
+		scheme.getCommitedState().stealthChange(true);
+		return Response.accepted().build();
+	}
+
+	@PUT
+	@Path("/crud/pallet/{id}")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response createPallet(
+			@PathParam("id") final String palletId,
+			@QueryParam("strategy") String strategy) throws JsonProcessingException {
+		
+		Balancer.BalancerMetadata bm = Balancer.Strategy.EVEN_SIZE.getBalancerMetadata();
+		if (strategy!=null) {
+			bm = Balancer.Strategy.valueOf(strategy).getBalancerMetadata();
+		}
+		final Pallet p = Pallet.builder(palletId).with(bm).build();
+		Reply r = client.add(p);
+		return Response.accepted(r).build();
+	}
+
+	@PUT
+	@Path("/crud/pallet/{id}/{capacity}")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response shardCapacity(
+			@PathParam("id") final String palletId,
+			@PathParam("capacity") final String capacity) throws JsonProcessingException {
+		
+		double cap = 9999;
+		if (capacity!=null) {
+			cap = Long.parseLong(capacity);
+		}
+		final Pallet p = Pallet.builder(palletId).build();
+		client.getEventMapper().setCapacity(p, cap);
+		return Response.accepted().build();
+	}
+
+	@PUT
+	@Path("/crud/duty/{pid}/{id}")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response createDuty(
+			@PathParam("pid") final String palletId,
+			@PathParam("id") final String dutyId,
+			@QueryParam("weight") String weight) throws JsonProcessingException {
+		
+		long w = 1;
+		if (weight!=null) {
+			w = Long.parseLong(weight);
+		}
+		final Duty d = Duty.builder(dutyId, palletId).with(w).build();
+		final Reply r = client.add(d);
+		return Response.accepted(r).build();
+	}
+
+	@DELETE
+	@Path("/crud/duty/{pid}/{id}")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response deleteDuty(
+			@PathParam("pid") final String palletId,
+			@PathParam("id") final String dutyId) throws JsonProcessingException {
+		final Duty d = Duty.builder(dutyId, palletId).with(1).build();
+		final Reply r = client.remove(d);
+		return Response.accepted(r).build();
+	}
+
 	
 	public enum Format {
 		TEXT {

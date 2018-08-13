@@ -167,15 +167,15 @@ public class CrossMonitor {
 			final long fairDistance = sync.getTimeUnit().toMillis(sync.getPeriodicDelay());
 			final long lastFairRun = System.currentTimeMillis() - (fairDistance * 2);
 			if (lastFairRun > sync.getLastTimestamp()) {
-				t.put("ERROR", "last fair run is too far away");
+				t.put("ERROR", "STARVED");
 			}
 		}
 		if (sync.getLastSuccessfulDuration()>0) {
-			t.put("last-run-duration", String.valueOf(sync.getLastSuccessfulDuration()));
+			t.put("duration-last-run", String.valueOf(sync.getLastSuccessfulDuration()));
 		}
 		t.put("duration-accum", String.valueOf(sync.getAccumulatedDuration()));
 		if (sync.getLastException() != null) { 
-			t.put("exception", sync.getLastException().toString());
+			t.put("EXCEPTION", sync.getLastException().toString());
 		}
 		if (detail) { 
 			t.put("lambda", sync.getTask().getClass().getSimpleName());

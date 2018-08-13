@@ -327,7 +327,6 @@ public class ConsumerDelegate implements PartitionMaster {
 		if (d!=null) {
 			return d;
 		} else {
-			log.error(UNMAPPED_EVENT + " pallet: {}", getClass().getSimpleName(), connectReference, "capacity", pallet.getId());
 			return 0;
 		}
 	}

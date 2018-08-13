@@ -412,7 +412,11 @@ public class Server {
 	 */
 	public Client getClient() {
 		checkInit();
-		return tenant.getContext().getBean(Client.class);
+		final Client cli = tenant.getContext().getBean(Client.class);
+		if (cli.getEventMapper()==null) {
+			cli.setEventMapper(getEventMapper());
+		}
+		return cli;
 	}
 
 	/**
