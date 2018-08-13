@@ -46,6 +46,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.CommitedState;
@@ -400,7 +401,23 @@ public class ChangePlan implements Comparable<ChangePlan> {
 				config.beatToMs(config.getDistributor().getPlanExpiration()));
 		return (st.toEpochMilli() - System.currentTimeMillis()) / 1000;
 	}
-	
+
+	public boolean hasMigration(final Duty duty) {
+		boolean detaching = false;
+		boolean attaching = false;
+		for(Delivery d: deliveries) {
+			for (ShardEntity s: d.getDuties()) {
+				if (s.getDuty().getId().equals(duty.getId())
+						&& s.getDuty().getPalletId().equals(s.getDuty().getPalletId())) {
+					detaching |=d.getEvent()==EntityEvent.DETACH;
+					attaching |=d.getEvent()==EntityEvent.ATTACH;
+					break;
+				}
+			}
+		}
+		return detaching && attaching;
+	}
+
 
 	/** 
 	 * declare a dettaching or attaching step to deliver on a shard

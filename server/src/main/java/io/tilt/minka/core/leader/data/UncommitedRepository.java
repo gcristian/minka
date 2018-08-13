@@ -230,7 +230,12 @@ public class UncommitedRepository {
 	
 	private boolean presentInPartition(final ShardEntity duty) {
 		final Shard shardLocation = scheme.getCommitedState().findDutyLocation(duty.getDuty());
-		return shardLocation != null && shardLocation.getState().isAlive();
+		final boolean somewhere= shardLocation != null && shardLocation.getState().isAlive();
+		if (!somewhere) {
+			return scheme.getCurrentPlan().hasMigration(duty.getDuty());
+		} else {
+			return false;
+		}
 	}
 
 }
