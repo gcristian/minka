@@ -7,7 +7,7 @@ import org.junit.Test;
 import org.springframework.util.Assert;
 
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.core.leader.balancer.EvenWeightBalancer;
+import io.tilt.minka.core.leader.balancer.WeightBasedClusterizer;
 import io.tilt.minka.domain.ShardEntity;
 
 /**
@@ -37,7 +37,7 @@ public class PartitioneerTest {
 		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(1500l, "6")).build().getDuty());
 		weightedDuties.add(ShardEntity.Builder.builder(buildDutyWithWeight(1500l, "7")).build().getDuty());
 
-		final EvenWeightBalancer.WeightBasedClusterizer p = new EvenWeightBalancer.WeightBasedClusterizer();
+		final WeightBasedClusterizer p = new WeightBasedClusterizer();
 		List<List<Duty>> distro = p.split(shards, weightedDuties);
 		Assert.isTrue(distro.size() == 4);
 		assertDistribution(distro);
