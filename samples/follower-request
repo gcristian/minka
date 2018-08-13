@@ -17,12 +17,14 @@ leader=$(./leader)
 CONTEXT="/minka/admin"
 SHARDS="$CONTEXT/shards"
 
-CMD="$($curl -s $(./leader)$SHARDS | $jq '.shards[].id["web-host-port"]' | $tr -d \")"
+CMD="$($curl -s $leader$SHARDS | $jq '.shards[].id|(."web-host-port"+"#"+.tag)' | $tr -d \")"
 declare a=0
 declare o="["
 for f in ${CMD[@]}; do
-	js=$($curl -s $f$CONTEXT/$EP | $jq '.' -c)
-	js="{\"follower\":\"$f\",\"$EP\":$js}"
+	IP=$(echo $f | cut -d# -f1)
+	TAG=$(echo $f | cut -d# -f2)
+	js=$($curl -s $IP$CONTEXT/$EP | $jq '.' -c)
+	js="{\"tag\":\"$TAG\",\"http\":\"$IP\",\"$EP\":$js}"
 	[ "$a" == 0 ] && a=1 || o=$o","
 	o=$o""$js
 done

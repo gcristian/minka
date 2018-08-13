@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# This script is intended for the demo application only
+# Capacities are programatically set from the Inductor's EventMapper facility
+# so that the value can be set specifically dinamically in context of and by the node/shard
+
+# ----------------- Dependencies -----------------------
+
+jps=$(which jps); grep=$(which grep); cut=$(which cut)
+curl=$(which curl); awk=$(which awk); lsof=$(which lsof)
+jq=$(which jq); tr=$(which tr)
+
+# ------------------------------------------------------
+
+leader=$(./leader)
+CONTEXT="/minka/admin"
+PATH="$CONTEXT/capacity/pallet"
+
+echo -e "Enter server tag: (type all to all shards)\n"
+$curl -XGET -s $leader$CONTEXT/shards | $jq '.shards[].id|(.tag + " " + ."web-host-port")'
+read tag
+declare FADDR="*"
+printf "Enter pallet id: "; read PID
+printf "Enter capacity: "; read CAPACITY
+
+if [ "$tag" == "all" ]; then
+	for i in `$curl -XGET -s $leader$CONTEXT/shards | $jq '.shards[].id."web-host-port"' | $tr -d \"`; do
+		$curl -XPUT -s $i$PATH"/"$PID"/"$CAPACITY | $jq '.'
+	done
+else
+	FADDR=$($curl -XGET -s $leader$CONTEXT/shards | $jq '.shards[]|select(.id.tag=="'$tag'")|.id."web-host-port"' | $tr -d \")
+	$curl -XPUT -s $FADDR$PATH"/"$PID"/"$CAPACITY | $jq '.'
+fi
+

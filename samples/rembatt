@@ -1,0 +1,4 @@
+#!/bin/bash
+for i in $(seq $2 $3); do 
+	./remduty $1 $1$i 99$i | grep message & sleep 0.2; 
+done

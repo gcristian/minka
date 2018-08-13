@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# ----------------- Dependencies -----------------------
+
+jps=$(which jps); grep=$(which grep); cut=$(which cut)
+curl=$(which curl); awk=$(which awk); lsof=$(which lsof)
+jq=$(which jq); tr=$(which tr)
+
+# ------------------------------------------------------
+
+ID="$1"
+BM="$2"
+
+[ -z "$2" ] || BM="EVENT_SIZE"
+
+leader=$(./leader)
+CONTEXT="/minka/admin"
+PALLETS="$CONTEXT/crud/pallet"
+
+$curl -XPUT -s $(./leader)$PALLETS"/$ID" | $jq '.'

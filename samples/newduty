@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# ----------------- Dependencies -----------------------
+
+jps=$(which jps); grep=$(which grep); cut=$(which cut)
+curl=$(which curl); awk=$(which awk); lsof=$(which lsof)
+jq=$(which jq); tr=$(which tr)
+
+# ------------------------------------------------------
+
+PID="$1"
+ID="$2"
+WEIGHT="$3"
+
+[ -z "$3" ] || WEIGHT="1"
+
+leader=$(./leader)
+CONTEXT="/minka/admin"
+DUTIES="$CONTEXT/crud/duty"
+
+$curl -XPUT -s $(./leader)$DUTIES"/$PID/$ID?weight=$WEIGHT" | $jq '.'
+
