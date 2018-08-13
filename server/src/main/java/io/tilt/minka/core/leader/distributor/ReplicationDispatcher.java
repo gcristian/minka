@@ -48,34 +48,29 @@ class ReplicationDispatcher {
 		// those of older plans (new followers may have turned online)
 		dispatchCurrentLocals(scheme, changePlan, p, leader);
 	}
-
+	
 	private void dispatchNewLocals(
 			final EntityEvent evidence,
 			final EntityEvent action,
 			final EntityEvent reaction,
 			final ChangePlan changePlan, 
 			final Set<ShardEntity> involved,
-			final Shard leader,
+			final Shard main,
 			final Pallet p) {
 		
 		final CommitedState cs = scheme.getCommitedState();
 		// those being shipped for the action event
-		changePlan.onShippingsFor(action, leader, duty-> {
+		changePlan.onShippingsFor(action, main, (target, duty)-> {
 			// same pallet, and present as new CRUD (involved)
 			if (duty.getDuty().getPalletId().equals(p.getId()) && involved.contains(duty)) {
-				long pid = changePlan.getId();
 				// search back the evidence event as authentic purpose to reaction
-				int searches = 10;
-				while (pid > 1 && searches-- > 0) {
-					if (duty.getCommitTree().findOne(pid, leader.getShardID(), evidence)!=null) {
-						cs.findShards(
-								predicate(action, leader, duty),
-								replicate(changePlan, duty, reaction)
-						);
-						break;
-					}
-					pid--;
-				}
+				final long limit = System.currentTimeMillis()-(1000*60);
+				if (duty.getCommitTree().exists(evidence, limit)!=null) {
+					cs.findShards(
+							predicate(action, target, duty),
+							replicate(changePlan, duty, reaction)
+					);
+				}				
 			}
 		});
 	}
@@ -116,14 +111,14 @@ class ReplicationDispatcher {
 
 	/** @return a filter to permit repication to the shard */
 	private Predicate<Shard> predicate(
-			final EntityEvent evidence, 
+			final EntityEvent action, 
 			final Shard leader, 
 			final ShardEntity replicated) {
 		
 		final CommitedState cs = scheme.getCommitedState();
 		return probHost -> (
 			// stocking
-			(evidence == EntityEvent.ATTACH
+			(action == EntityEvent.ATTACH
 				// other but myself (I'll report'em if reelection occurs)
 				&& (!leader.getShardID().equals(probHost.getShardID())
 					// avoid repeating event
@@ -131,7 +126,7 @@ class ReplicationDispatcher {
 					// avoid stocking where's already attached (they'll report'em in reelection)
 					&& !cs.getDutiesByShard(probHost).contains(replicated)))
 			// dropping
-			|| (evidence == EntityEvent.DETACH
+			|| (action == EntityEvent.DETACH
 				// everywhere it's stocked in
 				&& cs.getReplicasByShard(probHost).contains(replicated))
 		);

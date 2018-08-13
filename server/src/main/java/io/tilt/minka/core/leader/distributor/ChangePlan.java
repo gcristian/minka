@@ -151,23 +151,11 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		this.ended = Instant.now();
 	}
 
-	void onShippingsFor(final EntityEvent event, 
-			final Shard shard, 
-			final Consumer<ShardEntity> c) {
-			final Map<Shard, List<ShardEntity>> map = shippings.get(event);
-			if (map!=null) {
-				final List<ShardEntity> x = map.get(shard);
-				if (x!=null) {
-					x.stream().forEach(c);
-				}
-			}
-		}
-
-	void onShippingsFor(final EntityEvent event, final BiConsumer<Shard, ShardEntity> c) { 
+	void onShippingsFor(final EntityEvent event, final Shard shard, final BiConsumer<Shard, ShardEntity> c) { 
 		final Map<Shard, List<ShardEntity>> map = shippings.get(event);
 		if (map!=null) {
 			for (Entry<Shard, List<ShardEntity>> x : map.entrySet()) {
-				if (x!=null) {
+				if (x!=null && (shard==null || shard.equals(x.getKey()))) {
 					x.getValue().forEach(s->c.accept(x.getKey(), s));
 				}
 			}
