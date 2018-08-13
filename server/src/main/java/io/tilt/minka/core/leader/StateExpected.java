@@ -217,16 +217,17 @@ public class StateExpected {
 			if (!beatedDuties.stream()
 				.filter(r->r.getId().equals(prescripted.getEntity().getId()))
 				.findFirst().isPresent()) {
-				final Log changelog = prescripted.getCommitTree().findOne(pid, shardid, DETACH, REMOVE);
-				if (changelog!=null && (changelog.getLastState()==PENDING || changelog.getLastState()==MISSING)) {
-					found = true;
-					if (logger.isInfoEnabled()) {
-						if (log==null) {
-							log = new TreeSet<>();
+				for (final Log changelog : prescripted.getCommitTree().findAll(pid, shardid, DETACH, REMOVE, DROP)) {
+					if (changelog.getLastState()==PENDING || changelog.getLastState()==MISSING) {
+						found = true;
+						if (logger.isInfoEnabled()) {
+							if (log==null) {
+								log = new TreeSet<>();
+							}
+							log.add(prescripted);
 						}
-						log.add(prescripted);
+						c.accept(changelog, prescripted);
 					}
-					c.accept(changelog, prescripted);
 				}
 			}
 		}
