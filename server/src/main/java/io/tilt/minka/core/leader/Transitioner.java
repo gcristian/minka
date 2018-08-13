@@ -1,24 +1,28 @@
 package io.tilt.minka.core.leader;
 
-import static io.tilt.minka.utils.LogUtils.HEALTH_DOWN;
-import static io.tilt.minka.utils.LogUtils.HEALTH_UP;
+import static io.tilt.minka.shard.ShardState.GONE;
+import static io.tilt.minka.shard.ShardState.JOINING;
+import static io.tilt.minka.shard.ShardState.ONLINE;
+import static io.tilt.minka.shard.ShardState.QUARANTINE;
+import static io.tilt.minka.shard.TransitionCause.BECAME_ANCIENT;
+import static io.tilt.minka.shard.TransitionCause.FEW_HEARTBEATS;
+import static io.tilt.minka.shard.TransitionCause.HEALTHLY_THRESHOLD;
+import static io.tilt.minka.shard.TransitionCause.JOINING_STARVED;
+import static io.tilt.minka.shard.TransitionCause.MAX_SICK_FOR_ONLINE;
+import static io.tilt.minka.shard.TransitionCause.MIN_ABSENT;
+import static io.tilt.minka.shard.TransitionCause.SWITCH_BACK;
 
 import java.time.Instant;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.stream.Collectors;
 
-import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
-import org.apache.commons.math3.util.Precision;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.domain.Heartbeat;
-import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.shard.Transition;
-import io.tilt.minka.shard.TransitionCause;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 
 /**
@@ -35,7 +39,9 @@ class Transitioner {
 	private final int minToBeGone;
 	private final int maxSickToGoQuarantine;
 	
-	Transitioner(Config config) {
+	private final ShardBeatsHealth cardio;
+	
+	Transitioner(Config config, final ShardBeatsHealth cardio) {
 		super();
 		this.config = config;
 		this.normalDelay = config.beatToMs(config.getFollower().getHeartbeatFrequency());
@@ -43,6 +49,7 @@ class Transitioner {
 		this.minHealthlyToGoOnline = config.getProctor().getMinHealthlyHeartbeatsForShardOnline();
 		this.minToBeGone = config.getProctor().getMinAbsentHeartbeatsBeforeShardGone();
 		this.maxSickToGoQuarantine = config.getProctor().getMaxSickHeartbeatsBeforeShardQuarantine();
+		this.cardio = cardio;
 	}
 
 	/** @return a state transition if diagnosed at all or the same transition */
@@ -53,92 +60,47 @@ class Transitioner {
 		
 		final long now = System.currentTimeMillis();
 		final long lapseStart = now - configuredLapse;
-		ShardState newState = currentState;
-		LinkedList<Heartbeat> pastLapse = null;
-		TransitionCause cause = transitions.values().iterator().next().getCause();
+		
+		Transition ret = new Transition(
+				transitions.values().iterator().next().getCause(), 
+				currentState);
 		
 		if (beats.size() < minToBeGone) {
 			final long max = config.beatToMs(config.getProctor().getMaxShardJoiningState());
 			if (transitions.last().getTimestamp().plusMillis(max).isBefore(Instant.now())) {
-				cause = TransitionCause.JOINING_STARVED;
-				newState = ShardState.GONE;
+				ret = new Transition(JOINING_STARVED, GONE);
 			} else {
-				cause = TransitionCause.FEW_HEARTBEATS;
-				newState = ShardState.JOINING;
+				ret = new Transition(FEW_HEARTBEATS, JOINING);
 			}
 		} else {
-			pastLapse = beats.values().stream().filter(i -> i.getCreation().isAfter(lapseStart))
+			final LinkedList<Heartbeat> pastLapse = beats.values().stream()
+					.filter(i -> i.getCreation().isAfter(lapseStart))
 					.collect(Collectors.toCollection(LinkedList::new));
-			int pastLapseSize = pastLapse.size();
-			if (pastLapseSize > 0 && checkHealth(now, normalDelay, pastLapse)) {
-				if (pastLapseSize >= minHealthlyToGoOnline) {
-					cause = TransitionCause.HEALTHLY_THRESHOLD;
-					newState = ShardState.ONLINE;
-				} else {
-					cause = TransitionCause.HEALTHLY_THRESHOLD;
-					newState = ShardState.QUARANTINE;
+			int size = pastLapse.size();
+			if (size > 0 && cardio.isHealthly(now, normalDelay, pastLapse)) {
+				ret = new Transition(HEALTHLY_THRESHOLD, 
+						size >= minHealthlyToGoOnline ? ONLINE : QUARANTINE);
 					// how many times should we support flapping before killing it
-				}
 			} else {
-				if (pastLapseSize > maxSickToGoQuarantine) {
-					if (pastLapseSize <= minToBeGone || pastLapseSize == 0) {
-						cause = TransitionCause.MIN_ABSENT;
-						newState = ShardState.GONE;
+				if (size > maxSickToGoQuarantine) {
+					if (size <= minToBeGone || size == 0) {
+						ret = new Transition(MIN_ABSENT, GONE);
 					} else {
-						cause = TransitionCause.MAX_SICK_FOR_ONLINE;
-						newState = ShardState.QUARANTINE;
+						ret = new Transition(MAX_SICK_FOR_ONLINE, QUARANTINE);
 					}
-				} else if (pastLapseSize <= minToBeGone && currentState == ShardState.QUARANTINE) {
-					cause = TransitionCause.MIN_ABSENT;
-					newState = ShardState.GONE;
-				} else if (pastLapseSize > 0 && currentState == ShardState.ONLINE) {
-					cause = TransitionCause.SWITCH_BACK;
-					newState = ShardState.QUARANTINE;
-				} else if (pastLapseSize == 0 
-						&& (currentState == ShardState.QUARANTINE || currentState == ShardState.ONLINE)) {
-					cause = TransitionCause.BECAME_ANCIENT;
-					newState = ShardState.GONE;
-				} else if (currentState == ShardState.JOINING && pastLapseSize == 0 ) {
-					cause = TransitionCause.JOINING_STARVED;
-					newState = ShardState.GONE;
+				} else if (size <= minToBeGone && currentState == QUARANTINE) {
+					ret = new Transition(MIN_ABSENT, GONE);
+				} else if (size > 0 && currentState == ONLINE) {
+					ret = new Transition(SWITCH_BACK, QUARANTINE);
+				} else if (size == 0 
+						&& (currentState == QUARANTINE || currentState == ONLINE)) {
+					ret = new Transition(BECAME_ANCIENT, GONE);
+				} else if (currentState == JOINING && size == 0 ) {
+					ret = new Transition(JOINING_STARVED, GONE);
 				}
 			}
 		}
-		return new Transition(cause, newState);
+		return ret;
 	}
 
-	private boolean checkHealth(final long now, final long normalDelay, final List<Heartbeat> onTime) {
-		SummaryStatistics stat = new SummaryStatistics();
-		// there's some hope
-		long lastCreation = onTime.get(0).getCreation().getMillis();
-		long biggestDistance = 0;
-		for (Heartbeat hb : onTime) {
-			long creation = hb.getCreation().getMillis();
-			long arriveDelay = now - creation;
-			long distance = creation - lastCreation;
-			stat.addValue(distance);
-			lastCreation = creation;
-			biggestDistance = distance > biggestDistance ? distance : biggestDistance;
-			if (logger.isDebugEnabled()) {
-				logger.debug("{}: HB SeqID: {}, Arrive Delay: {}ms, Distance: {}ms, Creation: {}", 
-						getClass().getSimpleName(), hb.getSequenceId(), arriveDelay, distance, hb.getCreation());
-			}
-		}
-
-		long stdDeviationDelay = (long) Precision.round(stat.getStandardDeviation(), 2);
-		long permittedStdDeviationDistance = (normalDelay
-				* (long) (config.getProctor().getHeartbeatMaxDistanceStandardDeviation() * 10d) / 100);
-		/*
-		 * long permittedBiggestDelay = (normalDelay *
-		 * (long)(config.getProctorHeartbeatMaxBiggestDistanceFactor()*10d) /
-		 * 100);
-		 */
-		final NetworkShardIdentifier shardId = onTime.get(0).getShardId();
-		boolean healthly = stdDeviationDelay < permittedStdDeviationDistance;// && biggestDelay < permittedBiggestDelay;
-		if (logger.isDebugEnabled()) {
-			logger.debug("{}: Shard: {}, {} Standard deviation distance: {}/{}", getClass().getSimpleName(), shardId,
-					healthly ? HEALTH_UP : HEALTH_DOWN, stdDeviationDelay, permittedStdDeviationDistance);
-		}
-		return healthly;
-	}
 }

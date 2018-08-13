@@ -65,7 +65,7 @@ class ShardKeeper implements Service {
 
 	private final Config config;
 	private final Scheme scheme;
-	private final StateSentry stateSentry;
+	private final StateWriter writer;
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
 	private final NetworkShardIdentifier shardId;
@@ -81,15 +81,15 @@ class ShardKeeper implements Service {
 	ShardKeeper(
 			final Config config, 
 			final Scheme scheme, 
-			final StateSentry sentry, 
+			final StateWriter writer, 
 			final EventBroker eventBroker, 
 			final Scheduler scheduler, 
 			final NetworkShardIdentifier shardId, 
 			final LeaderAware leaderAware) {
 
 		this.config = requireNonNull(config);
+		this.writer = requireNonNull(writer);
 		this.scheme = requireNonNull(scheme);
-		this.stateSentry = requireNonNull(sentry);
 		this.eventBroker = requireNonNull(eventBroker);
 		this.scheduler = requireNonNull(scheduler);
 		this.shardId = requireNonNull(shardId);
@@ -104,7 +104,7 @@ class ShardKeeper implements Service {
 				.every(config.beatToMs(config.getProctor().getPhaseFrequency()))
 				.build();
 		this.lastAnalysys = now();
-		this.transitioner = new Transitioner(config);
+		this.transitioner = new Transitioner(config, new ShardBeatsHealth(config));
 	}
 
 	@Override
@@ -153,7 +153,7 @@ class ShardKeeper implements Service {
 			if (trans.getState() != priorState) {
 				explainToLog(trans, priorState, shard, actions.isEmpty(), size);
 				lastUnstableAnalysisId = analysisCounter;
-				actions.add(()->stateSentry.shardStateTransition(shard, priorState, trans));
+				actions.add(()->writer.shardStateTransition(shard, priorState, trans));
 			} else if (lastAnalysys.isBefore(shard.getFirstTimeSeen())) {
 				explainToLog(trans, priorState, shard, actions.isEmpty(), size);
 			}

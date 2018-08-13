@@ -16,7 +16,6 @@
  */
 package io.tilt.minka.core.leader;
 
-import static io.tilt.minka.domain.EntityEvent.REMOVE;
 import static io.tilt.minka.domain.EntityState.DANGLING;
 import static io.tilt.minka.domain.EntityState.MISSING;
 import static java.util.Collections.emptyMap;
@@ -26,7 +25,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -53,45 +51,7 @@ class StateUnexpected {
 		this.scheme = scheme;
 	}
 	
-	/* this checks partition table looking for missing duties (not declared dangling, that's diff) */
-	void detectAndReact(final Shard shard, final List<EntityRecord> reportedDuties) {
-		final Set<Entry<EntityState, List<ShardEntity>>> entrySet = findLost(shard, reportedDuties).entrySet();
-		StringBuilder log = new StringBuilder();
-		
-		for (Map.Entry<EntityState, List<ShardEntity>> e: entrySet) {
-			boolean uncommitted = false;
-			if (e.getKey()==DANGLING) { 
-				uncommitted = scheme.getUncommited().addDangling(e.getValue());
-			} else if (e.getKey()==MISSING) {
-				uncommitted = scheme.getUncommited().addMissing(e.getValue());
-			} else {
-				logger.warn("{} From ({}) comes Unexpected state {} for duty {}", getClass().getSimpleName(), 
-						shard, e.getKey(), ShardEntity.toStringBrief(e.getValue()));
-			}
-			// copy the event so it's marked for later consideration
-			if (uncommitted) {
-				if (logger.isInfoEnabled()) {
-					log.append(ShardEntity.toStringIds(e.getValue()));
-				}
-				e.getValue().forEach(d->scheme.getCommitedState().commit(d, shard, REMOVE, ()->{
-					d.getCommitTree().addEvent(
-							d.getLastEvent(),
-							e.getKey(), 
-							"N/A", // the last shard id 
-							d.getCommitTree().getLast().getPlanId());
-				}));
-			}
-		}
-		if (log.length()>0) {
-			logger.info("{}: Written unexpected absents ({}) at [{}] on: {}", getClass().getSimpleName(), 
-					REMOVE.name(), shard, EntityRecord.toStringIds(reportedDuties));
-		}
-		if (scheme.getCurrentPlan()!=null) {
-			detectInvalidSpots(shard, reportedDuties);
-		}
-	}
-
-	private Map<EntityState, List<ShardEntity>> findLost(final Shard shard, final List<EntityRecord> reportedDuties) {
+	Map<EntityState, List<ShardEntity>> findLost(final Shard shard, final List<EntityRecord> reportedDuties) {
 		Map<EntityState, List<ShardEntity>> lost = null;
 		for (final ShardEntity committed : scheme.getCommitedState().getDutiesByShard(shard)) {
 			boolean found = false;
@@ -151,7 +111,7 @@ class StateUnexpected {
 		return null;
 	}
 	
-	private void detectInvalidSpots(final Shard sourceShard, final List<EntityRecord> reportedCapturedDuties) {
+	void detectInvalidSpots(final Shard sourceShard, final List<EntityRecord> reportedCapturedDuties) {
 		for (final EntityRecord e : reportedCapturedDuties) {
 			for (final Log log: e.getCommitTree().findAll(sourceShard.getShardID())) {
 				final boolean commited = log.getLastState()==EntityState.COMMITED;

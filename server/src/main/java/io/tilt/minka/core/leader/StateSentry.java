@@ -37,16 +37,18 @@ import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityRecord;
+import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardState;
-import io.tilt.minka.shard.Transition;
 /**
- * Single-point of write access to the {@linkplain CommitedState}
- * Watches follower's heartbeats taking action on any update
- * Beats with changes are delegated to a {@linkplain StateExpected} 
- * Anomalies and CRUD ops. are recorded into {@linkplain UncommitedChanges}
+ * Consumption of heartbeats and reaction to state changes
+ * 
+ * Beats with planned distributions are delegated to a {@linkplain StateExpected}
+ * Beats with anomalies out of plan to a {@linkplain StateUnexpected}
+ * Both detections are flowed thru {@linkplain StateWriter}  
+ * 
  * 
  * @author Cristian Gonzalez
  * @since Jan 4, 2016
@@ -59,11 +61,13 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	private final Scheme scheme;
 	private final StateExpected expected;
 	private final StateUnexpected unexpected;
+	private final StateWriter writer;
 	
-	StateSentry(final Scheme scheme, final Scheduler scheduler) {
+	StateSentry(final Scheme scheme, final Scheduler scheduler, final StateWriter writer) {
 		this.scheme = scheme;
 		this.expected = new StateExpected(scheme);
 		this.unexpected = new StateUnexpected(scheme);
+		this.writer = writer;
 	}
 
 	/**
@@ -73,7 +77,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	public void accept(final Heartbeat beat, final Shard shard) {
 		if (beat.getShardChange() != null) {
 			logger.info("{}: ShardID: {} changes to: {}", classname, shard, beat.getShardChange());
-   			shardStateTransition(shard, shard.getState(), beat.getShardChange());
+   			writer.shardStateTransition(shard, shard.getState(), beat.getShardChange());
 			if (beat.getShardChange().getState() == ShardState.QUITTED) {
 				return;
 			}
@@ -86,10 +90,22 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 
 		// look for problems
 		if ((beat.reportsDuties()) && shard.getState().isAlive()) {
-			unexpected.detectAndReact(shard, beat.getCaptured());
+			detectUnexpected(shard, beat.getCaptured());
 		}
 		beat.clear();
 	}
+	
+	/* this checks partition table looking for missing duties (not declared dangling, that's diff) */
+	private void detectUnexpected(final Shard shard, final List<EntityRecord> reportedDuties) {
+		for (Map.Entry<EntityState, List<ShardEntity>> e: 
+			unexpected.findLost(shard, reportedDuties).entrySet()) {
+			writer.recover(shard, e);
+		}
+		if (scheme.getCurrentPlan()!=null) {
+			unexpected.detectInvalidSpots(shard, reportedDuties);
+		}
+	}
+
 	
 	private void detectExpectedChanges(final Shard shard, final Heartbeat beat) {
 		final ChangePlan changePlan = scheme.getCurrentPlan();
@@ -103,7 +119,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 						changePlan.getId(), 
 						beat, 
 						shard.getShardID(), 
-						(log, del)-> commit(shard, log, del, logg),
+						(log, del)-> writer.commit(shard, log, del, logg),
 						EntityEvent.ATTACH, EntityEvent.STOCK, EntityEvent.DROP)) { 
 					delivery.calculateState(logger::info);
 				}
@@ -155,109 +171,5 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 			//scheduler.forward(scheduler.get(Semaphore.Action.DISTRIBUTOR));
 		}
 	}
-
-	private void commit(final Shard shard, final Log changelog, final ShardEntity entity, 
-			final Map<EntityEvent, StringBuilder> logging) {
-		final Runnable r = ()-> {
-			if (logger.isInfoEnabled()) {
-				StringBuilder sb = logging.get(changelog.getEvent());
-				if (sb==null) {
-					logging.put(changelog.getEvent(), sb = new StringBuilder());
-				}
-				sb.append(entity.getEntity().getId()).append(',');
-			}
-
-			// copy the found situation to the instance we care
-			entity.getCommitTree().addEvent(changelog.getEvent(),
-					COMMITED,
-					shard.getShardID(),
-					changelog.getPlanId());
-			};
-			
-		if (scheme.getCommitedState().commit(entity, shard, changelog.getEvent(), r)
-			&& changelog.getEvent().getType()==EntityEvent.Type.ALLOC) {
-			clearUncommited(changelog, entity, shard);
-		}
-		// REMOVES go this way:
-		if (changelog.getEvent()==EntityEvent.DETACH) {
-			final Log previous = entity.getCommitTree().getPreviousLog(shard.getShardID().getId());
-			if (previous!=null && previous.getEvent()==EntityEvent.REMOVE) {
-				scheme.getCommitedState().commit(entity, shard, previous.getEvent(), ()->{
-					logger.info("{}: Removing duty at request: {}", classname, entity);
-				});
-			}
-		}
-	}
-
-	private void clearUncommited(final Log changelog, final ShardEntity entity, Shard shard) {
-		// remove it from the stage
-		final ShardEntity crud = scheme.getUncommited().getCrudByDuty(entity.getDuty());
-		if (crud!=null) {
-			try {
-			for (Log f: crud.getCommitTree().findAll(shard.getShardID())) {
-				final Instant lastEventOnCrud = f.getHead().toInstant();
-				boolean previousThanCrud = changelog.getHead().toInstant().isBefore(lastEventOnCrud);
-				// if the update corresponds to the last CRUD OR they're both the same event (duplicated operation)
-				if (!previousThanCrud || changelog.getEvent().getRootCause()==crud.getLastEvent()) {
-					if (!scheme.getUncommited().removeCrud(entity)) {
-						logger.warn("{} Backstage CRUD didnt existed: {}", classname, entity);
-					}
-				} else {
-					logger.warn("{}: Avoiding UncommitedChanges remove (diff & after last event: {})", 
-							classname, entity, previousThanCrud);
-				}
-			}
-			} catch (Exception e) {
-				e.printStackTrace();
-				
-			}
-		} else {
-			// they were not crud: (dangling/missing/..)
-		}
-	}
-	
-	void shardStateTransition(final Shard shard, final ShardState prior, final Transition transition) {
-		shard.applyChange(transition);
-		scheme.getCommitedState().stealthChange(true);		
-		switch (transition.getState()) {
-		case GONE:
-		case QUITTED:
-			recoverAndRetire(shard);
-			// distributor will decide plan obsolecy if it must
-			break;
-		case ONLINE:
-			// TODO get ready
-			break;
-		case QUARANTINE:
-			// TODO lot of consistency checks here on duties
-			// to avoid chain of shit from heartbeats reporting doubtful stuff
-			break;
-		default:
-			break;
-		}
-	}
-
-	/*
-	 * dangling duties are set as already confirmed, change wont wait for this
-	 * to be confirmed
-	 */
-	private void recoverAndRetire(final Shard shard) {
-		final Collection<ShardEntity> dangling = scheme.getCommitedState().getDutiesByShard(shard);
-		if (logger.isInfoEnabled()) {
-			logger.info("{}: Removing fallen Shard: {} from ptable. Saving: #{} duties: {}", classname, shard,
-				dangling.size(), ShardEntity.toStringIds(dangling));
-		}
-		for (ShardEntity e: dangling) {
-			if (scheme.getUncommited().addDangling(e)) {
-				e.getCommitTree().addEvent(
-						DETACH, 
-						COMMITED, 
-						shard.getShardID(), 
-						e.getCommitTree().getLast().getPlanId());
-			}
-		}
-		scheme.getCommitedState().removeShard(shard);		
-	}
-
 
 }

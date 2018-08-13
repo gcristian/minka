@@ -17,6 +17,7 @@
 package io.tilt.minka.core.leader;
 
 import static io.tilt.minka.domain.EntityEvent.DETACH;
+import static io.tilt.minka.domain.EntityEvent.DROP;
 import static io.tilt.minka.domain.EntityEvent.REMOVE;
 import static io.tilt.minka.domain.EntityState.ACK;
 import static io.tilt.minka.domain.EntityState.COMMITED;
