@@ -33,7 +33,7 @@ public class PhasePermission {
 	private int counterForAvoids;
 	private Instant lastStealthBlocked;
 
-	public PhasePermission(
+	PhasePermission(
 			final Config config, 
 			final Scheme scheme, 
 			final LeaderAware leaderAware,

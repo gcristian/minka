@@ -35,7 +35,7 @@ public class PhaseLoader {
 	private boolean delegateFirstCall = true;
 	private int counterForReloads;
 
-	public PhaseLoader(
+	PhaseLoader(
 			final UncommitedRepository uncommitedRepository, 
 			final DependencyPlaceholder dependencyPlaceholder,
 			final Config config, 

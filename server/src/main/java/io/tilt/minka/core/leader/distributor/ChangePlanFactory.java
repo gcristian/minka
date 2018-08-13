@@ -15,23 +15,15 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
-import static io.tilt.minka.domain.EntityEvent.ATTACH;
 import static io.tilt.minka.domain.EntityEvent.CREATE;
-import static io.tilt.minka.domain.EntityEvent.DETACH;
 import static io.tilt.minka.domain.EntityEvent.REMOVE;
-import static io.tilt.minka.domain.EntityState.COMMITED;
-import static io.tilt.minka.domain.EntityState.PREPARED;
-import static io.tilt.minka.domain.ShardEntity.toStringIds;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -48,7 +40,6 @@ import io.tilt.minka.core.leader.data.UncommitedChanges;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.utils.LogUtils;
@@ -76,19 +67,20 @@ class ChangePlanFactory {
 
 	/** @return a plan if there're changes to apply or NULL if not */
 	ChangePlan create(final Scheme scheme, final ChangePlan previous) {
-		
 		final UncommitedChanges snapshot = scheme.getUncommited().snapshot();
-		ChangePlan changePlan = new ChangePlan(
+		ChangePlan plan = new ChangePlan(
 				config.beatToMs(config.getDistributor().getPlanExpiration()), 
 				config.getDistributor().getPlanMaxRetries());
 		
 		// to record initial pid and detect lazy surviving followers
 		if (scheme.getCurrentPlan() == null && previous == null) {
-			scheme.setFirstPlanId(changePlan.getId());
+			scheme.setFirstPlanId(plan.getId());
 		}
 
-		final Set<ShardEntity> creations = collectAsCreates(scheme, previous, snapshot, changePlan);		
-		final Set<ShardEntity> deletions = collectAsRemoves(scheme, previous, snapshot, changePlan, creations);
+		final UncommitedCompiler compiler = new UncommitedCompiler(scheme.getCommitedState(), previous, plan, snapshot);
+		
+		final Set<ShardEntity> creations = compiler.collectCreations();
+		final Set<ShardEntity> deletions = compiler.collectRemovals(creations);
 		
 		final Set<ShardEntity> ents = new HashSet<>();
 		scheme.getCommitedState().findDuties(ents::add);
@@ -98,17 +90,17 @@ class ChangePlanFactory {
 		if (schemeByPallets.isEmpty()) {
 			logger.warn("{}: CommitedState and UncommitedChanges are empty. Nothing to balance (C:{}, R:{})", 
 					name, creations.size(), deletions.size());
-			changePlan = null;
+			plan = null;
 		} else {
-			if (!buildForEachPallet(scheme, changePlan, creations, deletions, schemeByPallets)) {
-				changePlan = null;
+			if (!balanceByPallet(scheme, plan, creations, deletions, schemeByPallets)) {
+				plan = null;
 			}
 		}
 		scheme.getUncommited().dropSnapshot();
-		return changePlan;
+		return plan;
 	}
 	
-	private boolean buildForEachPallet(
+	private boolean balanceByPallet(
 			final Scheme scheme, final ChangePlan changePlan,
 			final Set<ShardEntity> creations, final Set<ShardEntity> deletions, 
 			final Map<String, List<ShardEntity>> schemeByPallets) {
@@ -141,60 +133,6 @@ class ChangePlanFactory {
 			return false;
 		}
 		return true;
-	}
-
-	private Set<ShardEntity> collectAsRemoves(
-			final Scheme scheme,
-			final ChangePlan previousChange,
-			final UncommitedChanges snapshot,
-			final ChangePlan changePlan, 
-			final Set<ShardEntity> dutyCreations) {
-		
-		final Set<ShardEntity> dutyDeletions = new HashSet<>();
-		snapshot.findDutiesCrud(REMOVE::equals, null, crud-> {
-			// as a CRUD a deletion lives in stage as a mark within an Opaque ShardEntity
-			// we must now search for the real one
-			final ShardEntity schemed = scheme.getCommitedState().getByDuty(crud.getDuty());
-			if (schemed!=null) {
-				// translate the REMOVAL event
-				schemed.getCommitTree().addEvent(
-						crud.getLastEvent(), 
-						crud.getLastState(), 
-						scheme.getCommitedState().findDutyLocation(schemed).getShardID(), 
-						changePlan.getId());
-				dutyDeletions.add(schemed);
-				// prevail user's deletion op. over clustering restore/creation
-				dutyCreations.remove(schemed);
-			}
-		});
-		restorePendings(previousChange, dutyDeletions::add, 
-				d->d.getLastEvent()==REMOVE || d.getLastEvent()==DETACH);
-		
-		// lets add those duties of a certain deleting pallet
-		snapshot.findPalletsCrud(REMOVE::equals, PREPARED::equals, p-> {
-			scheme.getCommitedState().findDutiesByPallet(p.getPallet(), dutyDeletions::add);
-		});
-		dispatchDeletions(scheme, changePlan, dutyDeletions);
-		return dutyDeletions;
-	}
-
-	private Set<ShardEntity> collectAsCreates(final Scheme scheme,
-			final ChangePlan previousChange,
-			final UncommitedChanges snapshot,
-			final ChangePlan changePlan) {
-		// recently fallen shards
-		addMissingAsCrud(scheme, changePlan);
-		final Set<ShardEntity> dutyCreations = new HashSet<>();
-		snapshot.findDutiesCrud(CREATE::equals, null, dutyCreations::add);
-		// add danglings as creations prior to migrations
-		for (ShardEntity d: snapshot.getDutiesDangling()) {
-			dutyCreations.add(ShardEntity.Builder.builderFrom(d).build());
-		}
-		
-		// add previous fallen and never confirmed migrations
-		restorePendings(previousChange, dutyCreations::add, 
-				d->d.getLastEvent()==CREATE || d.getLastEvent()==ATTACH);
-		return dutyCreations;
 	}
 
 	private static final Migrator balancePallet(
@@ -240,71 +178,6 @@ class ChangePlanFactory {
 		return ret;
 	}
 	
-	private void addMissingAsCrud(final Scheme partition, final ChangePlan changePlan) {
-	    final Collection<ShardEntity> missing = partition.getUncommited().snapshot().getDutiesMissing();
-		for (final ShardEntity missed : missing) {
-			final Shard lazy = partition.getCommitedState().findDutyLocation(missed);
-			if (logger.isDebugEnabled()) {
-				logger.debug("{}: Registering {}, missing Duty: {}", name,
-					lazy == null ? "unattached" : "from falling Shard: " + lazy, missed);
-			}
-			if (lazy != null) {
-				partition.getCommitedState().commit(missed, lazy, REMOVE, ()-> {
-					// missing duties are a confirmation per-se from the very shards,
-					// so the ptable gets fixed right away without a realloc.
-					missed.getCommitTree().addEvent(REMOVE, COMMITED,lazy.getShardID(),changePlan.getId());					
-				});
-			}
-			missed.getCommitTree().addEvent(CREATE, PREPARED,"N/A",changePlan.getId());
-			partition.getUncommited().snapshot().addCrudDuty(missed);
-		}
-		if (!missing.isEmpty()) {
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: Registered {} dangling duties {}", name, missing.size(), toStringIds(missing));
-			}
-		}
-	}
-
-	/*
-	 * check waiting duties never confirmed (for fallen shards as previous
-	 * target candidates)
-	 */
-	private void restorePendings(final ChangePlan previous, final Consumer<ShardEntity> c, final Predicate<ShardEntity> p) {
-		if (previous != null 
-				&& previous.getResult().isClosed() 
-				&& !previous.getResult().isSuccess()) {
-			int rescued = previous.findAllNonConfirmedFromAllDeliveries(d->{
-				if (p.test(d)) {
-					c.accept(d);
-				}
-			});
-			if (rescued ==0 && logger.isInfoEnabled()) {
-				logger.info("{}: Previous change although unfinished hasnt waiting duties", name);
-			} else {
-				if (logger.isInfoEnabled()) {
-					logger.info("{}: Previous change's unfinished business saved as Dangling: {}", name, rescued);
-				}
-			}
-		}
-	}
-
-	/* by user deleted */
-	private final void dispatchDeletions(final Scheme partition, final ChangePlan changePlan,
-			final Set<ShardEntity> deletions) {
-
-		for (final ShardEntity deletion : deletions) {
-			final Shard shard = partition.getCommitedState().findDutyLocation(deletion);
-			deletion.getCommitTree().addEvent(DETACH, 
-					PREPARED,
-					shard.getShardID(),
-					changePlan.getId());
-			changePlan.ship(shard, deletion);
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: Shipped {} from: {}, Duty: {}", name, DETACH, shard.getShardID(),
-					deletion.toBrief());
-			}
-		}
-	}
 
 	private void logStatus(
 			final Scheme partition, 
