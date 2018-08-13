@@ -18,7 +18,7 @@ public enum ShardState {
 	GONE
 	;
 	public boolean isAlive() {
-		return this == ONLINE || this == QUARANTINE || this == JOINING;
+		return this == ONLINE || this == QUARANTINE; // || this == JOINING;
 	}
 	public Predicate<Shard> filter() {
 		return shard->shard.getState()==this;

@@ -98,6 +98,9 @@ class Transitioner {
 						&& (currentState == ShardState.QUARANTINE || currentState == ShardState.ONLINE)) {
 					cause = TransitionCause.BECAME_ANCIENT;
 					newState = ShardState.GONE;
+				} else if (currentState == ShardState.JOINING && pastLapseSize == 0 ) {
+					cause = TransitionCause.JOINING_STARVED;
+					newState = ShardState.GONE;
 				}
 			}
 		}
