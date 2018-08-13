@@ -141,7 +141,9 @@ public class Distributor implements Service {
 		ChangePlan p = changePlan;
 		ChangePlanState r = null;
 		boolean justBuilt = false;
-		while (firstTime || rebuild) {
+		int rebuildQuota = 3;
+		while (firstTime || (rebuild && rebuildQuota>0)) {
+			firstTime = false;
 			if (rebuild) {
 				rebuild = false;
 				p = buildPlan(p);
@@ -157,10 +159,10 @@ public class Distributor implements Service {
 			}
 			if (r == ChangePlanState.CLOSED_EXPIRED || r == ChangePlanState.CLOSED_OBSOLETE) {
 				rebuild = true;
+				rebuildQuota--;
 			} else if (p != null) {
 				p.calculateState();
 			}
-			firstTime = false;
 		}
 	}
 
