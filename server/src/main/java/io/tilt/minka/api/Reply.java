@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
+import io.tilt.minka.domain.ShardEntity;
 
 /**
  * Response of an operation sent from the Client to the Leader
@@ -27,7 +28,7 @@ public class Reply {
 	
 	//serialization
 	public Reply() {}
-	public Reply(
+	Reply(
 			final ReplyValue value, 
 			final Entity entity, 
 			final EntityState state,
@@ -40,6 +41,7 @@ public class Reply {
 		this.event = event;
 		this.message = msg;
 	}
+	
 	@JsonIgnore
 	public boolean isSuccess() {
 		return value==SUCCESS || value==SUCCESS_OPERATION_ALREADY_SUBMITTED;
@@ -70,8 +72,8 @@ public class Reply {
 	@Override
 	public String toString() {
 		return new StringBuilder()
-				.append("Client-ChangePlanState:").append(isSuccess()).append(',')
-				.append("TransitionCause-Code:").append(value.toString()).append(',')
+				.append("Success:").append(isSuccess()).append(',')
+				.append("Reply-Code:").append(value.toString()).append(',')
 				.toString()
 				;
 	}
@@ -92,6 +94,7 @@ public class Reply {
 	public void setMessage(final String message) {
 		this.message = message;
 	}
+	
 	public String toMessage() {
 		return new StringBuilder(toString())
 				.append(" >> ").append(message)
@@ -99,4 +102,49 @@ public class Reply {
 				.append(", state:").append(state)
 				.toString();
 	}
+	
+	public static Reply notFound(Entity entity) {
+		final String msg = String.format("Skipping operation not found in CommitedState: %s", 
+				entity.getId());
+		return new Reply(ReplyValue.ERROR_ENTITY_NOT_FOUND, entity, null, null, msg);
+	}
+	public static Reply success(Entity e, boolean added) {
+		final String msg = String.format("Operation %s done: %s", added ? "": "already", e.getId());
+		return new Reply(added ? 
+				ReplyValue.SUCCESS : ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED, 
+                e, null, null, msg);
+	}
+
+	public static Reply alreadySubmitted(final Duty duty) {
+		return new Reply(ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED, duty, null, 
+				null, String.format("Submited before !: %s", duty));
+	}
+	
+	public static Reply alreadyExists(final Entity entity) {
+		final String msg = String.format("Skipping operation, entity already in CommitedState: %s", 
+				entity.getId());
+		return new Reply(ReplyValue.ERROR_ENTITY_ALREADY_EXISTS, 
+				entity, null, null, msg);
+	}
+	public static Reply inconsistent(final Duty duty) {
+		final String msg = String.format("Skipping Crud Event %s: Pallet ID :%s set not found or yet created",
+				EntityEvent.CREATE, null, duty.getPalletId());
+		return new Reply(ReplyValue.ERROR_ENTITY_INCONSISTENT, duty, null, null, msg);
+	}
+	public static Reply sentAsync(Entity entity) {
+		return new Reply(ReplyValue.SENT_SUCCESS, entity, null, null, null);
+	}
+	public static Reply failedToSend(Entity entity) {
+		return new Reply(ReplyValue.SENT_FAILED, entity, null, null, null);
+	}
+	public static Reply sent(boolean sent, final Entity e) {
+		return new Reply(
+				sent ? ReplyValue.SENT_SUCCESS : ReplyValue.SENT_FAILED, 
+				e, 
+				null, 
+				null, 
+				null);
+	}
+	
+	
 }

@@ -13,7 +13,7 @@ import static io.tilt.minka.api.ReplyValue.ERROR_ENTITY_ALREADY_EXISTS;
 import static io.tilt.minka.api.ReplyValue.ERROR_ENTITY_NOT_FOUND;
 import static io.tilt.minka.api.ReplyValue.SUCCESS;
 import static io.tilt.minka.api.ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED;
-import static io.tilt.minka.api.ReplyValue.SUCCESS_SENT;
+import static io.tilt.minka.api.ReplyValue.SENT_SUCCESS;
 import static java.lang.Thread.sleep;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.singleton;
@@ -165,7 +165,7 @@ public class ClientCRUDTest {
 				for (int i = 0 ; i < dutySizeLoop; i ++) {
 					final Client cli = sw.getServer().getClient();
 					assertEquals(
-							cli.isCurrentLeader() ? SUCCESS : SUCCESS_SENT,
+							cli.isCurrentLeader() ? SUCCESS : SENT_SUCCESS,
 							cli.add(duty(p, id.incrementAndGet())).getValue());
 				}
 			}

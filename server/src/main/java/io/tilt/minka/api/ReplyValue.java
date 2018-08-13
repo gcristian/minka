@@ -1,5 +1,7 @@
 package io.tilt.minka.api;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public enum ReplyValue {
 	
 	/** response from the leader */
@@ -9,13 +11,13 @@ public enum ReplyValue {
 	SUCCESS_OPERATION_ALREADY_SUBMITTED(208),
 	
 	/** sent to the leader without waiting for response */
-	SUCCESS_SENT(204),
+	SENT_SUCCESS(204),
 	
 	// our bad
 	FAILURE(500),
 	
 	// network error: cannot send the operation thru the wire
-	FAILURE_NOT_SENT(503),
+	SENT_FAILED(503),
 	
 	// cannot repeat this operation 
 	ERROR_ENTITY_ALREADY_EXISTS(409),
@@ -33,6 +35,7 @@ public enum ReplyValue {
 		this.httpCode = code;
 	}
 	/** @return an http status code, restful analog */
+	@JsonProperty("http")
 	public int getHttpCode() {
 		return httpCode;
 	}

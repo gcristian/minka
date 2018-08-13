@@ -120,10 +120,10 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 		}
 	}
 
-	private boolean reportCapture(final boolean forceFullReport, final long now, boolean newLeader, boolean issues) {
+	private boolean reportCapture(final boolean force, final long now, boolean newLeader, boolean issues) {
 		final boolean exclusionExpired = includeTimestamp == 0 
 				|| (now - includeTimestamp) > includeFrequency;
-		return forceFullReport 
+		return force 
 				|| issues 
 				|| exclusionExpired 
 				|| partition.wasRecentlyUpdated() 

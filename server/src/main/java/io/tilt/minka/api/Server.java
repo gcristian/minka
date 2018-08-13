@@ -31,7 +31,6 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import io.tilt.minka.api.config.BootstrapConfiguration;
 import io.tilt.minka.api.config.BrokerConfiguration;
-import io.tilt.minka.api.inspect.AdminEndpoint;
 import io.tilt.minka.domain.AwaitingDelegate;
 import io.tilt.minka.domain.ConsumerDelegate;
 import io.tilt.minka.domain.DependencyPlaceholder;

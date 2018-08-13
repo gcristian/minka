@@ -57,6 +57,7 @@ import io.tilt.minka.shard.ShardIdentifier;
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
  */
+@SuppressWarnings({ "unchecked", "rawtypes" })
 public class Client {
 
 	private static final Logger logger = LoggerFactory.getLogger(Client.class);
@@ -194,11 +195,8 @@ public class Client {
 			if (logger.isDebugEnabled()) {
 				logger.debug("{}: Recurring to local leader !", getClass().getSimpleName());
 			}
-			if (callback==null) {
-				clientMediator.mediateOnEntity(entities, reply->r[0]=reply);
-			} else {
-				clientMediator.mediateOnEntity(entities, callback);
-			}
+			clientMediator.mediateOnEntity(entities, 
+					callback != null ? callback : reply->r[0]=reply);
 		} else {
 			if (logger.isDebugEnabled()) {
 				logger.debug("{}: Sending event: {} to leader in service", 
@@ -216,7 +214,7 @@ public class Client {
 			final List<ShardEntity> tmp) {
 		int tries = 10;
 		boolean[] sent = {false};
-		while (!sent[0] && tries-->0) {
+		while (!Thread.interrupted() && !sent[0] && tries-->0) {
 			if (leaderAware.getLeaderShardId()!=null) {
 				final BrokerChannel channel = eventBroker.buildToTarget(config, 
 						Channel.CLITOLEAD,
@@ -231,17 +229,11 @@ public class Client {
 			}
 		}
 		if (callback==null) {
-			return new Reply(sent[0] ? ReplyValue.SUCCESS_SENT : ReplyValue.FAILURE_NOT_SENT, 
-					tmp.get(0).getEntity(), null, event, null);
+			return Reply.sent(sent[0], tmp.get(0).getEntity());
 		} else {
 			for (ShardEntity e: tmp) {
 				try {
-					callback.accept(new Reply(
-							sent[0] ? ReplyValue.SUCCESS_SENT : ReplyValue.FAILURE_NOT_SENT, 
-							e.getEntity(), 
-							null, 
-							event, 
-							null));	
+					callback.accept(Reply.sent(sent[0], e.getEntity()));	
 				} catch (Exception e2) {
 					logger.warn("{}: reply callback throwed exception: {}", getClass().getSimpleName(), e2.getMessage());
 				}

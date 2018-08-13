@@ -170,8 +170,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 				}
 			});
 		}
-		callback.accept(new Reply(sent[0] ? ReplyValue.SUCCESS_SENT : ReplyValue.FAILURE_NOT_SENT,
-				entity.getEntity(), null, null, null));
+		callback.accept(sent[0] ? Reply.sentAsync(entity.getEntity()) : Reply.failedToSend(entity.getEntity()));
 	}
 
 }

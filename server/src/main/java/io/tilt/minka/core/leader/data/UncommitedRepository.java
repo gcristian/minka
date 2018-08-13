@@ -69,17 +69,15 @@ public class UncommitedRepository {
 			if (current != null) {
 				tmp.add(remove);
 			} else {
-				tryCallback(callback, new Reply(ReplyValue.ERROR_ENTITY_NOT_FOUND, remove.getDuty(), null, null,
-						String.format("%s: Deletion request not found on scheme: %s", classname, remove.getDuty())));
+				tryCallback(callback, Reply.notFound(remove.getEntity()));
 			}
 		}
 
 		scheme.getUncommited().addAllCrudDuty(tmp, (duty, added) -> {
 			if (added) {
-				tryCallback(callback, new Reply(ReplyValue.SUCCESS, duty, PREPARED, REMOVE, null));
+				tryCallback(callback, Reply.success(duty, true));
 			} else {
-				tryCallback(callback, new Reply(ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED, duty, null,
-						EntityEvent.REMOVE, String.format("%s: Added already !: %s", classname, duty)));
+				tryCallback(callback, Reply.alreadySubmitted(duty));
 			}
 		});
 	}
@@ -130,16 +128,12 @@ public class UncommitedRepository {
 	public void saveAllDuties(final Collection<ShardEntity> coll, final Consumer<Reply> callback) {
 		final List<ShardEntity> tmp = new ArrayList<>(coll.size());
 		for (final ShardEntity duty: coll) {
-			Reply ret = null;
 			if (presentInPartition(duty)) {
-				ret = new Reply(ReplyValue.ERROR_ENTITY_ALREADY_EXISTS, duty.getDuty(), null, null, null);
-				tryCallback(callback, ret);
+				tryCallback(callback, Reply.alreadyExists(duty.getDuty()));
 			} else {
 				final ShardEntity pallet = scheme.getCommitedState().getPalletById(duty.getDuty().getPalletId());
 				if (pallet==null) {
-					tryCallback(callback, new Reply(ReplyValue.ERROR_ENTITY_INCONSISTENT, duty.getDuty(), null, null, 
-							String.format("%s: Skipping Crud Event %s: Pallet ID :%s set not found or yet created", classname,
-								EntityEvent.CREATE, null, duty.getDuty().getPalletId())));
+					tryCallback(callback, Reply.inconsistent(duty.getDuty()));
 				} else {
 					final ShardEntity newone = ShardEntity.Builder
 							.builder(duty.getDuty())
@@ -163,10 +157,9 @@ public class UncommitedRepository {
 				if (logger.isInfoEnabled()) {
 					sb.append(duty).append(',');
 				}
-				tryCallback(callback, new Reply(ReplyValue.SUCCESS, duty, PREPARED, CREATE, null));
+				tryCallback(callback, Reply.success(duty, true));
 			} else {
-				tryCallback(callback, new Reply(ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED, duty, null, 
-						EntityEvent.CREATE, String.format("%s: Added already !: %s", classname, duty)));
+				tryCallback(callback, Reply.alreadySubmitted(duty));
 			}
 		});
 		if (sb.length()>0) {
@@ -204,13 +197,12 @@ public class UncommitedRepository {
 	    for (ShardEntity pallet: coll) {
 	        final ShardEntity p = scheme.getCommitedState().getPalletById(pallet.getEntity().getId());
     		if (p==null) {
-    			tryCallback(callback, new Reply(ReplyValue.ERROR_ENTITY_NOT_FOUND, pallet.getEntity(), null, null, 
-    					String.format("%s: Skipping remove not found in CommitedState: %s", 
-    							getClass().getSimpleName(), pallet.getEntity().getId())));
+    			tryCallback(callback, Reply.notFound(p.getPallet()));
     		} else {
     		    final boolean done = scheme.addCrudPallet(pallet);
-    		    tryCallback(callback, new Reply(done ? ReplyValue.SUCCESS : ReplyValue.ERROR_ENTITY_NOT_FOUND, 
-                    pallet.getEntity(), PREPARED, REMOVE, null));
+    		    tryCallback(callback, done ? 
+    		    		Reply.success(pallet.getPallet(), true) 
+    		    		: Reply.notFound(pallet.getPallet()));
     		}
 	    }
 	}
@@ -228,13 +220,9 @@ public class UncommitedRepository {
     	                p.getPallet().getMetadata());
     	        }
     	        final boolean added = scheme.addCrudPallet(p);
-    	        tryCallback(callback, new Reply(added ? ReplyValue.SUCCESS : ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED, 
-                        p.getEntity(), null, EntityEvent.CREATE, 
-                        String.format("%s: Added %s: %s", classname, added ? "": "already", p.getPallet())));
+    	        tryCallback(callback, Reply.success(p.getEntity(), added));
     		} else {
-    			tryCallback(callback, new Reply(ReplyValue.ERROR_ENTITY_ALREADY_EXISTS, p.getEntity(), null, EntityEvent.CREATE, 
-                        String.format("%s: Skipping creation already in CommitedState: %s", 
-                                getClass().getSimpleName(), p.getEntity().getId())));
+    			tryCallback(callback, Reply.alreadyExists(p.getEntity()));
     		}
 		}
 		

@@ -17,6 +17,7 @@
 package io.tilt.minka.api;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
@@ -46,7 +47,8 @@ public interface Duty extends Entity {
 	@JsonProperty("palletId") 
 	String getPalletId();
 	
-	/** @return not mandatory only for Client usage */ 
+	/** @return not mandatory only for Client usage */
+	@JsonIgnore
 	Pallet getPallet();
 	
 	static DutyBuilder builder(final String id, final String palletId) {
