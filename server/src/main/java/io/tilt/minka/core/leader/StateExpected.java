@@ -27,6 +27,7 @@ import static io.tilt.minka.domain.EntityState.PENDING;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -211,7 +212,7 @@ public class StateExpected {
 			final List<ShardEntity> deliveryDuties,
 			final BiConsumer<Log, ShardEntity> c, 
 			final long pid) {
-		Set<ShardEntity> log = null;
+		Map<EntityEvent, List<ShardEntity>> log = new HashMap<>(3);
 		boolean found = false;
 		for (ShardEntity prescripted : deliveryDuties) {
 			if (!beatedDuties.stream()
@@ -220,12 +221,7 @@ public class StateExpected {
 				for (final Log changelog : prescripted.getCommitTree().findAll(pid, shardid, DETACH, REMOVE, DROP)) {
 					if (changelog.getLastState()==PENDING || changelog.getLastState()==MISSING) {
 						found = true;
-						if (logger.isInfoEnabled()) {
-							if (log==null) {
-								log = new TreeSet<>();
-							}
-							log.add(prescripted);
-						}
+						logging(log, prescripted, changelog);
 						c.accept(changelog, prescripted);
 					}
 				}
@@ -233,10 +229,26 @@ public class StateExpected {
 		}
 		
 		if (log!=null) {
-			logger.info("{}: ShardID: {}, {} {} for Duties: {}",
-					getClass().getSimpleName(), shardid, DETACH, COMMITED, 
-					ShardEntity.toStringIds(log));
+			log.entrySet().forEach(e->
+				logger.info("{}: ShardID: {}, {} {} for Duties: {}",
+					getClass().getSimpleName(), shardid, e.getKey(), COMMITED, 
+					ShardEntity.toStringIds(e.getValue())));
 		}
 		return found;
+	}
+
+	private Map<EntityEvent, List<ShardEntity>> logging(Map<EntityEvent, List<ShardEntity>> log,
+			ShardEntity prescripted, final Log changelog) {
+		if (logger.isInfoEnabled()) {
+			if (log==null) {
+				log = new HashMap<>();
+			}
+			List<ShardEntity> list = log.get(changelog.getEvent());
+			if (list==null) {
+				log.put(changelog.getEvent(), list = new LinkedList<>());
+			}
+			list.add(prescripted);
+		}
+		return log;
 	}
 }

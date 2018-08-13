@@ -122,10 +122,10 @@ public class FollowerMonitor {
 		for (ShardEntity e: partition.getDuties()) {
 			tmp.add(detail ? e: e.getDuty().getId());
 		}
-		tmp = new ArrayList<>(partition.getReplicas().size());
-		ret.put("replicas", tmp);
+		ArrayList<Object> tmp2 = new ArrayList<>(partition.getReplicas().size());
+		ret.put("replicas", tmp2);
 		for (ShardEntity e: partition.getReplicas()) {
-			tmp.add(detail ? e: e.getDuty().getId());
+			tmp2.add(detail ? e: e.getDuty().getId());
 		}
 		return ret;
 	}

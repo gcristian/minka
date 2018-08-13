@@ -469,20 +469,6 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	private String getCreation_() {
 		return created.toString();
 	}
-	@JsonProperty("started")
-	private String getStarted_() {
-		if (started==null) {
-			return "";
-		}
-		return started.toString();
-	}
-	@JsonProperty("ended")
-	private String getEnded_() {
-		if (ended==null) {
-			return "";
-		}
-		return ended.toString();
-	}
 	
 	public static void main(String[] args) throws InterruptedException {
 
