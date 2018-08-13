@@ -1,5 +1,7 @@
 package io.tilt.minka.api.config;
 
+import org.apache.commons.lang3.StringUtils;
+
 public class BrokerConfiguration {
 	public final static int PORT = 5748;
 	protected final static String HOST_PORT = "localhost:" + PORT;
@@ -115,5 +117,10 @@ public class BrokerConfiguration {
 	}
 	public void setShutdownTimeout(long shutdownTimeout) {
 		this.shutdownTimeout = shutdownTimeout;
+	}
+	public void validate() {
+		if (StringUtils.isBlank(getHostPort())) {
+			throw new IllegalArgumentException("property [broker host port] cannot be blank");
+		}
 	}
 }

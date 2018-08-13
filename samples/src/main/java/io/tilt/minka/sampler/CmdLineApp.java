@@ -1,8 +1,5 @@
 package io.tilt.minka.sampler;
 
-import static com.google.common.collect.Sets.newHashSet;
-
-import java.net.NetworkInterface;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -11,9 +8,7 @@ import java.util.Scanner;
 import java.util.Set;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang3.text.WordUtils;
 
-import io.tilt.minka.ServerWhitness;
 import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
@@ -30,6 +25,7 @@ public class CmdLineApp {
 
 	public static void main(String[] args) {
 		new CmdLineApp().run();
+		System.exit(1);
 	}
 
 	public enum Quest {
@@ -49,7 +45,58 @@ public class CmdLineApp {
 		}
 	}
 	
-	private Server build(final Map<Quest, String> quest) {
+	private void run() {
+		Server server = null;
+		try (Scanner scan = new Scanner(System.in)) {
+			final Map<Quest, String> quest = readParameters(scan);
+			server = createServer(quest);
+			readCmdLine(server.getClient(), scan, quest);
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (server!=null) {
+				server.shutdown();
+			}
+			System.out.println("good bye !");
+		}
+	}
+
+	private Map<Quest, String> readParameters(final Scanner scan) {
+		
+		final Map<Quest, String> suggest = new HashMap<>();
+		suggest.put(Quest.namespace, "demo");
+		suggest.put(Quest.tag, System.getProperty("user.name"));
+		suggest.put(Quest.zk, "localhost:2181");
+		suggest.put(Quest.address, TCPShardIdentifier.findLANAddress().getHostAddress());
+		
+		final Map<Quest, String> quest = new HashMap<>();
+		
+		System.out.println("Welcome ! First some answers (always type quit to exit)");
+		System.out.println("==========================================================");
+		for(Quest q: Quest.values()) {
+			while (!Thread.interrupted() && true) {
+				System.out.println("Enter " + q.getTitle() + ": ");
+				System.out.print("\t( " + suggest.get(q) + " ? ) ");
+				if (scan.hasNextLine()) {
+					String line = scan.nextLine();
+					if ((line==null || line.length()<1)&& suggest.containsKey(q)) {
+						quest.put(q, suggest.get(q));
+						break;
+					} else if (line.equalsIgnoreCase("quit")) {
+						break;
+					} else {
+						quest.put(q, line);
+						break;
+					}
+				} else {
+					System.out.println("no input !");
+				}
+			}
+		}
+		return quest;
+	}
+	
+	private Server createServer(final Map<Quest, String> quest) {
 		
 		final Config ownConfig = new Config();
 		
@@ -91,57 +138,71 @@ public class CmdLineApp {
 		return server;
 	}
 	
-	private void run() {
-		Server server = null;
-		try (Scanner scan = new Scanner(System.in)) {
-			final Map<Quest, String> quest = readParameters(scan);
-			server = build(quest);
-			readCommands(server.getClient(), scan, quest);
-		} catch (Exception e) {
-			e.printStackTrace();
-		} finally {
-			if (server!=null) {
-				server.shutdown();
-			}
-			System.out.println("good bye !");
-		}
-	}
-
-	private Map<Quest, String> readParameters(Scanner scan) {
+	private void readCmdLine(final Client  client, final Scanner scan, final Map<Quest, String> quest) {
+		System.out.println("Now enter tasks");
+		final String help = "Syntaxis: \n"
+				+ "\n\t d {pallet-id} {duty-id} {weight}   creates a duty (! prefixing 'd' will delete it)"
+				+ "\n\t p {pallet-id} {balancer}           creates a pallet (balancers: even_size, fair_weight, even_weight) "
+				+ "\n\t c {pallet-id} {weight]             reports capacity for a pallet"
+				+ "\n\t quit                               terminates session \n"
+				+ "\nSample: p PALLET1 (creates a pallet)"
+				+ "\nSample: d PALLET1 DUTY1 99 (creates a duty inside with weight)"
+				+ "\nSample: !d PALLET1 DUTY1 (removes previous duty"
+				;
 		
-		final Map<Quest, String> suggest = new HashMap<>();
-		suggest.put(Quest.namespace, "demo");
-		suggest.put(Quest.tag, System.getProperty("user.name"));
-		suggest.put(Quest.zk, "localhost:2181");
-		suggest.put(Quest.address, TCPShardIdentifier.findLANAddress().getHostAddress());
-		
-		final Map<Quest, String> quest = new HashMap<>();
-		
-		System.out.println("Welcome ! First some answers (always type quit to exit)");
-		System.out.println("==========================================================");
-		for(Quest q: Quest.values()) {
-			while (!Thread.interrupted() && true) {
-				System.out.println("Enter " + q.getTitle() + ": ");
-				System.out.print("\t( " + suggest.get(q) + " ? ) ");
-				if (scan.hasNextLine()) {
-					String line = scan.nextLine();
-					if ((line==null || line.length()<1)&& suggest.containsKey(q)) {
-						quest.put(q, suggest.get(q));
-						break;
-					} else if (line.equalsIgnoreCase("quit")) {
-						break;
-					} else {
-						quest.put(q, line);
-						break;
-					}
-				} else {
-					System.out.println("no input !");
+		System.out.println(help);
+		while (scan.hasNextLine() && !Thread.interrupted()) {
+			String cmd = scan.nextLine();
+			try {
+				if (cmd==null || cmd.length()<1) {
+					System.out.println(help);
+					System.out.println("type <quit> to terminate ");
+					continue;
+				} else if (cmd.equalsIgnoreCase("quit")) {
+					break;
 				}
+				
+				final String[] split = cmd.split(" ");
+				
+				boolean run = false;
+				if (split.length==1 || split.length>4) {
+				} else {
+					run = run(split, client);
+				}
+				if (!run) {					
+					System.out.println(help);
+					System.out.println("Unknown command or format !");
+				}
+			} catch (Exception e) {
+				System.out.println(e.getMessage());
 			}
+		
 		}
-		return quest;
 	}
-
+	
+	private boolean run(String[] split, final Client client) {
+		String cmd=split[0].toLowerCase();
+		final String tagPrefix = ""; //quest.get(Quest.tag) + "-";
+		Reply res = null;
+		if (cmd.equals("d")) {
+			res = client.add(duty(tagPrefix, split));
+		} else if (cmd.equals("!d")) {
+			res = client.remove(duty(tagPrefix, split));
+		} else if (cmd.equals("p")) {
+			res = client.add(pallet(split));
+		} else if (cmd.equals("!p")) {
+			res = client.remove(pallet(split));
+		} else if (cmd.equals("c")) {
+			client.getEventMapper().setCapacity(pallet(split), 999d);
+		}
+		if (res!=null) {
+			System.out.println(res.toMessage());
+			return true;
+		} else {
+			return false;
+		}
+	}
+	
 	public Duty duty(final String tagPrefix, String[] s) {
 		final String id = StringUtils.remove(StringUtils.abbreviate(s[2], 32).trim(), " ");
 		final DutyBuilder bldr = Duty.builder(tagPrefix + id, s[1]);
@@ -158,56 +219,6 @@ public class CmdLineApp {
 			bldr.with(new EvenSizeBalancer.Metadata());
 		}
 		return bldr.build();
-	}
-	
-	private void readCommands(Client  client, Scanner scan, final Map<Quest, String> quest) {
-		System.out.println("Now enter tasks");
-		final String help = "Commands: \n"
-				+ "\n\t d {pallet-id} {duty-id} {weight}   creates a duty (! prefixing 'd' will delete it)"
-				+ "\n\t p {pallet-id} {balancer}           creates a pallet (balancers: even_size, fair_weight, even_weight) "
-				+ "\n\t c {pallet-id} {weight]             reports capacity for a pallet"
-				+ "\n\t quit                               terminates session, "
-				;
-		
-		System.out.println(help);
-		
-		while (scan.hasNextLine() && !Thread.interrupted()) {
-			String task = scan.nextLine();
-			
-			if (task==null || task.length()<1) {
-				System.out.println(help);
-				continue;
-			} else if (task.equalsIgnoreCase("quit")) {
-				break;
-			}
-			
-			final String[] split = task.split(" ");
-			
-			if (split.length==1 || split.length>4) {
-				System.out.println(help);
-				continue;
-			} else {
-				String cmd=split[0].toLowerCase();
-				final String tagPrefix = quest.get(Quest.tag) + "-";
-				Reply res = null;
-				if (cmd.equals("d")) {
-					res = client.add(duty(tagPrefix, split));
-				} else if (cmd.equals("!d")) {
-					res = client.remove(duty(tagPrefix, split));
-				} else if (cmd.equals("p")) {
-					res = client.add(pallet(split));
-				} else if (cmd.equals("!p")) {
-					res = client.remove(pallet(split));
-				} else if (cmd.equals("c")) {
-					client.getEventMapper().setCapacity(pallet(split), 999d);
-				} else {
-					System.out.println(help);
-					continue;
-				}
-				System.out.println(res.toMessage());
-			}
-							
-		}
 	}
 	
 }

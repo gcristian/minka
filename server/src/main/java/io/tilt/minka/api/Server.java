@@ -146,6 +146,9 @@ public class Server {
 	}
 	
 	private void init(final Config config) {
+		config.getBootstrap().validate();
+		config.getBroker().validate();
+		
 		createTenant(config);
 		logger.info("{}: Initializing context for namespace: {}", name, config.getBootstrap().getNamespace());
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> destroy(false)));
@@ -164,6 +167,7 @@ public class Server {
 		mapper = new EventMapper(tenant);
 		startContext(config);
 	}
+	
 	
 	private void createTenant(final Config config) {
 		try {

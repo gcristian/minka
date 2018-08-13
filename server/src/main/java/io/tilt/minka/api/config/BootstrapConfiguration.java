@@ -1,5 +1,7 @@
 package io.tilt.minka.api.config;
 
+import org.apache.commons.lang.StringUtils;
+
 public class BootstrapConfiguration {
     
     public static final String NAMESPACE_MASK_LEADER_LATCH = "minka/%s/leader-latch";
@@ -62,6 +64,20 @@ public class BootstrapConfiguration {
 	protected static final boolean CORE_DUMP_OVERWRITE = true;
 	private boolean coreDumpOverwrite;
 	
+	public void validate() {
+		if (getBeatUnitMs()<50) {
+			throw new IllegalArgumentException("invalid property: [beat unit ms] cannot be lower than 50 ms");
+		}
+		if (StringUtils.isBlank(getNamespace().trim())) {
+			throw new IllegalArgumentException("invalid property: [namespace] cannot be blank");
+		}
+		if (StringUtils.isBlank(getServerTag().trim())) {
+			throw new IllegalArgumentException("invalid property: [server tag] cannot be blank");
+		}
+		if (StringUtils.isBlank(getZookeeperHostPort().trim())) {
+			throw new IllegalArgumentException("invalid property: [zookeeper hostport] cannot be blank");
+		}
+	}
 	
 	public String getNamespace() {
 		return namespace;
