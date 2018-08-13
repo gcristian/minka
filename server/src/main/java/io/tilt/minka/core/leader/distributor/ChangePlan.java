@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -104,11 +105,9 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	private int retryCounter;
 
 	private static List<EntityEvent> consistentEventsOrder = Arrays.asList(
-			EntityEvent.REMOVE,
 			EntityEvent.DETACH,
 			EntityEvent.DROP,
 			EntityEvent.STOCK,
-			EntityEvent.CREATE,
 			EntityEvent.ATTACH);
 
 	ChangePlan(final long maxMillis, final int maxRetries) {
@@ -155,9 +154,6 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	void onShippingsFor(final EntityEvent event, 
 			final Shard shard, 
 			final Consumer<ShardEntity> c) {
-		if (shard == null) {
-			onShippingsFor_(event, c);
-		} else {
 			final Map<Shard, List<ShardEntity>> map = shippings.get(event);
 			if (map!=null) {
 				final List<ShardEntity> x = map.get(shard);
@@ -166,14 +162,13 @@ public class ChangePlan implements Comparable<ChangePlan> {
 				}
 			}
 		}
-	}
 
-	void onShippingsFor_(final EntityEvent event, final Consumer<ShardEntity> c) { 
+	void onShippingsFor(final EntityEvent event, final BiConsumer<Shard, ShardEntity> c) { 
 		final Map<Shard, List<ShardEntity>> map = shippings.get(event);
 		if (map!=null) {
-			for (List<ShardEntity> x : map.values()) {
+			for (Entry<Shard, List<ShardEntity>> x : map.entrySet()) {
 				if (x!=null) {
-					x.stream().forEach(c);
+					x.getValue().forEach(s->c.accept(x.getKey(), s));
 				}
 			}
 		}

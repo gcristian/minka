@@ -128,8 +128,9 @@ public class CommitTree implements Serializable {
 			final long planid, 
 			final String shardid, 
 			final Consumer<Log> c, 
-			final EntityEvent...events) {
+			final EntityEvent...events) { 
 		
+		//System.out.println(planid);
 		final InsMap<String, LimMap<EntityEvent, Log>> shards = 
 				planid == 0 ? eventsByPlan.lastEntry().getValue() : eventsByPlan.get(planid);
 		if (shards!=null) {

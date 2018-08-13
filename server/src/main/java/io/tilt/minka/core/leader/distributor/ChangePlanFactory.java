@@ -161,7 +161,7 @@ class ChangePlanFactory {
 						crud.getLastEvent(), 
 						crud.getLastState(), 
 						scheme.getCommitedState().findDutyLocation(schemed).getShardID(), 
-						-1);
+						changePlan.getId());
 				dutyDeletions.add(schemed);
 				// prevail user's deletion op. over clustering restore/creation
 				dutyCreations.remove(schemed);
