@@ -78,10 +78,12 @@ public enum EntityEvent {
 		NONE
 	}
 
-	public EntityEvent getRootCause() {
+	public EntityEvent getUserCause() {
 		switch (this) {
+		case STOCK:
 		case ATTACH:
 			return CREATE;
+		case DROP:
 		case DETACH:
 			return REMOVE;
 		default:

@@ -81,34 +81,36 @@ public class StateWriter {
 			};
 			
 		if (scheme.getCommitedState().commit(entity, shard, changelog.getEvent(), r)
+				// type:replicas dont use (should not at least) use uncommitted-changes
 			&& changelog.getEvent().getType()==EntityEvent.Type.ALLOC) {
 			clearUncommited(changelog, entity, shard);
 		}
 		
 	}
 
+	/** keep the uncommited-changes repo clean to its purpose */
 	private void clearUncommited(final Log changelog, final ShardEntity entity, Shard shard) {
-		// remove it from the stage
+		// remember crud is opaque from user, without any other info.
 		final ShardEntity crud = scheme.getUncommited().getCrudByDuty(entity.getDuty());
 		if (crud!=null) {
-			try {
-			for (Log f: crud.getCommitTree().findAll(shard.getShardID())) {
-				final Instant lastEventOnCrud = f.getHead().toInstant();
-				boolean previousThanCrud = changelog.getHead().toInstant().isBefore(lastEventOnCrud);
-				// if the update corresponds to the last CRUD OR they're both the same event (duplicated operation)
-				if (!previousThanCrud || changelog.getEvent().getRootCause()==crud.getLastEvent()) {
-					if (!scheme.getUncommited().removeCrud(entity)) {
-						logger.warn("{} Backstage CRUD didnt existed: {}", classname, entity);
-					}
+			// BUG: el crud de un remove tiene shardid: leader (q recibio el req) no lo
+			// va a encontrar ahi al REMOVE que planea targeteado al Shard donde esta VERDADERAMENTE..
+			// esta es una asumpcion erronea
+			//for (Log crudL: crud.getCommitTree().findAll(shard.getShardID())) {
+			final Log crudL = crud.getCommitTree().getLast();
+			final Instant lastEventOnCrud = crudL.getHead().toInstant();
+			boolean previousThanCrud = changelog.getHead().toInstant().isBefore(lastEventOnCrud);
+			// if the update corresponds to the last CRUD OR they're both the same event (duplicated operation)
+			if (!previousThanCrud || changelog.getEvent().getUserCause()==crud.getLastEvent()) {
+				if (!scheme.getUncommited().removeCrud(entity)) {
+					logger.warn("{} Backstage CRUD didnt existed: {}", classname, entity);
 				} else {
-					logger.warn("{}: Avoiding UncommitedChanges remove (diff & after last event: {})", 
-							classname, entity, previousThanCrud);
+					logger.info("{} Clear ok: {} -> {}", classname, entity, changelog);
 				}
-			}
-			} catch (Exception e) {
-				e.printStackTrace();
-				
-			}
+			} else {
+				logger.warn("{}: Avoiding UncommitedChanges remove (diff & after last event: {})", 
+						classname, entity, previousThanCrud);
+			}			
 		} else {
 			// they were not crud: (dangling/missing/..)
 		}
