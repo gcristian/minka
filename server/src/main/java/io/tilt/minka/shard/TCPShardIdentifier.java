@@ -323,13 +323,6 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 					System.out.println("\t\t IA site local " + ia.isSiteLocalAddress());
 					System.out.println("\t\t IA link local " + ia.isLinkLocalAddress());
 					System.out.println("\t\t IA any local  " + ia.isAnyLocalAddress());
-					/*
-					System.out.println("\t\t IA MC global  " + ia.isMCGlobal());
-					System.out.println("\t\t IA MC link    " + ia.isMCLinkLocal());
-					System.out.println("\t\t IA MC node    " + ia.isMCNodeLocal());
-					System.out.println("\t\t IA MC org     " + ia.isMCOrgLocal());
-					System.out.println("\t\t IA MC site    " + ia.isMCSiteLocal());
-					*/
 					System.out.println("\t\t IA multicast  " + ia.isMulticastAddress());
 
 				}
