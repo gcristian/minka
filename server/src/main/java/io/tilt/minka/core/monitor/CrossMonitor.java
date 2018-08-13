@@ -14,9 +14,9 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.api.inspect;
+package io.tilt.minka.core.monitor;
 
-import static io.tilt.minka.api.inspect.SystemStateMonitor.toJson;
+import static io.tilt.minka.core.monitor.SystemStateMonitor.toJson;
 import static java.util.Objects.requireNonNull;
 
 import java.util.LinkedHashMap;

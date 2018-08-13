@@ -1,4 +1,4 @@
-package io.tilt.minka.api.inspect;
+package io.tilt.minka.core.monitor;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;

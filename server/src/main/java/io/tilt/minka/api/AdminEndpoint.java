@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.api.inspect;
+package io.tilt.minka.api;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import javax.inject.Singleton;
@@ -46,14 +47,12 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.wordnik.swagger.annotations.Api;
 
-import io.tilt.minka.api.Client;
-import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
-import io.tilt.minka.api.PalletBuilder;
-import io.tilt.minka.api.Reply;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.Scheme;
+import io.tilt.minka.core.monitor.CrossMonitor;
+import io.tilt.minka.core.monitor.FollowerMonitor;
+import io.tilt.minka.core.monitor.LeaderMonitor;
+import io.tilt.minka.core.monitor.OnDemandAppender;
 
 @Api("Minka Endpoint API")
 @Path("admin")
@@ -203,7 +202,7 @@ public class AdminEndpoint {
 	}
 
 	@PUT
-	@Path("/crud/pallet/{id}/{capacity}")
+	@Path("/capacity/pallet/{id}/{capacity}")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response shardCapacity(
 			@PathParam("id") final String palletId,
@@ -219,10 +218,10 @@ public class AdminEndpoint {
 	}
 
 	@PUT
-	@Path("/crud/duty/{pid}/{id}")
+	@Path("/crud/duty/{palletid}/{id}")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response createDuty(
-			@PathParam("pid") final String palletId,
+			@PathParam("palletid") final String palletId,
 			@PathParam("id") final String dutyId,
 			@QueryParam("weight") String weight) throws JsonProcessingException {
 		
@@ -232,14 +231,15 @@ public class AdminEndpoint {
 		}
 		final Duty d = Duty.builder(dutyId, palletId).with(w).build();
 		final Reply r = client.add(d);
+		//CompletableFuture.runAsync(()->client.add(d));
 		return Response.accepted(r).build();
 	}
 
 	@DELETE
-	@Path("/crud/duty/{pid}/{id}")
+	@Path("/crud/duty/{palletid}/{id}")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response deleteDuty(
-			@PathParam("pid") final String palletId,
+			@PathParam("palletid") final String palletId,
 			@PathParam("id") final String dutyId) throws JsonProcessingException {
 		final Duty d = Duty.builder(dutyId, palletId).with(1).build();
 		final Reply r = client.remove(d);

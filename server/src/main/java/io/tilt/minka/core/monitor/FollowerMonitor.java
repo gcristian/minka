@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.api.inspect;
+package io.tilt.minka.core.monitor;
 
 import static java.util.Objects.requireNonNull;
 

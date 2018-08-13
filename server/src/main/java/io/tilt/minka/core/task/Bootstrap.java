@@ -32,10 +32,10 @@ import org.slf4j.Logger;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.ConfigValidator;
-import io.tilt.minka.api.inspect.SystemStateMonitor;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.follower.Follower;
 import io.tilt.minka.core.leader.Leader;
+import io.tilt.minka.core.monitor.SystemStateMonitor;
 import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;

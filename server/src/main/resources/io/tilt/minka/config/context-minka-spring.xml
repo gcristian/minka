@@ -192,26 +192,26 @@
       
     ===============================================================================================-->
     
-    <bean id="leaderMonitor" class="io.tilt.minka.api.inspect.LeaderMonitor">
+    <bean id="leaderMonitor" class="io.tilt.minka.core.monitor.LeaderMonitor">
         <constructor-arg ref="leaderAware"/>
         <constructor-arg ref="config"/>
         <constructor-arg ref="shardingScheme"/>
         <constructor-arg ref="partition"/>
     </bean>
     
-    <bean id="followerMonitor" class="io.tilt.minka.api.inspect.FollowerMonitor">
+    <bean id="followerMonitor" class="io.tilt.minka.core.monitor.FollowerMonitor">
         <constructor-arg ref="shardingScheme"/>
         <constructor-arg ref="partition"/>
     </bean>
 
-    <bean id="crossMonitor" class="io.tilt.minka.api.inspect.CrossMonitor">
+    <bean id="crossMonitor" class="io.tilt.minka.core.monitor.CrossMonitor">
         <constructor-arg ref="shardingScheme"/>
         <constructor-arg ref="scheduler"/>
         <constructor-arg ref="eventBroker"/>
         <constructor-arg ref="config"/>
     </bean>    
     
-    <bean id="systemStateMonitor" class="io.tilt.minka.api.inspect.SystemStateMonitor">
+    <bean id="systemStateMonitor" class="io.tilt.minka.core.monitor.SystemStateMonitor">
         <constructor-arg ref="config"/>
         <constructor-arg ref="leaderMonitor"/>
         <constructor-arg ref="followerMonitor"/>

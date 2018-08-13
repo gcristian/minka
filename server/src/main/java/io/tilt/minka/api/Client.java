@@ -29,13 +29,13 @@ import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.inspect.LeaderMonitor;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.leader.ClientEventsHandler;
 import io.tilt.minka.core.leader.Leader;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
+import io.tilt.minka.core.monitor.LeaderMonitor;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.impl.ZookeeperLeaderAware;
 import io.tilt.minka.domain.EntityEvent;

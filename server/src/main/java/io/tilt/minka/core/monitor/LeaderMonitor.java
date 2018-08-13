@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.api.inspect;
+package io.tilt.minka.core.monitor;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -214,14 +214,14 @@ public class LeaderMonitor {
 			if (pid==null) {
 				byPalletId.put(d.getDuty().getPalletId(), pid = new ArrayList<>());
 			}
-			pid.add(detail ? d : d.getDuty().getId());
+			pid.add(detail ? d : d.getDuty().getId(	));
 		};
 		return adder;
 	}
 
 	private List<Object> dutyBrief(final Collection<ShardEntity> coll, final boolean detail) {
 		List<Object> ret = new ArrayList<>();
-		if (detail) {
+		if (!detail) {
 			coll.stream()
 				.map(d->d.getDuty().getId())
 				.forEach(ret::add);
@@ -311,7 +311,7 @@ public class LeaderMonitor {
 				
 			}
 			ret.add(shardView(
-					shard.getShardID().getId(),
+					shard.getShardID().getId() + " (" + shard.getShardID().getTag() + ")",
 					shard.getFirstTimeSeen(),
 					palletsAtShard, 
 					shard.getState().toString()));
