@@ -161,7 +161,7 @@ public class CommitedState {
 	 * @return if there was a CommitedState change after the action 
 	 */
 	public boolean commit(final ShardEntity duty, final Shard where, final EntityEvent event, final Runnable callback) {
-		final boolean add = event.is(EntityEvent.ATTACH) || event.is(EntityEvent.CREATE);
+		final boolean add = event.is(EntityEvent.ATTACH);// || event.is(EntityEvent.CREATE);
 		final boolean del = !add && (event.is(EntityEvent.DETACH) || event.is(EntityEvent.REMOVE));
 		final ShardedPartition part = getPartition(where);
 		boolean impact = false;
@@ -175,7 +175,7 @@ public class CommitedState {
 		} else if (event.is(EntityEvent.DROP)) {
 			impact = part.drop(duty);
 		} else {
-			throw new ConsistencyException("Attach failure. Confirmed attach/creation already exists");
+			throw new ConsistencyException("Commit failure (" + duty + ") Operation does not apply [" + event + "]");
 		}
 		if (impact && callback!=null) {
 			callback.run();

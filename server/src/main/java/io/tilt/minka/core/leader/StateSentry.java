@@ -16,12 +16,8 @@
  */
 package io.tilt.minka.core.leader;
 
-import static io.tilt.minka.domain.EntityEvent.DETACH;
-import static io.tilt.minka.domain.EntityState.COMMITED;
-
-import java.time.Instant;
-import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
