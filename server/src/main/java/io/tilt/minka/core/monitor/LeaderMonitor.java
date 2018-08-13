@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -83,7 +84,7 @@ public class LeaderMonitor {
 		this.changePlanHistory = CollectionUtils.sliding(20);
 		this.planids = CollectionUtils.sliding(10);
 		
-		scheme.addChangeObserver(()->{
+		scheme.addChangeObserver(()-> {
 			try {
 				if (lastPlan[0]!=null) {
 					if (!lastPlan[0].equals(scheme.getCurrentPlan())) {
@@ -153,17 +154,20 @@ public class LeaderMonitor {
 	private JSONObject buildPlans() {
 		final JSONObject js = new JSONObject();
 		try {
-			final JSONArray arr = new JSONArray();
-			js.put("size", changePlanHistory.size());
-			changePlanHistory.values().forEach(s-> arr.put(new JSONObject(s)));
+			js.put("size", changePlanHistory.size() + (lastPlan[0]!=null ? 1 : 0));
 			js.put("ids", this.planids.values());
-			if (lastPlan[0]!=null && !lastPlan[0].getResult().isClosed()) {
-				js.put("current", new JSONObject(SystemStateMonitor.toJson(lastPlan[0])));
-			} else if (lastPlan[0]!=null) {
-				arr.put(new JSONObject(SystemStateMonitor.toJson(lastPlan[0])));
+			if (lastPlan[0]!=null) {
+				js.put("last", new JSONObject(SystemStateMonitor.toJson(lastPlan[0])));
 			}
 			
-			js.put("history", arr);
+			final JSONArray arr = new JSONArray();
+			final Iterator<String> it = changePlanHistory.descend();
+			while(it.hasNext()) {
+				final String s = it.next();
+				arr.put(new JSONObject(s));
+			}
+			js.put("closed", arr);
+			
 		} catch (Exception e) {
 		}
 		return js;
