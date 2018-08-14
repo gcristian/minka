@@ -1,6 +1,5 @@
 package io.tilt.minka.core.leader.distributor;
 
-import java.util.Collection;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -8,7 +7,6 @@ import java.util.function.Predicate;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.data.CommitedState;
 import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
@@ -57,6 +55,9 @@ class ReplicationDispatcher {
 			final Set<ShardEntity> involved,
 			final Shard main,
 			final Pallet p) {
+		
+		
+		// BUGGY
 		
 		final CommitedState cs = scheme.getCommitedState();
 		// those being shipped for the action event
@@ -112,7 +113,7 @@ class ReplicationDispatcher {
 	/** @return a filter to permit repication to the shard */
 	private Predicate<Shard> predicate(
 			final EntityEvent action, 
-			final Shard leader, 
+			final Shard target, 
 			final ShardEntity replicated) {
 		
 		final CommitedState cs = scheme.getCommitedState();
@@ -120,7 +121,7 @@ class ReplicationDispatcher {
 			// stocking
 			(action == EntityEvent.ATTACH
 				// other but myself (I'll report'em if reelection occurs)
-				&& (!leader.getShardID().equals(probHost.getShardID())
+				&& (!target.getShardID().equals(probHost.getShardID())
 					// avoid repeating event
 					&& !cs.getReplicasByShard(probHost).contains(replicated)
 					// avoid stocking where's already attached (they'll report'em in reelection)

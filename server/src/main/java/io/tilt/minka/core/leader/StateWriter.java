@@ -104,8 +104,6 @@ public class StateWriter {
 			if (!previousThanCrud || changelog.getEvent().getUserCause()==crud.getLastEvent()) {
 				if (!scheme.getUncommited().removeCrud(entity)) {
 					logger.warn("{} Backstage CRUD didnt existed: {}", classname, entity);
-				} else {
-					logger.info("{} Clear ok: {} -> {}", classname, entity, changelog);
 				}
 			} else {
 				logger.warn("{}: Avoiding UncommitedChanges remove (diff & after last event: {})", 

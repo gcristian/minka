@@ -171,8 +171,8 @@ public class AdminEndpoint {
 	@GET
 	@Path("/plans")
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response plans() throws JsonProcessingException {
-        return Response.accepted(distribution.plansToJson()).build();
+	public Response plans(@QueryParam("detail") final boolean detail) throws JsonProcessingException {
+        return Response.accepted(distribution.plansToJson(detail)).build();
 	}
 	
 	// =========================================================================================================

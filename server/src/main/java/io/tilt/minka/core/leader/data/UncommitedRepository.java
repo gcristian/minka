@@ -66,7 +66,7 @@ public class UncommitedRepository {
 		final List<ShardEntity> tmp = new ArrayList<>(coll.size());
 		for (ShardEntity remove : coll) {
 			final ShardEntity current = scheme.getCommitedState().getByDuty(remove.getDuty());
-			if (current != null) {
+			if (current != null || presentInPartition(remove)) {
 				tmp.add(remove);
 			} else {
 				tryCallback(callback, Reply.notFound(remove.getEntity()));
@@ -230,12 +230,13 @@ public class UncommitedRepository {
 	
 	private boolean presentInPartition(final ShardEntity duty) {
 		final Shard shardLocation = scheme.getCommitedState().findDutyLocation(duty.getDuty());
-		final boolean somewhere= shardLocation != null && shardLocation.getState().isAlive();
-		if (!somewhere) {
-			return scheme.getCurrentPlan().hasMigration(duty.getDuty());
-		} else {
-			return false;
+		boolean ret = shardLocation != null && shardLocation.getState().isAlive();
+		if (!ret) {
+			if (scheme.getCurrentPlan()!=null) {
+				ret = scheme.getCurrentPlan().hasMigration(duty.getDuty());
+			}
 		}
+		return ret;
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
-<12 * Licensed to the Apache Software Foundation (ASF) under one or more
+ * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with this
  * work for additional information regarding copyright ownership. The ASF
  * licenses this file to You under the Apache License, Version 2.0 (the
@@ -26,6 +26,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.Validate;
+import org.glassfish.hk2.external.org.objectweb.asm.tree.TryCatchBlockNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -188,21 +189,26 @@ public class Client {
 		Validate.notNull(raws, "an entity is required");
 		// only not null when raws.size > 1 
 		final Reply[] r = {null};
-		
-		final List<ShardEntity> entities = toEntities(raws, event, userPayload);
-		
-		if (leader.inService()) {
-			if (logger.isDebugEnabled()) {
-				logger.debug("{}: Recurring to local leader !", getClass().getSimpleName());
-			}
-			clientMediator.mediateOnEntity(entities, 
-					callback != null ? callback : reply->r[0]=reply);
-		} else {
-			if (logger.isDebugEnabled()) {
-				logger.debug("{}: Sending event: {} to leader in service", 
-					getClass().getSimpleName(), event, raws, event);
-			}
-			r[0] = sendAndReply(event, callback, r, entities);
+
+		try {
+			final List<ShardEntity> entities = toEntities(raws, event, userPayload);
+			
+			if (leader.inService()) {
+				if (logger.isDebugEnabled()) {
+					logger.debug("{}: Recurring to local leader !", getClass().getSimpleName());
+				}
+				clientMediator.mediateOnEntity(entities, 
+						callback != null ? callback : reply->r[0]=reply);
+			} else {
+				if (logger.isDebugEnabled()) {
+					logger.debug("{}: Sending event: {} to leader in service", 
+						getClass().getSimpleName(), event, raws, event);
+				}
+				r[0] = sendAndReply(event, callback, r, entities);
+			}			
+		} catch (Exception e) {
+			logger.error("Cannot mediate to leader", e);
+			r[0] = Reply.error(e);
 		}
 		return r[0];
 	}

@@ -101,22 +101,17 @@ public class Leader implements Service {
 				try {
 					served = true;
 					final Date start = new Date();
-					if (stop==null) {
-						final long w = System.currentTimeMillis() - start.getTime();
-						logger.info("{}: Registering as Leader at well after waiting {} msecs", getName(), w);
-						leaderAware.setNewLeader(shardId);
-						final long e = DateTime.now().getMillis() - config.loadTime.getMillis();
-						logger.info("{}: {} msec since load till leader election", getName(), e);
-						// start analyzing the shards and distribute duties
-						shardKeeper.start();
-						distributor.start();
-						// start listening events from followers and clients alike
-						followerEventsHandler.start();
-						clientEventsHandler.start();
-					} else {
-						logger.warn("{}: Skipping start of an already stopped leader: {}", getName(), shardId);
-					}
-					
+					final long w = System.currentTimeMillis() - start.getTime();
+					logger.info("{}: Registering as Leader at well after waiting {} msecs", getName(), w);
+					leaderAware.setNewLeader(shardId);
+					final long e = DateTime.now().getMillis() - config.loadTime.getMillis();
+					logger.info("{}: {} msec since load till leader election", getName(), e);
+					// start analyzing the shards and distribute duties
+					shardKeeper.start();
+					distributor.start();
+					// start listening events from followers and clients alike
+					followerEventsHandler.start();
+					clientEventsHandler.start();
 					this.start = start;
 				} catch (Exception e) {
 					logger.error("Unexpected error when starting service. Cannot procede", e);

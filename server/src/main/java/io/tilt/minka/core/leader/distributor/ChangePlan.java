@@ -34,6 +34,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -408,7 +409,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		for(Delivery d: deliveries) {
 			for (ShardEntity s: d.getDuties()) {
 				if (s.getDuty().getId().equals(duty.getId())
-						&& s.getDuty().getPalletId().equals(s.getDuty().getPalletId())) {
+						&& s.getDuty().getPalletId().equals(duty.getPalletId())) {
 					detaching |=d.getEvent()==EntityEvent.DETACH;
 					attaching |=d.getEvent()==EntityEvent.ATTACH;
 					break;
@@ -485,6 +486,22 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	@JsonProperty("created")
 	private String getCreation_() {
 		return created.toString();
+	}
+	@JsonProperty("summary")
+	private String getSummary() {
+		final StringBuilder sb = new StringBuilder();
+		if (!deliveries.isEmpty()) {
+			for (final EntityEvent event: consistentEventsOrder) {
+				int size = 0 ;
+				for (Delivery d: deliveries) {
+					size+= d.getEvent() == event ? d.getDuties().size() : 0;
+				}
+				if (size>0) {
+					sb.append(event).append(":").append(size).append(", ");
+				}
+			}
+		}
+		return sb.toString();
 	}
 	
 	public static void main(String[] args) throws InterruptedException {

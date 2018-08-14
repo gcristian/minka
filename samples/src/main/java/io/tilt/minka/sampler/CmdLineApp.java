@@ -23,8 +23,16 @@ import io.tilt.minka.shard.TCPShardIdentifier;
 
 public class CmdLineApp {
 
+	public static boolean useDefaults = Boolean.parseBoolean(System.getProperty("useDefaults", "false"));
+	
 	public static void main(String[] args) {
-		new CmdLineApp().run();
+		boolean debug = false;
+		if (args!=null && args.length>0) {
+			for (String arg: args) {
+				debug |= arg.trim().equalsIgnoreCase("debug:true");
+			}
+		}
+		new CmdLineApp().run(debug);
 		System.exit(1);
 	}
 
@@ -45,11 +53,11 @@ public class CmdLineApp {
 		}
 	}
 	
-	private void run() {
+	private void run(final boolean debug) {
 		Server server = null;
 		try (Scanner scan = new Scanner(System.in)) {
 			final Map<Quest, String> quest = readParameters(scan);
-			server = createServer(quest);
+			server = createServer(quest, debug);
 			readCmdLine(server.getClient(), scan, quest);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -77,8 +85,8 @@ public class CmdLineApp {
 			while (!Thread.interrupted() && true) {
 				System.out.println("Enter " + q.getTitle() + ": ");
 				System.out.print("\t( " + suggest.get(q) + " ? ) ");
-				if (scan.hasNextLine()) {
-					String line = scan.nextLine();
+				if (useDefaults || scan.hasNextLine()) {
+					String line = useDefaults ? null : scan.nextLine();
 					if ((line==null || line.length()<1)&& suggest.containsKey(q)) {
 						quest.put(q, suggest.get(q));
 						break;
@@ -96,7 +104,7 @@ public class CmdLineApp {
 		return quest;
 	}
 	
-	private Server createServer(final Map<Quest, String> quest) {
+	private Server createServer(final Map<Quest, String> quest, final boolean debug) {
 		
 		final Config ownConfig = new Config();
 		
@@ -108,7 +116,7 @@ public class CmdLineApp {
 		ownConfig.getBroker().setEnablePortFallback(true);
 		ownConfig.getBootstrap().setBeatUnitMs(100);
 		ownConfig.getBootstrap().setDropVMLimit(true);
-		ownConfig.getBootstrap().setEnableCoreDump(true);
+		ownConfig.getBootstrap().setEnableCoreDump(debug);
 		ownConfig.getBootstrap().setCoreDumpFilepath("/tmp/");
 
 		final Set<Duty> everCaptured = new HashSet<>();

@@ -103,6 +103,10 @@ public class Reply {
 				.toString();
 	}
 	
+	public static Reply error(final Exception e) {
+		return new Reply(ReplyValue.FAILURE, null, null, null, e.getMessage());
+	}
+	
 	public static Reply notFound(Entity entity) {
 		final String msg = String.format("Skipping operation not found in CommitedState: %s", 
 				entity.getId());

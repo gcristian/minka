@@ -93,7 +93,9 @@ class StateUnexpected {
 			for (final Log c: committed.getCommitTree().findAll(shard.getShardID())) {
 				if (c.getEvent()==r.getEvent()) {
 					// commited-state truth is only on ATTACH and STOCK...
-					if (c.getEvent() == EntityEvent.ATTACH || c.getEvent()==EntityEvent.STOCK) {
+					if (c.getEvent() == EntityEvent.ATTACH) { //
+						// reporting it LOST has dangling/missing consequences: avoid STOCK now...
+						//|| c.getEvent()==EntityEvent.STOCK) {
 						final EntityState stateForThatShard = r.getLastState();
 						switch (stateForThatShard) {
 						case COMMITED:
@@ -105,6 +107,8 @@ class StateUnexpected {
 							return stateForThatShard;
 						}
 					}
+					// found. must cut
+					break;
 				}
 			}
 		}

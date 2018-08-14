@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toList;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -36,6 +37,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.core.leader.balancer.Spot;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 import io.tilt.minka.core.leader.data.CommitedState;
 import io.tilt.minka.core.leader.data.Scheme;
@@ -68,6 +70,7 @@ public class LeaderMonitor {
 	private final ChangePlan[] lastPlan = {null};
 	private final SlidingSortedSet<String> changePlanHistory;
 	private final SlidingSortedSet<Long> planids;
+	private long planAccum;
 
 	public LeaderMonitor(
 			final LeaderAware leaderAware,
@@ -90,6 +93,7 @@ public class LeaderMonitor {
 					if (!lastPlan[0].equals(scheme.getCurrentPlan())) {
 						changePlanHistory.add(SystemStateMonitor.toJson(lastPlan[0]));
 						planids.add(lastPlan[0].getId());
+						planAccum++;
 					}
 				}
 				lastPlan[0] = scheme.getCurrentPlan();
@@ -118,8 +122,8 @@ public class LeaderMonitor {
 	 * Non-Empty only when the current server is the Leader.
 	 * @return			a String in json format
 	 */
-	public String plansToJson() {
-		return SystemStateMonitor.toJson(buildPlans().toMap());
+	public String plansToJson(final boolean detail) {
+		return SystemStateMonitor.toJson(buildPlans(detail).toMap());
 	}
 
 	/**
@@ -151,10 +155,11 @@ public class LeaderMonitor {
 		return SystemStateMonitor.toJson(m);
 	}
 	
-	private JSONObject buildPlans() {
+	private JSONObject buildPlans(final boolean detail) {
 		final JSONObject js = new JSONObject();
 		try {
-			js.put("size", changePlanHistory.size() + (lastPlan[0]!=null ? 1 : 0));
+			js.put("total", planAccum);
+			js.put("retention	", changePlanHistory.size() + (lastPlan[0]!=null ? 1 : 0));
 			js.put("ids", this.planids.values());
 			if (lastPlan[0]!=null) {
 				js.put("last", new JSONObject(SystemStateMonitor.toJson(lastPlan[0])));
@@ -164,7 +169,11 @@ public class LeaderMonitor {
 			final Iterator<String> it = changePlanHistory.descend();
 			while(it.hasNext()) {
 				final String s = it.next();
-				arr.put(new JSONObject(s));
+				final JSONObject jsono = new JSONObject(s);
+				if (!detail) {
+					jsono.remove("deliveries");
+				}
+				arr.put(jsono);
 			}
 			js.put("closed", arr);
 			
@@ -291,7 +300,7 @@ public class LeaderMonitor {
 				final List<DutyView> dutyRepList = new LinkedList<>();
 				final List<DutyView> repliRepList = new LinkedList<>();
 				int[] size = new int[1];
-				table.getCommitedState().findShards(null,  sh-> {
+				table.getCommitedState().findShards(sh->sh.equals(shard),  sh-> {
 					for (ShardEntity se: table.getCommitedState().getReplicasByShard(sh)) {
 						if (se.getDuty().getPalletId().equals(pallet.getPallet().getId())) {
 							repliRepList.add(new DutyView(se.getDuty().getId(), se.getDuty().getWeight()));

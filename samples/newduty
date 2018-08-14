@@ -18,5 +18,5 @@ leader=$(./leader)
 CONTEXT="/minka/admin"
 DUTIES="$CONTEXT/crud/duty"
 
-$curl -XPUT -s $(./leader)$DUTIES"/$PID/$ID?weight=$WEIGHT" | $jq '.'
+$curl -XPUT -s $(./leader)$DUTIES"/$PID/$ID?weight=$WEIGHT" #| $jq '.'
 

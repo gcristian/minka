@@ -146,7 +146,7 @@ public class SystemStateMonitor {
 		saveOnDiff("beats", now, follower.beatsToJson());
 		
 		if (leaderAware.imLeader()) {
-			saveOnDiff("plans", now, leader.plansToJson());
+			saveOnDiff("plans", now, leader.plansToJson(true));
 			saveOnDiff("distro", now, leader.distributionToJson());
 			saveOnDiff("scheme", now, leader.schemeToJson(true));
 			saveOnDiff("pallets", now, leader.palletsToJson());
