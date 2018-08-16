@@ -39,6 +39,7 @@ import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.monitor.LeaderMonitor;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.impl.ZookeeperLeaderAware;
+import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
@@ -264,7 +265,7 @@ public class Client {
 					event, 
 					EntityState.PREPARED,  
 					this.shardId, 
-					ChangePlan.PLAN_WITHOUT);
+					CommitTree.PLAN_NA);
 			tmp.add(tmpp);
 		}
 		return tmp;

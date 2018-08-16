@@ -86,10 +86,7 @@ import io.tilt.minka.utils.LogUtils;
 public class ChangePlan implements Comparable<ChangePlan> {
 
 	protected static final Logger logger = LoggerFactory.getLogger(ChangePlan.class);
-	
-	public static final int PLAN_UNKNOWN = -1;
-	public static final int PLAN_WITHOUT = 0;
-	
+		
 	private final long id;
 	private final Instant created;
     private final long maxMillis;
@@ -408,10 +405,11 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		boolean attaching = false;
 		for(Delivery d: deliveries) {
 			for (ShardEntity s: d.getDuties()) {
-				if (s.getDuty().getId().equals(duty.getId())
+				if (s.getDuty().getId().equals(duty.getId()) 
 						&& s.getDuty().getPalletId().equals(duty.getPalletId())) {
 					detaching |=d.getEvent()==EntityEvent.DETACH;
 					attaching |=d.getEvent()==EntityEvent.ATTACH;
+					logger.info("ALAMAILOV {} {}", detaching, attaching);
 					break;
 				}
 			}

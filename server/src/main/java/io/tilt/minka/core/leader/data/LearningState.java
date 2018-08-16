@@ -12,6 +12,7 @@ import java.util.function.BiConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.api.Pallet;
 import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityRecord;
@@ -33,6 +34,11 @@ public class LearningState {
 
 	private final Map<ShardIdentifier, Set<EntityRecord>> distribution = new HashMap<>();
 	private final Map<Shard, Set<ShardEntity>> replicas = new HashMap<>();
+	
+	/** @return TRUE if has learning contents */
+	public boolean isEmpty() {
+		return distribution.isEmpty() && replicas.isEmpty(); 
+	}
 	
 	/** guard the report to take it as truth once distribution runs and ShardEntities are loaded */
 	public void learn(final Collection<EntityRecord> records, final Shard where) {
@@ -69,7 +75,7 @@ public class LearningState {
 		// check the log is really the last (another shard could say the same, who to trust ?)
 		// the beat comes from A, and there's an Attach on A: pretty confident...could be a lattest Attach on B
 		// and another beat from B saying the same... and actually being the real trustworthy
-		if (record.getCommitTree().exists(where.getShardID().getId(), EntityEvent.ATTACH)) {
+		if (record.getCommitTree().isCommitted(where.getShardID().getId(), EntityEvent.ATTACH)) {
 			Set<EntityRecord> set = distribution.get(where.getShardID());
 			if (set==null) {
 				distribution.put(where.getShardID(), set = new HashSet<>());
@@ -85,7 +91,7 @@ public class LearningState {
 	}
 
 	private EntityEvent feedReplica(final ShardEntity duty, final Shard where, final boolean stockCheck) {
-		if (!stockCheck || duty.getCommitTree().exists(where.getShardID().getId(), EntityEvent.STOCK)) {
+		if (!stockCheck || duty.getCommitTree().isCommitted(where.getShardID().getId(), EntityEvent.STOCK)) {
 			Set<ShardEntity> byShard = replicas.get(where);
 			if (byShard==null) {
 				replicas.put(where, byShard=new HashSet<>());
@@ -98,7 +104,7 @@ public class LearningState {
 					EntityEvent.CREATE, 
 					EntityState.PREPARED, 
 					where.getShardID(), 
-					0);
+					CommitTree.PLAN_NA);
 				duty.replaceTree(fresh);
 			}
 			if (existed || byShard.add(duty)) {
@@ -173,6 +179,19 @@ public class LearningState {
 				}
 			}
 			this.distribution.clear();
+		}
+		return ret;
+	}
+	
+	/** @return pallets taken from replicas (overlapped if any) */
+	public Set<Pallet> collectPallets() {
+		final Set<Pallet> ret = new HashSet<>();
+		for (Set<ShardEntity> set: this.replicas.values()) {
+			for (ShardEntity e: set) {
+				if (e.getRelatedEntity()!=null) {
+					ret.add(e.getRelatedEntity().getPallet());
+				}
+			}
 		}
 		return ret;
 	}

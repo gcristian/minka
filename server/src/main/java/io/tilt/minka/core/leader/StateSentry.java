@@ -30,6 +30,7 @@ import io.tilt.minka.core.leader.data.UncommitedChanges;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.leader.distributor.Delivery;
 import io.tilt.minka.core.task.Scheduler;
+import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityRecord;
@@ -140,7 +141,10 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 			if (changePlan.getId() == scheme.getFirstPlanId()) {
 				long max = 0;
 				for (EntityRecord er : beat.getCaptured()) {
-					final Log l = er.getCommitTree().findOne(0, beat.getShardId(), EntityEvent.ATTACH);
+					final Log l = er.getCommitTree().findOne(
+							CommitTree.PLAN_LAST, 
+							beat.getShardId(), 
+							EntityEvent.ATTACH);
 					if (l != null && max < l.getPlanId()) {
 						max = l.getPlanId();
 					}

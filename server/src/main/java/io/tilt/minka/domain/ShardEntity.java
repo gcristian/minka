@@ -68,7 +68,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 				EntityEvent.CREATE, 
 				EntityState.PREPARED, 
 				"N/A", 
-				ChangePlan.PLAN_WITHOUT);
+				CommitTree.PLAN_NA);
 	}
 	
 	public static class Builder {

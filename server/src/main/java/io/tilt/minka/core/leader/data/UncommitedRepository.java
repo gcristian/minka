@@ -1,15 +1,10 @@
 package io.tilt.minka.core.leader.data;
 
-import static io.tilt.minka.domain.EntityEvent.CREATE;
-import static io.tilt.minka.domain.EntityEvent.REMOVE;
-import static io.tilt.minka.domain.EntityState.PREPARED;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -17,18 +12,18 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Reply;
-import io.tilt.minka.api.ReplyValue;
-import io.tilt.minka.core.leader.distributor.ChangePlan;
-import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.CommitTree.Log;
-import io.tilt.minka.shard.Shard;
-import io.tilt.minka.shard.ShardIdentifier;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.Shard;
+import io.tilt.minka.shard.ShardIdentifier;
 
 /**
  * Entry point for outter clients of the {@linkplain UncommitedChanges}
@@ -113,7 +108,7 @@ public class UncommitedRepository {
 				EntityEvent.CREATE, 
 				EntityState.PREPARED, 
 				this.shardId,
-				ChangePlan.PLAN_WITHOUT);
+				CommitTree.PLAN_NA);
 		return entity;
 	}
 	
@@ -145,7 +140,7 @@ public class UncommitedRepository {
 							EntityEvent.CREATE, 
 							EntityState.PREPARED, 
 							this.shardId,
-							ChangePlan.PLAN_WITHOUT);
+							CommitTree.PLAN_NA);
 					tmp.add(newone);					
 				}
 			}
@@ -197,7 +192,7 @@ public class UncommitedRepository {
 	    for (ShardEntity pallet: coll) {
 	        final ShardEntity p = scheme.getCommitedState().getPalletById(pallet.getEntity().getId());
     		if (p==null) {
-    			tryCallback(callback, Reply.notFound(p.getPallet()));
+    			tryCallback(callback, Reply.notFound(pallet.getPallet()));
     		} else {
     		    final boolean done = scheme.addCrudPallet(pallet);
     		    tryCallback(callback, done ? 
@@ -208,10 +203,12 @@ public class UncommitedRepository {
 	}
 	
 	/** pallets directly from client */
-	public void loadRawPallets(final Collection<Pallet> coll, final Consumer<Reply> callback) {
-		saveAllPallets(coll.stream().map(x-> toEntity(x)).collect(Collectors.toList()), callback);
+	public boolean loadRawPallets(final Collection<Pallet> coll, final Consumer<Reply> callback) {
+		return saveAllPallets(coll.stream().map(x-> toEntity(x)).collect(Collectors.toList()), callback);
 	}
-	public void saveAllPallets(final Collection<ShardEntity> coll, final Consumer<Reply> callback) {
+	/** @return TRUE when at least 1 pallet was loaded */
+	public boolean saveAllPallets(final Collection<ShardEntity> coll, final Consumer<Reply> callback) {
+		boolean any = false;
 		for (ShardEntity p: coll) {
     		final ShardEntity already = scheme.getCommitedState().getPalletById(p.getEntity().getId());
     		if (already==null) {
@@ -221,11 +218,12 @@ public class UncommitedRepository {
     	        }
     	        final boolean added = scheme.addCrudPallet(p);
     	        tryCallback(callback, Reply.success(p.getEntity(), added));
+    	        any |=added;
     		} else {
     			tryCallback(callback, Reply.alreadyExists(p.getEntity()));
     		}
 		}
-		
+		return any;
 	}
 	
 	private boolean presentInPartition(final ShardEntity duty) {

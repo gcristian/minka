@@ -81,11 +81,11 @@ public class UncommitedChanges {
 	}
 	
 	/** @return true if the last entity event ocurred before the last snapshot creation */
-	public boolean after(final ShardEntity e) {
+	public boolean CRUDIsBefore(final ShardEntity e, final EntityEvent ee) {
 		if (snaptake==null) {
 			throw new RuntimeException("bad call");
 		}
-		final Log last = e.getCommitTree().getLast();
+		final Log last = e.getCommitTree().exists(ee, e.getCommitTree().getCreationTimestamp().getTime());
 		return last==null || snaptake.toEpochMilli() >=last.getHead().getTime();
 	}
 
@@ -267,11 +267,11 @@ public class UncommitedChanges {
 	public void logStatus() {
 		if (!dutyMissings.isEmpty()) {
 			logger.warn("{}: {} Missing duties: [ {}]", getClass().getSimpleName(), dutyMissings.size(),
-					dutyMissings.toString());
+					ShardEntity.toDutyStringIds(dutyMissings.keySet()));
 		}
 		if (!dutyDangling.isEmpty()) {
 			logger.warn("{}: {} Dangling duties: [ {}]", getClass().getSimpleName(), dutyDangling.size(),
-					dutyDangling.toString());
+					ShardEntity.toDutyStringIds(dutyDangling.keySet()));
 		}
 		if (dutyCrud.isEmpty()) {
 			logger.info("{}: no CRUD duties", getClass().getSimpleName());

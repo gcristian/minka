@@ -1,5 +1,12 @@
 package io.tilt.minka.core.leader.distributor;
 
+import static io.tilt.minka.domain.EntityEvent.ATTACH;
+import static io.tilt.minka.domain.EntityEvent.CREATE;
+import static io.tilt.minka.domain.EntityEvent.DETACH;
+import static io.tilt.minka.domain.EntityEvent.DROP;
+import static io.tilt.minka.domain.EntityEvent.REMOVE;
+import static io.tilt.minka.domain.EntityEvent.STOCK;
+
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -39,10 +46,8 @@ class ReplicationDispatcher {
 		
 		final Shard leader = scheme.getCommitedState().findShard(leaderId.getId());
 		// those of current plan
-		dispatchNewLocals(EntityEvent.CREATE, EntityEvent.ATTACH, EntityEvent.STOCK, 
-				changePlan, creations, leader, p);		
-		dispatchNewLocals(EntityEvent.REMOVE, EntityEvent.DETACH, EntityEvent.DROP,
-				changePlan, deletions, null, p);
+		dispatchNewLocals(CREATE, ATTACH, STOCK, changePlan, creations, leader, p);
+		dispatchNewLocals(REMOVE, DETACH, DROP, changePlan, deletions, null, p);
 		// those of older plans (new followers may have turned online)
 		dispatchCurrentLocals(scheme, changePlan, p, leader);
 	}
@@ -89,8 +94,8 @@ class ReplicationDispatcher {
 		final CommitedState cs = state.getCommitedState();
 		cs.findDuties(leader, pallet, replica-> {
 			cs.findShards(
-					predicate(EntityEvent.ATTACH, leader, replica), 
-					replicate(changePlan, replica, EntityEvent.STOCK)
+					predicate(ATTACH, leader, replica), 
+					replicate(changePlan, replica, STOCK)
 			);
 		});
 	}
@@ -119,7 +124,7 @@ class ReplicationDispatcher {
 		final CommitedState cs = scheme.getCommitedState();
 		return probHost -> (
 			// stocking
-			(action == EntityEvent.ATTACH
+			(action == ATTACH
 				// other but myself (I'll report'em if reelection occurs)
 				&& (!target.getShardID().equals(probHost.getShardID())
 					// avoid repeating event
@@ -127,7 +132,7 @@ class ReplicationDispatcher {
 					// avoid stocking where's already attached (they'll report'em in reelection)
 					&& !cs.getDutiesByShard(probHost).contains(replicated)))
 			// dropping
-			|| (action == EntityEvent.DETACH
+			|| (action == DETACH
 				// everywhere it's stocked in
 				&& cs.getReplicasByShard(probHost).contains(replicated))
 		);

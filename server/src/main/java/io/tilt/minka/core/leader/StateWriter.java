@@ -103,10 +103,12 @@ public class StateWriter {
 			// if the update corresponds to the last CRUD OR they're both the same event (duplicated operation)
 			if (!previousThanCrud || changelog.getEvent().getUserCause()==crud.getLastEvent()) {
 				if (!scheme.getUncommited().removeCrud(entity)) {
-					logger.warn("{} Backstage CRUD didnt existed: {}", classname, entity);
+					logger.warn("{} Uncommited CRUD didnt existed: {}", classname, entity);
+				} else {
+					logger.info("{} Uncommited CRUD discarded: {}", classname, entity);
 				}
 			} else {
-				logger.warn("{}: Avoiding UncommitedChanges remove (diff & after last event: {})", 
+				logger.warn("{}: Avoiding UncommitedChanges remove (diff & after last event: {}, {})", 
 						classname, entity, previousThanCrud);
 			}			
 		} else {

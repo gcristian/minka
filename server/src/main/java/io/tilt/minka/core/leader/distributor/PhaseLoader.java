@@ -1,6 +1,7 @@
 package io.tilt.minka.core.leader.distributor;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Consumer;
@@ -58,47 +59,63 @@ public class PhaseLoader {
 		if (delegateFirstCall || reload) {
 		    counterForReloads = 0;
 			logger.info("{}: reloading duties from storage", getClass().getSimpleName());
-			final Set<Pallet> pallets = reloadPalletsFromStorage();
-			final Set<Duty> duties = reloadDutiesFromStorage();
-						
-			if (pallets == null || pallets.isEmpty()) {
-				logger.warn("{}: EventMapper user's supplier hasn't return any pallets {}",
-						getClass().getSimpleName(), pallets);
-			} else {
-				uncommitedRepository.loadRawPallets(pallets, logger("Pallet"));
-			}
 			
-			if (duties == null || duties.isEmpty()) {
-				logger.warn("{}: EventMapper user's supplier hasn't return any duties: {}",
-						getClass().getSimpleName(), duties);
-			} else {
-				try {
-					duties.forEach(d -> Task.validateBuiltParams(d));
-				} catch (Exception e) {
-					logger.error("{}: Distribution suspended - Duty Built construction problem: ", 
-							getClass().getSimpleName(), e);
-					delegateFirstCall = false;
-					return false;
+			if (loadPallets()) {
+				loadDuties();
+				final Collection<ShardEntity> crudReady = scheme.getUncommited().getDutiesCrud();
+				if (crudReady.isEmpty()) {
+					logger.warn("{}: Aborting first distribution (no CRUD duties)", getClass().getSimpleName());
+					ret = false;
+				} else {
+					logger.info("{}: reported {} entities for sharding...", getClass().getSimpleName(), crudReady.size());
 				}
-			}		
-			scheme.getCommitedState().loadReplicas(scheme.getLearningState().getReplicasByShard());
-			uncommitedRepository.loadRawDuties(duties, logger("Duty"));
-			delegateFirstCall = false;
-
-			final Collection<ShardEntity> crudReady = scheme.getUncommited().getDutiesCrud();
-			if (crudReady.isEmpty()) {
-				logger.warn("{}: Aborting first distribution (no CRUD duties)", getClass().getSimpleName());
-				ret = false;
-			} else {
-				logger.info("{}: reported {} entities for sharding...", getClass().getSimpleName(), crudReady.size());
 			}
+			delegateFirstCall = false;
 		} else {
 			checkUnexistingDutiesFromStorage();
 		}
 		return ret;
 	}
 
-	private Set<Duty> reloadDutiesFromStorage() {
+	private void loadDuties() {
+		final Set<Duty> duties = reloadDutiesFromUser();
+		if (duties == null || duties.isEmpty()) {
+			logger.warn("{}: EventMapper user's supplier hasn't return any duties: {}",
+					getClass().getSimpleName(), duties);
+		} else {
+			try {
+				duties.forEach(d -> Task.validateBuiltParams(d));
+			} catch (Exception e) {
+				logger.error("{}: Distribution suspended - Duty Built construction problem: ", 
+						getClass().getSimpleName(), e);
+				delegateFirstCall = false;
+			}
+		}		
+		scheme.getCommitedState().loadReplicas(scheme.getLearningState().getReplicasByShard());
+		uncommitedRepository.loadRawDuties(duties, logger("Duty"));
+	}
+
+	private boolean loadPallets() {
+		Set<Pallet> pallets = reloadPalletsFromUser();
+		if (!scheme.getLearningState().isEmpty()) {
+			if (pallets == null || pallets.isEmpty()) {
+				pallets = new HashSet<>();
+			}
+			// current ones have precedence over user delegates
+			// just because I dont care about this right now.
+			// pallets are not being treated as a domain-1stCitizen YET
+			pallets.addAll(scheme.getLearningState().collectPallets());
+		}
+		if (pallets == null || pallets.isEmpty()) {
+			logger.warn("{}: EventMapper user's supplier hasn't return any pallets {}",
+					getClass().getSimpleName(), pallets);
+			return false;
+		} else {
+			return uncommitedRepository.loadRawPallets(pallets, logger("Pallet"));
+		}
+	}
+
+	private Set<Duty> reloadDutiesFromUser() {
 		Set<Duty> duties = null;
 		try {
 			duties = dependencyPlaceholder.getMaster().loadDuties();
@@ -108,7 +125,7 @@ public class PhaseLoader {
 		return duties;
 	}
 
-	private Set<Pallet> reloadPalletsFromStorage() {
+	private Set<Pallet> reloadPalletsFromUser() {
 		Set<Pallet> pallets = null;
 		try {
 			pallets = dependencyPlaceholder.getMaster().loadPallets();
@@ -130,7 +147,7 @@ public class PhaseLoader {
 		if (config.getDistributor().isRunConsistencyCheck() && scheme.getCurrentPlan().areShippingsEmpty()) {
 			// only warn in case there's no reallocation ahead
 			final Set<ShardEntity> sorted = new TreeSet<>();
-			for (Duty duty: reloadDutiesFromStorage()) {
+			for (Duty duty: reloadDutiesFromUser()) {
 				final ShardEntity entity = ShardEntity.Builder.builder(duty).build();
 				if (!scheme.getCommitedState().dutyExists(entity)) {
 					sorted.add(entity);

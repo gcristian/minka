@@ -124,7 +124,11 @@ class UncommitedCompiler {
 				state.commit(missed, lazy, REMOVE, ()-> {
 					// missing duties are a confirmation per-se from the very shards,
 					// so the ptable gets fixed right away without a realloc.
-					missed.getCommitTree().addEvent(REMOVE, COMMITED,lazy.getShardID(),changePlan.getId());					
+					missed.getCommitTree().addEvent(
+							REMOVE, 
+							COMMITED,
+							lazy.getShardID(),
+							changePlan.getId());					
 				});
 			}
 			missed.getCommitTree().addEvent(CREATE, PREPARED,"N/A",changePlan.getId());

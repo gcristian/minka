@@ -70,7 +70,14 @@ public class CommitTree implements Serializable {
 	private boolean sliding;
 		
 	private static final long serialVersionUID = 9044973294863922841L;
-	
+
+	// a plan is intended but is not known in the context used
+	public static final int PLAN_UNKNOWN = -1;
+	// an action out of Factory does not apply for PID (creation, deletion, etc)
+	public static final int PLAN_NA = 0; 
+	// wildcard to get the last plan created
+	public static final int PLAN_LAST = -2;
+
 	static final int MAX_PLAN_HISTORY = 99;
 	static final int MAX_EVENTS = EntityEvent.values().length;
 	static final int MAX_SHARD_HISTORY = 99;
@@ -79,8 +86,8 @@ public class CommitTree implements Serializable {
 	@JsonIgnore		
 	private final 
 		LimMap<Long, // plan ids order from older (head) to newest (tail)
-			InsMap<String,  // shard ids unordered
-				LimMap<EntityEvent, Log>>> 	// events orderd by apparition from older (head) to newest (tail) 
+			InsMap<String,  // shard ids insertion ordered (planned events)
+				LimMap<EntityEvent, Log>>> 	// events sorted by consistent order
 					tree = new LimMap<>(
 							MAX_PLAN_HISTORY, 
 							(Comparator<Long> & Serializable) Long::compare);
@@ -123,6 +130,15 @@ public class CommitTree implements Serializable {
 		}
 		return o;
 	}
+	
+	Log getCreation() {
+		if (!tree.isEmpty()) {
+			return tree.firstEntry().getValue()
+					.getFirst().entrySet().iterator().next()
+					.getValue();
+		}
+		return null;
+	}
 
 	Log find_(
 			final long planid, 
@@ -132,7 +148,7 @@ public class CommitTree implements Serializable {
 		
 		//System.out.println(planid);
 		final InsMap<String, LimMap<EntityEvent, Log>> shards = 
-				planid == 0 ? tree.lastEntry().getValue() : tree.get(planid);
+				planid == PLAN_LAST ? tree.lastEntry().getValue() : tree.get(planid);
 		if (shards!=null) {
 			final LimMap<EntityEvent, Log> logs = shardid == null ? 
 					shards.getLast() : shards.get(shardid);
@@ -161,6 +177,10 @@ public class CommitTree implements Serializable {
 			}
 		}
 		return null;
+	}
+	
+	public Date getCreationTimestamp() {
+		return getCreation().getHead();
 	}
 	
 	Log findWithLimitForEvent(
@@ -302,7 +322,7 @@ public class CommitTree implements Serializable {
 	}
 
 	public Log getLast() {
-		return find_(0, null, null, null);		
+		return find_(PLAN_LAST, null, null, null);		
 	}
 	
 	public Log getFirst() {
@@ -322,7 +342,7 @@ public class CommitTree implements Serializable {
     }
 	
 	/** @return if a log with state commited exists matching shard and event */
-	public boolean exists(final String shardid, EntityEvent ee) {
+	public boolean isCommitted(final String shardid, EntityEvent ee) {
 		final Boolean x = onLogs(log-> {
 			if (log.getEvent()==ee && log.getTargetId().equals(shardid)) {
 				if (log.getLastState()==EntityState.COMMITED) {
@@ -373,7 +393,7 @@ public class CommitTree implements Serializable {
 	 */
 	public Collection<Log> findAll(final ShardIdentifier shardid) {
 		final List<Log> r = new LinkedList<>();
-		find_(0, shardid.getId(), r::add, EntityEvent.values());
+		find_(PLAN_LAST, shardid.getId(), r::add, EntityEvent.values());
 		return r;
 	}
 	public Collection<Log> findAll(final long planid, final ShardIdentifier shardid, final EntityEvent...events) {

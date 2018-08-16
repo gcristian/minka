@@ -41,6 +41,7 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
@@ -217,7 +218,7 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 
 	private void acknowledge(final Entry<EntityEvent, List<ShardEntity>> e) {
 		for (ShardEntity duty: e.getValue()) {
-			final Log last = duty.getCommitTree().findOne(0, partition.getId(), e.getKey());
+			final Log last = duty.getCommitTree().findOne(CommitTree.PLAN_LAST, partition.getId(), e.getKey());
 			if (last!=null) {
 				final EntityState es = last.getLastState();
 				if (es==EntityState.PENDING) {

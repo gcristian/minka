@@ -23,7 +23,7 @@ import io.tilt.minka.shard.TCPShardIdentifier;
 
 public class CmdLineApp {
 
-	public static boolean useDefaults = Boolean.parseBoolean(System.getProperty("useDefaults", "false"));
+	public static boolean useDefaults = Boolean.parseBoolean(System.getProperty("useDefaults", "true"));
 	
 	public static void main(String[] args) {
 		boolean debug = false;
@@ -73,7 +73,8 @@ public class CmdLineApp {
 		
 		final Map<Quest, String> suggest = new HashMap<>();
 		suggest.put(Quest.namespace, "demo");
-		suggest.put(Quest.tag, System.getProperty("user.name"));
+		final String ms = String.valueOf(System.currentTimeMillis());
+		suggest.put(Quest.tag, System.getProperty("user.name") + "-" + ms.substring(ms.length()-5));
 		suggest.put(Quest.zk, "localhost:2181");
 		suggest.put(Quest.address, TCPShardIdentifier.findLANAddress().getHostAddress());
 		
@@ -177,7 +178,7 @@ public class CmdLineApp {
 				} else {
 					run = run(split, client);
 				}
-				if (!run) {					
+				if (!run) {
 					System.out.println(help);
 					System.out.println("Unknown command or format !");
 				}

@@ -146,7 +146,7 @@ public class Migrator {
 				e.getLastEvent(),
 				EntityState.STUCK,
 				shard,
-				ChangePlan.PLAN_WITHOUT);
+				CommitTree.PLAN_NA);
 	}
 	
 	/**
@@ -244,7 +244,7 @@ public class Migrator {
 			throw new BalancingException("bad transfer: duty: %s is marked for deletion, cannot be balanced", entity);
 		}*/
 		scheme.getUncommited().snapshot().findDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, duty-> {
-			if (scheme.getUncommited().snapshot().after(duty)) {
+			if (scheme.getUncommited().snapshot().CRUDIsBefore(duty, EntityEvent.REMOVE)) {
 				if (duty.equals(entity)) {
 					throw new BalancingException("bad transfer: duty: %s is just marked for deletion, cannot be balanced", entity);
 				}
