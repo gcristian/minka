@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.data.CommitedState;
 import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.core.leader.data.UncommitedChanges;
+import io.tilt.minka.core.leader.data.DirtyState;
 import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
@@ -45,7 +45,7 @@ import io.tilt.minka.shard.Transition;
  * Single-point of write access to the {@linkplain CommitedState}
  * Watches follower's heartbeats taking action on any update
  * Beats with changes are delegated to a {@linkplain StateExpected} 
- * Anomalies and CRUD ops. are recorded into {@linkplain UncommitedChanges}
+ * Anomalies and CRUD ops. are recorded into {@linkplain DirtyState}
  * 
  * @author Cristian Gonzalez
  * @since Jan 4, 2016
@@ -83,15 +83,15 @@ public class StateWriter {
 		if (scheme.getCommitedState().commit(entity, shard, changelog.getEvent(), r)
 				// type:replicas dont use (should not at least) use uncommitted-changes
 			&& changelog.getEvent().getType()==EntityEvent.Type.ALLOC) {
-			clearUncommited(changelog, entity, shard);
+			clearDirtyState(changelog, entity, shard);
 		}
 		
 	}
 
 	/** keep the uncommited-changes repo clean to its purpose */
-	private void clearUncommited(final Log changelog, final ShardEntity entity, Shard shard) {
+	private void clearDirtyState(final Log changelog, final ShardEntity entity, Shard shard) {
 		// remember crud is opaque from user, without any other info.
-		final ShardEntity crud = scheme.getUncommited().getCrudByDuty(entity.getDuty());
+		final ShardEntity crud = scheme.getDirty().getCrudByDuty(entity.getDuty());
 		if (crud!=null) {
 			// BUG: el crud de un remove tiene shardid: leader (q recibio el req) no lo
 			// va a encontrar ahi al REMOVE que planea targeteado al Shard donde esta VERDADERAMENTE..
@@ -102,13 +102,13 @@ public class StateWriter {
 			boolean previousThanCrud = changelog.getHead().toInstant().isBefore(lastEventOnCrud);
 			// if the update corresponds to the last CRUD OR they're both the same event (duplicated operation)
 			if (!previousThanCrud || changelog.getEvent().getUserCause()==crud.getLastEvent()) {
-				if (!scheme.getUncommited().removeCrud(entity)) {
-					logger.warn("{} Uncommited CRUD didnt existed: {}", classname, entity);
+				if (!scheme.getDirty().removeCrud(entity)) {
+					logger.warn("{} DirtyState CRUD didnt existed: {}", classname, entity);
 				} else {
-					logger.info("{} Uncommited CRUD discarded: {}", classname, entity);
+					logger.info("{} DirtyState CRUD discarded ok: {}", classname, entity);
 				}
 			} else {
-				logger.warn("{}: Avoiding UncommitedChanges remove (diff & after last event: {}, {})", 
+				logger.warn("{}: Avoiding DirtyState remove (diff & after last event: {}, {})", 
 						classname, entity, previousThanCrud);
 			}			
 		} else {
@@ -148,7 +148,7 @@ public class StateWriter {
 				dangling.size(), ShardEntity.toStringIds(dangling));
 		}
 		for (ShardEntity e: dangling) {
-			if (scheme.getUncommited().addDangling(e)) {
+			if (scheme.getDirty().addDangling(e)) {
 				e.getCommitTree().addEvent(
 						DETACH, 
 						COMMITED, 
@@ -163,9 +163,9 @@ public class StateWriter {
 		final StringBuilder log = new StringBuilder();
 		boolean uncommitted = false;
 		if (e.getKey()==DANGLING) {
-			uncommitted = scheme.getUncommited().addDangling(e.getValue());
+			uncommitted = scheme.getDirty().addDangling(e.getValue());
 		} else if (e.getKey()==MISSING) {
-			uncommitted = scheme.getUncommited().addMissing(e.getValue());
+			uncommitted = scheme.getDirty().addMissing(e.getValue());
 		} else {
 			logger.warn("{} From ({}) comes Unexpected state {} for duty {}", getClass().getSimpleName(), 
 					shard, e.getKey(), ShardEntity.toStringBrief(e.getValue()));

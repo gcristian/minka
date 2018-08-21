@@ -36,7 +36,7 @@ import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Spot;
 import io.tilt.minka.core.leader.data.CommitedState;
 import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.core.leader.data.UncommitedChanges;
+import io.tilt.minka.core.leader.data.DirtyState;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
@@ -67,7 +67,7 @@ class ChangePlanFactory {
 
 	/** @return a plan if there're changes to apply or NULL if not */
 	ChangePlan create(final Scheme scheme, final ChangePlan previous) {
-		final UncommitedChanges snapshot = scheme.getUncommited().snapshot();
+		final DirtyState snapshot = scheme.getDirty().snapshot();
 		ChangePlan plan = new ChangePlan(
 				config.beatToMs(config.getDistributor().getPlanExpiration()), 
 				config.getDistributor().getPlanMaxRetries());
@@ -77,7 +77,7 @@ class ChangePlanFactory {
 			scheme.setFirstPlanId(plan.getId());
 		}
 
-		final UncommitedCompiler compiler = new UncommitedCompiler(scheme.getCommitedState(), previous, plan, snapshot);
+		final DirtyCompiler compiler = new DirtyCompiler(scheme.getCommitedState(), previous, plan, snapshot);
 		
 		final Set<ShardEntity> creations = compiler.collectCreations();
 		final Set<ShardEntity> deletions = compiler.collectRemovals(creations);
@@ -88,7 +88,7 @@ class ChangePlanFactory {
 		final Map<String, List<ShardEntity>> schemeByPallets = ents.stream()
 				.collect(Collectors.groupingBy(e -> e.getDuty().getPalletId()));
 		if (schemeByPallets.isEmpty()) {
-			logger.warn("{}: CommitedState and UncommitedChanges are empty. Nothing to balance (C:{}, R:{})", 
+			logger.warn("{}: CommitedState and DirtyState are empty. Nothing to balance (C:{}, R:{})", 
 					name, creations.size(), deletions.size());
 			plan = null;
 		} else {
@@ -96,7 +96,7 @@ class ChangePlanFactory {
 				plan = null;
 			}
 		}
-		scheme.getUncommited().dropSnapshot();
+		scheme.getDirty().dropSnapshot();
 		return plan;
 	}
 	
@@ -123,8 +123,8 @@ class ChangePlanFactory {
 				}
 			}
 			// only when everything went well otherwise'd be lost
-			scheme.getUncommited().clearAllocatedMissing();
-			scheme.getUncommited().cleanAllocatedDanglings();
+			scheme.getDirty().clearAllocatedMissing();
+			scheme.getDirty().cleanAllocatedDanglings();
 			if (!changes && deletions.isEmpty()) {
 				return false;
 			}

@@ -37,7 +37,7 @@ import io.tilt.minka.shard.Shard;
  * 
  * Contains the relations between {@linkplain Shard} and {@linkplain Duty}.
  * Continuously checked truth in {@linkplain CommitedState}.
- * Client CRUD requests and detected problems in {@linkplain UncommitedChanges}
+ * Client CRUD requests and detected problems in {@linkplain DirtyState}
  * Built at leader promotion.
  * 
  * @author Cristian Gonzalez
@@ -53,7 +53,7 @@ public class Scheme {
 	/** record result of changes applied and verified, as a reaction to Client CRUDs or cluster changes*/
 	private final CommitedState commitedState;
 	/** Client CRUDs */
-	private final UncommitedChanges uncommitedChanges;
+	private final DirtyState dirtyState;
 	/** Cluster elected new leader: followers redirect their state to the new one: a learning process starts */
 	private LearningState learningState;
 	/** the last and the current plan in progress of verification and application */
@@ -92,7 +92,7 @@ public class Scheme {
 		this.visibilityHealth = ClusterHealth.STABLE;
 		this.distributionHealth = ClusterHealth.STABLE;
 		this.commitedState = new CommitedState();
-		this.uncommitedChanges = new UncommitedChanges();
+		this.dirtyState = new DirtyState();
 	}
 	
 	public ChangePlan getCurrentPlan() {
@@ -122,8 +122,8 @@ public class Scheme {
 		}
 	}
 
-	public UncommitedChanges getUncommited() {
-		return this.uncommitedChanges;
+	public DirtyState getDirty() {
+		return this.dirtyState;
 	}
 	
 	public CommitedState getCommitedState() {
@@ -164,14 +164,14 @@ public class Scheme {
 				.append("Shards: ")
 				.append(getCommitedState().shardsSize())
 				.append(" Crud Duties: ")
-				.append(getUncommited().dutyCrud.size());
+				.append(getDirty().dutyCrud.size());
 		//.append(" Transition: ").append(change.getGroupedIssues().size());
 		return sb.toString();
 	}
 
 	public void logStatus() {
 		getCommitedState().logStatus();
-		getUncommited().logStatus();
+		getDirty().logStatus();
 		logger.info("{}: Health: {}", getClass().getSimpleName(), getDistributionHealth());
 	}
 

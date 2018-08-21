@@ -26,10 +26,10 @@ import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardIdentifier;
 
 /**
- * Entry point for outter clients of the {@linkplain UncommitedChanges}
+ * Entry point for outter clients of the {@linkplain DirtyState}
  * Validations and consistency considerations for {@linkplain Client} usage
  */
-public class UncommitedRepository {
+public class DirtyRepository {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
@@ -37,7 +37,7 @@ public class UncommitedRepository {
 	private final Scheme scheme;
 	private final ShardIdentifier shardId;
 
-	public UncommitedRepository(final Scheme scheme, final ShardIdentifier shardId) {
+	public DirtyRepository(final Scheme scheme, final ShardIdentifier shardId) {
 		super();
 		this.scheme = scheme;
 		this.shardId = shardId;
@@ -64,15 +64,15 @@ public class UncommitedRepository {
 			if (current != null || presentInPartition(remove)) {
 				tmp.add(remove);
 			} else {
-				tryCallback(callback, Reply.notFound(remove.getEntity()));
+				respond(callback, Reply.notFound(remove.getEntity()));
 			}
 		}
 
-		scheme.getUncommited().addAllCrudDuty(tmp, (duty, added) -> {
+		scheme.getDirty().addAllCrudDuty(tmp, (duty, added) -> {
 			if (added) {
-				tryCallback(callback, Reply.success(duty, true));
+				respond(callback, Reply.success(duty, true));
 			} else {
-				tryCallback(callback, Reply.alreadySubmitted(duty));
+				respond(callback, Reply.alreadySubmitted(duty));
 			}
 		});
 	}
@@ -80,7 +80,7 @@ public class UncommitedRepository {
 	/** duties directly from client */
 	public boolean loadRawDuties(final Collection<Duty> raw, final Consumer<Reply> callback) {		
 		final Set<ShardEntity> rawSet = raw.stream().map(x-> toEntity(x)).collect(Collectors.toSet());
-		final Set<ShardEntity> merged = scheme.getLearningState().merge(rawSet);
+		final Set<ShardEntity> merged = scheme.getLearningState().mergeWithYoungest(rawSet);
 		// patch and write previous commited state
 		scheme.getLearningState().patchCommitTrees(new HashSet<>(merged), (shard, patch)-> {
 			merged.remove(patch);
@@ -112,7 +112,7 @@ public class UncommitedRepository {
 		return entity;
 	}
 	
-	private void tryCallback(final Consumer<Reply> callback, final Reply reply) {
+	private void respond(final Consumer<Reply> callback, final Reply reply) {
 		try {
 			callback.accept(reply);
 		} catch (Exception e) {
@@ -124,11 +124,11 @@ public class UncommitedRepository {
 		final List<ShardEntity> tmp = new ArrayList<>(coll.size());
 		for (final ShardEntity duty: coll) {
 			if (presentInPartition(duty)) {
-				tryCallback(callback, Reply.alreadyExists(duty.getDuty()));
+				respond(callback, Reply.alreadyExists(duty.getDuty()));
 			} else {
 				final ShardEntity pallet = scheme.getCommitedState().getPalletById(duty.getDuty().getPalletId());
 				if (pallet==null) {
-					tryCallback(callback, Reply.inconsistent(duty.getDuty()));
+					respond(callback, Reply.inconsistent(duty.getDuty()));
 				} else {
 					final ShardEntity newone = ShardEntity.Builder
 							.builder(duty.getDuty())
@@ -147,14 +147,14 @@ public class UncommitedRepository {
 		}
 		
 		final StringBuilder sb = new StringBuilder(tmp.size() * 5+1);
-		scheme.getUncommited().addAllCrudDuty(tmp, (duty, added)-> {
+		scheme.getDirty().addAllCrudDuty(tmp, (duty, added)-> {
 			if (added) {
 				if (logger.isInfoEnabled()) {
 					sb.append(duty).append(',');
 				}
-				tryCallback(callback, Reply.success(duty, true));
+				respond(callback, Reply.success(duty, true));
 			} else {
-				tryCallback(callback, Reply.alreadySubmitted(duty));
+				respond(callback, Reply.alreadySubmitted(duty));
 			}
 		});
 		if (sb.length()>0) {
@@ -192,10 +192,10 @@ public class UncommitedRepository {
 	    for (ShardEntity pallet: coll) {
 	        final ShardEntity p = scheme.getCommitedState().getPalletById(pallet.getEntity().getId());
     		if (p==null) {
-    			tryCallback(callback, Reply.notFound(pallet.getPallet()));
+    			respond(callback, Reply.notFound(pallet.getPallet()));
     		} else {
     		    final boolean done = scheme.addCrudPallet(pallet);
-    		    tryCallback(callback, done ? 
+    		    respond(callback, done ? 
     		    		Reply.success(pallet.getPallet(), true) 
     		    		: Reply.notFound(pallet.getPallet()));
     		}
@@ -217,10 +217,10 @@ public class UncommitedRepository {
     	                p.getPallet().getMetadata());
     	        }
     	        final boolean added = scheme.addCrudPallet(p);
-    	        tryCallback(callback, Reply.success(p.getEntity(), added));
+    	        respond(callback, Reply.success(p.getEntity(), added));
     	        any |=added;
     		} else {
-    			tryCallback(callback, Reply.alreadyExists(p.getEntity()));
+    			respond(callback, Reply.alreadyExists(p.getEntity()));
     		}
 		}
 		return any;

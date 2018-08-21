@@ -56,7 +56,7 @@ public class PhasePermission {
 		final boolean noPlan = currPlan==null || currPlan.getResult().isClosed();
 		final boolean changes = config.getDistributor().isRunOnStealthMode() &&
 				(scheme.getCommitedState().isStealthChange() 
-				|| scheme.getUncommited().isStealthChange());
+				|| scheme.getDirty().isStealthChange());
 		
 		if (noPlan && scheme.getShardsHealth() == ClusterHealth.UNSTABLE) {
 			if (counterForAvoids++<30) {
@@ -88,9 +88,9 @@ public class PhasePermission {
 
 	/** @return TRUE to release distribution phase considering uncommited stealthing */
 	private boolean changesFurtherEnough() {
-		if (scheme.getUncommited().isStealthChange()) {
+		if (scheme.getDirty().isStealthChange()) {
 			final long threshold = config.beatToMs(config.getDistributor().getStealthHoldThreshold());
-			if (!scheme.getUncommited().stealthOverThreshold(threshold)) {						
+			if (!scheme.getDirty().stealthOverThreshold(threshold)) {						
 				if (lastStealthBlocked==null) {
 					lastStealthBlocked = Instant.now();
 				} else if (System.currentTimeMillis() - lastStealthBlocked.toEpochMilli() >

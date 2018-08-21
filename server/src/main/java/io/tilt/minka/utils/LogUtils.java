@@ -33,7 +33,7 @@ public class LogUtils {
 	
 	public final static char OK = '√';
 	public final static char CRASH = '⚡';
-	public final static char HYPHEN_CHAR= ' ';
+	public final static char HYPHEN_CHAR= '-';
 	public final static char GROSS_CHAR = '=';
 	public final static char HB_CHAR = '♥';
 	public final static char BALANCED_CHAR = '☯';

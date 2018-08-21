@@ -39,7 +39,11 @@ public class LearningState {
 	public boolean isEmpty() {
 		return distribution.isEmpty() && replicas.isEmpty(); 
 	}
-	
+
+	public Map<Shard, Set<ShardEntity>> getReplicasByShard() {
+		return replicas;
+	}
+
 	/** guard the report to take it as truth once distribution runs and ShardEntities are loaded */
 	public void learn(final Collection<EntityRecord> records, final Shard where) {
 		// changePlan is NULL only before 1st distribution
@@ -153,33 +157,36 @@ public class LearningState {
 	boolean patchCommitTrees(
 			final Set<ShardEntity> duties, 
 			final BiConsumer<ShardIdentifier, ShardEntity> bc) {
+		
+		if (distribution.isEmpty()) {
+			return false;
+		}
+		
 		boolean ret = false;
-		if (!distribution.isEmpty()) {
-			final EntityEvent event = EntityEvent.ATTACH;
-			for (Map.Entry<ShardIdentifier, Set<EntityRecord>> e: distribution.entrySet()) {
-				boolean found = false;
-				if (logger.isInfoEnabled()) {
-					logger.info("{}: Patching scheme ({}) w/previous commit-trees: {}", getClass().getSimpleName(), 
-							event, EntityRecord.toStringIds(e.getValue()));
+		final EntityEvent event = EntityEvent.ATTACH;
+		for (Map.Entry<ShardIdentifier, Set<EntityRecord>> e: distribution.entrySet()) {
+			boolean found = false;
+			if (logger.isInfoEnabled()) {
+				logger.info("{}: Patching scheme ({}) w/previous commit-trees: {}", getClass().getSimpleName(), 
+						event, EntityRecord.toStringIds(e.getValue()));
+			}
+			for (EntityRecord r: e.getValue()) {
+				for (ShardEntity d: duties) {
+					if (d.getDuty().getId().equals(r.getId())) {
+						found = true;
+						d.replaceTree(r.getCommitTree());
+						bc.accept(e.getKey(), d);
+						ret = true;
+						break;
+					}
 				}
-				for (EntityRecord r: e.getValue()) {
-					for (ShardEntity d: duties) {
-						if (d.getDuty().getId().equals(r.getId())) {
-							found = true;
-							d.replaceTree(r.getCommitTree());
-							bc.accept(e.getKey(), d);
-							ret = true;
-							break;
-						}
-					}
-					if (!found) {
-						logger.error("{}: Shard {} reported an unloaded duty from previous distribution: {}", 
-								getClass().getSimpleName(), e.getKey(), r.getId());
-					}
+				if (!found) {
+					logger.error("{}: Shard {} reported an unloaded duty from previous distribution: {}", 
+							getClass().getSimpleName(), e.getKey(), r.getId());
 				}
 			}
-			this.distribution.clear();
 		}
+		this.distribution.clear();
 		return ret;
 	}
 	

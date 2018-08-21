@@ -33,7 +33,7 @@ import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.Scheme.ClusterHealth;
-import io.tilt.minka.core.leader.data.UncommitedRepository;
+import io.tilt.minka.core.leader.data.DirtyRepository;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -77,7 +77,7 @@ public class Distributor implements Service {
 			final Scheduler scheduler, 
 			final EventBroker eventBroker,
 			final Scheme scheme, 
-			final UncommitedRepository stageRepo,
+			final DirtyRepository stageRepo,
 			final ShardIdentifier shardId,
 			final DependencyPlaceholder dependencyPlaceholder, 
 			final LeaderAware leaderAware) {
@@ -174,7 +174,7 @@ public class Distributor implements Service {
 			scheme.setPlan(changePlan);
 			this.scheme.setDistributionHealth(ClusterHealth.UNSTABLE);			
 			changePlan.prepare();
-			scheme.getUncommited().dropSnapshot();
+			scheme.getDirty().dropSnapshot();
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Balancer generated issues on ChangePlan: {}", getName(), changePlan.getId());
 			}
@@ -185,7 +185,7 @@ public class Distributor implements Service {
 				logger.info("{}: Distribution in Balance ", getName(), LogUtils.BALANCED_CHAR);
 			}			
 			scheme.getCommitedState().stealthChange(false);
-			scheme.getUncommited().setStealthChange(false);
+			scheme.getDirty().setStealthChange(false);
 			return null;
 		}
 	}
@@ -267,7 +267,7 @@ public class Distributor implements Service {
 	}
 
 	private void communicateUpdates() {
-		final Set<ShardEntity> updates = scheme.getUncommited().getDutiesCrud().stream()
+		final Set<ShardEntity> updates = scheme.getDirty().getDutiesCrud().stream()
 				.filter(i -> i.getCommitTree().getLast().getEvent() == EntityEvent.UPDATE 
 					&& i.getCommitTree().getLast().getLastState() == EntityState.PREPARED)
 				.collect(Collectors.toCollection(HashSet::new));

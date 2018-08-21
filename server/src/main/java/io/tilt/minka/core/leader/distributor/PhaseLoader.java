@@ -2,6 +2,7 @@ package io.tilt.minka.core.leader.distributor;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Consumer;
@@ -15,9 +16,10 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Reply;
 import io.tilt.minka.api.DutyBuilder.Task;
 import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.core.leader.data.UncommitedRepository;
+import io.tilt.minka.core.leader.data.DirtyRepository;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.Shard;
 
 /**
  * Initialization of the distributor phase. One-time execution only, or configured to run frequently.
@@ -28,7 +30,7 @@ public class PhaseLoader {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
-	private final UncommitedRepository uncommitedRepository;
+	private final DirtyRepository dirtyRepository;
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final Config config;
 	private final Scheme scheme;
@@ -37,12 +39,12 @@ public class PhaseLoader {
 	private int counterForReloads;
 
 	PhaseLoader(
-			final UncommitedRepository uncommitedRepository, 
+			final DirtyRepository dirtyRepository, 
 			final DependencyPlaceholder dependencyPlaceholder,
 			final Config config, 
 			final Scheme scheme) {
 		super();
-		this.uncommitedRepository = uncommitedRepository;
+		this.dirtyRepository = dirtyRepository;
 		this.dependencyPlaceholder = dependencyPlaceholder;
 		this.config = config;
 		this.scheme = scheme;
@@ -62,7 +64,7 @@ public class PhaseLoader {
 			
 			if (loadPallets()) {
 				loadDuties();
-				final Collection<ShardEntity> crudReady = scheme.getUncommited().getDutiesCrud();
+				final Collection<ShardEntity> crudReady = scheme.getDirty().getDutiesCrud();
 				if (crudReady.isEmpty()) {
 					logger.warn("{}: Aborting first distribution (no CRUD duties)", getClass().getSimpleName());
 					ret = false;
@@ -91,8 +93,10 @@ public class PhaseLoader {
 				delegateFirstCall = false;
 			}
 		}		
-		scheme.getCommitedState().loadReplicas(scheme.getLearningState().getReplicasByShard());
-		uncommitedRepository.loadRawDuties(duties, logger("Duty"));
+		for (final Map.Entry<Shard, Set<ShardEntity>> e: scheme.getLearningState().getReplicasByShard().entrySet()) {
+			scheme.getCommitedState().loadReplicas(e.getKey(), e.getValue());
+		}
+		dirtyRepository.loadRawDuties(duties, logger("Duty"));
 	}
 
 	private boolean loadPallets() {
@@ -111,7 +115,7 @@ public class PhaseLoader {
 					getClass().getSimpleName(), pallets);
 			return false;
 		} else {
-			return uncommitedRepository.loadRawPallets(pallets, logger("Pallet"));
+			return dirtyRepository.loadRawPallets(pallets, logger("Pallet"));
 		}
 	}
 
@@ -156,7 +160,7 @@ public class PhaseLoader {
 			if (!sorted.isEmpty()) {
 				logger.error("{}: Consistency check: Absent duties going as Missing [ {}]", getClass().getSimpleName(),
 						ShardEntity.toStringIds(sorted));
-				scheme.getUncommited().addMissing(sorted);
+				scheme.getDirty().addMissing(sorted);
 			}
 		}
 	}

@@ -41,7 +41,7 @@ import io.tilt.minka.core.leader.balancer.Spot;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 import io.tilt.minka.core.leader.data.CommitedState;
 import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.core.leader.data.UncommitedChanges;
+import io.tilt.minka.core.leader.data.DirtyState;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.EntityEvent;
@@ -151,7 +151,7 @@ public class LeaderMonitor {
 		Map<String, Object> m = new LinkedHashMap<>(2);
 		m.put("commited", buildCommitedState(detail));
 		m.put("replicas", buildReplicas(detail));
-		m.put("uncommited", buildUncommitedChanges(detail, scheme.getUncommited()));
+		m.put("uncommited", buildUncommitedChanges(detail, scheme.getDirty()));
 		return SystemStateMonitor.toJson(m);
 	}
 	
@@ -159,7 +159,7 @@ public class LeaderMonitor {
 		final JSONObject js = new JSONObject();
 		try {
 			js.put("total", planAccum);
-			js.put("retention	", changePlanHistory.size() + (lastPlan[0]!=null ? 1 : 0));
+			js.put("retention", changePlanHistory.size() + (lastPlan[0]!=null ? 1 : 0));
 			js.put("ids", this.planids.values());
 			if (lastPlan[0]!=null) {
 				js.put("last", new JSONObject(SystemStateMonitor.toJson(lastPlan[0])));
@@ -244,11 +244,11 @@ public class LeaderMonitor {
 		return ret;
 	}
 	
-	private Map<String, List<Object>> buildUncommitedChanges(final boolean detail, final UncommitedChanges uncommitedChanges) {
+	private Map<String, List<Object>> buildUncommitedChanges(final boolean detail, final DirtyState dirtyState) {
 		final Map<String, List<Object>> ret = new LinkedHashMap<>(3);		
-		ret.put("crud", dutyBrief(uncommitedChanges.getDutiesCrud(), detail));
-		ret.put("dangling", dutyBrief(uncommitedChanges.getDutiesDangling(), detail));
-		ret.put("missing", dutyBrief(uncommitedChanges.getDutiesMissing(), detail));
+		ret.put("crud", dutyBrief(dirtyState.getDutiesCrud(), detail));
+		ret.put("dangling", dutyBrief(dirtyState.getDutiesDangling(), detail));
+		ret.put("missing", dutyBrief(dirtyState.getDutiesMissing(), detail));
 		return ret;
 	}
 
@@ -260,7 +260,7 @@ public class LeaderMonitor {
 			
 			final double[] dettachedWeight = {0};
 			final int[] crudSize = new int[1];
-			scheme.getUncommited().findDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, e-> {
+			scheme.getDirty().findDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, e-> {
 				if (e.getDuty().getPalletId().equals(pallet.getPallet().getId())) {
 					crudSize[0]++;
 					dettachedWeight[0]+=e.getDuty().getWeight();
@@ -338,10 +338,10 @@ public class LeaderMonitor {
 		map.put("size-shards", extractor.getShards().size());
 		map.put("size-pallets", extractor.getPallets().size());
 		map.put("size-scheme", extractor.getSizeTotal());
-		map.put("size-crud", table.getUncommited().getDutiesCrud().size());
-		map.put("size-missings", table.getUncommited().getDutiesMissing().size());
-		map.put("size-dangling", table.getUncommited().getDutiesDangling().size());
-		map.put("uncommited-change", table.getUncommited().isStealthChange());
+		map.put("size-crud", table.getDirty().getDutiesCrud().size());
+		map.put("size-missings", table.getDirty().getDutiesMissing().size());
+		map.put("size-dangling", table.getDirty().getDutiesDangling().size());
+		map.put("uncommited-change", table.getDirty().isStealthChange());
 		map.put("commited-change", table.getCommitedState().isStealthChange());
 		return map;
 	}

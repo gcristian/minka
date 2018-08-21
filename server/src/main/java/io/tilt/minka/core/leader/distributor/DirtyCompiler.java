@@ -33,7 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.data.CommitedState;
-import io.tilt.minka.core.leader.data.UncommitedChanges;
+import io.tilt.minka.core.leader.data.DirtyState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.Shard;
 
@@ -43,22 +43,22 @@ import io.tilt.minka.shard.Shard;
  * @author Cristian Gonzalez
  * @since Ago 3, 2018
  */
-class UncommitedCompiler {
+class DirtyCompiler {
 
-	private static final Logger logger = LoggerFactory.getLogger(UncommitedCompiler.class);
+	private static final Logger logger = LoggerFactory.getLogger(DirtyCompiler.class);
 
 	private final String name = getClass().getSimpleName();
 	
 	private final CommitedState state;
 	private final ChangePlan previousChange;
 	private final ChangePlan changePlan;
-	private final UncommitedChanges snapshot;
+	private final DirtyState snapshot;
 	
-	UncommitedCompiler(
+	DirtyCompiler(
 			final CommitedState state, 
 			final ChangePlan previous, 
 			final ChangePlan current,
-			final UncommitedChanges snapshot) {
+			final DirtyState snapshot) {
 		this.state = state;
 		this.previousChange = previous;
 		this.changePlan = current;

@@ -243,8 +243,8 @@ public class Migrator {
 		if (entity.getLastEvent()==EntityEvent.REMOVE && scheme.getBackstage().snapshot().after(entity)) {
 			throw new BalancingException("bad transfer: duty: %s is marked for deletion, cannot be balanced", entity);
 		}*/
-		scheme.getUncommited().snapshot().findDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, duty-> {
-			if (scheme.getUncommited().snapshot().CRUDIsBefore(duty, EntityEvent.REMOVE)) {
+		scheme.getDirty().snapshot().findDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, duty-> {
+			if (scheme.getDirty().snapshot().CRUDIsBefore(duty, EntityEvent.REMOVE)) {
 				if (duty.equals(entity)) {
 					throw new BalancingException("bad transfer: duty: %s is just marked for deletion, cannot be balanced", entity);
 				}
@@ -295,7 +295,7 @@ public class Migrator {
 
 	private boolean anyExclusions() {
 	    boolean[] ret = new boolean[1];
-		scheme.getUncommited().snapshot().findDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, duty-> {
+		scheme.getDirty().snapshot().findDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, duty-> {
 			if (duty.getDuty().getPalletId().equals(pallet.getId()) && 
 					!inTransfers(duty) && 
 					!inOverrides(duty) && 
@@ -305,7 +305,7 @@ public class Migrator {
 			}
 		});
 		final Set<ShardEntity> deletions = new HashSet<>();
-		scheme.getUncommited().snapshot().findDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, deletions::add);
+		scheme.getDirty().snapshot().findDutiesCrud(EntityEvent.REMOVE::equals, EntityState.PREPARED::equals, deletions::add);
 		scheme.getCommitedState().findDuties(curr-> {
 			if (curr.getDuty().getPalletId().equals(pallet.getId()) && 
 			        !deletions.contains(curr) && 

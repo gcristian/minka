@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.data.CommitedState;
 import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.core.leader.data.UncommitedChanges;
+import io.tilt.minka.core.leader.data.DirtyState;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.leader.distributor.Delivery;
 import io.tilt.minka.core.task.Scheduler;

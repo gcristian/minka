@@ -144,11 +144,9 @@ public class CommitedState {
 		}
 	}
 	
-	public void loadReplicas(final Map<Shard, Set<ShardEntity>> replicas) {
-		for (final Map.Entry<Shard, Set<ShardEntity>> e: replicas.entrySet()) {
-			for (ShardEntity replica: e.getValue()) {
-				commit(replica, e.getKey(), EntityEvent.STOCK, null);
-			}
+	public void loadReplicas(final Shard shard, final Set<ShardEntity> replicas) {
+		for (ShardEntity replica: replicas) {
+			commit(replica, shard, EntityEvent.STOCK, null);
 		}
 	}
 	
