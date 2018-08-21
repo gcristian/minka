@@ -20,9 +20,12 @@ package io.tilt.minka.core.follower.impl;
 import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -30,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.HeartbeatFactory;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.DependencyPlaceholder;
@@ -39,6 +43,7 @@ import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.domain.ShardEntity.Builder;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.shard.DomainInfo;
 import io.tilt.minka.shard.NetworkShardIdentifier;
@@ -154,20 +159,54 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 			includeDuties |= detectReception(shardedDuty, tmp);
 			c.accept(EntityRecord.fromEntity(shardedDuty, newLeader));
 		}
-		for (ShardEntity shardedDuty: partition.getReplicas()) {
-			// new leader or not it must be comitted
-			includeDuties |= detectReception(shardedDuty, tmp);
-			// replicas must be reported when new leader or when simply comitting
-			if (newLeader || includeDuties) {
-				c.accept(EntityRecord.fromEntity(shardedDuty, true));
-			}
-		}
+		includeDuties |= treatReplicas(c, newLeader, tmp);
 		if (!tmp.isEmpty() && log.isInfoEnabled()) {
 			tmp.forEach((k,v)-> log.info(v.toString()));
 		}
 		return includeDuties;
 	}
+
+	private boolean treatReplicas(
+			final Consumer<EntityRecord> c, 
+			final boolean newLeader,
+			final Map<EntityEvent, StringBuilder> tmp) {
+		
+		Map<String, ShardEntity> palletsById = null;
+		if (newLeader && domain!=null) {
+			palletsById = toMap(domain.getDomainPallets());
+		}
+		
+		boolean include = false;
+		for (ShardEntity duty: partition.getReplicas()) {
+			// new leader or not it must be comitted
+			include |= detectReception(duty, tmp);
+			// replicas must be reported when new leader or when simply comitting
+			if (newLeader || include) {
+				if (palletsById!=null) {
+					// send with pallets for replication restore after leader reelection
+					final ShardEntity pallet = palletsById.get(duty.getDuty().getPalletId());
+					if (pallet!=null) {
+						final Builder bldr = ShardEntity.Builder.builderFrom(duty);
+						bldr.withRelatedEntity(pallet);
+						duty = bldr.build();
+					} else {
+						// send it anyway: pallet CRUD replication race that leader can fix.
+					}
+				}
+				c.accept(EntityRecord.fromEntity(duty, true));
+			}
+		}
+		return include;
+	}
 	
+	private Map<String, ShardEntity> toMap(Collection<ShardEntity> domainPallets) {
+		final Map<String, ShardEntity> ret = new HashMap<>();
+		for (ShardEntity pallet: domainPallets) {
+			ret.put(pallet.getPallet().getId(), pallet);
+		}
+		return ret;
+	}
+
 	/** this confirms action to the leader */
 	private boolean detectReception(final ShardEntity duty, final Map<EntityEvent, StringBuilder> tmp) {
 		// consider only the last action logged to this shard
