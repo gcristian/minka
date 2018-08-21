@@ -1,10 +1,15 @@
 package io.tilt.minka.core.leader.data;
 
+import static io.tilt.minka.domain.EntityEvent.ATTACH;
+import static io.tilt.minka.domain.EntityEvent.STOCK;
+import static io.tilt.minka.domain.EntityState.COMMITED;
 import static java.util.Arrays.asList;
 
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -52,8 +57,9 @@ public class LearningState {
 		for (EntityRecord record: records) {
 			EntityEvent lpv = feedDistro(record, where);
 			EntityEvent lpd = null;
-			if (record.getEntity() != null) {
-				lpd = feedReplica(record.getEntity(), where, false);
+			// if it's not a distribution report and it has a bundled entity
+			if (lpv==null && record.getEntity() != null) {
+				lpd = feedReplica(record.getEntity(), where, true);
 			}
 			if (logger.isInfoEnabled()) {
 				for (EntityEvent ee: asList(lpv, lpd)) {
@@ -75,27 +81,54 @@ public class LearningState {
 	}
 
 	private EntityEvent feedDistro(final EntityRecord record, final Shard where) {
-		// TODO add another constraint to avoid blindly trusting the shard
-		// check the log is really the last (another shard could say the same, who to trust ?)
-		// the beat comes from A, and there's an Attach on A: pretty confident...could be a lattest Attach on B
-		// and another beat from B saying the same... and actually being the real trustworthy
-		if (record.getCommitTree().isCommitted(where.getShardID().getId(), EntityEvent.ATTACH)) {
-			Set<EntityRecord> set = distribution.get(where.getShardID());
-			if (set==null) {
-				distribution.put(where.getShardID(), set = new HashSet<>());
+		EntityEvent ret = null;
+		if (record.getCommitTree().hasDurability(where.getShardID().getId(), ATTACH, COMMITED)) {
+			if (isLatest(record, where)) {
+				Set<EntityRecord> set = distribution.get(where.getShardID());
+				if (set==null) {
+					distribution.put(where.getShardID(), set = new HashSet<>());
+				}
+				if (set.add(record)) {
+					ret = EntityEvent.ATTACH;
+				}
 			}
 			if (record.getEntity()!=null) {
 				feedReplica(record.getEntity(), where, false);
 			}
-			if (set.add(record)) {
-				return EntityEvent.ATTACH;
-			}
 		}
-		return null;
+		return ret;
 	}
 
-	private EntityEvent feedReplica(final ShardEntity duty, final Shard where, final boolean stockCheck) {
-		if (!stockCheck || duty.getCommitTree().isCommitted(where.getShardID().getId(), EntityEvent.STOCK)) {
+	/**
+	 * Check record if already reported in different shards: believe the lattest commit tree.
+	 * Remove older ones reported by different shards.
+	 * @return TRUE if record is must be added, false if must be ignored 
+	 */
+	private boolean isLatest(final EntityRecord record, final Shard where) {
+		for (Map.Entry<ShardIdentifier, Set<EntityRecord>> e: distribution.entrySet()) {
+			if (!e.getKey().equals(where.getShardID()) && e.getValue().contains(record)) {
+				final Iterator<EntityRecord> it = e.getValue().iterator();
+				while (it.hasNext()) {
+					final EntityRecord already = it.next();
+					final Date ts1 = already.getCommitTree().getLast().getHead();
+					final Date ts2 = record.getCommitTree().getLast().getHead();
+					if (ts1.before(ts2)) {
+						it.remove();
+						logger.warn("{}: Shard {} has reported a younger commit-tree on {} and will be used.", 
+								getClass().getSimpleName(), where, record);
+						return true;
+					} else {
+						return false;
+					}
+				}
+			}
+		}
+		return true;
+	}
+
+	private EntityEvent feedReplica(final ShardEntity duty, final Shard where, final boolean durable) {
+		
+		if (!durable || duty.getCommitTree().hasDurability(where.getShardID().getId(), STOCK, COMMITED)) {			
 			Set<ShardEntity> byShard = replicas.get(where);
 			if (byShard==null) {
 				replicas.put(where, byShard=new HashSet<>());
@@ -118,11 +151,8 @@ public class LearningState {
 		return null;
 	}
 	
-	public Map<Shard, Set<ShardEntity>> getReplicasByShard() {
-		return replicas;
-	}
-
-	Set<ShardEntity> merge(final Set<ShardEntity> rawSet) {
+	/** @return composition of passed raws and learnt, using the youngest on colission */
+	Set<ShardEntity> mergeWithYoungest(final Set<ShardEntity> rawSet) {
 		final Set<ShardEntity> tmp = new HashSet<>(rawSet);
 		// very important: adding to the current leadership 
 		// the previous leadership's post-load added duties (CRUD) 

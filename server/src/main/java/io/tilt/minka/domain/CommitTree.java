@@ -341,21 +341,35 @@ public class CommitTree implements Serializable {
         return r;
     }
 	
-	/** @return if a log with state commited exists matching shard and event */
-	public boolean isCommitted(final String shardid, EntityEvent ee) {
-		final Boolean x = onLogs(log-> {
-			if (log.getEvent()==ee && log.getTargetId().equals(shardid)) {
-				if (log.getLastState()==EntityState.COMMITED) {
-					return true;
+	/** 
+	 * if a log with a given state exists matching shard and event 
+	 * and there is no other later than found one: in a diferent shard for the same event,
+	 * Nor has the passed shard a commit with a negative event on a later plan
+	 * 
+	 * @return TRUE if the shard has a Durable state;
+	 */
+	public boolean hasDurability(final String shardid, EntityEvent ee, EntityState es) {
+		long lastPlan = -1;
+		long lastNegativePlan = -1;
+		for (Map.Entry<Long, InsMap<String , LimMap<EntityEvent, Log>>> byPlan: tree.entrySet()) {
+			// make use of the INSertion order map
+			for (Map.Entry<String, LimMap<EntityEvent, Log>> e: byPlan.getValue().entrySet()) {
+				final Log log = e.getValue().get(ee);
+				if (log!=null 
+						&& log.getLastState()==es 
+						&& e.getKey().equals(shardid)) {
+					lastPlan = byPlan.getKey();
+				} else {
+					final Log inverse = e.getValue().get(ee.toNegative());
+					if (inverse!=null 
+							&& inverse.getLastState()==es
+							&& e.getKey().equals(shardid)) {
+						lastNegativePlan = byPlan.getKey();
+					}
 				}
 			}
-			return null;
-		});
-		if (x!=null) {
-			return x;
-		} else {
-			return false;
 		}
+		return lastPlan > lastNegativePlan;
 	}
 
 	public boolean hasEverBeenDistributed() {

@@ -90,6 +90,25 @@ public enum EntityEvent {
 			return null;
 		}
 	}
+	
+	public EntityEvent toNegative() {
+		switch (this) {
+		case ATTACH:
+			return DETACH;
+		case DETACH:
+			return ATTACH;
+		case STOCK:
+			return DROP;
+		case DROP:
+			return STOCK;
+		case CREATE:
+			return REMOVE;
+		case REMOVE:
+			return CREATE;
+		default:
+			return null;
+		}
+	}
 
 	public boolean is(EntityEvent pe) {
 		return this == pe;
