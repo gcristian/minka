@@ -74,7 +74,7 @@ public class CmdLineApp {
 		final Map<Quest, String> suggest = new HashMap<>();
 		suggest.put(Quest.namespace, "demo");
 		final String ms = String.valueOf(System.currentTimeMillis());
-		suggest.put(Quest.tag, System.getProperty("user.name") + "-" + ms.substring(ms.length()-5));
+		suggest.put(Quest.tag, System.getProperty("user.name") + "-" + ms.substring(ms.length()-3));
 		suggest.put(Quest.zk, "localhost:2181");
 		suggest.put(Quest.address, TCPShardIdentifier.findLANAddress().getHostAddress());
 		

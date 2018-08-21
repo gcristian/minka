@@ -22,7 +22,6 @@ import static java.util.stream.Collectors.toList;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -37,11 +36,10 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.core.leader.balancer.Spot;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 import io.tilt.minka.core.leader.data.CommitedState;
-import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.DirtyState;
+import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.EntityEvent;
@@ -205,29 +203,40 @@ public class LeaderMonitor {
 		return map;
 	}
 	
-	private Map<String, List<Object>> buildCommitedState(final boolean detail) {
+	private Map<String, Object> buildCommitedState(final boolean detail) {
 		Validate.notNull(scheme);
-		final Map<String, List<Object>> byPalletId = new LinkedHashMap<>();
-		final Consumer<ShardEntity> adder = addler(detail, byPalletId);
+		final Map<String, Object> byPalletId = new LinkedHashMap<>();
+		final Consumer<ShardEntity> adder = detail ? collectorWithDetail(byPalletId) : collecter(byPalletId);
 		scheme.getCommitedState().findDuties(adder);
 		return byPalletId;
 	}
 
-	private Map<String, List<Object>> buildReplicas(final boolean detail) {
+	private Map<String, Object> buildReplicas(final boolean detail) {
 		Validate.notNull(scheme);
-		final Map<String, List<Object>> byPalletId = new LinkedHashMap<>();
-		final Consumer<ShardEntity> adder = addler(detail, byPalletId);
+		final Map<String, Object> byPalletId = new LinkedHashMap<>();
+		final Consumer<ShardEntity> adder = detail ? collectorWithDetail(byPalletId) : collecter(byPalletId);
 		partition.getReplicas().forEach(adder);;
 		return byPalletId;
 	}
 
-	private Consumer<ShardEntity> addler(final boolean detail, final Map<String, List<Object>> byPalletId) {
+	private Consumer<ShardEntity> collectorWithDetail(final Map<String, Object> byPalletId) {
 		final Consumer<ShardEntity> adder = d-> {
-			List<Object> pid = byPalletId.get(d.getDuty().getPalletId());
-			if (pid==null) {
-				byPalletId.put(d.getDuty().getPalletId(), pid = new ArrayList<>());
+			ArrayList<Object> list = (ArrayList) byPalletId.get(d.getDuty().getPalletId());
+			if (list==null) {
+				byPalletId.put(d.getDuty().getPalletId(), list = new ArrayList<>());
 			}
-			pid.add(detail ? d : d.getDuty().getId(	));
+			list.add(d);
+		};
+		return adder;
+	}
+
+	private Consumer<ShardEntity> collecter(final Map<String, Object> byPalletId) {
+		final Consumer<ShardEntity> adder = d-> {
+			StringBuilder sb = (StringBuilder) byPalletId.get(d.getDuty().getPalletId());
+			if (sb==null) {
+				byPalletId.put(d.getDuty().getPalletId(), sb = new StringBuilder());
+			}
+			sb.append(d.getDuty().getId()).append(',');
 		};
 		return adder;
 	}
@@ -299,7 +308,6 @@ public class LeaderMonitor {
 			for (final ShardEntity pallet: extractor.getPallets()) {
 				final List<DutyView> dutyRepList = new LinkedList<>();
 				final List<DutyView> repliRepList = new LinkedList<>();
-				int[] size = new int[1];
 				table.getCommitedState().findShards(sh->sh.equals(shard),  sh-> {
 					for (ShardEntity se: table.getCommitedState().getReplicasByShard(sh)) {
 						if (se.getDuty().getPalletId().equals(pallet.getPallet().getId())) {
@@ -309,7 +317,6 @@ public class LeaderMonitor {
 				});
 				
 				table.getCommitedState().findDuties(shard, pallet.getPallet(), d-> {
-					size[0]++;
 					dutyRepList.add(
 						new DutyView(
 								d.getDuty().getId(),
@@ -318,7 +325,6 @@ public class LeaderMonitor {
 						palletAtShardView(
 								pallet.getPallet().getId(),
 								extractor.getCapacity(pallet.getPallet(), shard),
-								size[0],
 								extractor.getWeight(pallet.getPallet(), shard),
 								dutyRepList, repliRepList));
 				
@@ -363,12 +369,17 @@ public class LeaderMonitor {
 	
 	
 	private static Map<String , Object> palletAtShardView (
-			final String id, final double capacity, final int size, final double weight, 
-			final List<DutyView> duties, final List<DutyView> replicas) {
+			final String id, 
+			final double capacity, 
+			final double weight, 
+			final List<DutyView> duties,
+			final List<DutyView> replicas) {
 
 		final Map<String , Object> map = new LinkedHashMap<>(5);
 		map.put("id", id);
-		map.put("size", size);
+		map.put("duties-size", duties.size());
+		map.put("replicas-size", replicas.size());
+		map.put("size", duties.size());
 		map.put("capacity", capacity);
 		map.put("weight", weight);
 		

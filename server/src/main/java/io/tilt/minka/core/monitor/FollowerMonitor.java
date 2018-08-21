@@ -113,20 +113,23 @@ public class FollowerMonitor {
 		return adder;
 	}
 
-	private Map<String, List<Object>> buildPartitionDuties(final ShardedPartition partition, boolean detail) {
+	private Map<String, Object> buildPartitionDuties(final ShardedPartition partition, boolean detail) {
 		Validate.notNull(partition);
-		final Map<String, List<Object>> ret = new LinkedHashMap<>(2);
+		final Map<String, Object> ret = new LinkedHashMap<>(2);
 		
-		ArrayList<Object> tmp = new ArrayList<>(partition.getDuties().size());
-		ret.put("partition", tmp);
+		final StringBuilder sb1 = new StringBuilder(partition.getDuties().size() * 16);
 		for (ShardEntity e: partition.getDuties()) {
-			tmp.add(detail ? e: e.getDuty().getId());
+			sb1.append(detail ? e: e.getDuty().getId()).append(',');
 		}
-		ArrayList<Object> tmp2 = new ArrayList<>(partition.getReplicas().size());
-		ret.put("replicas", tmp2);
+		
+		final StringBuilder sb2 = new StringBuilder(partition.getReplicas().size() * 16);
 		for (ShardEntity e: partition.getReplicas()) {
-			tmp2.add(detail ? e: e.getDuty().getId());
+			sb2.append(detail ? e: e.getDuty().getId()).append(',');
 		}
+		ret.put("partition-size", partition.getDuties().size());
+		ret.put("replicas-size", partition.getReplicas().size());
+		ret.put("partition", sb1.toString());
+		ret.put("replicas", sb2.toString());
 		return ret;
 	}
 		

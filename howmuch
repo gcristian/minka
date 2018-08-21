@@ -4,14 +4,19 @@ for i in `find . -name '*.java'`; do
    l=$((l+`sed '/^\s*$/d' $i | wc -l | cut -d ' ' -f1`))
    w=$((w+`wc -w $i | cut -d ' ' -f1`))
    b=$((b+`wc -c $i | cut -d ' ' -f1`))
-   x=$((x+`grep -e 'for (' -e 'while(' -e 'while (' $i | wc -l`))
+   x=$((x+`grep -e 'for (' -e 'while(' -e 'while (' -e '.forEach' $i | wc -l`))
    m=$((m+`grep -e 'private ' -e 'protected ' -e 'public ' $i | wc -l`))
+   b=$((b+`grep -e '{' $i | wc -l`))
+   p=$((p+`grep -e '(' $i | wc -l`))
    z=$((z+`grep -e 'if (' -e 'if(' $i | wc -l`))
    y=$((y+`grep -e '->' $i | wc -l`))
+   printf "."
 done
 kb=$((b/1000))
-echo -e "\t $c Classes with $l LOC, and $w words, sizing $kb kbytes"
+echo -e "\n\t $c Classes with $l LOC, and $w words, sizing $kb kbytes"
 echo -e "\t $x 'loop (for,while)' keywords"
 echo -e "\t $z 'if' keywords"
 echo -e "\t $m 'elements (fields, methods, classes)' keywords"
 echo -e "\t $y lambdas"
+echo -e "\t $b braces (blocks of code)"
+echo -e "\t $p parenthesis (method calls)"
