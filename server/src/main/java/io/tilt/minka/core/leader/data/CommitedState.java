@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import org.slf4j.Logger;
@@ -66,6 +67,16 @@ public class CommitedState {
 			}
 		}
 	}
+	public boolean findShardsAnd(final Predicate<Shard> test, final Function<Shard, Boolean> fnc) {
+		boolean any = false;
+		for (Shard sh: shardsByID.values()) {
+			if (test == null || test.test(sh)) {
+				any |=fnc.apply(sh);
+			}
+		}
+		return any;
+	}
+
 	public Shard findShard(final Predicate<Shard> test) {
 		for (Shard sh: shardsByID.values()) {
 			if (test == null || test.test(sh)) {

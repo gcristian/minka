@@ -8,7 +8,7 @@ import static io.tilt.minka.domain.EntityEvent.REMOVE;
 import static io.tilt.minka.domain.EntityEvent.STOCK;
 
 import java.util.Set;
-import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import io.tilt.minka.api.Pallet;
@@ -38,7 +38,8 @@ class ReplicationDispatcher {
 		this.scheme = state;
 	}
 	
-	void dispatchReplicas(final ChangePlan changePlan, 
+	/** @return TRUE if any changes has been applied to plan */
+	boolean write(final ChangePlan changePlan, 
 			final Set<ShardEntity> creations, 
 			final Set<ShardEntity> deletions,
 			final NetworkShardIdentifier leaderId,
@@ -46,13 +47,14 @@ class ReplicationDispatcher {
 		
 		final Shard leader = scheme.getCommitedState().findShard(leaderId.getId());
 		// those of current plan
-		dispatchNewLocals(CREATE, ATTACH, STOCK, changePlan, creations, leader, p);
-		dispatchNewLocals(REMOVE, DETACH, DROP, changePlan, deletions, null, p);
+		boolean stocks = dispatchNewLocals(CREATE, ATTACH, STOCK, changePlan, creations, leader, p);
+		final boolean drops = dispatchNewLocals(REMOVE, DETACH, DROP, changePlan, deletions, null, p);
 		// those of older plans (new followers may have turned online)
-		dispatchCurrentLocals(scheme, changePlan, p, leader);
+		stocks |=dispatchCurrentLocals(scheme, changePlan, p, leader);
+		return stocks || drops;
 	}
 	
-	private void dispatchNewLocals(
+	private boolean dispatchNewLocals(
 			final EntityEvent evidence,
 			final EntityEvent action,
 			final EntityEvent reaction,
@@ -61,44 +63,45 @@ class ReplicationDispatcher {
 			final Shard main,
 			final Pallet p) {
 		
-		
-		// BUGGY
-		
+		final boolean[] r = {false};
 		final CommitedState cs = scheme.getCommitedState();
 		// those being shipped for the action event
 		changePlan.onShippingsFor(action, main, (target, duty)-> {
 			// same pallet, and present as new CRUD (involved)
 			if (duty.getDuty().getPalletId().equals(p.getId()) && involved.contains(duty)) {
 				// search back the evidence event as authentic purpose to reaction
-				cs.findShards(
+				r[0] |=cs.findShardsAnd(
 						predicate(action, target, duty),
 						replicate(changePlan, duty, reaction)
 				);
 			}
 		});
+		return r[0];
 	}
 	
 	/**
 	 * check if they were created before the shard's online
 	 * or if they're already stocked there, dont do it twice ! (warnings arise)
 	 */
-	private void dispatchCurrentLocals(
+	private boolean dispatchCurrentLocals(
 			final Scheme state, 
 			final ChangePlan changePlan,
 			final Pallet pallet,
 			final Shard leader) {
 				
 		final CommitedState cs = state.getCommitedState();
+		final boolean[] r = {false};
 		cs.findDuties(leader, pallet, replica-> {
-			cs.findShards(
+			r[0] |= cs.findShardsAnd(
 					predicate(ATTACH, leader, replica), 
 					replicate(changePlan, replica, STOCK)
 			);
 		});
+		return r[0];
 	}
 
 	/** it might be stock or drop */
-	private static Consumer<Shard> replicate(
+	private static Function<Shard, Boolean> replicate(
 			final ChangePlan changePlan, 
 			final ShardEntity replicated, 
 			final EntityEvent event) {
@@ -109,6 +112,7 @@ class ReplicationDispatcher {
 					nextHost.getShardID(), 
 					changePlan.getId());
 			changePlan.ship(nextHost, replicated);
+			return true;
 		};
 	}
 

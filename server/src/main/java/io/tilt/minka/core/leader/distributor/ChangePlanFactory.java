@@ -114,7 +114,7 @@ class ChangePlanFactory {
 				if (balancer != null) {
 					final Migrator migra = balancePallet(scheme, pallet, balancer, creations, deletions);
 					changes |= migra.write(changePlan);
-					replicator.dispatchReplicas(changePlan, creations, deletions, aware.getLeaderShardId(), pallet);
+					changes |= replicator.write(changePlan, creations, deletions, aware.getLeaderShardId(), pallet);
 				} else {
 					if (logger.isInfoEnabled()) {
 						logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", name,
