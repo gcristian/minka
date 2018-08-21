@@ -70,13 +70,10 @@ class ReplicationDispatcher {
 			// same pallet, and present as new CRUD (involved)
 			if (duty.getDuty().getPalletId().equals(p.getId()) && involved.contains(duty)) {
 				// search back the evidence event as authentic purpose to reaction
-				final long limit = System.currentTimeMillis()-(1000*60);
-				if (duty.getCommitTree().exists(evidence, limit)!=null) {
-					cs.findShards(
-							predicate(action, target, duty),
-							replicate(changePlan, duty, reaction)
-					);
-				}				
+				cs.findShards(
+						predicate(action, target, duty),
+						replicate(changePlan, duty, reaction)
+				);
 			}
 		});
 	}
