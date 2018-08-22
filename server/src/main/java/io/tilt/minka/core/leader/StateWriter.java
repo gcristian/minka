@@ -36,6 +36,7 @@ import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.DirtyState;
 import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.Shard;
@@ -78,7 +79,11 @@ public class StateWriter {
 					COMMITED,
 					shard.getShardID(),
 					changelog.getPlanId());
-			};
+			
+			if (changelog.getEvent().is(EntityEvent.REMOVE)) {
+				scheme.getVault().add(shard.getShardID().getId(), EntityRecord.fromEntity(entity, false));
+			}
+		};
 			
 		if (scheme.getCommitedState().commit(entity, shard, changelog.getEvent(), r)
 				// type:replicas dont use (should not at least) use uncommitted-changes

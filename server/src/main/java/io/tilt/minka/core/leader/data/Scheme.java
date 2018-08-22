@@ -52,10 +52,12 @@ public class Scheme {
 	
 	/** record result of changes applied and verified, as a reaction to Client CRUDs or cluster changes*/
 	private final CommitedState commitedState;
-	/** Client CRUDs */
+	/** temporal Client CRUDs willing to appear in the commited state */
 	private final DirtyState dirtyState;
 	/** Cluster elected new leader: followers redirect their state to the new one: a learning process starts */
 	private LearningState learningState;
+	/** Place for deleted duties only for debug */
+	private Vault vault;
 	/** the last and the current plan in progress of verification and application */
 	private ChangePlan currentPlan;
 	private List<Runnable> observers;
@@ -93,6 +95,7 @@ public class Scheme {
 		this.distributionHealth = ClusterHealth.STABLE;
 		this.commitedState = new CommitedState();
 		this.dirtyState = new DirtyState();
+		this.vault = new Vault();
 	}
 	
 	public ChangePlan getCurrentPlan() {
@@ -135,6 +138,10 @@ public class Scheme {
 			learningState = new LearningState();
 		}
 		return learningState;
+	}
+	
+	public Vault getVault() {
+		return vault;
 	}
 	
 	public ClusterHealth getHealth() {
