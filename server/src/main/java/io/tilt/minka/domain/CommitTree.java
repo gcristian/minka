@@ -36,6 +36,9 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import io.tilt.minka.domain.CommitTree.Log.StateStamp;
@@ -91,7 +94,75 @@ public class CommitTree implements Serializable {
 					tree = new LimMap<>(
 							MAX_PLAN_HISTORY, 
 							(Comparator<Long> & Serializable) Long::compare);
-	
+
+	/**
+	 *  A realistic synthetized view of data structure.
+	 * 
+	 * "plan-id:1729318729": {
+	 * 		"shard-id:192.156.0.1": {
+	 * 			"attach": {
+	 * 				"prepared": "2018-08-21:11:22:32",
+	 * 				"pending": "2018-08-21:11:22:32",
+	 * 				"ack": "2018-08-21:11:22:32",
+	 * 				"committed": "2018-08-21:11:22:32",	
+	 * 			}
+	 * 		}
+	 * }
+	 */
+	public JSONObject toJson() {
+		JSONObject ret = null;
+		if (!tree.isEmpty()) {
+			final JSONObject plans = new JSONObject();
+			for (Map.Entry<Long, InsMap<String , LimMap<EntityEvent, Log>>> byPlan: tree.descendingMap().entrySet()) {
+				final JSONObject shards = new JSONObject();
+				for (Map.Entry<String, LimMap<EntityEvent, Log>> e: byPlan.getValue().entrySet()) {
+					final JSONObject events = new JSONObject();
+					for (Map.Entry<EntityEvent, Log> ee: e.getValue().entrySet()) {
+						final JSONObject stamps = new JSONObject();
+						for (StateStamp ss: ee.getValue().getStates()) {
+							stamps.put(ss.getState().name().toLowerCase(), ss.getDate());
+						}
+						events.put(ee.getKey().name(), stamps);
+					}
+					shards.put("shard-id:" + e.getKey(), events);
+				}
+				plans.put("plan-id:" + byPlan.getKey(), shards);
+			}
+			ret = plans;
+		}
+		return ret;
+	}
+
+	public JSONObject toOrderedJson() {
+		JSONObject ret = null;
+		if (!tree.isEmpty()) {
+			final JSONArray plans = new JSONArray();
+			for (Map.Entry<Long, InsMap<String , LimMap<EntityEvent, Log>>> byPlan: tree.entrySet()) {
+				final JSONArray shards = new JSONArray();
+				for (Map.Entry<String, LimMap<EntityEvent, Log>> e: byPlan.getValue().entrySet()) {
+					final JSONObject events = new JSONObject();
+					for (Map.Entry<EntityEvent, Log> ee: e.getValue().entrySet()) {
+						final JSONObject stamps = new JSONObject();
+						for (StateStamp ss: ee.getValue().getStates()) {
+							stamps.put(ss.getState().name().toLowerCase(), ss.getDate());
+						}
+						events.put(ee.getKey().name(), stamps);
+					}
+					JSONObject newshard = new JSONObject();
+					newshard.put("shard-id:" + byPlan.getKey(), events);
+					shards.put(newshard);
+				}
+				JSONObject newplan = new JSONObject();
+				newplan.put("plan-id:" + byPlan.getKey(), shards);
+				
+				plans.put(newplan);
+			}
+			ret = new JSONObject();
+			ret.put("plans", plans);
+		}
+		return ret;
+	}
+
 	void addEvent_(
 			final EntityEvent event, 
 			final EntityState state, 

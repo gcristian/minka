@@ -146,11 +146,21 @@ public class LeaderMonitor {
 	 * @return			a String in json format
 	 */
 	public String schemeToJson(final boolean detail) {
-		Map<String, Object> m = new LinkedHashMap<>(2);
-		m.put("commited", buildCommitedState(detail));
-		m.put("replicas", buildReplicas(detail));
-		m.put("uncommited", buildUncommitedChanges(detail, scheme.getDirty()));
-		return SystemStateMonitor.toJson(m);
+		if (detail) {
+			final JSONObject j = new JSONObject();
+			final JSONObject jo = (JSONObject) buildCommitedState(true);
+			j.put("commited", jo);
+			j.put("replicas", buildReplicas(detail));
+			j.put("uncommited", buildUncommitedChanges(detail, scheme.getDirty()));
+			return SystemStateMonitor.toJson(j.toMap());
+		} else {
+			Map<String, Object> m = new LinkedHashMap<>(2);
+			final Object det = buildCommitedState(detail);
+			m.put("commited", detail ? ((JSONObject)det).toMap() : det);
+			m.put("replicas", buildReplicas(detail));
+			m.put("uncommited", buildUncommitedChanges(detail, scheme.getDirty()));
+			return SystemStateMonitor.toJson(m);			
+		}
 	}
 	
 	private JSONObject buildPlans(final boolean detail) {
@@ -203,12 +213,18 @@ public class LeaderMonitor {
 		return map;
 	}
 	
-	private Map<String, Object> buildCommitedState(final boolean detail) {
+	private Object buildCommitedState(final boolean detail) {
 		Validate.notNull(scheme);
 		final Map<String, Object> byPalletId = new LinkedHashMap<>();
-		final Consumer<ShardEntity> adder = detail ? collectorWithDetail(byPalletId) : collecter(byPalletId);
+		final JSONObject js = new JSONObject();
+		final Consumer<ShardEntity> adder;
+		if (detail) {
+			adder = collectorWithDetail(js);	
+		} else {
+			adder = collecter(byPalletId);
+		}
 		scheme.getCommitedState().findDuties(adder);
-		return byPalletId;
+		return detail ? js : byPalletId;
 	}
 
 	private Map<String, Object> buildReplicas(final boolean detail) {
@@ -225,7 +241,21 @@ public class LeaderMonitor {
 			if (list==null) {
 				byPalletId.put(d.getDuty().getPalletId(), list = new ArrayList<>());
 			}
-			list.add(d);
+			list.add(d.getCommitTree().toJson());
+		};
+		return adder;
+	}
+	
+	private Consumer<ShardEntity> collectorWithDetail(final JSONObject js) {
+		final Consumer<ShardEntity> adder = d-> {
+			final String pid = d.getDuty().getPalletId();
+			JSONArray array = js.has(pid) ? js.getJSONArray(pid) : null;
+			if (array==null) {
+				js.put(pid, array = new JSONArray());
+			}
+			final JSONObject ks = d.getCommitTree().toJson();
+			ks.put("id", d.getDuty().getId());
+			array.put(ks);
 		};
 		return adder;
 	}
