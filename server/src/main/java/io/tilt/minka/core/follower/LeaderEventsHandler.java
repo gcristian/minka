@@ -163,11 +163,6 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		try {
 			for (final Entry<EntityEvent, List<ShardEntity>> e : groupByFoundEvents(duties).entrySet()) {
 				switch (e.getKey()) {
-				case CREATE:
-					break;
-				case REMOVE:
-					//partitionManager.finalized(e.getValue());
-					break;
 				case ATTACH:
 					if (partitionManager.attach(e.getValue())) {
 						acknowledge(e);
@@ -206,11 +201,17 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		final Map<EntityEvent, List<ShardEntity>> map = new HashMap<>(EntityEvent.values().length);
 		for (ShardEntity d: duties) {
 			for (Log log: d.getCommitTree().findAll(partition.getId())) {
-				List<ShardEntity> list = map.get(log.getEvent());
-				if (list == null) {
-					map.put(log.getEvent(), list = new LinkedList<>());
+				// we recognize only allocations and replicas
+				if (EntityEvent.Type.ALLOC == log.getEvent().getType() 
+						|| EntityEvent.Type.REPLICA == log.getEvent().getType()
+						|| log.getEvent()==EntityEvent.UPDATE 
+						|| log.getEvent()==EntityEvent.TRANSFER) {
+					List<ShardEntity> list = map.get(log.getEvent());
+					if (list == null) {
+						map.put(log.getEvent(), list = new LinkedList<>());
+					}
+					list.add(d);
 				}
-				list.add(d);
 			}
 		}
 		return map;
@@ -228,8 +229,8 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 						partition.getId(), 
 						last.getPlanId());
 				} else if (es!=EntityState.PREPARED){
-					logger.warn("{}: ({}) Repeating reception ? {} (now {})", getName(), 
-							config.getLoggingShardId(), duty, es);
+					logger.warn("{}: ({}) Repeating {} Ack for {} (now {})", getName(), 
+							config.getLoggingShardId(), last.getEvent(), duty, es);
 				}
 			}
 		}
