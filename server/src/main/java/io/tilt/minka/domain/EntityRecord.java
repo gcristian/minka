@@ -43,42 +43,53 @@ public class EntityRecord implements Comparable<EntityRecord>, Comparator<Entity
 
 	private static final long serialVersionUID = 4519763920222729635L;
 	private String id;
+	private String palletId;
 	private final ShardEntity.Type type;
 	private CommitTree commitTree;
-	private ShardEntity entity;
 	
+	// nullable unless certain rules applied on heart-beating
+	private ShardEntity entity;
+
 	private EntityRecord(
-			final String id, 
-			final ShardEntity.Type type, 
-			final CommitTree journal, 
+			final String id,
+			final String palletId,
+			final ShardEntity.Type type,
+			final CommitTree journal,
 			final ShardEntity entity) {
 		this.id = requireNonNull(id);
+		// nullable on pallets
+		this.palletId = palletId;
 		this.type = requireNonNull(type);
 		this.commitTree = requireNonNull(journal);
 		this.entity = entity;
 	}
-	
+
 	public static EntityRecord fromEntity(final ShardEntity entity, final boolean packit) {
 		Validate.notNull(entity);
 		return new EntityRecord(
-				entity.getEntity().getId(), 
-				entity.getType(), 
+				entity.getEntity().getId(),
+				entity.getType() == ShardEntity.Type.DUTY ? entity.getDuty().getPalletId() : null,
+				entity.getType(),
 				entity.getCommitTree(),
-				packit? entity : null);
-		
-	}
+				packit ? entity : null);
 
+	}
+	
+	public String getPalletId() {
+		return palletId;
+	}
+	
 	public String getId() {
 		return id;
-	}	
-	
+	}
+
 	public ShardEntity getEntity() {
 		return entity;
 	}
-	
+
 	public static String toStringIds(final Collection<EntityRecord> duties) {
-		if (duties!=null && duties.size()>0) {
-			final StringBuilder sb = new StringBuilder(duties.size()*10);
+		if (duties != null && duties.size() > 0) {
+			final StringBuilder sb = new StringBuilder(duties.size() * 10);
 			duties.forEach(i -> sb.append(i.getId()).append(", "));
 			return sb.toString();
 		} else {
@@ -111,31 +122,37 @@ public class EntityRecord implements Comparable<EntityRecord>, Comparator<Entity
 
 	@JsonIgnore
 	public CommitTree getCommitTree() {
-        return this.commitTree;
-    }
+		return this.commitTree;
+	}
+
 	/*
-	@JsonProperty("commitTree")
-	private List<String> getJournal_() {
-        return this.journal.getStringHistory();
-    }
-	*/
+	 * @JsonProperty("commitTree") private List<String> getJournal_() { return
+	 * this.journal.getStringHistory(); }
+	 */
 	public int hashCode() {
 		final int prime = 31;
 		int res = 1;
-		res *= prime + ((type== null ) ? 0 : type.hashCode());
-		res *= prime + ((getId()== null ) ? 0 : getId().hashCode());
+		res *= prime + ((type == null) ? 0 : type.hashCode());
+		res *= prime + ((id == null) ? 0 : id.hashCode());
+		res *= prime + ((palletId == null) ? 0 : palletId.hashCode());
 		return res;
 	}
 
 	@Override
 	public boolean equals(Object obj) {
-		if (obj==null || !(obj instanceof EntityRecord)) {
+		if (obj == null || !(obj instanceof EntityRecord)) {
 			return false;
 		} else if (obj == this) {
 			return true;
 		} else {
 			final EntityRecord o = (EntityRecord) obj;
-			return getType()==o.getType()
+			return getType() == o.getType()
+					&& (
+						// pallets dont have pallet-id, or duties with same pallet-id
+						(getType()==ShardEntity.Type.PALLET && getPalletId()==null && o.getPalletId()==null)
+						|| (getType()==ShardEntity.Type.DUTY && getPalletId()!=null && o.getPalletId()!=null 
+							&& getPalletId().equals(o.getPalletId()))
+					   ) 
 					&& getId().equals(o.getId());
 		}
 	}
