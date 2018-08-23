@@ -432,7 +432,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	 * 		{shard2:[duty3]}
 	 * }
 	 */
-	void ship(final Shard shard, final ShardEntity duty) {
+	void dispatch(final Shard shard, final ShardEntity duty) {
 		getOrPut(
 			getOrPut(
 				shippings,

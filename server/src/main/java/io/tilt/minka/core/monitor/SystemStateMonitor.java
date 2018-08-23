@@ -49,9 +49,10 @@ import io.tilt.minka.core.task.Semaphore.Action;
  */
 public class SystemStateMonitor {
 
-	private final LeaderMonitor leader;
-	private final FollowerMonitor follower;
-	private final CrossMonitor cross;
+	private final DistroJSONBuilder distro;
+	private final FollowerJSONBuilder follower;
+	private final CrossJSONBuilder cross;
+	private final SchemeJSONBuilder scheme;
 	private final LeaderAware leaderAware;
 	private final Config config;
 	
@@ -74,17 +75,19 @@ public class SystemStateMonitor {
 	
 	public SystemStateMonitor(
 			final Config config,
-			final LeaderMonitor leader, 
-			final FollowerMonitor follower, 
-			final CrossMonitor cross,
+			final DistroJSONBuilder leader, 
+			final FollowerJSONBuilder follower, 
+			final CrossJSONBuilder cross,
+			final SchemeJSONBuilder scheme,
 			final LeaderAware leaderAware, 
 			final Scheduler scheduler) {
 		super();
 		this.config = config;
-		this.leader = leader;
+		this.distro = leader;
 		this.follower = follower;
 		this.cross = cross;
 		this.leaderAware = leaderAware;
+		this.scheme = scheme;
 		this.coredumper = createStateMonitor(scheduler);
 		
 		if (config.getBootstrap().isEnableCoreDump()) {
@@ -140,16 +143,16 @@ public class SystemStateMonitor {
 		final Instant now = Instant.now();
 		saveOnDiff("config", now, config.toJson());
 		saveOnDiff("schedule", now, cross.scheduleToJson(false));
-		saveOnDiff("shards", now, leader.shardsToJson());
+		saveOnDiff("shards", now, distro.shardsToJson());
 		saveOnDiff("broker", now, cross.brokerToJson());
 		saveOnDiff("partition", now, follower.currentPartitionToJson(false));
 		saveOnDiff("beats", now, follower.beatsToJson());
 		
 		if (leaderAware.imLeader()) {
-			saveOnDiff("plans", now, leader.plansToJson(true));
-			saveOnDiff("distro", now, leader.distributionToJson());
-			saveOnDiff("scheme", now, leader.schemeToJson(true));
-			saveOnDiff("pallets", now, leader.palletsToJson());
+			saveOnDiff("plans", now, distro.plansToJson(true));
+			saveOnDiff("distro", now, distro.distributionToJson());
+			saveOnDiff("scheme", now, scheme.schemeToJson(true));
+			saveOnDiff("pallets", now, distro.palletsToJson());
 		}
 	}
 

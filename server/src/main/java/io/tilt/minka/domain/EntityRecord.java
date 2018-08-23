@@ -22,20 +22,19 @@ import static org.apache.commons.lang.StringUtils.EMPTY;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.List;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.api.EntityPayload;
 
 /**
- * Follower's report on {@linkplain ShardedPartition} packed in {@linkplain Heartbeats}.
- * And leader's in-memory version held after distribution. 
+ * Follower's report on {@linkplain ShardedPartition} packed in
+ * {@linkplain Heartbeats}. And leader's in-memory version held after
+ * distribution.
  */
 public class EntityRecord implements Comparable<EntityRecord>, Comparator<EntityRecord>, EntityPayload, Serializable {
 

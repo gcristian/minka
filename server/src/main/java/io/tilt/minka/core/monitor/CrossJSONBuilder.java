@@ -45,13 +45,13 @@ import io.tilt.minka.core.task.Semaphore.Action;
  * @author Cristian Gonzalez
  * @since Nov 6, 2016
  */
-public class CrossMonitor {
+public class CrossJSONBuilder {
 
 	private final Scheduler scheduler;
 	private final EventBroker broker;
 	private final Config config;
 	
-	public CrossMonitor(
+	public CrossJSONBuilder(
 			final Scheme scheme,
 			final Scheduler scheduler,
 			final EventBroker broker, 

@@ -196,20 +196,24 @@
     ENSAMBLE
       
     ===============================================================================================-->
-    
-    <bean id="leaderMonitor" class="io.tilt.minka.core.monitor.LeaderMonitor">
-        <constructor-arg ref="leaderAware"/>
-        <constructor-arg ref="config"/>
+
+    <bean id="schemeJSONBuilder" class="io.tilt.minka.core.monitor.SchemeJSONBuilder">
         <constructor-arg ref="shardingScheme"/>
         <constructor-arg ref="partition"/>
     </bean>
     
-    <bean id="followerMonitor" class="io.tilt.minka.core.monitor.FollowerMonitor">
+    <bean id="distroJSONBuilder" class="io.tilt.minka.core.monitor.DistroJSONBuilder">
+        <constructor-arg ref="leaderAware"/>
+        <constructor-arg ref="config"/>
+        <constructor-arg ref="shardingScheme"/>
+    </bean>
+    
+    <bean id="followerJSONBuilder" class="io.tilt.minka.core.monitor.FollowerJSONBuilder">
         <constructor-arg ref="shardingScheme"/>
         <constructor-arg ref="partition"/>
     </bean>
 
-    <bean id="crossMonitor" class="io.tilt.minka.core.monitor.CrossMonitor">
+    <bean id="crossJSONBuilder" class="io.tilt.minka.core.monitor.CrossJSONBuilder">
         <constructor-arg ref="shardingScheme"/>
         <constructor-arg ref="scheduler"/>
         <constructor-arg ref="eventBroker"/>
@@ -218,9 +222,10 @@
     
     <bean id="systemStateMonitor" class="io.tilt.minka.core.monitor.SystemStateMonitor">
         <constructor-arg ref="config"/>
-        <constructor-arg ref="leaderMonitor"/>
-        <constructor-arg ref="followerMonitor"/>
-        <constructor-arg ref="crossMonitor"/>
+        <constructor-arg ref="distroJSONBuilder"/>
+        <constructor-arg ref="followerJSONBuilder"/>
+        <constructor-arg ref="crossJSONBuilder"/>
+        <constructor-arg ref="schemeJSONBuilder"/>
         <constructor-arg ref="leaderAware"/>
         <constructor-arg ref="scheduler"/>
     </bean>
@@ -233,7 +238,7 @@
         <constructor-arg ref="clientEventsHandler" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderAware" />
-        <constructor-arg ref="leaderMonitor" />
+        <constructor-arg ref="distroJSONBuilder" />
         <constructor-arg ref="partition" />
     </bean>
     

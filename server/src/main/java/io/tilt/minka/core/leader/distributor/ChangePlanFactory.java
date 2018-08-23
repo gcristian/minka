@@ -106,7 +106,7 @@ class ChangePlanFactory {
 			final Map<String, List<ShardEntity>> schemeByPallets) {
 		try {
 			boolean changes = false;
-			final ReplicationDispatcher replicator = new ReplicationDispatcher(scheme);
+			final Replicator replicator = new Replicator(scheme);
 			for (final Map.Entry<String, List<ShardEntity>> e : schemeByPallets.entrySet()) {
 				final Pallet pallet = scheme.getCommitedState().getPalletById(e.getKey()).getPallet();
 				final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());

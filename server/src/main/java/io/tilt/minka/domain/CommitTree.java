@@ -120,7 +120,7 @@ public class CommitTree implements Serializable {
 					for (Map.Entry<EntityEvent, Log> ee: e.getValue().entrySet()) {
 						final JSONObject stamps = new JSONObject();
 						for (StateStamp ss: ee.getValue().getStates()) {
-							stamps.put(ss.getState().name().toLowerCase(), ss.getDate());
+							stamps.put(ss.getState().name().toLowerCase(), ss.getDate().toString());
 						}
 						events.put(ee.getKey().name(), stamps);
 					}
@@ -144,7 +144,7 @@ public class CommitTree implements Serializable {
 					for (Map.Entry<EntityEvent, Log> ee: e.getValue().entrySet()) {
 						final JSONObject stamps = new JSONObject();
 						for (StateStamp ss: ee.getValue().getStates()) {
-							stamps.put(ss.getState().name().toLowerCase(), ss.getDate());
+							stamps.put(ss.getState().name().toLowerCase(), ss.getDate().toString());
 						}
 						events.put(ee.getKey().name(), stamps);
 					}

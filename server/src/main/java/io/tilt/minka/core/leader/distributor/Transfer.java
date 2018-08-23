@@ -67,7 +67,7 @@ class Transfer {
 						EntityState.PREPARED,
 						shard.getShardID(),
 						changePlan.getId());
-				changePlan.ship(shard, entity);				
+				changePlan.dispatch(shard, entity);				
 			}
 		}
 		

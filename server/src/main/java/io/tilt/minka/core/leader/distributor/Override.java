@@ -87,7 +87,7 @@ public class Override {
 						EntityState.PREPARED,
 						shard.getShardID(),
 						changePlan.getId());
-				changePlan.ship(shard, detach);
+				changePlan.dispatch(shard, detach);
 				logg.append(detach.getEntity().getId()).append(", ");
 				count[0]++;
 			}
@@ -115,7 +115,7 @@ public class Override {
 							EntityState.PREPARED,
 							shard.getShardID(),
 							changePlan.getId());
-					changePlan.ship(shard, attach);
+					changePlan.dispatch(shard, attach);
 					logg.append(attach.getEntity().getId()).append(", ");
 				}
 			}

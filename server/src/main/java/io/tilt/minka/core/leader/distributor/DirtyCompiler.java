@@ -176,7 +176,7 @@ class DirtyCompiler {
 					PREPARED,
 					shard.getShardID(),
 					changePlan.getId());
-			changePlan.ship(shard, deletion);
+			changePlan.dispatch(shard, deletion);
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Shipped {} from: {}, Duty: {}", name, DETACH, shard.getShardID(),
 					deletion.toBrief());

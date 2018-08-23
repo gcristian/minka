@@ -30,11 +30,11 @@ import io.tilt.minka.shard.Shard;
  * 
  * Stocked replicas are not balanced among the shards.
  */
-class ReplicationDispatcher {
+class Replicator {
 
 	private final Scheme scheme;
 
-	ReplicationDispatcher(final Scheme state) {
+	Replicator(final Scheme state) {
 		this.scheme = state;
 	}
 	
@@ -111,7 +111,7 @@ class ReplicationDispatcher {
 					EntityState.PREPARED, 
 					nextHost.getShardID(), 
 					changePlan.getId());
-			changePlan.ship(nextHost, replicated);
+			changePlan.dispatch(nextHost, replicated);
 			return true;
 		};
 	}

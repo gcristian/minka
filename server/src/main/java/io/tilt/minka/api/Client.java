@@ -36,7 +36,7 @@ import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.leader.ClientEventsHandler;
 import io.tilt.minka.core.leader.Leader;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
-import io.tilt.minka.core.monitor.LeaderMonitor;
+import io.tilt.minka.core.monitor.DistroJSONBuilder;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.impl.ZookeeperLeaderAware;
 import io.tilt.minka.domain.CommitTree;
@@ -70,7 +70,7 @@ public class Client {
 	private final ShardIdentifier shardId;
 	private final Config config;
 	private final LeaderAware leaderAware;
-	private final LeaderMonitor leaderMonitor;
+	private final DistroJSONBuilder distroJSONBuilder;
 	private final ShardedPartition partition;
 	private EventMapper eventMapper;
 
@@ -81,7 +81,7 @@ public class Client {
 			final ClientEventsHandler mediator, 
 			final ShardIdentifier shardId, 
 			final ZookeeperLeaderAware leaderAware, 
-			final LeaderMonitor leaderMonitor,
+			final DistroJSONBuilder distroJSONBuilder,
 			final ShardedPartition partition) {
 		this.config = config;
 		this.leader = leader;
@@ -89,7 +89,7 @@ public class Client {
 		this.clientMediator = mediator;
 		this.shardId = shardId;
 		this.leaderAware = leaderAware;
-		this.leaderMonitor = leaderMonitor;
+		this.distroJSONBuilder = distroJSONBuilder;
 		this.partition = partition;
 	}
 
@@ -98,7 +98,7 @@ public class Client {
 	 * @return a nonempty Status only when the curent shard is the Leader 
 	 */
 	public Map<String, Object> getStatus() {
-		return leaderMonitor.buildDistribution();
+		return distroJSONBuilder.buildDistribution();
 	}
 	/**
 	* Remove duties already running/distributed by Minka

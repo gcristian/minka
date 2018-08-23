@@ -49,10 +49,11 @@ import com.wordnik.swagger.annotations.Api;
 
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.core.monitor.CrossMonitor;
-import io.tilt.minka.core.monitor.FollowerMonitor;
-import io.tilt.minka.core.monitor.LeaderMonitor;
+import io.tilt.minka.core.monitor.CrossJSONBuilder;
+import io.tilt.minka.core.monitor.FollowerJSONBuilder;
+import io.tilt.minka.core.monitor.DistroJSONBuilder;
 import io.tilt.minka.core.monitor.OnDemandAppender;
+import io.tilt.minka.core.monitor.SchemeJSONBuilder;
 
 @Api("Minka Endpoint API")
 @Path("admin")
@@ -64,11 +65,13 @@ public class AdminEndpoint {
 	@Autowired
 	private Scheme scheme;
 	@Autowired
-	private CrossMonitor global;
+	private CrossJSONBuilder global;
 	@Autowired
-	private FollowerMonitor follower;
+	private FollowerJSONBuilder follower;
 	@Autowired
-	private LeaderMonitor distribution;
+	private DistroJSONBuilder distro;
+	@Autowired
+	private SchemeJSONBuilder schemeJSONBuilder;
 	@Autowired
 	private Config config;
 	@Autowired
@@ -116,7 +119,7 @@ public class AdminEndpoint {
 	@Path("/distro")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response status() throws JsonProcessingException {
-		return Response.accepted(distribution.distributionToJson()).build();
+		return Response.accepted(distro.distributionToJson()).build();
 	}
 
 	@GET
@@ -130,21 +133,21 @@ public class AdminEndpoint {
 	@Path("/pallets")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response pallets() throws JsonProcessingException {
-		return Response.accepted(distribution.palletsToJson()).build();
+		return Response.accepted(distro.palletsToJson()).build();
 	}
 	                    
 	@GET
 	@Path("/shards")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response shards() throws JsonProcessingException {
-		return Response.accepted(distribution.shardsToJson()).build();
+		return Response.accepted(distro.shardsToJson()).build();
 	}
 
 	@GET
 	@Path("/scheme")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response scheme(@QueryParam("detail") final boolean detail) throws JsonProcessingException {
-		return Response.accepted(distribution.schemeToJson(detail)).build();
+		return Response.accepted(schemeJSONBuilder.schemeToJson(detail)).build();
 	}
 
 	@GET
@@ -172,7 +175,7 @@ public class AdminEndpoint {
 	@Path("/plans")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response plans(@QueryParam("detail") final boolean detail) throws JsonProcessingException {
-        return Response.accepted(distribution.plansToJson(detail)).build();
+        return Response.accepted(distro.plansToJson(detail)).build();
 	}
 	
 	// =========================================================================================================

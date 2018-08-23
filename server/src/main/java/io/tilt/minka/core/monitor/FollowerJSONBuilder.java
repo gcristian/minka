@@ -41,12 +41,12 @@ import io.tilt.minka.shard.Shard;
  * @author Cristian Gonzalez
  * @since Nov 6, 2016
  */
-public class FollowerMonitor {
+public class FollowerJSONBuilder {
 
 	private final Scheme scheme;
 	private final ShardedPartition partition;
 	
-	public FollowerMonitor(
+	public FollowerJSONBuilder(
 			final Scheme scheme,
 			final ShardedPartition partition) {
 		

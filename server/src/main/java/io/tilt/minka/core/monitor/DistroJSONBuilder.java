@@ -21,16 +21,13 @@ import static java.util.stream.Collectors.toList;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
-import org.apache.commons.lang.Validate;
 import org.joda.time.DateTime;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -38,14 +35,12 @@ import org.json.JSONObject;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
 import io.tilt.minka.core.leader.data.CommitedState;
-import io.tilt.minka.core.leader.data.DirtyState;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
@@ -57,30 +52,27 @@ import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
  * @author Cristian Gonzalez
  * @since Nov 6, 2016
  */
-public class LeaderMonitor {
+public class DistroJSONBuilder {
 
 	private final LeaderAware leaderAware;
 	private final Config config;
 	
 	private final Scheme scheme;
-	private final ShardedPartition partition;
 	
 	private final ChangePlan[] lastPlan = {null};
 	private final SlidingSortedSet<String> changePlanHistory;
 	private final SlidingSortedSet<Long> planids;
 	private long planAccum;
 
-	public LeaderMonitor(
+	public DistroJSONBuilder(
 			final LeaderAware leaderAware,
 			final Config config,
-			final Scheme scheme,
-			final ShardedPartition partition) {
+			final Scheme scheme) {
 		super();
 		
 		this.leaderAware = requireNonNull(leaderAware); 
 		this.config = requireNonNull(config);
 		this.scheme = requireNonNull(scheme);
-		this.partition = requireNonNull(partition);
 		
 		this.changePlanHistory = CollectionUtils.sliding(20);
 		this.planids = CollectionUtils.sliding(10);
@@ -112,6 +104,22 @@ public class LeaderMonitor {
 		return SystemStateMonitor.toJson(buildShards(scheme));
 	}
 	
+	private Map<String, Object> buildShards(final Scheme scheme) {
+		final Map<String, Object> map = new LinkedHashMap<>(5);
+		map.put("namespace", config.getBootstrap().getNamespace());
+		map.put("leader", leaderAware.getLeaderShardId());
+		map.put("previous", leaderAware.getAllPreviousLeaders());
+		final Map<String, List<String>> tmp = new HashMap<>();
+		scheme.getCommitedState().getGoneShards().entrySet().forEach(e-> {
+			tmp.put(e.getKey().getId(), e.getValue().values().stream().map(c->c.toString()).collect(toList()));
+		});
+		map.put("gone", tmp);
+		final List<Shard> list = new ArrayList<>();
+		scheme.getCommitedState().findShards(null, list::add);
+		map.put("shards", list);
+		return map;
+	}
+	
 	/**
 	 * <p>
 	 * Gives detailed information on change plans built in distributor phase
@@ -122,45 +130,6 @@ public class LeaderMonitor {
 	 */
 	public String plansToJson(final boolean detail) {
 		return SystemStateMonitor.toJson(buildPlans(detail).toMap());
-	}
-
-	/**
-	 * <p>
-	 * Gives detailed information on distributed duties and their shard locations
-	 * <p>
-	 * Non-Empty only when the current server is the Leader.
-	 * @return			a String in json format
-	 */
-	public String distributionToJson() {
-		return SystemStateMonitor.toJson(buildDistribution());
-	}
-
-	public String palletsToJson() {
-		return SystemStateMonitor.toJson(buildPallets());
-	}
-
-	/**
-	 * 
-	 * <p>
-	 * Non-Empty only when the current server is the Leader.
-	 * @return			a String in json format
-	 */
-	public String schemeToJson(final boolean detail) {
-		if (detail) {
-			final JSONObject j = new JSONObject();
-			final JSONObject jo = (JSONObject) buildCommitedState(true);
-			j.put("commited", jo);
-			j.put("replicas", buildReplicas(detail));
-			j.put("uncommited", buildUncommitedChanges(detail, scheme.getDirty()));
-			return SystemStateMonitor.toJson(j.toMap());
-		} else {
-			Map<String, Object> m = new LinkedHashMap<>(2);
-			final Object det = buildCommitedState(detail);
-			m.put("commited", detail ? ((JSONObject)det).toMap() : det);
-			m.put("replicas", buildReplicas(detail));
-			m.put("uncommited", buildUncommitedChanges(detail, scheme.getDirty()));
-			return SystemStateMonitor.toJson(m);			
-		}
 	}
 	
 	private JSONObject buildPlans(final boolean detail) {
@@ -190,22 +159,21 @@ public class LeaderMonitor {
 		return js;
 	}
 
-	private Map<String, Object> buildShards(final Scheme scheme) {
-		final Map<String, Object> map = new LinkedHashMap<>(5);
-		map.put("namespace", config.getBootstrap().getNamespace());
-		map.put("leader", leaderAware.getLeaderShardId());
-		map.put("previous", leaderAware.getAllPreviousLeaders());
-		final Map<String, List<String>> tmp = new HashMap<>();
-		scheme.getCommitedState().getGoneShards().entrySet().forEach(e-> {
-			tmp.put(e.getKey().getId(), e.getValue().values().stream().map(c->c.toString()).collect(toList()));
-		});
-		map.put("gone", tmp);
-		final List<Shard> list = new ArrayList<>();
-		scheme.getCommitedState().findShards(null, list::add);
-		map.put("shards", list);
-		return map;
+	/**
+	 * <p>
+	 * Gives detailed information on distributed duties and their shard locations
+	 * <p>
+	 * Non-Empty only when the current server is the Leader.
+	 * @return			a String in json format
+	 */
+	public String distributionToJson() {
+		return SystemStateMonitor.toJson(buildDistribution());
 	}
-	
+
+	public String palletsToJson() {
+		return SystemStateMonitor.toJson(buildPallets());
+	}
+
 	public Map<String, Object> buildDistribution() {
 		final Map<String, Object> map = new LinkedHashMap<>(2);
 		map.put("global", buildGlobal(scheme));
@@ -213,84 +181,6 @@ public class LeaderMonitor {
 		return map;
 	}
 	
-	private Object buildCommitedState(final boolean detail) {
-		Validate.notNull(scheme);
-		final Map<String, Object> byPalletId = new LinkedHashMap<>();
-		final JSONObject js = new JSONObject();
-		final Consumer<ShardEntity> adder;
-		if (detail) {
-			adder = collectorWithDetail(js);	
-		} else {
-			adder = collecter(byPalletId);
-		}
-		scheme.getCommitedState().findDuties(adder);
-		return detail ? js : byPalletId;
-	}
-
-	private Map<String, Object> buildReplicas(final boolean detail) {
-		Validate.notNull(scheme);
-		final Map<String, Object> byPalletId = new LinkedHashMap<>();
-		final Consumer<ShardEntity> adder = detail ? collectorWithDetail(byPalletId) : collecter(byPalletId);
-		partition.getReplicas().forEach(adder);;
-		return byPalletId;
-	}
-
-	private Consumer<ShardEntity> collectorWithDetail(final Map<String, Object> byPalletId) {
-		final Consumer<ShardEntity> adder = d-> {
-			ArrayList<Object> list = (ArrayList) byPalletId.get(d.getDuty().getPalletId());
-			if (list==null) {
-				byPalletId.put(d.getDuty().getPalletId(), list = new ArrayList<>());
-			}
-			list.add(d.getCommitTree().toJson());
-		};
-		return adder;
-	}
-	
-	private Consumer<ShardEntity> collectorWithDetail(final JSONObject js) {
-		final Consumer<ShardEntity> adder = d-> {
-			final String pid = d.getDuty().getPalletId();
-			JSONArray array = js.has(pid) ? js.getJSONArray(pid) : null;
-			if (array==null) {
-				js.put(pid, array = new JSONArray());
-			}
-			final JSONObject ks = d.getCommitTree().toJson();
-			ks.put("id", d.getDuty().getId());
-			array.put(ks);
-		};
-		return adder;
-	}
-
-	private Consumer<ShardEntity> collecter(final Map<String, Object> byPalletId) {
-		final Consumer<ShardEntity> adder = d-> {
-			StringBuilder sb = (StringBuilder) byPalletId.get(d.getDuty().getPalletId());
-			if (sb==null) {
-				byPalletId.put(d.getDuty().getPalletId(), sb = new StringBuilder());
-			}
-			sb.append(d.getDuty().getId()).append(',');
-		};
-		return adder;
-	}
-
-	private List<Object> dutyBrief(final Collection<ShardEntity> coll, final boolean detail) {
-		List<Object> ret = new ArrayList<>();
-		if (!detail) {
-			coll.stream()
-				.map(d->d.getDuty().getId())
-				.forEach(ret::add);
-		} else {
-			coll.forEach(ret::add);
-		}
-		return ret;
-	}
-	
-	private Map<String, List<Object>> buildUncommitedChanges(final boolean detail, final DirtyState dirtyState) {
-		final Map<String, List<Object>> ret = new LinkedHashMap<>(3);		
-		ret.put("crud", dutyBrief(dirtyState.getDutiesCrud(), detail));
-		ret.put("dangling", dutyBrief(dirtyState.getDutiesDangling(), detail));
-		ret.put("missing", dutyBrief(dirtyState.getDutiesMissing(), detail));
-		return ret;
-	}
-
 	private List<Map<String, Object>> buildPallets() {
 		
 		final CommitedState.SchemeExtractor extractor = new CommitedState.SchemeExtractor(scheme.getCommitedState());
