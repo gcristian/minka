@@ -276,39 +276,15 @@ public class ChangePlan implements Comparable<ChangePlan> {
 						}
 					}
 					if (!pair) {
-						// TODO no funciona xq planFactory.addMisingCrud reinicia con CREATE
 						// avoid unpaired danglings/missing being a/dettached
-						/*
-						if (!wasRecentlyUnifinishedlyAllocated(j)) {
+						if (!j.hasUnifinishedEvent(2, j.getLast().getEvent())) {
 							unpaired.accept(entity);
 						}
-						*/
 					}
 				}
 			}
 		}
 	}
-
-	/*
-	private static boolean wasRecentlyUnifinishedlyAllocated(final CommitTree j) {
-		boolean isLegitUnpair = false;
-		int maxHistory = 1; // max history back will find a VALID CREATION in some steps
-		for (final Iterator<Log> it = j.descendingIterator(); it.hasNext() && maxHistory > 0;) {
-			final Log l = it.next();
-			if (isLegitUnpair = (l.getEvent()==EntityEvent.CREATE
-					// any suspicious state
-					|| l.getLastState()==EntityState.PREPARED
-					|| l.getLastState()==EntityState.MISSING
-					|| l.getLastState()==EntityState.PENDING 
-					|| l.getLastState()==EntityState.DANGLING)) {
-				break;
-			} else {
-				maxHistory--;
-			}
-		}
-		return isLegitUnpair;
-	}
-	*/
     
     /** @return whether caller has permission to get next delivery   */
 	boolean hasNextParallel(final Consumer<String> c) {

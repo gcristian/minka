@@ -42,6 +42,7 @@ import org.json.JSONObject;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import io.tilt.minka.domain.CommitTree.Log.StateStamp;
+import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardIdentifier;
 
 /**
@@ -271,7 +272,31 @@ public class CommitTree implements Serializable {
 		}
 		return ret;
 	}
-	
+
+	public boolean hasUnifinishedEvent(
+			int maxPlansBack,
+			final EntityEvent ee) { 
+		boolean isLegitUnpair = false;
+		for (Long pid: tree.descendingKeySet()) {
+			if (maxPlansBack-- < 0) {
+				break;
+			}
+			for (LimMap<EntityEvent, Log> m: tree.get(pid).values()) {
+				final Log l = m.get(ee);
+				if (l!=null) {
+					if (isLegitUnpair = (
+							// any suspicious state
+							l.getLastState()==EntityState.PREPARED
+							|| l.getLastState()==EntityState.MISSING
+							|| l.getLastState()==EntityState.PENDING 
+							|| l.getLastState()==EntityState.DANGLING)) {
+						break;
+					}
+				}
+			}
+		}
+		return isLegitUnpair;
+	}
 
 	public Log getPreviousLog(final String shardid) {
 		if (!tree.isEmpty()) {
@@ -300,73 +325,6 @@ public class CommitTree implements Serializable {
 		}
 		return null;
 	}
-	
-	interface Common<K, V> extends Map<K, V> {
-		default V getOrPut(final K key, final Supplier<V> defaultValue) {
-			V v = get(key);
-			if (v==null) {
-				put(key, v = defaultValue.get());
-			}
-			return v;
-		}
-
-	}
-
-	/** a limited map */
-	static class LimMap<K, V> extends TreeMap<K, V> implements Common<K, V>, Serializable {
-		private static final long serialVersionUID = 9044973294863922841L;
-		private final int limit;
-		
-		@Override
-		public V put(final K key, final V value) {
-			while (size() > limit) { 
-				remove(firstKey());
-			}
-			return super.put(key, value);
-		}
-		
-		public LimMap(final int limit, final Comparator<K> c) {
-			super(c);
-			this.limit = limit;
-		}
-	}
-	
-	/** a limited and insertion order map */
-	static class InsMap<K, V> extends LinkedHashMap<K, V> implements Common<K, V>, Serializable {
-		
-		private static final long serialVersionUID = -315653595943790784L;
-		private final int limit;
-		
-		@Override
-		public V put(final K key, final V value) {
-			// TODO delete keys if needed
-			return super.put(key, value);
-		}
-		
-		InsMap(final int limit) {
-			super();
-			this.limit = limit;
-		}
-		
-		V getLast() {
-			final Iterator<java.util.Map.Entry<K, V>> it = entrySet().iterator();
-			V last = null;
-			while (it.hasNext()){
-				last = it.next().getValue();
-			}
-			return last;
-		}
-		
-		V getFirst() {
-			final Iterator<java.util.Map.Entry<K, V>> it = entrySet().iterator();
-			if (it.hasNext()){
-				return it.next().getValue();
-			}
-			return null;
-		}
-		
-	}
-
 
 	public void addEvent(
 			final EntityEvent event, 
@@ -666,5 +624,72 @@ public class CommitTree implements Serializable {
 	}
 
 	
+
+	interface Common<K, V> extends Map<K, V> {
+		default V getOrPut(final K key, final Supplier<V> defaultValue) {
+			V v = get(key);
+			if (v==null) {
+				put(key, v = defaultValue.get());
+			}
+			return v;
+		}
+
+	}
+
+	/** a limited map */
+	static class LimMap<K, V> extends TreeMap<K, V> implements Common<K, V>, Serializable {
+		private static final long serialVersionUID = 9044973294863922841L;
+		private final int limit;
+		
+		@Override
+		public V put(final K key, final V value) {
+			while (size() > limit) { 
+				remove(firstKey());
+			}
+			return super.put(key, value);
+		}
+		
+		public LimMap(final int limit, final Comparator<K> c) {
+			super(c);
+			this.limit = limit;
+		}
+	}
+	
+	/** a limited and insertion order map */
+	static class InsMap<K, V> extends LinkedHashMap<K, V> implements Common<K, V>, Serializable {
+		
+		private static final long serialVersionUID = -315653595943790784L;
+		private final int limit;
+		
+		@Override
+		public V put(final K key, final V value) {
+			// TODO delete keys if needed
+			return super.put(key, value);
+		}
+		
+		InsMap(final int limit) {
+			super();
+			this.limit = limit;
+		}
+		
+		V getLast() {
+			final Iterator<java.util.Map.Entry<K, V>> it = entrySet().iterator();
+			V last = null;
+			while (it.hasNext()){
+				last = it.next().getValue();
+			}
+			return last;
+		}
+		
+		V getFirst() {
+			final Iterator<java.util.Map.Entry<K, V>> it = entrySet().iterator();
+			if (it.hasNext()){
+				return it.next().getValue();
+			}
+			return null;
+		}
+		
+	}
+
 
 }
