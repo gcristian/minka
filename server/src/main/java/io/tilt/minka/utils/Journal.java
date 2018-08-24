@@ -1,7 +1,6 @@
 package io.tilt.minka.utils;
 
 import java.text.MessageFormat;
-import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -21,16 +20,32 @@ import org.slf4j.LoggerFactory;
  * there're no watchers dequeuing events (watching them)
  */ 
 public class Journal {
-	
-	
-	public static final String DISTRO_START = "Starting. Scheduling distributor";
-	public static final String DISTRO_STOP = "Stopping. Distributor cancelled";
-	
-	
-	public final static String CHANGEPLAN_FINISHED = "ChangePlan finished ! (all changes in scheme)";
 
-
+	public interface MixinTemplate {
+		String getPattern();
+		int getArgSize();
+		Kind getKind();
+		
+	}
 	
+	public enum Thread {
+		Distribution,
+		ShardKeeper,
+		FollowerEvent,
+		ClientEvent
+		;
+	}
+
+	public enum Kind {
+		MSG(Level.INFO), 
+		ERROR(Level.ERROR), 
+		FATAL(Level.ERROR)
+		;
+		private final Level level;
+		Kind(final Level l) {
+			this.level=l;
+		}
+	}
 	
 	public static enum Inbox {
 		LEADER, FOLLOWER, TASKS, BROKER;
@@ -72,18 +87,6 @@ public class Journal {
 		return this.inboxes.get(i);
 	}
 	
-	public static class Story {
-		private Level type;
-		private Instant time;
-		private Class<?> issuer;
-		private String msg;
-	}
-	
-	public static enum Issue {
-		PERMANENT,
-		TRANSIENT,
-	}
-
 	public static class JournalHandler {
 		
 		
@@ -99,9 +102,12 @@ public class Journal {
 			this.state = state;
 		}
 		
-		public void event(final Level level, final String msg, final Object...args) {
-			final String msgg = MessageFormat.format(msg, args);
-			doLog4jLog(level, msgg, args);
+		public void event(final MixinTemplate msg, final Object...args) {
+			if (args.length != msg.getArgSize()) {
+				throw new IllegalArgumentException("");
+			}
+			final String msgg = MessageFormat.format(msg.getPattern(), args);
+			doLog4jLog(msg.getKind().level, msgg, args);
 			doTransient(msgg, args);
 		}
 

@@ -123,6 +123,12 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 					event.getClass().getSimpleName());
 		}
 	}
+	
+	public enum Consistency {
+		LEADER,
+		
+		
+	}
 
 	public synchronized void mediateOnEntity(final Collection<ShardEntity> entities, final Consumer<Reply> callback) {
 	    final ShardEntity first = entities.iterator().next();

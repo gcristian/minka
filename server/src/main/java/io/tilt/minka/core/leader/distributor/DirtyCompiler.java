@@ -45,7 +45,10 @@ import io.tilt.minka.shard.Shard;
  */
 class DirtyCompiler {
 
-	private static final String SHIPPED_FROM_DUTY = "{}: Shipped {} from: {}, Duty: {}";
+	private final String DC_DANGLING_RESUME = "{}: Registered {} dangling duties {}";
+	private final String DC_UNFINISHED_DANGLING	= "{}: Previous change's unfinished business saved as Dangling: {}";
+	private final String DC_FALSE_UNFINISHED = "{}: Previous change although unfinished hasnt waiting duties";
+	private final String DC_SHIPPED_FROM_DUTY	 =" {}: Shipped {} from: {}, Duty: {}";
 
 	private static final Logger logger = LoggerFactory.getLogger(DirtyCompiler.class);
 
@@ -112,10 +115,11 @@ class DirtyCompiler {
 				}
 			});
 			if (rescued ==0 && logger.isInfoEnabled()) {
-				logger.info("{}: Previous change although unfinished hasnt waiting duties", name);
+				
+				logger.info(DC_FALSE_UNFINISHED, name);
 			} else {
 				if (logger.isInfoEnabled()) {
-					logger.info("{}: Previous change's unfinished business saved as Dangling: {}", name, rescued);
+					logger.info(DC_UNFINISHED_DANGLING, name, rescued);
 				}
 			}
 		}
@@ -133,8 +137,7 @@ class DirtyCompiler {
 					changePlan.getId());
 			changePlan.dispatch(shard, deletion);
 			if (logger.isInfoEnabled()) {
-				logger.info(SHIPPED_FROM_DUTY, name, DETACH, shard.getShardID(),
-					deletion.toBrief());
+				logger.info(DC_SHIPPED_FROM_DUTY, name, DETACH, shard.getShardID(), deletion.toBrief());
 			}
 		}
 	}
@@ -179,9 +182,7 @@ class DirtyCompiler {
 			snapshot.addCrudDuty(missed);
 		}
 		if (!missing.isEmpty()) {
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: Registered {} dangling duties {}", name, missing.size(), toStringIds(missing));
-			}
+			logger.info(DC_DANGLING_RESUME, name, missing.size(), toStringIds(missing));
 		}
 	}
 	

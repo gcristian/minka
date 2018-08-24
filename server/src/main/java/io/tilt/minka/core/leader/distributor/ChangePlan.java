@@ -255,6 +255,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 			final Consumer<ShardEntity> unpaired) {
 		final Set<ShardEntity> alreadyPaired = new TreeSet<>();
 		for (Delivery del : deliveries) {
+			
 			final EntityEvent inversion = inverse(del);
 			if (inversion == null) {
 				continue;
@@ -380,7 +381,6 @@ public class ChangePlan implements Comparable<ChangePlan> {
 						&& s.getDuty().getPalletId().equals(duty.getPalletId())) {
 					detaching |=d.getEvent()==EntityEvent.DETACH;
 					attaching |=d.getEvent()==EntityEvent.ATTACH;
-					logger.info("ALAMAILOV {} {}", detaching, attaching);
 					break;
 				}
 			}
