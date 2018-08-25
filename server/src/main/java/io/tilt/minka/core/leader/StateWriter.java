@@ -63,9 +63,12 @@ public class StateWriter {
 		this.scheme = scheme;
 	}
 
-	void commit(final Shard shard, final Log changelog, final ShardEntity entity, 
+	void commit(final Shard shard, 
+			final Log changelog, 
+			final ShardEntity entity, 
 			final Map<EntityEvent, StringBuilder> logging) {
-		final Runnable r = ()-> {
+		
+		if (scheme.getCommitedState().commit(entity, shard, changelog.getEvent())) {
 			if (logger.isInfoEnabled()) {
 				StringBuilder sb = logging.get(changelog.getEvent());
 				if (sb==null) {
@@ -79,18 +82,23 @@ public class StateWriter {
 					COMMITED,
 					shard.getShardID(),
 					changelog.getPlanId());
-			
-			if (changelog.getEvent().is(EntityEvent.REMOVE)) {
-				scheme.getVault().add(shard.getShardID().getId(), EntityRecord.fromEntity(entity, false));
+						
+			if (changelog.getEvent().getType()==EntityEvent.Type.ALLOC) {
+				if (changelog.getEvent().is(EntityEvent.DETACH)) {
+					moveToVault(shard, changelog, entity);
+				}
+				clearDirtyState(changelog, entity, shard);
 			}
-		};
-			
-		if (scheme.getCommitedState().commit(entity, shard, changelog.getEvent(), r)
-				// type:replicas dont use (should not at least) use uncommitted-changes
-			&& changelog.getEvent().getType()==EntityEvent.Type.ALLOC) {
-			clearDirtyState(changelog, entity, shard);
 		}
-		
+	}
+
+	private void moveToVault(final Shard shard, final Log changelog, final ShardEntity entity) {
+		if (null != entity.getCommitTree().findOne(
+				changelog.getPlanId(), 
+				shard.getShardID(), 
+				EntityEvent.REMOVE)) {
+			scheme.getVault().add(shard.getShardID().getId(), EntityRecord.fromEntity(entity, false));
+		}
 	}
 
 	/** keep the uncommited-changes repo clean to its purpose */
@@ -181,13 +189,15 @@ public class StateWriter {
 			if (logger.isInfoEnabled()) {
 				log.append(ShardEntity.toStringIds(e.getValue()));
 			}
-			e.getValue().forEach(d->scheme.getCommitedState().commit(d, shard, REMOVE, ()->{
-				d.getCommitTree().addEvent(
-						d.getLastEvent(),
-						e.getKey(), 
-						"N/A", // the last shard id 
-						d.getCommitTree().getLast().getPlanId());
-			}));
+			for (ShardEntity d: e.getValue()) {
+				if (scheme.getCommitedState().commit(d, shard, REMOVE)) {
+					d.getCommitTree().addEvent(
+							d.getLastEvent(),
+							e.getKey(), 
+							"N/A", // the last shard id 
+							d.getCommitTree().getLast().getPlanId());
+				}
+			}
 		}
 		if (log.length()>0) {
 			logger.info("{}: Written unexpected absents ({}) at [{}] on: {}", 

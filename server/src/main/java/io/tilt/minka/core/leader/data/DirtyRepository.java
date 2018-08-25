@@ -87,8 +87,7 @@ public class DirtyRepository {
 			// directly commit them as THE true reality			
 			scheme.getCommitedState().commit(patch, 
 					scheme.getCommitedState().findShard(sid->sid.getShardID().equals(shard)), 
-					EntityEvent.ATTACH, 
-					null);
+					EntityEvent.ATTACH);
 		});
 		
 		if (!merged.isEmpty()) {

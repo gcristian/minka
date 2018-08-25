@@ -121,7 +121,7 @@ class DirtyCompiler {
 			}
 			if (lazy != null) {
 				// this's a FIX to the right state
-				state.commit(missed, lazy, REMOVE, ()-> {
+				if (state.commit(missed, lazy, REMOVE)) {
 					// missing duties are a confirmation per-se from the very shards,
 					// so the ptable gets fixed right away without a realloc.
 					missed.getCommitTree().addEvent(
@@ -129,7 +129,7 @@ class DirtyCompiler {
 							COMMITED,
 							lazy.getShardID(),
 							changePlan.getId());					
-				});
+				}
 			}
 			missed.getCommitTree().addEvent(CREATE, PREPARED,"N/A",changePlan.getId());
 			snapshot.addCrudDuty(missed);

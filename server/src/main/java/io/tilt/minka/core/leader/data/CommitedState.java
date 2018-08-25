@@ -157,7 +157,7 @@ public class CommitedState {
 	
 	public void loadReplicas(final Shard shard, final Set<ShardEntity> replicas) {
 		for (ShardEntity replica: replicas) {
-			commit(replica, shard, EntityEvent.STOCK, null);
+			commit(replica, shard, EntityEvent.STOCK);
 		}
 	}
 	
@@ -169,7 +169,7 @@ public class CommitedState {
 	 * @param callback	called when writting is possible
 	 * @return if there was a CommitedState change after the action 
 	 */
-	public boolean commit(final ShardEntity duty, final Shard where, final EntityEvent event, final Runnable callback) {
+	public boolean commit(final ShardEntity duty, final Shard where, final EntityEvent event) {
 		final boolean add = event.is(EntityEvent.ATTACH);// || event.is(EntityEvent.CREATE);
 		final boolean del = !add && (event.is(EntityEvent.DETACH) || event.is(EntityEvent.REMOVE));
 		final ShardedPartition part = getPartition(where);
@@ -185,9 +185,6 @@ public class CommitedState {
 			impact = part.drop(duty);
 		} else {
 			throw new ConsistencyException("Commit failure (" + duty + ") Operation does not apply [" + event + "]");
-		}
-		if (impact && callback!=null) {
-			callback.run();
 		}
 		return impact;
 	}
