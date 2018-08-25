@@ -91,7 +91,7 @@ class ChangePlanFactory {
 					name, creations.size(), deletions.size());
 			plan = null;
 		} else {
-			if (!balanceByPallet(scheme, plan, creations, deletions, schemeByPallets)) {
+			if (!build(scheme, plan, creations, deletions, schemeByPallets)) {
 				plan = null;
 			}
 		}
@@ -99,7 +99,7 @@ class ChangePlanFactory {
 		return plan;
 	}
 	
-	private boolean balanceByPallet(
+	private boolean build(
 			final Scheme scheme, final ChangePlan changePlan,
 			final Set<ShardEntity> creations, final Set<ShardEntity> deletions, 
 			final Map<String, List<ShardEntity>> schemeByPallets) {
@@ -111,19 +111,18 @@ class ChangePlanFactory {
 				final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
 				logStatus(scheme, creations, deletions, e.getValue(), pallet, balancer);
 				if (balancer != null) {
-					final Migrator migra = balancePallet(scheme, pallet, balancer, creations, deletions);
+					final Migrator migra = balance(scheme, pallet, balancer, creations, deletions);
 					changes |= migra.write(changePlan);
 					changes |= replicator.write(changePlan, creations, deletions, aware.getLeaderShardId(), pallet);
 				} else {
-					if (logger.isInfoEnabled()) {
-						logger.info("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", name,
-							pallet.getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
-					}
+					logger.warn("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", name,
+						pallet.getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
 				}
 			}
+			
 			// only when everything went well otherwise'd be lost
-			scheme.getDirty().clearAllocatedMissing();
-			scheme.getDirty().cleanAllocatedDanglings();
+			scheme.getDirty().clearAllocatedMissing(null);
+			scheme.getDirty().cleanAllocatedDanglings(null);
 			if (!changes && deletions.isEmpty()) {
 				return false;
 			}
@@ -134,7 +133,7 @@ class ChangePlanFactory {
 		return true;
 	}
 
-	private static final Migrator balancePallet(
+	private static final Migrator balance(
 			final Scheme partition, 
 			final Pallet pallet, 
 			final Balancer balancer,

@@ -148,10 +148,11 @@ public class DirtyState {
 		return added;
 
 	}
-	public void cleanAllocatedDanglings() {
+	public void cleanAllocatedDanglings(final Predicate<ShardEntity> test) {
 		checkNotOnSnap();
 		if (snapshot!=null && !dutyDangling.isEmpty()) {
-			remove(snapshot.dutyDangling, dutyDangling, s->s.getLastState() != EntityState.STUCK);
+			remove(snapshot.dutyDangling, dutyDangling, s->s.getLastState() != EntityState.STUCK 
+					&& test==null || (test!=null && test.test(s)));
 		}
 	}
 	private void remove(
@@ -210,10 +211,11 @@ public class DirtyState {
 		return Collections.unmodifiableCollection(this.dutyMissings.values());
 	}
 	
-	public void clearAllocatedMissing() {
+	public void clearAllocatedMissing(final Predicate<ShardEntity> test) {
 		checkNotOnSnap();
 		if (snapshot!=null && !dutyMissings.isEmpty()) {
-			remove(snapshot.dutyMissings, dutyMissings, s->s.getLastState() != EntityState.STUCK);
+			remove(snapshot.dutyMissings, dutyMissings, s->s.getLastState() != EntityState.STUCK 
+					&& test==null || (test!=null && test.test(s)));
 		}
 	}
 	
