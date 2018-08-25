@@ -16,9 +16,6 @@
  */
 package io.tilt.minka.core.leader.distributor;
 
-import static java.util.Collections.emptyList;
-import static java.util.stream.Collectors.toList;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,7 +31,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -48,12 +44,11 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.CommitedState;
-import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.CommitTree.Log;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.Shard;
@@ -92,7 +87,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
     private final long maxMillis;
     private final long maxRetries;
 
-	private final Map<EntityEvent, Map<Shard, List<ShardEntity>>> shippings;
+	private final Map<EntityEvent, Map<Shard, List<ShardEntity>>> dispatches;
 	
 	private Delivery lastDelivery;
 	private int deliveryIdx;
@@ -111,7 +106,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 
 	ChangePlan(final long maxMillis, final int maxRetries) {
 		this.created = Instant.now();
-		this.shippings = new HashMap<>(consistentEventsOrder.size());
+		this.dispatches = new HashMap<>(consistentEventsOrder.size());
 		this.deliveries = Collections.emptyList();
 		this.maxMillis = maxMillis;
 		this.maxRetries = maxRetries;
@@ -150,8 +145,8 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		this.ended = Instant.now();
 	}
 
-	void onShippingsFor(final EntityEvent event, final Shard shard, final BiConsumer<Shard, ShardEntity> c) { 
-		final Map<Shard, List<ShardEntity>> map = shippings.get(event);
+	void onDispatchesFor(final EntityEvent event, final Shard shard, final BiConsumer<Shard, ShardEntity> c) { 
+		final Map<Shard, List<ShardEntity>> map = dispatches.get(event);
 		if (map!=null) {
 			for (Entry<Shard, List<ShardEntity>> x : map.entrySet()) {
 				if (x!=null && (shard==null || shard.equals(x.getKey()))) {
@@ -195,8 +190,8 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		this.started= Instant.now();
 		int order = 0;
 		for (final EntityEvent event: consistentEventsOrder) {
-			if (shippings.containsKey(event)) {
-				for (final Entry<Shard, List<ShardEntity>> e: shippings.get(event).entrySet()) {
+			if (dispatches.containsKey(event)) {
+				for (final Entry<Shard, List<ShardEntity>> e: dispatches.get(event).entrySet()) {
 					// one delivery for each shard
 					if (!e.getValue().isEmpty()) {
 						if (deliveries.isEmpty()) {
@@ -213,7 +208,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 			logger.error("{}: Invalid ChangePlan with an operation unpaired: {}", getClass().getSimpleName(), 
 					unpaired.toBrief());
 		});
-		this.shippings.clear();
+		this.dispatches.clear();
 		iterator = deliveries.iterator();
 		return iterator.hasNext();
 	}
@@ -435,7 +430,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	void dispatch(final Shard shard, final ShardEntity duty) {
 		getOrPut(
 			getOrPut(
-				shippings,
+				dispatches,
 				duty.getLastEvent(),
 				() -> new HashMap<>(2)),
 			shard,
@@ -456,8 +451,8 @@ public class ChangePlan implements Comparable<ChangePlan> {
 
 	
 	@JsonIgnore
-	boolean areShippingsEmpty() {
-		return shippings.isEmpty();
+	boolean dispatchesEmpty() {
+		return dispatches.isEmpty();
 	}
 	
 	@JsonIgnore

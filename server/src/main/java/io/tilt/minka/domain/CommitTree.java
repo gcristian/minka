@@ -50,21 +50,27 @@ import io.tilt.minka.shard.ShardIdentifier;
  *  
  * Deliveries are organized so events occurr in this order:
  * 
- * 	 event		state		shard	plan id
- * 	 =====		=========	=====	=======
- * 
- * log1:  
- *   DETTACH 	PREPARED	9000	 1
- *   DETTACH 	PENDING		9000	 1
- *   DETTACH 	COMMITED	9000	 1
- *   
- * log2:
- * 	 ATTACH 	PREPARED	9001	 1
- *   ATTACH 	PENDING		9001	 1
- *   ATACH 		COMMITED	9001	 1
+ * "plan-id:1729318729": {
+ *		"shard-id:192.168.0.0": {
+ * 			"detach": {
+ * 				"prepared": "2018-08-21:11:22:32",
+ *	 			"pending": "2018-08-21:11:22:32",
+ * 				"ack": "2018-08-21:11:22:32",
+ *	 			"committed": "2018-08-21:11:22:32",
+ * 			}	
+ *  	},
+ *   	"shard-id:192.168.0.1": {
+ * 			"attach": {
+ * 				"prepared": "2018-08-21:11:22:32",
+ *	 			"pending": "2018-08-21:11:22:32",
+ * 				"ack": "2018-08-21:11:22:32",
+ *	 			"committed": "2018-08-21:11:22:32",
+ * 			}	
+ *  	}
+ * }
  *  
  *  @author Cristian Gonzalez
- *  @since  Oct 15, 2017
+ *  @since  Jun 5, 2018
 */
 public class CommitTree implements Serializable {
 
@@ -95,20 +101,7 @@ public class CommitTree implements Serializable {
 							MAX_PLAN_HISTORY, 
 							(Comparator<Long> & Serializable) Long::compare);
 
-	/**
-	 *  A realistic synthetized view of data structure.
-	 * 
-	 * "plan-id:1729318729": {
-	 * 		"shard-id:192.156.0.1": {
-	 * 			"attach": {
-	 * 				"prepared": "2018-08-21:11:22:32",
-	 * 				"pending": "2018-08-21:11:22:32",
-	 * 				"ack": "2018-08-21:11:22:32",
-	 * 				"committed": "2018-08-21:11:22:32",	
-	 * 			}
-	 * 		}
-	 * }
-	 */
+	/** A realistic synthetized view of data structure */
 	public JSONObject toJson() {
 		JSONObject ret = null;
 		if (!tree.isEmpty()) {
@@ -169,8 +162,7 @@ public class CommitTree implements Serializable {
 			final String shardid, 
 			final long planid) {
 						
-		tree
-			.getOrPut(
+		tree.getOrPut(
 				planid > 0 ? planid : tree.isEmpty() ? 0 : tree.lastKey(), 
 				()-> new InsMap<String, LimMap<EntityEvent, Log>>(MAX_SHARD_HISTORY))
 			.getOrPut(

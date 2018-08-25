@@ -78,9 +78,8 @@ class ChangePlanFactory {
 		}
 
 		final DirtyCompiler compiler = new DirtyCompiler(scheme.getCommitedState(), previous, plan, snapshot);
-		
-		final Set<ShardEntity> creations = compiler.collectCreations();
-		final Set<ShardEntity> deletions = compiler.collectRemovals(creations);
+		final Set<ShardEntity> creations = compiler.compileCreations();
+		final Set<ShardEntity> deletions = compiler.compileRemovals(creations);
 		
 		final Set<ShardEntity> ents = new HashSet<>();
 		scheme.getCommitedState().findDuties(ents::add);

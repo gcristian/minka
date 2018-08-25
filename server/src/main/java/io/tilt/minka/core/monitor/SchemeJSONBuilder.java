@@ -144,12 +144,12 @@ public class SchemeJSONBuilder {
 			
 			if (entity instanceof ShardEntity) {
 				ShardEntity du = ((ShardEntity)entity);
-				final JSONObject ks = du.getCommitTree().toOrderedJson();
+				final JSONObject ks = du.getCommitTree().toJson();
 				ks.put("id", du.getDuty().getId());
 				array.put(ks);
 			} else if (entity instanceof EntityRecord) {
 				final EntityRecord er = (EntityRecord)entity;
-				final JSONObject ks = er.getCommitTree().toOrderedJson();
+				final JSONObject ks = er.getCommitTree().toJson();
 				ks.put("id", er.getId());
 				array.put(ks);
 			}

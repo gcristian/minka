@@ -148,7 +148,7 @@ public class PhaseLoader {
 
 	/** feed missing duties with storage/scheme diff. */
 	private void checkUnexistingDutiesFromStorage() {
-		if (config.getDistributor().isRunConsistencyCheck() && scheme.getCurrentPlan().areShippingsEmpty()) {
+		if (config.getDistributor().isRunConsistencyCheck() && scheme.getCurrentPlan().dispatchesEmpty()) {
 			// only warn in case there's no reallocation ahead
 			final Set<ShardEntity> sorted = new TreeSet<>();
 			for (Duty duty: reloadDutiesFromUser()) {

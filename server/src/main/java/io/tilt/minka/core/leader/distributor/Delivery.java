@@ -28,12 +28,11 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
-import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.CommitTree.Log;
-import io.tilt.minka.shard.Shard;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
-import io.tilt.minka.utils.CollectionUtils;
+import io.tilt.minka.shard.Shard;
 
 /**
  * A single {@linkplain EntityEvent} over many {@linkplain ShardEntity} 

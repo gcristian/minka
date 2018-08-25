@@ -66,7 +66,7 @@ class Replicator {
 		final boolean[] r = {false};
 		final CommitedState cs = scheme.getCommitedState();
 		// those being shipped for the action event
-		changePlan.onShippingsFor(action, main, (target, duty)-> {
+		changePlan.onDispatchesFor(action, main, (target, duty)-> {
 			// same pallet, and present as new CRUD (involved)
 			if (duty.getDuty().getPalletId().equals(p.getId()) && involved.contains(duty)) {
 				// search back the evidence event as authentic purpose to reaction

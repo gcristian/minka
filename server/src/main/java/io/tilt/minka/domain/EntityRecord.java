@@ -165,5 +165,5 @@ public class EntityRecord implements Comparable<EntityRecord>, Comparator<Entity
 	public ShardEntity.Type getType() {
 		return type;
 	}
-	
+
 }

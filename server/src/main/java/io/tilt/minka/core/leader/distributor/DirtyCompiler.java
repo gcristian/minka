@@ -45,6 +45,8 @@ import io.tilt.minka.shard.Shard;
  */
 class DirtyCompiler {
 
+	private static final String SHIPPED_FROM_DUTY = "{}: Shipped {} from: {}, Duty: {}";
+
 	private static final Logger logger = LoggerFactory.getLogger(DirtyCompiler.class);
 
 	private final String name = getClass().getSimpleName();
@@ -65,8 +67,7 @@ class DirtyCompiler {
 		this.snapshot = snapshot;
 	}
 
-	Set<ShardEntity> collectRemovals(final Set<ShardEntity> dutyCreations) {
-		
+	Set<ShardEntity> compileRemovals(final Set<ShardEntity> dutyCreations) {
 		final Set<ShardEntity> dutyDeletions = new HashSet<>();
 		snapshot.findDutiesCrud(REMOVE::equals, null, crud-> {
 			// as a CRUD a deletion lives in stage as a mark within an Opaque ShardEntity
@@ -95,7 +96,50 @@ class DirtyCompiler {
 		return dutyDeletions;
 	}
 
-	Set<ShardEntity> collectCreations() {
+	/*
+	 * check waiting duties never confirmed (for fallen shards as previous
+	 * target candidates)
+	 */
+	private void restorePendings(final ChangePlan previous, 
+			final Consumer<ShardEntity> c, 
+			final Predicate<ShardEntity> p) {
+		if (previous != null 
+				&& previous.getResult().isClosed() 
+				&& !previous.getResult().isSuccess()) {
+			int rescued = previous.findAllNonConfirmedFromAllDeliveries(d->{
+				if (p.test(d)) {
+					c.accept(d);
+				}
+			});
+			if (rescued ==0 && logger.isInfoEnabled()) {
+				logger.info("{}: Previous change although unfinished hasnt waiting duties", name);
+			} else {
+				if (logger.isInfoEnabled()) {
+					logger.info("{}: Previous change's unfinished business saved as Dangling: {}", name, rescued);
+				}
+			}
+		}
+	}
+
+	/* by user deleted */
+	private final void dispatchDeletions(final ChangePlan changePlan,
+			final Set<ShardEntity> deletions) {
+
+		for (final ShardEntity deletion : deletions) {
+			final Shard shard = state.findDutyLocation(deletion);
+			deletion.getCommitTree().addEvent(DETACH, 
+					PREPARED,
+					shard.getShardID(),
+					changePlan.getId());
+			changePlan.dispatch(shard, deletion);
+			if (logger.isInfoEnabled()) {
+				logger.info(SHIPPED_FROM_DUTY, name, DETACH, shard.getShardID(),
+					deletion.toBrief());
+			}
+		}
+	}
+	
+	Set<ShardEntity> compileCreations() {
 		// recently fallen shards
 		addMissingAsCrud();
 		final Set<ShardEntity> dutyCreations = new HashSet<>();
@@ -137,49 +181,6 @@ class DirtyCompiler {
 		if (!missing.isEmpty()) {
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Registered {} dangling duties {}", name, missing.size(), toStringIds(missing));
-			}
-		}
-	}
-
-	/*
-	 * check waiting duties never confirmed (for fallen shards as previous
-	 * target candidates)
-	 */
-	private void restorePendings(final ChangePlan previous, 
-			final Consumer<ShardEntity> c, 
-			final Predicate<ShardEntity> p) {
-		if (previous != null 
-				&& previous.getResult().isClosed() 
-				&& !previous.getResult().isSuccess()) {
-			int rescued = previous.findAllNonConfirmedFromAllDeliveries(d->{
-				if (p.test(d)) {
-					c.accept(d);
-				}
-			});
-			if (rescued ==0 && logger.isInfoEnabled()) {
-				logger.info("{}: Previous change although unfinished hasnt waiting duties", name);
-			} else {
-				if (logger.isInfoEnabled()) {
-					logger.info("{}: Previous change's unfinished business saved as Dangling: {}", name, rescued);
-				}
-			}
-		}
-	}
-
-	/* by user deleted */
-	private final void dispatchDeletions(final ChangePlan changePlan,
-			final Set<ShardEntity> deletions) {
-
-		for (final ShardEntity deletion : deletions) {
-			final Shard shard = state.findDutyLocation(deletion);
-			deletion.getCommitTree().addEvent(DETACH, 
-					PREPARED,
-					shard.getShardID(),
-					changePlan.getId());
-			changePlan.dispatch(shard, deletion);
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: Shipped {} from: {}, Duty: {}", name, DETACH, shard.getShardID(),
-					deletion.toBrief());
 			}
 		}
 	}
