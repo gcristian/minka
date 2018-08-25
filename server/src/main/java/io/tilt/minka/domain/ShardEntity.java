@@ -64,11 +64,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		this.from = entity;
 		this.type = type;
 		this.tree = new CommitTree();
-		this.tree.addEvent(
-				EntityEvent.CREATE, 
-				EntityState.PREPARED, 
-				"N/A", 
-				CommitTree.PLAN_NA);
 	}
 	
 	public static class Builder {
