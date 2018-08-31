@@ -10,6 +10,7 @@ jq=$(which jq); tr=$(which tr)
 
 ID="$1"
 BM="$2"
+[ -z "$1" ] && echo "Usage: ./newpallet {id} [balancer]" && exit 1
 
 [ -z "$2" ] || BM="EVENT_SIZE"
 

@@ -8,14 +8,10 @@ jq=$(which jq); tr=$(which tr)
 
 # ------------------------------------------------------
 
+[ -z "$1" ] || [ -z "$2" ] && echo "Usage: ./remduty {pallet-id} {duty-id} " && exit 1
+
 PID="$1"
 ID="$2"
-
-if [ ! -n "$2" ] || [ ! -n "$1" ]; then
-	printf "\nUsage: ./remduty {pallet-id} {duty-id}\n\n"
-	exit
-fi
-
 
 leader=$(./leader)
 CONTEXT="/minka/admin"

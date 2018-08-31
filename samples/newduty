@@ -12,6 +12,8 @@ PID="$1"
 ID="$2"
 WEIGHT="$3"
 
+[ -z "$1" ] || [ -z "$2" ] && echo "Usage: ./newduty {pallet-id} {duty-id} [duty-weight]" && exit 1
+
 [ -z "$3" ] || WEIGHT="1"
 
 leader=$(./leader)
