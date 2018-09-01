@@ -40,7 +40,7 @@ public class CmdLineApp {
 		namespace("cluster Namespace (to reach other nodes)"),
 		tag("node Tag (for tagging your node within the cluster)"),
 		//address("node address (your public LAN ip)"),
-		zk("Zookeeper (ask Cristian)"),
+		zk("Zookeeper (ask Cris)"),
 		address("Address (confirm if is a public address IP)")
 		;
 		private String title;

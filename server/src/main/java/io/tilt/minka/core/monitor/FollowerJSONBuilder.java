@@ -28,6 +28,7 @@ import java.util.function.Consumer;
 
 import org.apache.commons.lang.Validate;
 
+import io.tilt.minka.core.follower.LeaderEventsHandler;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardEntity;
@@ -45,13 +46,18 @@ public class FollowerJSONBuilder {
 
 	private final Scheme scheme;
 	private final ShardedPartition partition;
+	private final LeaderEventsHandler leaderHandler;
+	
 	
 	public FollowerJSONBuilder(
 			final Scheme scheme,
-			final ShardedPartition partition) {
+			final ShardedPartition partition,
+			final LeaderEventsHandler leaderHandler) {
 		
 		this.scheme = requireNonNull(scheme);
 		this.partition = requireNonNull(partition);
+		this.leaderHandler = requireNonNull(leaderHandler);
+
 	}
 	
 	public String beatsToJson() {
@@ -63,8 +69,17 @@ public class FollowerJSONBuilder {
 	 * Shows the duties captured by the shard.
 	 * @return			a String in json format
 	 */
-	public String currentPartitionToJson(boolean detailed) {
-		return SystemStateMonitor.toJson(buildPartitionDuties(partition, detailed));
+	public String partitionToJson(boolean detailed) {
+		final Map<String, Object> ret = new LinkedHashMap<>(6);
+		ret.put("domain-pallets", ShardEntity.toStringBrief(
+				leaderHandler.getLastClearance().getInfo().getDomainPallets()));		
+		final long distance = System.currentTimeMillis() - 
+				leaderHandler.getLastClearance().getCreation().getMillis();
+		ret.put("clearance-distance-ms", distance);
+		
+		ret.putAll(buildPartitionDuties(partition, detailed));
+		
+		return SystemStateMonitor.toJson(ret);
 	}
 	
 	private Map<Shard, Heartbeat> buildBeats() {
@@ -115,7 +130,6 @@ public class FollowerJSONBuilder {
 
 	private Map<String, Object> buildPartitionDuties(final ShardedPartition partition, boolean detail) {
 		Validate.notNull(partition);
-		final Map<String, Object> ret = new LinkedHashMap<>(2);
 		
 		final StringBuilder sb1 = new StringBuilder(partition.getDuties().size() * 16);
 		for (ShardEntity e: partition.getDuties()) {
@@ -126,8 +140,9 @@ public class FollowerJSONBuilder {
 		for (ShardEntity e: partition.getReplicas()) {
 			sb2.append(detail ? e: e.getDuty().getId()).append(',');
 		}
-		ret.put("partition-size", partition.getDuties().size());
-		ret.put("replicas-size", partition.getReplicas().size());
+		final Map<String, Object> ret = new LinkedHashMap<>(4);
+		ret.put("size-part", partition.getDuties().size());
+		ret.put("size-repl", partition.getReplicas().size());
 		ret.put("partition", sb1.toString());
 		ret.put("replicas", sb2.toString());
 		return ret;

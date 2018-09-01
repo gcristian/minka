@@ -48,8 +48,6 @@ class PartitionManagerImpl implements PartitionManager {
 	private final HeartbeatFactory heartbeatFactory;
 	private final Scheduler scheduler;
 	private final Synchronized releaser;
-
-	private DomainInfo domain;
 	
 	PartitionManagerImpl(
 			final DependencyPlaceholder dependencyPlaceholder, 
@@ -223,8 +221,7 @@ class PartitionManagerImpl implements PartitionManager {
 
 	@Override
 	public Void acknowledge(DomainInfo info) {
-		this.domain = info;
-		this.heartbeatFactory.setDomainInfo(domain);
+		this.heartbeatFactory.setDomainInfo(info);
 		return null;
 	}
 

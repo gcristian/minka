@@ -106,17 +106,22 @@ public class DistroJSONBuilder {
 	
 	private Map<String, Object> buildShards(final Scheme scheme) {
 		final Map<String, Object> map = new LinkedHashMap<>(5);
+		
 		map.put("namespace", config.getBootstrap().getNamespace());
 		map.put("leader", leaderAware.getLeaderShardId());
 		map.put("previous", leaderAware.getAllPreviousLeaders());
-		final Map<String, List<String>> tmp = new HashMap<>();
-		scheme.getCommitedState().getGoneShards().entrySet().forEach(e-> {
-			tmp.put(e.getKey().getId(), e.getValue().values().stream().map(c->c.toString()).collect(toList()));
-		});
-		map.put("gone", tmp);
+
 		final List<Shard> list = new ArrayList<>();
 		scheme.getCommitedState().findShards(null, list::add);
 		map.put("shards", list);
+		
+		final Map<String, List<String>> tmp = new HashMap<>();
+		scheme.getCommitedState().getGoneShards().entrySet().forEach(e-> {
+			tmp.put(e.getKey().getId(), 
+					e.getValue().values().stream()
+						.map(c->c.toString()).collect(toList()));
+		});
+		map.put("gone", tmp);
 		return map;
 	}
 	
@@ -297,9 +302,8 @@ public class DistroJSONBuilder {
 
 		final Map<String , Object> map = new LinkedHashMap<>(5);
 		map.put("id", id);
-		map.put("duties-size", duties.size());
-		map.put("replicas-size", replicas.size());
-		map.put("size", duties.size());
+		map.put("size-duties", duties.size());
+		map.put("size-replicas", replicas.size());
 		map.put("capacity", capacity);
 		map.put("weight", weight);
 		
@@ -345,7 +349,8 @@ public class DistroJSONBuilder {
 		map.put("balancer-metadata", meta); 
 		map.put("balancer", balancer);
 		StringBuilder sb = new StringBuilder(duties.size() * (5 + 2 + 5));
-		duties.forEach(d->sb.append(d.id).append(":").append(d.weight).append(","));
+		//duties.forEach(d->sb.append(d.id).append(":").append(d.weight).append(","));
+		duties.forEach(d->sb.append(d.id).append(","));		
 		map.put("duties", sb.toString());
 		return map;
 	}

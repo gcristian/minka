@@ -369,7 +369,7 @@ public class CommitTree implements Serializable {
 	 * 
 	 * @return TRUE if the shard has a Durable state;
 	 */
-	public boolean hasDurability(final String shardid, EntityEvent ee, EntityState es) {
+	public boolean isDurable(final String shardid, EntityEvent ee, EntityState es) {
 		long lastPlan = -1;
 		long lastNegativePlan = -1;
 		for (Map.Entry<Long, InsMap<String , LimMap<EntityEvent, Log>>> byPlan: tree.entrySet()) {

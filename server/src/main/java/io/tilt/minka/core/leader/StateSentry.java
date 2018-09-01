@@ -136,9 +136,12 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	 * @return TRUE if we must consider heartbeat reports as part of previous state
 	 */
 	private boolean isLazyOrSurvivor(final Heartbeat beat, final ChangePlan changePlan) {
-		final boolean survivor = changePlan == null && beat.reportsDuties();
-		boolean lazy = false;
-		if (changePlan != null && changePlan.getResult().isClosed() && beat.reportsDuties()) {
+		if (!beat.reportsDuties()) {
+			return false;
+		}
+		final boolean recentSurvivor = changePlan == null;
+		boolean lazySurvivor = false;
+		if (!recentSurvivor && changePlan.getResult().isClosed()) {
 			// wait only 1 change-plan for the lazy followers
 			if (changePlan.getId() == scheme.getFirstPlanId()) {
 				long max = 0;
@@ -151,10 +154,10 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 						max = l.getPlanId();
 					}
 				}
-				lazy = max < scheme.getFirstPlanId();
+				lazySurvivor = max < scheme.getFirstPlanId();
 			}
 		}
-		return lazy || survivor;
+		return lazySurvivor || recentSurvivor;
 	}
 
 	private void logging(final Shard shard, final ChangePlan changePlan, final Map<EntityEvent, StringBuilder> logg) {

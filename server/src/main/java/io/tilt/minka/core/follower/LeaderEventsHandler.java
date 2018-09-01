@@ -55,7 +55,7 @@ import io.tilt.minka.shard.Clearance;
  * @author Cristian Gonzalez
  * @since Aug 6, 2016
  */
-class LeaderEventsHandler implements Service, Consumer<Serializable> {
+public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -99,7 +99,7 @@ class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		eventBroker.subscribe(channel,this, sinceNow, ShardEntity.class, Clearance.class, ArrayList.class);
 	}
 
-	Clearance getLastClearance() {
+	public Clearance getLastClearance() {
 		return this.lastClearance;
 	}
 

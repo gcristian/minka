@@ -82,8 +82,8 @@ public class LearningState {
 
 	private EntityEvent feedDistro(final EntityRecord record, final Shard where) {
 		EntityEvent ret = null;
-		if (record.getCommitTree().hasDurability(where.getShardID().getId(), ATTACH, COMMITED)) {
-			if (isLatest(record, where)) {
+		if (record.getCommitTree().isDurable(where.getShardID().getId(), ATTACH, COMMITED)) {
+			if (removePreviousIfExists(record, where)) {
 				Set<EntityRecord> set = distribution.get(where.getShardID());
 				if (set==null) {
 					distribution.put(where.getShardID(), set = new HashSet<>());
@@ -92,6 +92,7 @@ public class LearningState {
 					ret = EntityEvent.ATTACH;
 				}
 			}
+			// Heartbeats come with entity on leader reelection (sign of a replica)
 			if (record.getEntity()!=null) {
 				feedReplica(record.getEntity(), where, false);
 			}
@@ -102,23 +103,18 @@ public class LearningState {
 	/**
 	 * Check record if already reported in different shards: believe the lattest commit tree.
 	 * Remove older ones reported by different shards.
-	 * @return TRUE if record is must be added, false if must be ignored 
+	 * @return TRUE if record is must be added, false if must be ignored sameAndYounger
 	 */
-	private boolean isLatest(final EntityRecord record, final Shard where) {
+	private boolean removePreviousIfExists(final EntityRecord record, final Shard where) {
 		for (Map.Entry<ShardIdentifier, Set<EntityRecord>> e: distribution.entrySet()) {
+			// check only different shards added already containing record
 			if (!e.getKey().equals(where.getShardID()) && e.getValue().contains(record)) {
 				final Iterator<EntityRecord> it = e.getValue().iterator();
 				while (it.hasNext()) {
-					final EntityRecord already = it.next();
-					final Date ts1 = already.getCommitTree().getLast().getHead();
-					final Date ts2 = record.getCommitTree().getLast().getHead();
-					if (ts1.before(ts2)) {
+					if (isLatest_(record, it.next())) {
 						it.remove();
 						logger.warn("{}: Shard {} has reported a younger commit-tree on {} and will be used.", 
 								getClass().getSimpleName(), where, record);
-						return true;
-					} else {
-						return false;
 					}
 				}
 			}
@@ -126,9 +122,18 @@ public class LearningState {
 		return true;
 	}
 
+	private boolean isLatest_(final EntityRecord record, final EntityRecord already) {
+		if (already.equals(record)) {
+			final Date ts1 = already.getCommitTree().getLast().getHead();
+			final Date ts2 = record.getCommitTree().getLast().getHead();
+			return ts1.before(ts2);
+		}
+		return false;
+	}
+
 	private EntityEvent feedReplica(final ShardEntity duty, final Shard where, final boolean durable) {
 		
-		if (!durable || duty.getCommitTree().hasDurability(where.getShardID().getId(), STOCK, COMMITED)) {			
+		if (!durable || duty.getCommitTree().isDurable(where.getShardID().getId(), STOCK, COMMITED)) {			
 			Set<ShardEntity> byShard = replicas.get(where);
 			if (byShard==null) {
 				replicas.put(where, byShard=new HashSet<>());

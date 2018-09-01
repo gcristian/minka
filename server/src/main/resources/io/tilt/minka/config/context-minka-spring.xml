@@ -211,6 +211,7 @@
     <bean id="followerJSONBuilder" class="io.tilt.minka.core.monitor.FollowerJSONBuilder">
         <constructor-arg ref="shardingScheme"/>
         <constructor-arg ref="partition"/>
+        <constructor-arg ref="leaderEventsHandler"/>
     </bean>
 
     <bean id="crossJSONBuilder" class="io.tilt.minka.core.monitor.CrossJSONBuilder">

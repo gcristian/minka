@@ -38,6 +38,5 @@ public interface HeartbeatFactory {
 	 * Helps the factory to add more information about the shard.
 	 * @param domain
 	 */
-	void setDomainInfo(DomainInfo domain);
-	
+	void setDomainInfo(DomainInfo domain);	
 }

@@ -145,7 +145,7 @@ public class SystemStateMonitor {
 		saveOnDiff("schedule", now, cross.scheduleToJson(false));
 		saveOnDiff("shards", now, distro.shardsToJson());
 		saveOnDiff("broker", now, cross.brokerToJson());
-		saveOnDiff("partition", now, follower.currentPartitionToJson(false));
+		saveOnDiff("partition", now, follower.partitionToJson(false));
 		saveOnDiff("beats", now, follower.beatsToJson());
 		
 		if (leaderAware.imLeader()) {

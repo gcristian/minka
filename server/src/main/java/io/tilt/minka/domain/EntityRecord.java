@@ -147,12 +147,8 @@ public class EntityRecord implements Comparable<EntityRecord>, Comparator<Entity
 		} else {
 			final EntityRecord o = (EntityRecord) obj;
 			return getType() == o.getType()
-					&& (
-						// pallets dont have pallet-id, or duties with same pallet-id
-						(getType()==ShardEntity.Type.PALLET && getPalletId()==null && o.getPalletId()==null)
-						|| (getType()==ShardEntity.Type.DUTY && getPalletId()!=null && o.getPalletId()!=null 
-							&& getPalletId().equals(o.getPalletId()))
-					   ) 
+					&& getPalletId()!=null && o.getPalletId()!=null 
+					&& getPalletId().equals(o.getPalletId())
 					&& getId().equals(o.getId());
 		}
 	}

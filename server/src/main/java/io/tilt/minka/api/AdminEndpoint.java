@@ -154,8 +154,8 @@ public class AdminEndpoint {
 	@Path("/partition")
 	@Produces(MediaType.APPLICATION_JSON)
 	/** @return the follower's sharded partition entities */
-	public Response shardedDuties(@QueryParam("detail") final boolean detail) throws JsonProcessingException {
-		return Response.accepted(follower.currentPartitionToJson(detail)).build();
+	public Response partition(@QueryParam("detail") final boolean detail) throws JsonProcessingException {
+		return Response.accepted(follower.partitionToJson(detail)).build();
 	}
 
 	@GET
