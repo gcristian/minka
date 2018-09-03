@@ -41,11 +41,14 @@ import javax.ws.rs.core.StreamingOutput;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.spi.LoggingEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.wordnik.swagger.annotations.Api;
+import com.wordnik.swagger.annotations.ApiOperation;
 
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.Scheme;
@@ -62,20 +65,13 @@ import io.tilt.minka.core.monitor.SchemeJSONBuilder;
 @Component
 public class AdminEndpoint {
 
-	@Autowired
-	private Scheme scheme;
-	@Autowired
-	private CrossJSONBuilder global;
-	@Autowired
-	private FollowerJSONBuilder follower;
-	@Autowired
-	private DistroJSONBuilder distro;
-	@Autowired
-	private SchemeJSONBuilder schemeJSONBuilder;
-	@Autowired
-	private Config config;
-	@Autowired
-	private Client client;
+	@Autowired	private Scheme scheme;
+	@Autowired	private CrossJSONBuilder global;
+	@Autowired	private FollowerJSONBuilder follower;
+	@Autowired	private DistroJSONBuilder distro;
+	@Autowired	private SchemeJSONBuilder schemeJSONBuilder;
+	@Autowired	private Config config;
+	@Autowired	private Client client;
 
 	/*
 	
@@ -108,46 +104,79 @@ public class AdminEndpoint {
 		return Response.accepted(ret).build();
 	}
 	
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+
 	@GET
 	@Path("/config")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response config() throws Exception {
-		return Response.accepted(config.toJson()).build();
+		try {
+			return Response.accepted(config.toJson()).build();	
+		} catch (Exception e) {
+			logger.error("while /config", e);
+			return Response.serverError().build();
+		}
 	}
 	
 	@GET
+	@ApiOperation("shows distribution strategy")
 	@Path("/distro")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response status() throws JsonProcessingException {
-		return Response.accepted(distro.distributionToJson()).build();
+		try {
+			return Response.accepted(distro.distributionToJson()).build();
+		} catch (Exception e) {
+			logger.error("while /distro", e);
+			return Response.serverError().build();
+		}
 	}
 
 	@GET
 	@Path("/broker")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response broker() throws JsonProcessingException {
-		return Response.accepted(global.brokerToJson()).build();
+		try {
+			return Response.accepted(global.brokerToJson()).build();	
+		} catch (Exception e) {
+			logger.error("while /broker", e);
+			return Response.serverError().build();
+		}
 	}
 
 	@GET
 	@Path("/pallets")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response pallets() throws JsonProcessingException {
-		return Response.accepted(distro.palletsToJson()).build();
+		try {
+			return Response.accepted(distro.palletsToJson()).build();	
+		} catch (Exception e) {
+			logger.error("while /pallets", e);
+			return Response.serverError().build();
+		}
 	}
 	                    
 	@GET
 	@Path("/shards")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response shards() throws JsonProcessingException {
-		return Response.accepted(distro.shardsToJson()).build();
+		try {
+			return Response.accepted(distro.shardsToJson()).build();
+		} catch (Exception e) {
+			logger.error("while /shards", e);
+			return Response.serverError().build();
+		}
 	}
 
 	@GET
 	@Path("/scheme")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response scheme(@QueryParam("detail") final boolean detail) throws JsonProcessingException {
-		return Response.accepted(schemeJSONBuilder.schemeToJson(detail)).build();
+		try {
+			return Response.accepted(schemeJSONBuilder.schemeToJson(detail)).build();
+		} catch (Exception e) {
+			logger.error("while /scheme", e);
+			return Response.serverError().build();
+		}
 	}
 
 	@GET
@@ -155,27 +184,47 @@ public class AdminEndpoint {
 	@Produces(MediaType.APPLICATION_JSON)
 	/** @return the follower's sharded partition entities */
 	public Response partition(@QueryParam("detail") final boolean detail) throws JsonProcessingException {
-		return Response.accepted(follower.partitionToJson(detail)).build();
+		try {
+			return Response.accepted(follower.partitionToJson(detail)).build();
+		} catch (Exception e) {
+			logger.error("while /partition", e);
+			return Response.serverError().build();
+		}
 	}
 
 	@GET
 	@Path("/scheduler")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response schedule(@QueryParam("detail") final boolean detail) throws JsonProcessingException {
-		return Response.accepted(global.scheduleToJson(detail)).build();
+		try {
+			return Response.accepted(global.scheduleToJson(detail)).build();
+		} catch (Exception e) {
+			logger.error("while /scheduler", e);
+			return Response.serverError().build();
+		}
 	}
 	
 	@GET
 	@Path("/beats")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response beats() throws JsonProcessingException {
-        return Response.accepted(follower.beatsToJson()).build();
+		try {
+	        return Response.accepted(follower.beatsToJson()).build();
+		} catch (Exception e) {
+			logger.error("while /beats", e);
+			return Response.serverError().build();
+		}
 	}
 	@GET
 	@Path("/plans")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response plans(@QueryParam("detail") final boolean detail) throws JsonProcessingException {
-        return Response.accepted(distro.plansToJson(detail)).build();
+		try {
+	        return Response.accepted(distro.plansToJson(detail)).build();
+		} catch (Exception e) {
+			logger.error("while /plans", e);
+			return Response.serverError().build();
+		}
 	}
 	
 	// =========================================================================================================
@@ -184,69 +233,97 @@ public class AdminEndpoint {
 	@Path("/distro/run")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response runDistro() throws JsonProcessingException {
-		scheme.getCommitedState().stealthChange(true);
-		return Response.accepted().build();
+		try {
+			scheme.getCommitedState().stealthChange(true);
+			return Response.accepted().build();
+		} catch (Exception e) {
+			logger.error("while /distro/run", e);
+			return Response.serverError().build();
+		}
 	}
 
+	private final static String PATH_CREATE_PALLET = "/crud/pallet/{id}"; 
 	@PUT
-	@Path("/crud/pallet/{id}")
+	@Path(PATH_CREATE_PALLET)
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response createPallet(
 			@PathParam("id") final String palletId,
 			@QueryParam("strategy") String strategy) throws JsonProcessingException {
-		
-		Balancer.BalancerMetadata bm = Balancer.Strategy.EVEN_SIZE.getBalancerMetadata();
-		if (strategy!=null) {
-			bm = Balancer.Strategy.valueOf(strategy).getBalancerMetadata();
+		try {		
+			Balancer.BalancerMetadata bm = Balancer.Strategy.EVEN_SIZE.getBalancerMetadata();
+			if (strategy!=null) {
+				bm = Balancer.Strategy.valueOf(strategy).getBalancerMetadata();
+			}
+			final Pallet p = Pallet.builder(palletId).with(bm).build();
+			Reply r = client.add(p);
+			return Response.accepted(r).build();
+		} catch (Exception e) {
+			logger.error("while " + PATH_CREATE_PALLET, e);
+			return Response.serverError().build();
 		}
-		final Pallet p = Pallet.builder(palletId).with(bm).build();
-		Reply r = client.add(p);
-		return Response.accepted(r).build();
 	}
 
+	private final static String PATH_SHARD_CAPACITY = "/capacity/pallet/{id}/{capacity}";
 	@PUT
-	@Path("/capacity/pallet/{id}/{capacity}")
+	@Path(PATH_SHARD_CAPACITY)
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response shardCapacity(
 			@PathParam("id") final String palletId,
 			@PathParam("capacity") final String capacity) throws JsonProcessingException {
 		
-		double cap = 9999;
-		if (capacity!=null) {
-			cap = Long.parseLong(capacity);
+		try {		
+			double cap = 9999;
+			if (capacity!=null) {
+				cap = Long.parseLong(capacity);
+			}
+			final Pallet p = Pallet.builder(palletId).build();
+			client.getEventMapper().setCapacity(p, cap);
+			return Response.accepted().build();
+		} catch (Exception e) {
+			logger.error("while " + PATH_SHARD_CAPACITY, e);
+			return Response.serverError().build();
 		}
-		final Pallet p = Pallet.builder(palletId).build();
-		client.getEventMapper().setCapacity(p, cap);
-		return Response.accepted().build();
 	}
 
+	private final static String PATH_CREATE_DUTY = "/crud/duty/{palletid}/{id}";
 	@PUT
-	@Path("/crud/duty/{palletid}/{id}")
+	@Path(PATH_CREATE_DUTY)
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response createDuty(
 			@PathParam("palletid") final String palletId,
 			@PathParam("id") final String dutyId,
 			@QueryParam("weight") String weight) throws JsonProcessingException {
 		
-		long w = 1;
-		if (weight!=null) {
-			w = Long.parseLong(weight);
+		try {
+			long w = 1;
+			if (weight!=null) {
+				w = Long.parseLong(weight);
+			}
+			final Duty d = Duty.builder(dutyId, palletId).with(w).build();
+			final Reply r = client.add(d);
+			//CompletableFuture.runAsync(()->client.add(d));
+			return Response.accepted(r).build();
+		} catch (Exception e) {
+			logger.error("while " + PATH_CREATE_DUTY, e);
+			return Response.serverError().build();
 		}
-		final Duty d = Duty.builder(dutyId, palletId).with(w).build();
-		final Reply r = client.add(d);
-		//CompletableFuture.runAsync(()->client.add(d));
-		return Response.accepted(r).build();
 	}
 
+	private final static String PATH_DELETE_DUTY = "/crud/duty/{palletid}/{id}";
 	@DELETE
-	@Path("/crud/duty/{palletid}/{id}")
+	@Path(PATH_DELETE_DUTY)
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response deleteDuty(
 			@PathParam("palletid") final String palletId,
 			@PathParam("id") final String dutyId) throws JsonProcessingException {
-		final Duty d = Duty.builder(dutyId, palletId).with(1).build();
-		final Reply r = client.remove(d);
-		return Response.accepted(r).build();
+		try {
+			final Duty d = Duty.builder(dutyId, palletId).with(1).build();
+			final Reply r = client.remove(d);
+			return Response.accepted(r).build();
+		} catch (Exception e) {
+			logger.error("while " + PATH_DELETE_DUTY, e);
+			return Response.serverError().build();
+		}
 	}
 
 	

@@ -109,8 +109,7 @@ public class DistroJSONBuilder {
 		
 		map.put("namespace", config.getBootstrap().getNamespace());
 		map.put("leader", leaderAware.getLeaderShardId());
-		map.put("previous", leaderAware.getAllPreviousLeaders());
-
+		
 		final List<Shard> list = new ArrayList<>();
 		scheme.getCommitedState().findShards(null, list::add);
 		map.put("shards", list);
@@ -122,6 +121,7 @@ public class DistroJSONBuilder {
 						.map(c->c.toString()).collect(toList()));
 		});
 		map.put("gone", tmp);
+		map.put("previous-leader", leaderAware.getAllPreviousLeaders());
 		return map;
 	}
 	

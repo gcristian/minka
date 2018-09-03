@@ -383,7 +383,8 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 		this.webhostport = hostport;
 	}
 
-	public String getWebhostport() {
+	@Override
+	public String getWebHostPort() {
 		return this.webhostport;
 	}
 

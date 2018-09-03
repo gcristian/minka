@@ -71,6 +71,24 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		applyChange(first);
 		this.firstTimeSeen = first.getTimestamp();
 	}
+	
+	@JsonProperty("last-beat-id")
+	private String lastBeatId() {
+		return String.valueOf(this.getLast().getSequenceId());
+	}
+	@JsonProperty("broker-connect")
+	private String getBrokerConnect() {
+		return this.shardId.getAddress().getHostAddress();
+	}
+	@JsonProperty("web-connect")
+	private String getWebConnect() {
+		return this.shardId.getWebHostPort();
+	}
+	@JsonProperty("tag")
+	private String getTag() {
+		return this.shardId.getTag();
+	}
+	
 	@JsonIgnore
 	public Instant getLastTransition() {
 		return this.transitions.last().getTimestamp();
@@ -79,22 +97,17 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	public Instant getFirstTimeSeen() {
 		return this.firstTimeSeen;
 	}
-	
-	@JsonProperty("last-beat-id")
-	private String lastBeatId() {
-		return String.valueOf(this.getLast().getSequenceId());
-	}
 
 	@JsonIgnore
 	public BrokerChannel getBrokerChannel() {
 		return this.brokerChannel;
 	}
 
-	@JsonProperty("id")
+	@JsonIgnore
 	public NetworkShardIdentifier getShardID() {
 		return this.shardId;
 	}
-	
+		
 	public void setCapacities(Map<Pallet, ShardCapacity> shardCapacities) {
 		this.shardCapacities = shardCapacities;
 	}
@@ -143,6 +156,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	public SlidingSortedSet<Transition> getTransitions() {
 		return transitions;
 	}
+	
 	@JsonProperty("state-transitions")
 	public Collection<String> getTransitions_() {
 		return transitions.values().stream().map(c->c.toString()).collect(Collectors.toList());

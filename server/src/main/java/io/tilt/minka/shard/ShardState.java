@@ -3,9 +3,9 @@ package io.tilt.minka.shard;
 import java.util.function.Predicate;
 
 public enum ShardState {
-	/** all nodes START in this state while becoming Online after a Quarantine period */
+	/** all nodes start in this state and rapidly become ONLINE if healthy */
 	JOINING,
-	/** the node has been continuously online for a long time so it can trustworthly receive work */
+	/** the node has been continuously online time enough to trustworthly receive work */
 	ONLINE,
 	/** the node interrupted heartbeats time enough to be considered not healthly
 	 * online. in this state all nodes tend to rapidly go ONLINE or fall GONE */

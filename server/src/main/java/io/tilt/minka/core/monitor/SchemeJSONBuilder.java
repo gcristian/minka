@@ -109,7 +109,7 @@ public class SchemeJSONBuilder {
 	private Map<String, Object> buildReplicas(final boolean detail) {
 		Validate.notNull(scheme);
 		final Map<String, Object> byPalletId = new LinkedHashMap<>();
-		final Consumer<ShardEntity> adder = detail ? collectorWithDetail(byPalletId) : collecter(byPalletId);
+		final Consumer adder = detail ? collectorWithDetail(byPalletId) : collecter(byPalletId);
 		partition.getReplicas().forEach(adder);;
 		return byPalletId;
 	}
@@ -156,15 +156,26 @@ public class SchemeJSONBuilder {
 		};
 	}
 
-	private Consumer<ShardEntity> collecter(final Map<String, Object> byPalletId) {
-		final Consumer<ShardEntity> adder = d-> {
-			StringBuilder sb = (StringBuilder) byPalletId.get(d.getDuty().getPalletId());
-			if (sb==null) {
-				byPalletId.put(d.getDuty().getPalletId(), sb = new StringBuilder());
+	private Consumer<Object> collecter(final Map<String, Object> byPalletId) {
+		return d-> {
+			final String pid;
+			if (d instanceof ShardEntity) {
+				pid = ((ShardEntity)d).getDuty().getPalletId();
+			} else if (d instanceof EntityRecord) {
+				pid = ((EntityRecord)d).getPalletId();
+			} else {
+				throw new IllegalArgumentException("not an entity");
 			}
-			sb.append(d.getDuty().getId()).append(',');
+			StringBuilder sb = (StringBuilder) byPalletId.get(pid);
+			if (sb==null) {
+				byPalletId.put(pid, sb = new StringBuilder());
+			}
+			if (d instanceof ShardEntity) {
+				sb.append(((ShardEntity)d).getDuty().getId()).append(',');
+			} else if (d instanceof EntityRecord) {
+				sb.append(((EntityRecord)d).getId()).append(',');
+			}
 		};
-		return adder;
 	}
 
 	private List<Object> dutyBrief(final Collection<ShardEntity> coll, final boolean detail) {

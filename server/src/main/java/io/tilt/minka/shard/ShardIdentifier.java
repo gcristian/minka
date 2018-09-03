@@ -43,4 +43,6 @@ public interface ShardIdentifier extends Serializable {
 	/* receive it after server initialization */
 	void setWebHostPort(String hostport);
 
+	String getWebHostPort();
+
 }

@@ -18,7 +18,7 @@ leader=$(./leader)
 CONTEXT="/minka/admin"
 SHARDS="$CONTEXT/shards"
 
-CMD="$($curl -s $leader$SHARDS | $jq '.shards[].id|(."web-host-port"+"#"+.tag)' | $tr -d \")"
+CMD="$($curl -s $leader$SHARDS | $jq '.shards[]|(."web-connect"+"#"+.tag)' | $tr -d \")"
 declare a=0
 declare o="["
 for f in ${CMD[@]}; do
