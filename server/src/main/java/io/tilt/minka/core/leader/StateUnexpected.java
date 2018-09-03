@@ -133,7 +133,8 @@ class StateUnexpected {
 		if (should==null) {
 			logger.error("{}: Non-attached duty: {} reported by shard {} ", classname, e.toString(), sourceShard);
 		} else if (!should.equals(sourceShard)) {
-			logger.error("{}: Relocated? duty: {} reported by shard {} ", classname, e.toString(), sourceShard);
+			logger.error("{}: Relocated? duty: {} reported by shard {} != {} (comitted-state)", 
+					classname, e.toString(), sourceShard, should);
 		}
 	}
 

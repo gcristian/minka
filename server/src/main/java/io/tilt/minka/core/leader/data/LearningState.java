@@ -106,20 +106,22 @@ public class LearningState {
 	 * @return TRUE if record is must be added, false if must be ignored sameAndYounger
 	 */
 	private boolean removePreviousIfExists(final EntityRecord record, final Shard where) {
+		boolean existed = false;	
 		for (Map.Entry<ShardIdentifier, Set<EntityRecord>> e: distribution.entrySet()) {
 			// check only different shards added already containing record
 			if (!e.getKey().equals(where.getShardID()) && e.getValue().contains(record)) {
 				final Iterator<EntityRecord> it = e.getValue().iterator();
 				while (it.hasNext()) {
-					if (isLatest_(record, it.next())) {
+					if (existed = isLatest_(record, it.next())) {
 						it.remove();
 						logger.warn("{}: Shard {} has reported a younger commit-tree on {} and will be used.", 
 								getClass().getSimpleName(), where, record);
+						break;
 					}
 				}
 			}
 		}
-		return true;
+		return existed;
 	}
 
 	private boolean isLatest_(final EntityRecord record, final EntityRecord already) {
