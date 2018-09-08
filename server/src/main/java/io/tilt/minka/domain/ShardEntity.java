@@ -99,15 +99,12 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 			if (from!=null) {
 				final ShardEntity t = new ShardEntity(from.getEntity(), from.getType());
 				t.replaceTree(from.getCommitTree());
-				if (userPayload==null) {
-					t.setUserPayload(from.getUserPayload());
-				}
-				if (relatedEntity==null) {
-					t.setRelatedEntity(from.getRelatedEntity());
-				}
+				t.setUserPayload(from.getUserPayload() !=null ? from.getUserPayload() : userPayload);
+				t.setRelatedEntity(from.getRelatedEntity() !=null ? from.getRelatedEntity() : relatedEntity);
 				return t;
 			} else {
-				final ShardEntity ret = new ShardEntity(duty == null ? pallet : duty,
+				final ShardEntity ret = new ShardEntity(
+						duty == null ? pallet : duty,
 						duty == null ? Type.PALLET : Type.DUTY);
 				ret.setUserPayload(userPayload);
 				ret.setRelatedEntity(relatedEntity);
