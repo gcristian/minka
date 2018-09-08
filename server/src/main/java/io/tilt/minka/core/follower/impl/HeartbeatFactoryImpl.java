@@ -182,15 +182,14 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 			include |= detectReception(duty, tmp);
 			// replicas must be reported when new leader or when simply comitting
 			if (newLeader || include) {
-				if (palletsById!=null) {
+				
+				if (palletsById!=null && duty.getRelatedEntity()==null) {
 					// send with pallets for replication restore after leader reelection
 					final ShardEntity pallet = palletsById.get(duty.getDuty().getPalletId());
 					if (pallet!=null) {
 						final Builder bldr = ShardEntity.Builder.builderFrom(duty);
 						bldr.withRelatedEntity(pallet);
 						duty = bldr.build();
-					} else {
-						// send it anyway: pallet CRUD replication race that leader can fix.
 					}
 				}
 				c.accept(EntityRecord.fromEntity(duty, true));
