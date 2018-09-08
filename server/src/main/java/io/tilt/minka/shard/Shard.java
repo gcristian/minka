@@ -72,19 +72,19 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		this.firstTimeSeen = first.getTimestamp();
 	}
 	
-	@JsonProperty("last-beat-id")
+	@JsonProperty(value="last-beat-id", index=7)
 	private String lastBeatId() {
 		return String.valueOf(this.getLast().getSequenceId());
 	}
-	@JsonProperty("broker-connect")
+	@JsonProperty(value="broker-connect", index=2)
 	private String getBrokerConnect() {
 		return this.shardId.getAddress().getHostAddress();
 	}
-	@JsonProperty("web-connect")
+	@JsonProperty(value="web-connect",index=3)
 	private String getWebConnect() {
 		return this.shardId.getWebHostPort();
 	}
-	@JsonProperty("tag")
+	@JsonProperty(value="tag", index=4)
 	private String getTag() {
 		return this.shardId.getTag();
 	}
@@ -116,7 +116,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	public Map<Pallet, ShardCapacity> getCapacities() {
 		return this.shardCapacities;
 	}
-	@JsonProperty("shardCapacities")
+	@JsonProperty(value="shardCapacities", index=5)
 	public Map<String, Double> briefCapacities() {
 		final Map<String, Double> ret = new LinkedHashMap<>();
 		for (final Map.Entry<Pallet, ShardCapacity> e: shardCapacities.entrySet()) {
@@ -143,6 +143,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	    return this.beats.first();
 	}
 
+	@JsonProperty(index=1)
 	public ShardState getState() {
 		return this.serviceState;
 	}
@@ -157,7 +158,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		return transitions;
 	}
 	
-	@JsonProperty("state-transitions")
+	@JsonProperty(value="state-transitions", index=6)
 	public Collection<String> getTransitions_() {
 		return transitions.values().stream().map(c->c.toString()).collect(Collectors.toList());
 	}

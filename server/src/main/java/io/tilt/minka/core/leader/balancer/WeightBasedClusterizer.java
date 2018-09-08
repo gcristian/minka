@@ -24,7 +24,7 @@ import io.tilt.minka.api.Duty;
  */
 public class WeightBasedClusterizer {
 
-	private final Logger logger = LoggerFactory.getLogger(EvenWeightBalancer.class);
+	private final Logger logger = LoggerFactory.getLogger(WeightEqualizer.class);
 	
 	public List<List<Duty>> split(final int shards, final List<Duty> weightedDuties) {
 		Validate.isTrue(shards > 1);

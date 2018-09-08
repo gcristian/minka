@@ -9,7 +9,7 @@ public enum ShardState {
 	ONLINE,
 	/** the node interrupted heartbeats time enough to be considered not healthly
 	 * online. in this state all nodes tend to rapidly go ONLINE or fall GONE */
-	QUARANTINE,
+	DELAYED,
 	/** the node emited a last heartbeat announcing offline mode either being
 	 * manually stopped or cleanly shuting down so its ignored by the master */
 	QUITTED,
@@ -18,7 +18,7 @@ public enum ShardState {
 	GONE
 	;
 	public boolean isAlive() {
-		return this == ONLINE || this == QUARANTINE; // || this == JOINING;
+		return this == ONLINE || this == DELAYED; // || this == JOINING;
 	}
 	public Predicate<Shard> filter() {
 		return shard->shard.getState()==this;

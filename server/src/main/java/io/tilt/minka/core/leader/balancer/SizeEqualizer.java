@@ -43,7 +43,7 @@ import io.tilt.minka.utils.CollectionUtils;
  * @author Cristian Gonzalez
  * @since Dec 13, 2015
  */
-public class EvenSizeBalancer implements Balancer {
+public class SizeEqualizer implements Balancer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -52,7 +52,7 @@ public class EvenSizeBalancer implements Balancer {
 		private final int maxDutiesDeltaBetweenShards;
 		@Override
 		public Class<? extends Balancer> getBalancer() {
-			return EvenSizeBalancer.class;
+			return SizeEqualizer.class;
 		}
 		public Metadata(int maxDutiesDeltaBetweenShards) {
 			super();

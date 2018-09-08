@@ -51,8 +51,8 @@ import io.tilt.minka.shard.SpotCapacityComparer;
  * stop receiving duties earlier when reaching out of space, while bigger ones will continue to receive.
  * 
  * @author Cristian Gonzalez
- */
-public class FairWeightBalancer implements Balancer {
+ */ 
+public class FairWeightToCapacity implements Balancer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
@@ -64,7 +64,7 @@ public class FairWeightBalancer implements Balancer {
 		
 		@Override
 		public Class<? extends Balancer> getBalancer() {
-			return FairWeightBalancer.class;
+			return FairWeightToCapacity.class;
 		}
 		public Metadata() {
 			this.dispersion = BalancerConfiguration.FAIR_WEIGHT_DISPERSION;

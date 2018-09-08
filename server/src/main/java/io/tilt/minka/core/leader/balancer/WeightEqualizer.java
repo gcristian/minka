@@ -51,7 +51,7 @@ import io.tilt.minka.shard.SpotDateComparer;
  * @author Cristian Gonzalez
  * @since Dec 13, 2015
  */
-public class EvenWeightBalancer implements Balancer {
+public class WeightEqualizer implements Balancer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
@@ -60,7 +60,7 @@ public class EvenWeightBalancer implements Balancer {
 		private final PreSort presort;
 		@Override
 		public Class<? extends Balancer> getBalancer() {
-			return EvenWeightBalancer.class;
+			return WeightEqualizer.class;
 		}
 		public Metadata(PreSort presort) {
 			super();

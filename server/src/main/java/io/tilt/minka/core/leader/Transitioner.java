@@ -3,7 +3,7 @@ package io.tilt.minka.core.leader;
 import static io.tilt.minka.shard.ShardState.GONE;
 import static io.tilt.minka.shard.ShardState.JOINING;
 import static io.tilt.minka.shard.ShardState.ONLINE;
-import static io.tilt.minka.shard.ShardState.QUARANTINE;
+import static io.tilt.minka.shard.ShardState.DELAYED;
 import static io.tilt.minka.shard.TransitionCause.BECAME_ANCIENT;
 import static io.tilt.minka.shard.TransitionCause.FEW_HEARTBEATS;
 import static io.tilt.minka.shard.TransitionCause.HEALTHLY_THRESHOLD;
@@ -48,7 +48,7 @@ class Transitioner {
 		this.configuredLapse = config.beatToMs(config.getProctor().getHeartbeatLapse());
 		this.minHealthlyToGoOnline = config.getProctor().getMinHealthlyHeartbeatsForShardOnline();
 		this.minToBeGone = config.getProctor().getMinAbsentHeartbeatsBeforeShardGone();
-		this.maxSickToGoQuarantine = config.getProctor().getMaxSickHeartbeatsBeforeShardQuarantine();
+		this.maxSickToGoQuarantine = config.getProctor().getMaxSickHeartbeatsBeforeShardDelayed();
 		this.cardio = cardio;
 	}
 
@@ -79,21 +79,21 @@ class Transitioner {
 			int size = pastLapse.size();
 			if (size > 0 && cardio.isHealthly(now, normalDelay, pastLapse)) {
 				ret = new Transition(HEALTHLY_THRESHOLD, 
-						size >= minHealthlyToGoOnline ? ONLINE : QUARANTINE);
+						size >= minHealthlyToGoOnline ? ONLINE : DELAYED);
 					// how many times should we support flapping before killing it
 			} else {
 				if (size > maxSickToGoQuarantine) {
 					if (size <= minToBeGone || size == 0) {
 						ret = new Transition(MIN_ABSENT, GONE);
 					} else {
-						ret = new Transition(MAX_SICK_FOR_ONLINE, QUARANTINE);
+						ret = new Transition(MAX_SICK_FOR_ONLINE, DELAYED);
 					}
-				} else if (size <= minToBeGone && currentState == QUARANTINE) {
+				} else if (size <= minToBeGone && currentState == DELAYED) {
 					ret = new Transition(MIN_ABSENT, GONE);
 				} else if (size > 0 && currentState == ONLINE) {
-					ret = new Transition(SWITCH_BACK, QUARANTINE);
+					ret = new Transition(SWITCH_BACK, DELAYED);
 				} else if (size == 0 
-						&& (currentState == QUARANTINE || currentState == ONLINE)) {
+						&& (currentState == DELAYED || currentState == ONLINE)) {
 					ret = new Transition(BECAME_ANCIENT, GONE);
 				} else if (currentState == JOINING && size == 0 ) {
 					ret = new Transition(JOINING_STARVED, GONE);

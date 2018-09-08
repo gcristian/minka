@@ -192,7 +192,8 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 				}
 			}
 		} catch (Exception e) {
-			logger.error("{}: ({}) Unexpected while handling Duty:{}", getName(), config.getLoggingShardId(), duties, e);
+			logger.error("{}: ({}) Unexpected while handling Duty:{}", getName(), config.getLoggingShardId(), 
+					ShardEntity.toStringIds(duties), e);
 		}
 	}
 

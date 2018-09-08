@@ -17,9 +17,9 @@ import io.tilt.minka.api.EventMapper;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Server;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
-import io.tilt.minka.core.leader.balancer.EvenSizeBalancer;
-import io.tilt.minka.core.leader.balancer.EvenWeightBalancer;
-import io.tilt.minka.core.leader.balancer.FairWeightBalancer;
+import io.tilt.minka.core.leader.balancer.SizeEqualizer;
+import io.tilt.minka.core.leader.balancer.WeightEqualizer;
+import io.tilt.minka.core.leader.balancer.FairWeightToCapacity;
 
 public class TestUtils {
 
@@ -54,9 +54,10 @@ public class TestUtils {
 
 	public static Collection<BalancerMetadata> balancers() {
 		return Arrays.asList(
-				new EvenSizeBalancer.Metadata(), 
-				new FairWeightBalancer.Metadata(),
-				new EvenWeightBalancer.Metadata());
+				new SizeEqualizer.Metadata(), 
+				new FairWeightToCapacity.Metadata(),
+				new WeightEqualizer.Metadata()
+				);
 	}
 
 	public static Set<ServerWhitness> buildCluster(

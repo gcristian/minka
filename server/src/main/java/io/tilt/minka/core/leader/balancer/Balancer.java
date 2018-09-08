@@ -124,16 +124,16 @@ public interface Balancer {
 	enum Strategy {
 
 		/* equally sized shards: each one with same amount of entities or almost */
-		EVEN_SIZE(EvenSizeBalancer.class, Type.BALANCED, Weighted.NOT),
+		EVEN_SIZE(SizeEqualizer.class, Type.BALANCED, Weighted.NOT),
 		/* equally loaded shards: duties clustering according weights*/
-		EVEN_WEIGHT(EvenWeightBalancer.class, Type.BALANCED, Weighted.YES),
+		EVEN_WEIGHT(WeightEqualizer.class, Type.BALANCED, Weighted.YES),
 		/* fairly loaded shards: duty-weight and shard-capacity trade-off distribution */
-		FAIR_WEIGHT(FairWeightBalancer.class, Type.BALANCED, Weighted.YES),
+		FAIR_WEIGHT(FairWeightToCapacity.class, Type.BALANCED, Weighted.YES),
 		
 		/* Unbalanced strategies related to distribution */
 		
 		/* keep minimum usage of shards: until spill then fill another one but keep frugal */
-		SPILLOVER(SpillOverBalancer.class, Type.UNBALANCED, Weighted.YES),
+		SPILLOVER(ProgressiveSpillOver.class, Type.UNBALANCED, Weighted.YES),
 		;
 		Class<? extends Balancer> balancer;
 		Type type;

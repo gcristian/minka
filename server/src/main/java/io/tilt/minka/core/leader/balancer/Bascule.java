@@ -29,7 +29,7 @@ import io.tilt.minka.api.Duty;
  * @author Cristian Gonzalez
  * @since Nov 12, 2016
  */
-public class Bascule<O, C> {
+class Bascule<O, C> {
 	private final O owner;
 	// real owner's reported capacity: cannot be overloaded 
 	private final double maxRealCapacity;
@@ -43,11 +43,11 @@ public class Bascule<O, C> {
 	private final Set<C> discarded;
 	
 	/* weighing mode bascule: only to lift weights without assigning */
-	public Bascule() {
+	Bascule() {
 		this(null, -1, 0);
 	}
 	/* testing mode to assign duties to shards */
-	public Bascule(final O owner, final double maxRealCapacity) {
+	Bascule(final O owner, final double maxRealCapacity) {
 		this(owner, maxRealCapacity, 0);
 		Validate.notNull(owner);
 	}
@@ -60,7 +60,7 @@ public class Bascule<O, C> {
 	/**
 	 * @param duty a testing entity 
 	 * @return whether or not this bascule is able to lift the duty's weight */
-	public boolean fits(final Duty duty) {
+	boolean fits(final Duty duty) {
 		Validate.notNull(duty);
 		validOperation();
 		return duty.getWeight()<=maxRealCapacity;
@@ -74,7 +74,7 @@ public class Bascule<O, C> {
 	 * @param element the cargo element
 	 * @param weight the weight
 	 * @return whether or not the bascule added the duty and max test weight wasnt reached yet */
-	public boolean testAndLift(final C element, final double weight) {
+	boolean testAndLift(final C element, final double weight) {
 		if (getMaxTestWeight()<0) {
 			throw new IllegalStateException("bad operation: try setting the test capacity first");
 		}
@@ -84,7 +84,7 @@ public class Bascule<O, C> {
 	 * @param element the cargo element
 	 * @param weight the weight
 	 * @return whether or not the bascule added the duty and real max capacity wasnt reached */
-	public boolean tryLift(final C element, final double weight) {
+	boolean tryLift(final C element, final double weight) {
 		return lift_(element, weight, getMaxRealCapacity());
 	}
 	private boolean lift_(final C element, double weight, double max) {
@@ -99,41 +99,41 @@ public class Bascule<O, C> {
 		return true;
 	}
 	/** @return the elements failed to lift */
-	public Set<C> getDiscarded() {
+	Set<C> getDiscarded() {
 		return this.discarded;
 	}
 	/** @return the elements successfully lifted */
-	public Set<C> getCargo() {
+	Set<C> getCargo() {
 		return this.cargo;
 	}
-	public boolean isEmpty() {
+	boolean isEmpty() {
 		return this.cargo.isEmpty();
 	}
-	public void lift(double weight) {
+	void lift(double weight) {
 		if (maxRealCapacity!=-1) {
 			throw new IllegalStateException("bad operation: bascule in testing mode cannot lift unidentified weight");
 		}
 		liftedWeight+=weight;
 	}
-	public O getOwner() {
+	O getOwner() {
 		return this.owner;
 	}
-	public double totalLift() {
+	double totalLift() {
 		return liftedWeight;
 	}
-	public void setMaxTestingCapacity(final double maxTestWeight) {
+	void setMaxTestingCapacity(final double maxTestWeight) {
 		Validate.isTrue(maxTestWeight <= maxRealCapacity, "cannot be greater than real maximum weight capacity");
 		this.maxTestWeight = maxTestWeight;
 	}
-	public double getMaxRealCapacity() {
+	double getMaxRealCapacity() {
 		validOperation();
 		return this.maxRealCapacity;
 	}
-	public double getMaxTestWeight() {
+	double getMaxTestWeight() {
 		validOperation();
 		return this.maxTestWeight;
 	}
-	public static <I,C> double getMaxRealCapacity(final Set<Bascule<I,C>> all) {
+	static <I,C> double getMaxRealCapacity(final Set<Bascule<I,C>> all) {
 		Validate.notEmpty(all);
 		double total = 0;
 		for (Bascule<I,C> b: all) {

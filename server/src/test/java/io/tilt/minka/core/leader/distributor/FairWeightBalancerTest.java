@@ -16,7 +16,7 @@ import org.junit.Test;
 import io.tilt.minka.ShardTest;
 import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.balancer.FairWeightBalancer;
+import io.tilt.minka.core.leader.balancer.FairWeightToCapacity;
 import io.tilt.minka.core.leader.balancer.Spot;
 import io.tilt.minka.core.leader.balancer.PreSort;
 import io.tilt.minka.core.leader.data.Scheme;
@@ -93,7 +93,7 @@ public class FairWeightBalancerTest {
 		final Set<ShardEntity> ents = someEntitiesWithGrowingOrder();
 		final Set<Duty> duties = dutiesFromEntities(ents);		
 		final Pallet p1 = Pallet.builder("1")
-				.with(new FairWeightBalancer.Metadata())
+				.with(new FairWeightToCapacity.Metadata())
 				.build();
 		
 		// only creations at stage
@@ -106,14 +106,14 @@ public class FairWeightBalancerTest {
 		final Set<Shard> shards = new HashSet<>();
 		table.getCommitedState().findShards(null, shards::add);
 		final Migrator migra1 = MigratorTest.migrator(shards, ents, p1);
-		new FairWeightBalancer().balance(p1, stageFromTable(table), stage, migra1);		
+		new FairWeightToCapacity().balance(p1, stageFromTable(table), stage, migra1);		
 		final Override v1o1 = migra1.getOverrides().get(0);
 		final Override v1o2 = migra1.getOverrides().get(1);
 
 		final Set<Shard> shardss = new HashSet<>();
 		table.getCommitedState().findShards(null, shardss::add);
 		final Migrator migra2 = MigratorTest.migrator(shardss, ents, p1);
-		new FairWeightBalancer().balance(p1, stageFromTable(table), stage, migra2);
+		new FairWeightToCapacity().balance(p1, stageFromTable(table), stage, migra2);
 		final Override v2o1 = migra2.getOverrides().get(0);
 		final Override v2o2 = migra2.getOverrides().get(1);
 
@@ -132,7 +132,7 @@ public class FairWeightBalancerTest {
 		final Set<ShardEntity> ents = someEntitiesWithSameOrder(12);
 		final Set<Duty> duties = dutiesFromEntities(ents);		
 		final Pallet p1 = Pallet.builder("1")
-				.with(new FairWeightBalancer.Metadata())
+				.with(new FairWeightToCapacity.Metadata())
 				.build();
 		
 		// only creations at backstage
@@ -145,7 +145,7 @@ public class FairWeightBalancerTest {
 		final Set<Shard> shards = new HashSet<>();
 		table.getCommitedState().findShards(null, shards::add);
 		final Migrator m = MigratorTest.migrator(shards, ents, p1);
-		new FairWeightBalancer().balance(p1, stageFromTable(table), stage, m);		
+		new FairWeightToCapacity().balance(p1, stageFromTable(table), stage, m);		
 		if (m.getOverrides().size()!=3) {
 			int u = 0;
 		}
@@ -173,7 +173,7 @@ public class FairWeightBalancerTest {
 		final Set<ShardEntity> ents = someEntitiesWithOddOrder();
 		final Set<Duty> duties = dutiesFromEntities(ents);		
 		final Pallet p1 = Pallet.builder("1")
-				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, PreSort.WEIGHT))
+				.with(new FairWeightToCapacity.Metadata(FairWeightToCapacity.Dispersion.EVEN, PreSort.WEIGHT))
 				.build();
 		
 		// only creations at backstage
@@ -185,16 +185,16 @@ public class FairWeightBalancerTest {
 		final Set<Shard> shards = new HashSet<>();
 		table.getCommitedState().findShards(null, shards::add);
 		final Migrator migra = MigratorTest.migrator(shards, ents, p1);
-		new FairWeightBalancer().balance(p1, stageFromTable(table), stage, migra);		
+		new FairWeightToCapacity().balance(p1, stageFromTable(table), stage, migra);		
 		assertTrue(migra.getOverrides().size()==3);
 		
 		// Using Dispersion.EVEN
 		// attention: contrary to intuition, logical scattering will not be achieved
-		// by the FairWeightBalancer unless total duty weight is almost close to the cluster capacity
+		// by the FairWeightToCapacity unless total duty weight is almost close to the cluster capacity
 		// balancer's fairness algorithm tries to spill according to shard's capacities
 		// bigger shards will get most of the weightL: when total duty weight is far from cluster capacity
 		// more coherent scattering will be achieved: when total duty weight is almost close teo cluster capacity
-		// see: FairWeightBalancer:192
+		// see: FairWeightToCapacity:192
 		
 		
 		for (Override o: migra.getOverrides()) {
@@ -227,7 +227,7 @@ public class FairWeightBalancerTest {
 		final Set<ShardEntity> ents = someEntitiesWithOddOrder();
 		final Set<Duty> duties = dutiesFromEntities(ents);		
 		final Pallet p1 = Pallet.builder("1")
-				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, PreSort.WEIGHT))
+				.with(new FairWeightToCapacity.Metadata(FairWeightToCapacity.Dispersion.EVEN, PreSort.WEIGHT))
 				.build();
 		
 		// only creations at backstage
@@ -240,7 +240,7 @@ public class FairWeightBalancerTest {
 		final Set<Shard> shards = new HashSet<>();
 		table.getCommitedState().findShards(null, shards::add);
 		final Migrator migra = MigratorTest.migrator(shards, ents, p1);
-		new FairWeightBalancer().balance(p1, stageFromTable(table), stage, migra);		
+		new FairWeightToCapacity().balance(p1, stageFromTable(table), stage, migra);		
 		assertTrue(migra.getOverrides().size()==3);
 		
 		// this case shows cluster capacity slightly over total duty weight
@@ -301,7 +301,7 @@ public class FairWeightBalancerTest {
 		final Set<ShardEntity> ents = dutiesWithWeights(6, 6, 6, 6);
 		final Set<Duty> duties = dutiesFromEntities(ents);		
 		final Pallet p1 = Pallet.builder("1")
-				.with(new FairWeightBalancer.Metadata(FairWeightBalancer.Dispersion.EVEN, PreSort.DATE))
+				.with(new FairWeightToCapacity.Metadata(FairWeightToCapacity.Dispersion.EVEN, PreSort.DATE))
 				.build();
 		
 		// only creations at backstage
@@ -314,7 +314,7 @@ public class FairWeightBalancerTest {
 		final Set<Shard> shards = new HashSet<>();
 		table.getCommitedState().findShards(null, shards::add);
 		final Migrator migra = MigratorTest.migrator(shards, ents, p1);
-		new FairWeightBalancer().balance(p1, stageFromTable(table), stage, migra);		
+		new FairWeightToCapacity().balance(p1, stageFromTable(table), stage, migra);		
 		assertTrue(migra.getOverrides().size()>=3);
 		
 		// this case shows cluster capacity slightly over total duty weight

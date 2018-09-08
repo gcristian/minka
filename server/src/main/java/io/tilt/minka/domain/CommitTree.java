@@ -102,60 +102,6 @@ public class CommitTree implements Serializable {
 							MAX_PLAN_HISTORY, 
 							(Comparator<Long> & Serializable) Long::compare);
 
-	/** A realistic synthetized view of data structure */
-	public JSONObject toJson() {
-		JSONObject ret = null;
-		if (!tree.isEmpty()) {
-			final JSONObject plans = new JSONObject();
-			for (Map.Entry<Long, InsMap<String , LimMap<EntityEvent, Log>>> byPlan: tree.descendingMap().entrySet()) {
-				final JSONObject shards = new JSONObject();
-				for (Map.Entry<String, LimMap<EntityEvent, Log>> e: byPlan.getValue().entrySet()) {
-					final JSONObject events = new JSONObject();
-					for (Map.Entry<EntityEvent, Log> ee: e.getValue().entrySet()) {
-						final JSONObject stamps = new JSONObject();
-						for (StateStamp ss: ee.getValue().getStates()) {
-							stamps.put(ss.getState().name().toLowerCase(), ss.getDate().toString());
-						}
-						events.put(ee.getKey().name(), stamps);
-					}
-					shards.put("shard-id:" + e.getKey(), events);
-				}
-				plans.put("plan-id:" + byPlan.getKey(), shards);
-			}
-			ret = plans;
-		}
-		return ret;
-	}
-
-	public JSONObject toOrderedJson() {
-		JSONObject ret = null;
-		if (!tree.isEmpty()) {
-			final JSONArray plans = new JSONArray();
-			for (Map.Entry<Long, InsMap<String , LimMap<EntityEvent, Log>>> byPlan: tree.entrySet()) {
-				final JSONArray shards = new JSONArray();
-				for (Map.Entry<String, LimMap<EntityEvent, Log>> e: byPlan.getValue().entrySet()) {
-					final JSONObject events = new JSONObject();
-					for (Map.Entry<EntityEvent, Log> ee: e.getValue().entrySet()) {
-						final JSONObject stamps = new JSONObject();
-						for (StateStamp ss: ee.getValue().getStates()) {
-							stamps.put(ss.getState().name().toLowerCase(), ss.getDate().toString());
-						}
-						events.put(ee.getKey().name(), stamps);
-					}
-					JSONObject newshard = new JSONObject();
-					newshard.put("shard-id:" + byPlan.getKey(), events);
-					shards.put(newshard);
-				}
-				JSONObject newplan = new JSONObject();
-				newplan.put("plan-id:" + byPlan.getKey(), shards);
-				
-				plans.put(newplan);
-			}
-			ret = new JSONObject();
-			ret.put("plans", plans);
-		}
-		return ret;
-	}
 
 	void addEvent_(
 			final EntityEvent event, 
@@ -691,5 +637,62 @@ public class CommitTree implements Serializable {
 		
 	}
 
+
+	/** A realistic synthetized view of data structure */
+	public JSONObject toJson() {
+		JSONObject ret = null;
+		if (!tree.isEmpty()) {
+			final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
+			final JSONObject plans = new JSONObject();
+			for (Map.Entry<Long, InsMap<String , LimMap<EntityEvent, Log>>> byPlan: tree.descendingMap().entrySet()) {
+				final JSONObject shards = new JSONObject();
+				for (Map.Entry<String, LimMap<EntityEvent, Log>> e: byPlan.getValue().entrySet()) {
+					final JSONObject events = new JSONObject();
+					for (Map.Entry<EntityEvent, Log> ee: e.getValue().entrySet()) {
+						final JSONObject stamps = new JSONObject();
+						for (StateStamp ss: ee.getValue().getStates()) {
+							stamps.put(ss.getState().name().toLowerCase(), sdf.format(ss.getDate()));
+						}
+						events.put(ee.getKey().name(), stamps);
+					}
+					shards.put("shard-id:" + e.getKey(), events);
+				}
+				plans.put("plan-id:" + byPlan.getKey(), shards);
+			}
+			ret = plans;
+		}
+		return ret;
+	}
+
+	public JSONObject toOrderedJson() {
+		JSONObject ret = null;
+		if (!tree.isEmpty()) {
+			final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
+			final JSONArray plans = new JSONArray();
+			for (Map.Entry<Long, InsMap<String , LimMap<EntityEvent, Log>>> byPlan: tree.entrySet()) {
+				final JSONArray shards = new JSONArray();
+				for (Map.Entry<String, LimMap<EntityEvent, Log>> e: byPlan.getValue().entrySet()) {
+					final JSONObject events = new JSONObject();
+					for (Map.Entry<EntityEvent, Log> ee: e.getValue().entrySet()) {
+						final JSONObject stamps = new JSONObject();
+						for (StateStamp ss: ee.getValue().getStates()) {
+							stamps.put(ss.getState().name().toLowerCase(), sdf.format(ss.getDate()));
+						}
+						events.put(ee.getKey().name(), stamps);
+					}
+					JSONObject newshard = new JSONObject();
+					newshard.put("shard-id:" + byPlan.getKey(), events);
+					shards.put(newshard);
+				}
+				JSONObject newplan = new JSONObject();
+				newplan.put("plan-id:" + byPlan.getKey(), shards);
+				
+				plans.put(newplan);
+			}
+			ret = new JSONObject();
+			ret.put("plans", plans);
+		}
+		return ret;
+	}
 
 }

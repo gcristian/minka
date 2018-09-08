@@ -1,9 +1,9 @@
 package io.tilt.minka.api.config;
 
 import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
-import io.tilt.minka.core.leader.balancer.FairWeightBalancer.Dispersion;
+import io.tilt.minka.core.leader.balancer.FairWeightToCapacity.Dispersion;
 import io.tilt.minka.core.leader.balancer.PreSort;
-import io.tilt.minka.core.leader.balancer.SpillOverBalancer.MaxUnit;
+import io.tilt.minka.core.leader.balancer.ProgressiveSpillOver.MaxUnit;
 
 public class BalancerConfiguration {
 	public static final Strategy STRATEGY = Strategy.EVEN_WEIGHT;

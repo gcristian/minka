@@ -35,6 +35,7 @@ import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
 
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class SchemeJSONBuilder {
 	
 	private final Scheme scheme;
@@ -59,39 +60,22 @@ public class SchemeJSONBuilder {
 		final Map<String, Object> m;
 		if (detail) {
 			final JSONObject j = new JSONObject();
-			j.put("commited", buildCommitedState(true));
-			j.put("vault", buildVault(detail));
-			j.put("replicas", buildReplicas(detail));
-			j.put("uncommited", buildDirtyState(detail, scheme.getDirty()));
+			j.put("committed", buildCommitedState(true));
+			j.put("vault", dutyBrief(scheme.getVault().getAllDuties(), detail));
+			j.put("replicas", dutyBrief(partition.getReplicas(), detail));
+			j.put("uncommitted", buildDirtyState(detail, scheme.getDirty()));
 			m = j.toMap();
 		} else {
 			m = new LinkedHashMap<>(2);
-			final Object det = buildCommitedState(detail);
-			m.put("commited", detail ? ((JSONObject)det).toMap() : det);
-			m.put("vault", buildVault(detail));
-			m.put("replicas", buildReplicas(detail));
-			m.put("uncommited", buildDirtyState(detail, scheme.getDirty()));
+			// ((JSONObject)det).toMap()
+			m.put("committed", buildCommitedState(false));
+			m.put("vault", dutyBrief(scheme.getVault().getAllDuties(), detail));
+			m.put("replicas", dutyBrief(partition.getReplicas(), detail));
+			m.put("uncommitted", buildDirtyState(detail, scheme.getDirty()));
 		}
 		return SystemStateMonitor.toJson(m);
 	}
-	
 
-	@SuppressWarnings({"rawtypes", "unchecked"})
-	private Object buildVault(final boolean detail) {
-		Validate.notNull(scheme);
-		final Map<String, Object> byPalletId = new LinkedHashMap<>();
-		final JSONObject js = new JSONObject();
-		final Consumer adder;
-		if (detail) {
-			adder = collectorWithDetail(js);	
-		} else {
-			adder = collecter(byPalletId);
-		}
-		scheme.getVault().getAllDuties().forEach(adder);
-		return detail ? js : byPalletId;
-	}
-
-	@SuppressWarnings({"rawtypes", "unchecked"})
 	private Object buildCommitedState(final boolean detail) {
 		Validate.notNull(scheme);
 		final Map<String, Object> byPalletId = new LinkedHashMap<>();
@@ -102,27 +86,17 @@ public class SchemeJSONBuilder {
 		} else {
 			adder = collecter(byPalletId);
 		}
+				
 		scheme.getCommitedState().findDuties(adder);
 		return detail ? js : byPalletId;
 	}
-
-	private Map<String, Object> buildReplicas(final boolean detail) {
-		Validate.notNull(scheme);
-		final Map<String, Object> byPalletId = new LinkedHashMap<>();
-		final Consumer adder = detail ? collectorWithDetail(byPalletId) : collecter(byPalletId);
-		partition.getReplicas().forEach(adder);;
-		return byPalletId;
-	}
-
-	private Consumer<ShardEntity> collectorWithDetail(final Map<String, Object> byPalletId) {
-		final Consumer<ShardEntity> adder = d-> {
-			ArrayList<Object> list = (ArrayList) byPalletId.get(d.getDuty().getPalletId());
-			if (list==null) {
-				byPalletId.put(d.getDuty().getPalletId(), list = new ArrayList<>());
-			}
-			list.add(d.getCommitTree().toJson());
-		};
-		return adder;
+	
+	private Map<String, Object> buildDirtyState(final boolean detail, final DirtyState dirtyState) {
+		final Map<String, Object> ret = new LinkedHashMap<>(3);		
+		ret.put("crud", dutyBrief(dirtyState.getDutiesCrud(), detail));
+		ret.put("dangling", dutyBrief(dirtyState.getDutiesDangling(), detail));
+		ret.put("missing", dutyBrief(dirtyState.getDutiesMissing(), detail));
+		return ret;
 	}
 	
 	private Consumer<Object> collectorWithDetail(final JSONObject js) {
@@ -178,25 +152,17 @@ public class SchemeJSONBuilder {
 		};
 	}
 
-	private List<Object> dutyBrief(final Collection<ShardEntity> coll, final boolean detail) {
-		List<Object> ret = new ArrayList<>();
-		if (!detail) {
-			coll.stream()
-				.map(d->d.getDuty().getId())
-				.forEach(ret::add);
+	private Object dutyBrief(final Collection coll, final boolean detail) {
+		Validate.notNull(scheme);
+		final Map<String, Object> byPalletId = new LinkedHashMap<>();
+		final JSONObject js = new JSONObject();
+		final Consumer adder;
+		if (detail) {
+			adder = collectorWithDetail(js);	
 		} else {
-			coll.forEach(ret::add);
-		}
-		return ret;
-	}
-	
-	private Map<String, List<Object>> buildDirtyState(final boolean detail, final DirtyState dirtyState) {
-		final Map<String, List<Object>> ret = new LinkedHashMap<>(3);		
-		ret.put("crud", dutyBrief(dirtyState.getDutiesCrud(), detail));
-		ret.put("dangling", dutyBrief(dirtyState.getDutiesDangling(), detail));
-		ret.put("missing", dutyBrief(dirtyState.getDutiesMissing(), detail));
-		return ret;
+			adder = collecter(byPalletId);
+		}				
+		return detail ? js : byPalletId;
 	}
 
-	
 }

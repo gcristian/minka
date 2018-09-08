@@ -19,8 +19,8 @@ public class ProctorSettings {
 	private int minAbsentHeartbeatsBeforeShardGone;
 	protected static final double MAX_HEARTBEAT_RECEPTION_DELAY_FACTOR_FOR_SICK = 3d;
 	private double maxHeartbeatReceptionDelayFactorForSick;
-	protected static final int MAX_SICK_HEARTBEATS_BEFORE_SHARD_QUARANTINE = 5;
-	private int maxSickHeartbeatsBeforeShardQuarantine;
+	protected static final int MAX_SICK_HEARTBEATS_BEFORE_SHARD_DELAYED = 5;
+	private int maxSickHeartbeatsBeforeShardDelayed;
 	protected static final int MIN_SHARDS_ONLINE_BEFORE_SHARDING = 1;
 	private int minShardsOnlineBeforeSharding;
 	protected static final double HEARTBEAT_MAX_BIGGEST_DISTANCE_FACTOR = 2.5d;
@@ -50,59 +50,59 @@ public class ProctorSettings {
 	public int getMaxShardJoiningState() {
 		return maxShardJoiningState;
 	}
-	public void setMaxShardJoiningState(int maxShardJoiningState) {
-		this.maxShardJoiningState = maxShardJoiningState;
+	public void setMaxShardJoiningState(int value) {
+		this.maxShardJoiningState = value;
 	}
 	public int getHeartbeatLapse() {
 		return heartbeatLapse;
 	}
-	public void setHeartbeatLapse(int heartbeatLapse) {
-		this.heartbeatLapse = heartbeatLapse;
+	public void setHeartbeatLapse(int value) {
+		this.heartbeatLapse = value;
 	}
-	public void setMinHealthlyHeartbeatsForShardOnline(int minHealthlyHeartbeatsForShardOnline) {
-		this.minHealthlyHeartbeatsForShardOnline = minHealthlyHeartbeatsForShardOnline;
+	public void setMinHealthlyHeartbeatsForShardOnline(int value) {
+		this.minHealthlyHeartbeatsForShardOnline = value;
 	}
 	public int getMinAbsentHeartbeatsBeforeShardGone() {
 		return this.minAbsentHeartbeatsBeforeShardGone;
 	}
-	public void setMinAbsentHeartbeatsBeforeShardGone(int minAbsentHeartbeatsBeforeShardGone) {
-		this.minAbsentHeartbeatsBeforeShardGone = minAbsentHeartbeatsBeforeShardGone;
+	public void setMinAbsentHeartbeatsBeforeShardGone(int value) {
+		this.minAbsentHeartbeatsBeforeShardGone = value;
 	}
 	public double getMaxHeartbeatReceptionDelayFactorForSick() {
 		return this.maxHeartbeatReceptionDelayFactorForSick;
 	}
-	public void setMaxHeartbeatReceptionDelayFactorForSick(double maxHeartbeatReceptionDelayFactorForSick) {
-		this.maxHeartbeatReceptionDelayFactorForSick = maxHeartbeatReceptionDelayFactorForSick;
+	public void setMaxHeartbeatReceptionDelayFactorForSick(double value) {
+		this.maxHeartbeatReceptionDelayFactorForSick = value;
 	}
-	public int getMaxSickHeartbeatsBeforeShardQuarantine() {
-		return this.maxSickHeartbeatsBeforeShardQuarantine;
+	public int getMaxSickHeartbeatsBeforeShardDelayed() {
+		return this.maxSickHeartbeatsBeforeShardDelayed;
 	}
-	public void setMaxSickHeartbeatsBeforeShardQuarantine(int maxSickHeartbeatsBeforeShardQuarantine) {
-		this.maxSickHeartbeatsBeforeShardQuarantine = maxSickHeartbeatsBeforeShardQuarantine;
+	public void setMaxSickHeartbeatsBeforeShardDelayed(int value) {
+		this.maxSickHeartbeatsBeforeShardDelayed = value;
 	}
 	public int getMinShardsOnlineBeforeSharding() {
 		return this.minShardsOnlineBeforeSharding;
 	}
-	public void setMinShardsOnlineBeforeSharding(int minShardsOnlineBeforeSharding) {
-		this.minShardsOnlineBeforeSharding = minShardsOnlineBeforeSharding;
+	public void setMinShardsOnlineBeforeSharding(int value) {
+		this.minShardsOnlineBeforeSharding = value;
 	}
 	public double getHeartbeatMaxBiggestDistanceFactor() {
 		return this.heartbeatMaxBiggestDistanceFactor;
 	}
-	public void setHeartbeatMaxBiggestDistanceFactor(double heartbeatMaxBiggestDistanceFactor) {
-		this.heartbeatMaxBiggestDistanceFactor = heartbeatMaxBiggestDistanceFactor;
+	public void setHeartbeatMaxBiggestDistanceFactor(double value) {
+		this.heartbeatMaxBiggestDistanceFactor = value;
 	}
 	public double getHeartbeatMaxDistanceStandardDeviation() {
 		return this.heartbeatMaxDistanceStandardDeviation;
 	}
-	public void setHeartbeatMaxDistanceStandardDeviation(double heartbeatMaxDistanceStandardDeviation) {
-		this.heartbeatMaxDistanceStandardDeviation = heartbeatMaxDistanceStandardDeviation;
+	public void setHeartbeatMaxDistanceStandardDeviation(double value) {
+		this.heartbeatMaxDistanceStandardDeviation = value;
 	}
 	public int getClusterHealthStabilityDelayPhases() {
 		return this.clusterHealthStabilityDelayPhases;
 	}
-	public void setClusterHealthStabilityDelayPhases(int clusterHealthStabilityDelayPhases) {
-		this.clusterHealthStabilityDelayPhases = clusterHealthStabilityDelayPhases;
+	public void setClusterHealthStabilityDelayPhases(int value) {
+		this.clusterHealthStabilityDelayPhases = value;
 	}
 
 }

@@ -69,13 +69,7 @@ public class StateWriter {
 			final Map<EntityEvent, StringBuilder> logging) {
 		
 		if (scheme.getCommitedState().commit(entity, shard, changelog.getEvent())) {
-			if (logger.isInfoEnabled()) {
-				StringBuilder sb = logging.get(changelog.getEvent());
-				if (sb==null) {
-					logging.put(changelog.getEvent(), sb = new StringBuilder());
-				}
-				sb.append(entity.getEntity().getId()).append(',');
-			}
+			log(changelog, entity, logging);
 
 			// copy the found situation to the instance we care
 			entity.getCommitTree().addEvent(changelog.getEvent(),
@@ -89,6 +83,16 @@ public class StateWriter {
 				}
 				clearDirtyState(changelog, entity, shard);
 			}
+		}
+	}
+
+	private void log(final Log changelog, final ShardEntity entity, final Map<EntityEvent, StringBuilder> logging) {
+		if (logger.isInfoEnabled()) {
+			StringBuilder sb = logging.get(changelog.getEvent());
+			if (sb==null) {
+				logging.put(changelog.getEvent(), sb = new StringBuilder());
+			}
+			sb.append(entity.getEntity().getId()).append(',');
 		}
 	}
 
@@ -141,7 +145,7 @@ public class StateWriter {
 		case ONLINE:
 			// TODO get ready
 			break;
-		case QUARANTINE:
+		case DELAYED:
 			// TODO lot of consistency checks here on duties
 			// to avoid chain of shit from heartbeats reporting doubtful stuff
 			break;

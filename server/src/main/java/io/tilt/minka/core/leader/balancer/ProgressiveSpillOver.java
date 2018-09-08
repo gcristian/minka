@@ -58,7 +58,7 @@ import io.tilt.minka.shard.SpotDateComparer;
  * @author Cristian Gonzalez
  * @since Dec 13, 2015
  */
-public class SpillOverBalancer implements Balancer {
+public class ProgressiveSpillOver implements Balancer {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -70,7 +70,7 @@ public class SpillOverBalancer implements Balancer {
 		private final boolean ascending;
 		@Override
 		public Class<? extends Balancer> getBalancer() {
-			return SpillOverBalancer.class;
+			return ProgressiveSpillOver.class;
 		}
 		public Metadata(final MaxUnit maxUnit, final double maxValue, 
 				final ShardPresort shardPresort, final boolean ascending) {
