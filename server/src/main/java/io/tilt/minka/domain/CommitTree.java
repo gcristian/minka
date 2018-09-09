@@ -108,9 +108,17 @@ public class CommitTree implements Serializable {
 			final EntityState state, 
 			final String shardid, 
 			final long planid) {
-						
+					
+		long pid = 0;
+		if (planid > 0) {
+			pid = planid;
+		} else if (tree.isEmpty()) {
+			pid = 0;
+		} else {
+			pid = tree.lastKey();
+		}
 		tree.getOrPut(
-				planid > 0 ? planid : tree.isEmpty() ? 0 : tree.lastKey(), 
+				pid, 
 				()-> new InsMap<String, LimMap<EntityEvent, Log>>(MAX_SHARD_HISTORY))
 			.getOrPut(
 				shardid, 

@@ -129,12 +129,16 @@ public class SocketServer {
 			return;
 		}
 		
-		this.serverWorkerGroup = new NioEventLoopGroup(
-				this.connectionHandlerThreads,
-				new ThreadFactoryBuilder()
-					.setNameFormat(SchedulerSettings.THREAD_NAME_BROKER_SERVER_WORKER)
-					.build());
-
+		synchronized(this) {
+			if (serverWorkerGroup==null) {
+				this.serverWorkerGroup = new NioEventLoopGroup(
+					this.connectionHandlerThreads,
+					new ThreadFactoryBuilder()
+						.setNameFormat(SchedulerSettings.THREAD_NAME_BROKER_SERVER_WORKER)
+						.build());
+			}
+		}
+		
 		boolean disconnected = true;
 		while (retry < maxRetries && disconnected &&!serverWorkerGroup.isShuttingDown()) {
 			if (retry++ > 0) {

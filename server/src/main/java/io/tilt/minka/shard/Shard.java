@@ -72,10 +72,11 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		this.firstTimeSeen = first.getTimestamp();
 	}
 	
-	@JsonProperty(value="last-beat-id", index=7)
-	private String lastBeatId() {
-		return String.valueOf(this.getLast().getSequenceId());
+	@JsonProperty(value="tag", index=1)
+	private String getTag() {
+		return this.shardId.getTag();
 	}
+
 	@JsonProperty(value="broker-connect", index=2)
 	private String getBrokerConnect() {
 		return this.shardId.getAddress().getHostAddress();
@@ -83,10 +84,6 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	@JsonProperty(value="web-connect",index=3)
 	private String getWebConnect() {
 		return this.shardId.getWebHostPort();
-	}
-	@JsonProperty(value="tag", index=4)
-	private String getTag() {
-		return this.shardId.getTag();
 	}
 	
 	@JsonIgnore
@@ -161,6 +158,11 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 	@JsonProperty(value="state-transitions", index=6)
 	public Collection<String> getTransitions_() {
 		return transitions.values().stream().map(c->c.toString()).collect(Collectors.toList());
+	}
+
+	@JsonProperty(value="last-beat-id", index=7)
+	private String lastBeatId() {
+		return String.valueOf(this.getLast().getSequenceId());
 	}
 
 	public int hashCode() {

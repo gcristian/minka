@@ -18,7 +18,6 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.PalletBuilder;
 import io.tilt.minka.api.Reply;
 import io.tilt.minka.api.Server;
-import io.tilt.minka.core.leader.balancer.SizeEqualizer;
 import io.tilt.minka.shard.TCPShardIdentifier;
 
 public class CmdLineApp {
@@ -79,7 +78,7 @@ public class CmdLineApp {
 		suggest.put(Quest.address, TCPShardIdentifier.findLANAddress().getHostAddress());
 		
 		final Map<Quest, String> quest = new HashMap<>();
-		
+		System.out.println();
 		System.out.println("Welcome ! First some answers (always type quit to exit)");
 		System.out.println("==========================================================");
 		for(Quest q: Quest.values()) {
@@ -225,7 +224,7 @@ public class CmdLineApp {
 		final String id = StringUtils.remove(StringUtils.abbreviate(s[1], 32).trim(), " ");
 		final PalletBuilder bldr = Pallet.builder(id);
 		if (s.length==3) {
-			bldr.with(new SizeEqualizer.Metadata());
+		//	bldr.with(new SizeEqualizer.Metadata());
 		}
 		return bldr.build();
 	}

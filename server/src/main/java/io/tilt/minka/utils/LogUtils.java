@@ -53,10 +53,10 @@ public class LogUtils {
 	}
 	public static String titleLine(final char ch, final String title) {
 		int dots = LARGE - title.length() - 2;
-		StringBuilder line = new StringBuilder("      ❇  ");
-		//grossLine(ch, dots, line);
+		StringBuilder line = new StringBuilder();
+		grossLine(ch, dots, line);
 		line.append(" ").append(title).append(" ");
-		//grossLine(ch, dots, line);
+		grossLine(ch, dots, line);
 		return line.toString();
 	}
 	private static String randomSaluteFromFile() {

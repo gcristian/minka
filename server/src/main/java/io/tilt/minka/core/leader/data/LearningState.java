@@ -205,11 +205,11 @@ public class LearningState {
 		boolean ret = false;
 		final EntityEvent event = EntityEvent.ATTACH;
 		for (Map.Entry<ShardIdentifier, Set<EntityRecord>> e: distribution.entrySet()) {
-			boolean found = false;
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Patching scheme ({}) w/previous commit-trees: {}", getClass().getSimpleName(), 
 						event, EntityRecord.toStringIds(e.getValue()));
 			}
+			boolean found = false;
 			for (EntityRecord r: e.getValue()) {
 				for (ShardEntity d: duties) {
 					if (d.getDuty().getId().equals(r.getId())) {

@@ -70,6 +70,10 @@ public class FollowerJSONBuilder {
 	 * @return			a String in json format
 	 */
 	public String partitionToJson(boolean detailed) {
+		if (leaderHandler.getLastClearance()==null) {
+			return "";
+		}
+		
 		final Map<String, Object> ret = new LinkedHashMap<>(6);
 		ret.put("domain-pallets", ShardEntity.toStringBrief(
 				leaderHandler.getLastClearance().getInfo().getDomainPallets()));		
