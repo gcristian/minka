@@ -50,7 +50,7 @@ class Replicator {
 		boolean stocks = dispatchNewLocals(CREATE, ATTACH, STOCK, changePlan, creations, leader, p);
 		final boolean drops = dispatchNewLocals(REMOVE, DETACH, DROP, changePlan, deletions, null, p);
 		// those of older plans (new followers may have turned online)
-		stocks |=dispatchCurrentLocals(scheme, changePlan, p, leader);
+		stocks |=dispatchKnownActive(scheme, changePlan, p);
 		return stocks || drops;
 	}
 	
@@ -71,7 +71,7 @@ class Replicator {
 			if (duty.getDuty().getPalletId().equals(p.getId()) && involved.contains(duty)) {
 				// search back the evidence event as authentic purpose to reaction
 				r[0] |=cs.findShardsAnd(
-						predicate(action, target, duty),
+						availabilityRule(action, target, duty),
 						replicate(changePlan, duty, reaction)
 				);
 			}
@@ -79,23 +79,24 @@ class Replicator {
 		return r[0];
 	}
 	
-	/**
-	 * check if they were created before the shard's online
-	 * or if they're already stocked there, dont do it twice ! (warnings arise)
-	 */
-	private boolean dispatchCurrentLocals(
+	private boolean dispatchKnownActive(
 			final Scheme state, 
 			final ChangePlan changePlan,
-			final Pallet pallet,
-			final Shard leader) {
+			final Pallet pallet) {
 				
 		final CommitedState cs = state.getCommitedState();
 		final boolean[] r = {false};
-		cs.findDuties(leader, pallet, replica-> {
-			r[0] |= cs.findShardsAnd(
-					predicate(ATTACH, leader, replica), 
+		cs.findDutiesByPallet(pallet, replica-> {
+			// of course avoid those going to die
+			if (!changePlan.isDispatching(replica, 
+					EntityEvent.DETACH, 
+					EntityEvent.DROP, 
+					EntityEvent.REMOVE)) {
+				r[0] |= cs.findShardsAnd(
+					availabilityRule(ATTACH, null, replica), 
 					replicate(changePlan, replica, STOCK)
-			);
+				);
+			}
 		});
 		return r[0];
 	}
@@ -116,26 +117,28 @@ class Replicator {
 		};
 	}
 
-	/** @return a filter to permit repication to the shard */
-	private Predicate<Shard> predicate(
+	/** @return a filter to validate replication to the shard */
+	private Predicate<Shard> availabilityRule(
 			final EntityEvent action, 
 			final Shard target, 
 			final ShardEntity replicated) {
 		
 		final CommitedState cs = scheme.getCommitedState();
 		return probHost -> (
+				probHost.getState().isAlive() && 
 			// stocking
-			(action == ATTACH
+			((action == ATTACH
 				// other but myself (I'll report'em if reelection occurs)
-				&& (!target.getShardID().equals(probHost.getShardID())
+				&& ((target==null || !target.getShardID().equals(probHost.getShardID()))
 					// avoid repeating event
-					&& !cs.getReplicasByShard(probHost).contains(replicated)
+				    && !cs.getReplicasByShard(probHost).contains(replicated)
 					// avoid stocking where's already attached (they'll report'em in reelection)
 					&& !cs.getDutiesByShard(probHost).contains(replicated)))
 			// dropping
 			|| (action == DETACH
 				// everywhere it's stocked in
 				&& cs.getReplicasByShard(probHost).contains(replicated))
+			)
 		);
 	}
 

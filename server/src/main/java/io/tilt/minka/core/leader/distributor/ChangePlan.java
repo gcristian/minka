@@ -145,6 +145,19 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		this.ended = Instant.now();
 	}
 
+	boolean isDispatching(final ShardEntity duty, EntityEvent...anyOf) {
+		for (EntityEvent ee: anyOf) {
+			if (dispatches.containsKey(ee)) {
+				for (List<ShardEntity> l: dispatches.get(ee).values()) {
+					if (l.contains(duty)) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+	
 	void onDispatchesFor(final EntityEvent event, final Shard shard, final BiConsumer<Shard, ShardEntity> c) { 
 		final Map<Shard, List<ShardEntity>> map = dispatches.get(event);
 		if (map!=null) {
