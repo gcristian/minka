@@ -83,11 +83,14 @@ public class DirtyRepository {
 		final Set<ShardEntity> merged = scheme.getLearningState().mergeWithYoungest(rawSet);
 		// patch and write previous commited state
 		scheme.getLearningState().patchCommitTrees(new HashSet<>(merged), (shard, patch)-> {
-			merged.remove(patch);
 			// directly commit them as THE true reality			
-			scheme.getCommitedState().commit(patch, 
-					scheme.getCommitedState().findShard(sid->sid.getShardID().equals(shard)), 
-					EntityEvent.ATTACH);
+			final Shard found = scheme.getCommitedState().findShard(sid->sid.getShardID().equals(shard));
+			if (found!=null) {
+				scheme.getCommitedState().commit(patch, found, EntityEvent.ATTACH);
+				merged.remove(patch);
+			} else {
+				logger.warn("{}: Duty ({}) from unknown shard: {} cannot take CT patch", patch, shard);
+			}
 		});
 		
 		if (!merged.isEmpty()) {
