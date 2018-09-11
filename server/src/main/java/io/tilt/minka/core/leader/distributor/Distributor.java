@@ -33,7 +33,7 @@ import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.Scheme.ClusterHealth;
-import io.tilt.minka.core.leader.data.DirtyFacade;
+import io.tilt.minka.core.leader.data.CrudController;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -77,7 +77,7 @@ public class Distributor implements Service {
 			final Scheduler scheduler, 
 			final EventBroker eventBroker,
 			final Scheme scheme, 
-			final DirtyFacade stageRepo,
+			final CrudController stageRepo,
 			final ShardIdentifier shardId,
 			final DependencyPlaceholder dependencyPlaceholder, 
 			final LeaderAware leaderAware) {
@@ -173,7 +173,7 @@ public class Distributor implements Service {
 		if (null!=changePlan) {
 			scheme.setPlan(changePlan);
 			this.scheme.setDistributionHealth(ClusterHealth.UNSTABLE);			
-			changePlan.prepare();
+			changePlan.build();
 			scheme.getDirty().dropSnapshot();
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Balancer generated issues on ChangePlan: {}", getName(), changePlan.getId());
@@ -192,7 +192,7 @@ public class Distributor implements Service {
 
 	/* retry already pushed deliveries with pending duties */
 	private void repushPendings(final ChangePlan changePlan) {
-		changePlan.onDispatches(d->d.getStep() == Dispatch.Step.PENDING, delivery-> {
+		changePlan.onBuiltDispatches(d->d.getStep() == Dispatch.Step.PENDING, delivery-> {
 			if (!changePlan.getResult().isClosed()) {
 				push(changePlan, delivery, true);
 			}
@@ -218,7 +218,7 @@ public class Distributor implements Service {
 
 	private boolean checkAllDeliveriesValid(final ChangePlan changePlan) {
 		final boolean valid[] = new boolean[] {true};
-		changePlan.onDispatches(d->d.getStep() == Dispatch.Step.PENDING, d-> {
+		changePlan.onBuiltDispatches(d->d.getStep() == Dispatch.Step.PENDING, d-> {
 			if (!deliveryShardValid(d)) {
 				logger.error("{}: ChangePlan lost a target shard as online: {}", getName(), d.getShard());
 				changePlan.obsolete();
@@ -243,8 +243,13 @@ public class Distributor implements Service {
 		} else {
 			final List<ShardEntity> payload = new ArrayList<>();
 			final List<Log> logs = new ArrayList<>();
-			final BiConsumer<ShardEntity, Log> bc = (e, l)-> { payload.add(e); logs.add(l); };
-			int deliCount = (retrying)  ? dispatch.contentsByState(EntityState.PENDING, bc) :  dispatch.contentsByState(bc);
+			final BiConsumer<ShardEntity, Log> bc = (e, l)-> { 
+				payload.add(e); 
+				logs.add(l); 
+			};
+			int deliCount = (retrying)  ? 
+					dispatch.contentsByState(EntityState.PENDING, bc) :  
+					dispatch.contentsByState(bc);
 			if (deliCount == 0) {
 				throw new IllegalStateException("delivery with no duties to send ?");
 			}
@@ -254,7 +259,12 @@ public class Distributor implements Service {
 						ShardEntity.toStringIds(payload));
 			}	
 			logs.forEach(l->l.addState(EntityState.PENDING));
-			if (eventBroker.send(delivery.getShard().getBrokerChannel(), (List)payload)) {
+			for (ShardEntity s: payload) {
+				if (s.getRelatedEntity()==null) {
+					logger.info("{}: nop ", s);
+				}
+			}
+			if (eventBroker.send(dispatch.getShard().getBrokerChannel(), (List)payload)) {
 				// dont mark to wait for those already confirmed (from fallen shards)
 				dispatch.markSent();
 			} else {

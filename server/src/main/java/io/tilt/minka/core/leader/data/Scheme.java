@@ -36,7 +36,7 @@ import io.tilt.minka.shard.Shard;
  * Only one modifier allowed: {@linkplain StateSentry} with a {@linkplain ChangePlan} after a distribution process.
  * 
  * Contains the relations between {@linkplain Shard} and {@linkplain Duty}.
- * Continuously checked truth in {@linkplain CommitedState}.
+ * Continuously checked truth in {@linkplain CommittedState}.
  * Client CRUD requests and detected problems in {@linkplain DirtyState}
  * Built at leader promotion.
  * 
@@ -45,13 +45,13 @@ import io.tilt.minka.shard.Shard;
  */
 public class Scheme {
 
-	private static final Logger logger = LoggerFactory.getLogger(CommitedState.class);
+	private static final Logger logger = LoggerFactory.getLogger(CommittedState.class);
 	
 	private ClusterHealth visibilityHealth;
 	private ClusterHealth distributionHealth;
 	
 	/** record result of changes applied and verified, as a reaction to Client CRUDs or cluster changes*/
-	private final CommitedState commitedState;
+	private final CommittedState committedState;
 	/** temporal Client CRUDs willing to appear in the commited state */
 	private final DirtyState dirtyState;
 	/** Cluster elected new leader: followers redirect their state to the new one: a learning process starts */
@@ -93,8 +93,8 @@ public class Scheme {
 	public Scheme() {
 		this.visibilityHealth = ClusterHealth.STABLE;
 		this.distributionHealth = ClusterHealth.STABLE;
-		this.commitedState = new CommitedState();
-		this.dirtyState = new DirtyState();
+		this.committedState = new CommittedState();
+		this.dirtyState = new DirtyState(committedState);
 		this.vault = new Vault();
 	}
 	
@@ -129,8 +129,8 @@ public class Scheme {
 		return this.dirtyState;
 	}
 	
-	public CommitedState getCommitedState() {
-		return this.commitedState;
+	public CommittedState getCommitedState() {
+		return this.committedState;
 	}
 
 	public LearningState getLearningState() {
@@ -170,8 +170,7 @@ public class Scheme {
 		StringBuilder sb = new StringBuilder()
 				.append("Shards: ")
 				.append(getCommitedState().shardsSize())
-				.append(" Crud Duties: ")
-				.append(getDirty().dutyCrud.size());
+				;
 		//.append(" Transition: ").append(change.getGroupedIssues().size());
 		return sb.toString();
 	}

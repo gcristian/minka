@@ -88,6 +88,8 @@
         <constructor-arg ref="heartbeatFactory" />
     </bean>
     
+    <bean id="parkingThreads" class="io.tilt.minka.api.ParkingThreads"/>
+    
     <!-- Maneja la particion a traves del delegado -->
     <bean id="leaderEventsHandler" class="io.tilt.minka.core.follower.LeaderEventsHandler">
         <constructor-arg ref="config" />
@@ -97,6 +99,7 @@
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="leaderAware" />
+        <constructor-arg ref="parkingThreads" />
     </bean>
     
     <!-- simplemente bootstrapea los servicios -->
@@ -119,7 +122,7 @@
     
     <bean id="shardingScheme" class="io.tilt.minka.core.leader.data.Scheme"/>
             
-    <bean id="stageRepository" class="io.tilt.minka.core.leader.data.DirtyFacade">
+    <bean id="stageRepository" class="io.tilt.minka.core.leader.data.CrudController">
     	<constructor-arg ref="shardingScheme" />
     	<constructor-arg ref="shardId" />
     </bean>																																														
@@ -145,6 +148,7 @@
         <constructor-arg ref="shardingScheme" />
         <constructor-arg ref="scheduler" />
         <constructor-arg ref="schemeWriter" />
+        <constructor-arg ref="eventBroker" />
     </bean>
     
     <!-- Pastorea los followers -->
@@ -230,19 +234,26 @@
         <constructor-arg ref="leaderAware"/>
         <constructor-arg ref="scheduler"/>
     </bean>
-    
-    <!-- Integracion con el cliente  -->
-    <bean id="minkaClient" class="io.tilt.minka.api.Client">
+
+    <bean id="crudExecutor" class="io.tilt.minka.api.CrudExecutor">
         <constructor-arg ref="config" />
         <constructor-arg ref="leader" />
         <constructor-arg ref="eventBroker" />
         <constructor-arg ref="clientEventsHandler" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderAware" />
-        <constructor-arg ref="distroJSONBuilder" />
-        <constructor-arg ref="partition" />
-    </bean>
-    
+        <constructor-arg ref="parkingThreads" />
+	</bean>    
+	
+    <!-- Integracion con el cliente  -->
+    <bean id="minkaClient" class="io.tilt.minka.api.Client">
+    	<constructor-arg ref="crudExecutor" />
+    	<constructor-arg ref="leader" />
+    	<constructor-arg ref="shardId" />
+    	<constructor-arg ref="distroJSONBuilder" />
+    	<constructor-arg ref="partition" />
+	</bean>
+	
     <bean id="configValidator" class="io.tilt.minka.api.ConfigValidator"/>
     
     <!-- inicia los servicios -->

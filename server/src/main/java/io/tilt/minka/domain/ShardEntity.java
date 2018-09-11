@@ -139,6 +139,15 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 		throw new IllegalArgumentException("This entity doesnt hold a Pallet !");
 	}
 
+	public String getEntityId() {
+		if (type==Type.DUTY) {
+			final Duty d = (Duty)from;
+			return d.getPalletId() + d.getId();
+		} else {
+			return from.getId();
+		}
+	}
+	
 	@JsonIgnore
 	public Entity getEntity() {
 		return this.from;

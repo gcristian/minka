@@ -34,7 +34,7 @@ import org.json.JSONObject;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
-import io.tilt.minka.core.leader.data.CommitedState;
+import io.tilt.minka.core.leader.data.CommittedState;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.task.LeaderAware;
@@ -152,7 +152,7 @@ public class DistroJSONBuilder {
 				final String s = it.next();
 				final JSONObject jsono = new JSONObject(s);
 				if (!detail) {
-					jsono.remove("deliveries");
+					jsono.remove(ChangePlan.FIELD_DISPATCHES);
 				}
 				arr.put(jsono);
 			}
@@ -187,13 +187,13 @@ public class DistroJSONBuilder {
 	
 	private List<Map<String, Object>> buildPallets() {
 		
-		final CommitedState.SchemeExtractor extractor = new CommitedState.SchemeExtractor(scheme.getCommitedState());
+		final CommittedState.SchemeExtractor extractor = new CommittedState.SchemeExtractor(scheme.getCommitedState());
 		final List<Map<String, Object>> ret = new ArrayList<>(extractor.getPallets().size());
 		for (final ShardEntity pallet: extractor.getPallets()) {
 			
 			final double[] dettachedWeight = {0};
 			final int[] crudSize = new int[1];
-			scheme.getDirty().findDutiesCrud(EntityEvent.CREATE::equals, EntityState.PREPARED::equals, e-> {
+			scheme.getDirty().findDutiesCrud(EntityEvent.CREATE, EntityState.PREPARED::equals, e-> {
 				if (e.getDuty().getPalletId().equals(pallet.getPallet().getId())) {
 					crudSize[0]++;
 					dettachedWeight[0]+=e.getDuty().getWeight();
@@ -225,7 +225,7 @@ public class DistroJSONBuilder {
 
 	private static List<Map<String, Object>> buildShardRep(final Scheme table) {	    
 		final List<Map<String, Object>> ret = new LinkedList<>();
-		final CommitedState.SchemeExtractor extractor = new CommitedState.SchemeExtractor(table.getCommitedState());
+		final CommittedState.SchemeExtractor extractor = new CommittedState.SchemeExtractor(table.getCommitedState());
 		for (final Shard shard : extractor.getShards()) {
 			final List<Map<String , Object>> palletsAtShard =new LinkedList<>();
 			
@@ -263,7 +263,7 @@ public class DistroJSONBuilder {
 	}
 
 	private static Map<String, Object> buildGlobal(final Scheme table) {
-		CommitedState.SchemeExtractor extractor = new CommitedState.SchemeExtractor(table.getCommitedState());
+		CommittedState.SchemeExtractor extractor = new CommittedState.SchemeExtractor(table.getCommitedState());
 		final Map<String, Object> map = new LinkedHashMap<>(8);
 		map.put("size-shards", extractor.getShards().size());
 		map.put("size-pallets", extractor.getPallets().size());

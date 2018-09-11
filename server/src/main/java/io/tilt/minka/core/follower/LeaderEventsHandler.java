@@ -28,21 +28,25 @@ import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.api.CommitBatch;
+import io.tilt.minka.api.CommitBatch.CommitBatchResponse;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.EntityPayload;
+import io.tilt.minka.api.ParkingThreads;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
+import io.tilt.minka.core.leader.data.CommitRequest;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Scheduler.Synchronized;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
-import io.tilt.minka.domain.DependencyPlaceholder;
-import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.CommitTree.Log;
+import io.tilt.minka.domain.DependencyPlaceholder;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
@@ -66,9 +70,19 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
 	private final LeaderAware leaderContainer;
+	private final ParkingThreads parkingThreads;
 	
 	private Clearance lastClearance;
 	private BrokerChannel channel;
+	
+	private final static Class[] subscriptions = new Class[] {
+			ShardEntity.class, 
+			ArrayList.class, 
+			CommitBatch.CommitBatchResponse.class,
+			Clearance.class,
+			EntityPayload.class
+		};
+
 	
 	LeaderEventsHandler(
 			final Config config, 
@@ -77,7 +91,8 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 			final PartitionManager partitionManager, 
 			final EventBroker eventBroker,
 			final Scheduler scheduler, 
-			final LeaderAware leaderContainer) {
+			final LeaderAware leaderContainer,
+			final ParkingThreads parkingThreads) {
 
 		super();
 		this.config = config;
@@ -87,6 +102,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		this.eventBroker = eventBroker;
 		this.scheduler = scheduler;
 		this.leaderContainer = leaderContainer;
+		this.parkingThreads = parkingThreads;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -96,7 +112,10 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		logger.info("{}: ({}) Preparing for leader events", getName(), config.getLoggingShardId());
 		final long sinceNow = System.currentTimeMillis();
 		this.channel = eventBroker.buildToTarget(config, Channel.LEADTOFOLL, partition.getId());
-		eventBroker.subscribe(channel,this, sinceNow, ShardEntity.class, Clearance.class, ArrayList.class);
+		for (Class c: subscriptions) {
+			eventBroker.subscribe(channel,this, sinceNow, c);	
+		}
+		
 	}
 
 	public Clearance getLastClearance() {
@@ -108,7 +127,9 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		logger.info("{}: ({}) Stopping", getName(), config.getLoggingShardId());
 		partitionManager.releaseAll();
 		this.dependencyPlaceholder.getDelegate().deactivate();
-		eventBroker.unsubscribe(channel, EntityPayload.class, this);
+		for (Class c: subscriptions) {
+			eventBroker.unsubscribe(channel, c, this);	
+		}
 	}
 
 	@Override
@@ -120,7 +141,18 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 			}
 		}
 		if (event instanceof ArrayList) {
-			onCollection((ArrayList<ShardEntity>)event);
+			final ArrayList al = (ArrayList)event;
+			final Object any = al.get(0);
+			if (any instanceof ShardEntity) {
+				onCollection(al);				
+			} else if (any instanceof CommitRequest) {
+				for (final CommitRequest sr: (List<CommitRequest>)event) {
+					parkingThreads.resolve(sr.getEntity().getDuty(), sr.getState());
+				}
+			}
+		} else if (event instanceof CommitBatchResponse) {
+			final CommitBatchResponse cr = (CommitBatchResponse)event;
+			parkingThreads.resolve(cr.getId(), cr);
 		} else if (event instanceof Clearance) {
 			onClearance((Clearance) event);
 		} else {

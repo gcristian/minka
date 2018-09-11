@@ -33,7 +33,7 @@ import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.core.leader.data.CommitedState;
+import io.tilt.minka.core.leader.data.CommittedState;
 import io.tilt.minka.core.leader.data.DirtyState;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
@@ -41,6 +41,7 @@ import io.tilt.minka.shard.Shard;
 
 /**
  * Compile all uncommited changes until the execution of the current plan
+ * Also Dispatches deletions.
  * 
  * @author Cristian Gonzalez
  * @since Ago 3, 2018
@@ -56,13 +57,16 @@ class DirtyCompiler {
 
 	private final String name = getClass().getSimpleName();
 	
-	private final CommitedState state;
+	private final CommittedState state;
 	private final ChangePlan previousChange;
 	private final ChangePlan changePlan;
 	private final DirtyState snapshot;
 	
+	private final Set<ShardEntity> creations;
+	private final Set<ShardEntity> deletions;
+	
 	DirtyCompiler(
-			final CommitedState state, 
+			final CommittedState state, 
 			final ChangePlan previous, 
 			final ChangePlan current,
 			final DirtyState snapshot) {
@@ -70,11 +74,33 @@ class DirtyCompiler {
 		this.previousChange = previous;
 		this.changePlan = current;
 		this.snapshot = snapshot;
+		this.creations = compileCreations();
+		this.deletions = compileRemovals(creations);
+	}
+	
+	public Set<ShardEntity> getCreations() {
+		return creations;
+	}
+	public Set<ShardEntity> getDeletions() {
+		return deletions;
 	}
 
-	Set<ShardEntity> compileRemovals(final Set<ShardEntity> dutyCreations) {
+	private Set<ShardEntity> compileRemovals(final Set<ShardEntity> dutyCreations) {
 		final Set<ShardEntity> dutyDeletions = new HashSet<>();
-		snapshot.findDutiesCrud(REMOVE::equals, null, crud-> {
+		addDeletions(dutyCreations, dutyDeletions);
+		restorePendings(previousChange, dutyDeletions::add, 
+				d->d.getLastEvent()==REMOVE || d.getLastEvent()==DETACH);
+		
+		// lets add those duties of a certain deleting pallet
+		snapshot.findPalletsCrud(REMOVE::equals, PREPARED::equals, p-> {
+			state.findDutiesByPallet(p.getPallet(), dutyDeletions::add);
+		});
+		dispatchDeletions(changePlan, dutyDeletions);
+		return dutyDeletions;
+	}
+
+	private void addDeletions(final Set<ShardEntity> dutyCreations, final Set<ShardEntity> dutyDeletions) {
+		snapshot.findDutiesCrud(REMOVE, null, crud-> {
 			// as a CRUD a deletion lives in stage as a mark within an Opaque ShardEntity
 			// we must now search for the real one
 			final ShardEntity schemed = state.getByDuty(crud.getDuty());
@@ -90,15 +116,6 @@ class DirtyCompiler {
 				dutyCreations.remove(schemed);
 			}
 		});
-		restorePendings(previousChange, dutyDeletions::add, 
-				d->d.getLastEvent()==REMOVE || d.getLastEvent()==DETACH);
-		
-		// lets add those duties of a certain deleting pallet
-		snapshot.findPalletsCrud(REMOVE::equals, PREPARED::equals, p-> {
-			state.findDutiesByPallet(p.getPallet(), dutyDeletions::add);
-		});
-		dispatchDeletions(changePlan, dutyDeletions);
-		return dutyDeletions;
 	}
 
 	/*
@@ -144,11 +161,11 @@ class DirtyCompiler {
 		}
 	}
 	
-	Set<ShardEntity> compileCreations() {
+	private Set<ShardEntity> compileCreations() {
 		// recently fallen shards
 		addMissingAsCrud();
 		final Set<ShardEntity> dutyCreations = new HashSet<>();
-		snapshot.findDutiesCrud(CREATE::equals, null, dutyCreations::add);
+		snapshot.findDutiesCrud(CREATE, null, dutyCreations::add);
 		// add danglings as creations prior to migrations
 		for (ShardEntity d: snapshot.getDutiesDangling()) {
 			dutyCreations.add(ShardEntity.Builder.builderFrom(d).build());
@@ -181,7 +198,7 @@ class DirtyCompiler {
 				}
 			}
 			missed.getCommitTree().addEvent(CREATE, PREPARED,"N/A",changePlan.getId());
-			snapshot.addCrudDuty(missed);
+			snapshot.createCommitRequests(EntityEvent.ATTACH, Collections.singleton(missed), null);
 		}
 		if (!missing.isEmpty()) {
 			logger.info(DC_DANGLING_RESUME, name, missing.size(), toStringIds(missing));

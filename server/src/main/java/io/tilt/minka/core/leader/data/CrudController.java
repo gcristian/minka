@@ -29,15 +29,15 @@ import io.tilt.minka.shard.ShardIdentifier;
  * Entry point for outter clients of the {@linkplain DirtyState}
  * Validations and consistency considerations for {@linkplain Client} usage
  */
-public class DirtyFacade {
+public class CrudController {
 
-	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private static final Logger logger = LoggerFactory.getLogger(CrudController.class);
 	private final String classname = getClass().getSimpleName();
 
 	private final Scheme scheme;
 	private final ShardIdentifier shardId;
 
-	public DirtyFacade(final Scheme scheme, final ShardIdentifier shardId) {
+	public CrudController(final Scheme scheme, final ShardIdentifier shardId) {
 		super();
 		this.scheme = scheme;
 		this.shardId = shardId;
@@ -68,7 +68,7 @@ public class DirtyFacade {
 			}
 		}
 
-		scheme.getDirty().addAllCrudDuty(tmp, (duty, added) -> {
+		scheme.getDirty().createCommitRequests(EntityEvent.REMOVE, tmp, (duty, added) -> {
 			if (added) {
 				respond(callback, Reply.success(duty, true));
 			} else {
@@ -114,11 +114,11 @@ public class DirtyFacade {
 		return entity;
 	}
 	
-	private void respond(final Consumer<Reply> callback, final Reply reply) {
+	private static void respond(final Consumer<Reply> callback, final Reply reply) {
 		try {
 			callback.accept(reply);
 		} catch (Exception e) {
-			logger.warn("{}: reply consumer throwed exception: ", classname, e.getMessage());
+			logger.warn("{}: reply consumer throwed exception: ", CrudController.class.getSimpleName(), e.getMessage());
 		}
 	}
 		
@@ -149,7 +149,7 @@ public class DirtyFacade {
 		}
 		
 		final StringBuilder sb = new StringBuilder(tmp.size() * 5+1);
-		scheme.getDirty().addAllCrudDuty(tmp, (duty, added)-> {
+		scheme.getDirty().createCommitRequests(EntityEvent.CREATE, tmp, (duty, added)-> {
 			if (added) {
 				if (logger.isInfoEnabled()) {
 					sb.append(duty).append(',');

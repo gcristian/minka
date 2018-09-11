@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,17 +23,22 @@ import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 
 /** 
- * Temporal state of modifications willing to be added to the {@linkplain CommitedState}
+ * Temporal state of modifications willing to be added to the {@linkplain CommittedState}
  * including inconsistencies detected by the sentry
- * Only maintainers: {@linkplain StateSentry} and {@linkplain DirtyRepository}
+ * Only maintainers: {@linkplain StateSentry} and {@linkplain CrudController}
  * */
+@SuppressWarnings({"unchecked", "serial", "rawtypes"})
 public class DirtyState {
 
 	private static final Logger logger = LoggerFactory.getLogger(DirtyState.class);
 
-    // creations and removes willing to be attached or detached to/from shards.
+	private final Map<EntityEvent, Map<Duty, CommitRequest>> commitRequests = new HashMap() {{
+		put(EntityEvent.ATTACH, new HashMap<>());
+		put(EntityEvent.CREATE, new HashMap<>());
+		put(EntityEvent.REMOVE, new HashMap<>());
+	}};
+	// creations and removes willing to be attached or detached to/from shards.
 	private final Map<Pallet, ShardEntity> palletCrud;
-	final Map<Duty, ShardEntity> dutyCrud;
 	// absences in shards's reports
 	private Map<Duty, ShardEntity> dutyMissings;
 	// fallen shards's duties
@@ -44,12 +50,13 @@ public class DirtyState {
 	private boolean stealthChange;
 	private boolean snap = false;
 	private Instant lastStealthChange;
+	private final CommittedState committedState;
 	
-	public DirtyState() {
+	public DirtyState(final CommittedState cs) {
 		this.palletCrud = new HashMap<>();
-		this.dutyCrud = new HashMap<>();
 		this.dutyMissings = new HashMap<>();
 		this.dutyDangling = new HashMap<>();
+		this.committedState = cs;
 	}
 
 	/** @return a frozen state of stage, so message-events threads 
@@ -57,8 +64,8 @@ public class DirtyState {
 	public synchronized DirtyState snapshot() {
 		checkNotOnSnap();
 		if (snapshot==null) {
-			final DirtyState tmp = new DirtyState();
-			tmp.dutyCrud.putAll(this.dutyCrud);
+			final DirtyState tmp = new DirtyState(committedState);
+			tmp.commitRequests.putAll(this.commitRequests);
 			tmp.dutyDangling.putAll(this.dutyDangling);
 			tmp.dutyMissings.putAll(this.dutyMissings);
 			tmp.palletCrud.putAll(this.palletCrud);
@@ -85,7 +92,7 @@ public class DirtyState {
 		if (snaptake==null) {
 			throw new RuntimeException("bad call");
 		}
-		final Log last = e.getCommitTree().exists(ee, e.getCommitTree().getCreationTimestamp().getTime());
+		final Log last = e.getCommitTree().existsWithLimit(ee, e.getCommitTree().getCreationTimestamp().getTime());
 		return last==null || snaptake.toEpochMilli() >=last.getHead().getTime();
 	}
 
@@ -112,11 +119,6 @@ public class DirtyState {
 		checkNotOnSnap();
 		return this.stealthChange;
 	}	
-
-	/** @return read only set */
-	public Collection<ShardEntity> getDutiesDangling() {
-		return Collections.unmodifiableCollection(this.dutyDangling.values());
-	}
 	
 	private void turnOnStealth(final boolean value) {
 		if (value) {
@@ -131,7 +133,16 @@ public class DirtyState {
 		return (diff * 1000 ) > thresholdMillis;
 		
 	}
+
 	
+	// ====================================================================================================
+	
+	
+	/** @return read only set */
+	public Collection<ShardEntity> getDutiesDangling() {
+		return Collections.unmodifiableCollection(this.dutyDangling.values());
+	}
+
 	/** @return true if added for the first time else is being replaced */
 	public boolean addDangling(final Collection<ShardEntity> dangling) {
 		boolean added = false; 
@@ -165,46 +176,6 @@ public class DirtyState {
 			}
 		}
 	}
-	
-	public int accountCrudDuties() {
-		return this.dutyCrud.size();
-	}
-
-	/* add it for the next Distribution cycle consideration */
-	/** @return true if added for the first time else is being replaced */
-	public boolean addCrudDuty(final ShardEntity duty) {
-		// the uniqueness of it's wrapped object doesnt define the uniqueness of the wrapper
-		// updates and transfer go in their own manner
-		final boolean added = dutyCrud.put(duty.getDuty(), duty) == null;
-		turnOnStealth(added);
-		return added;
-	}
-
-	public void addAllCrudDuty(final Collection<ShardEntity> coll, final BiConsumer<Duty, Boolean> callback) {
-		// the uniqueness of it's wrapped object doesnt define the uniqueness of the wrapper
-		// updates and transfer go in their own manner
-		boolean added = false; 
-		for (ShardEntity e: coll) {
-			final boolean v = dutyCrud.put(e.getDuty(), e) == null;
-			callback.accept(e.getDuty(), v);
-			added |= v;
-		}
-		turnOnStealth(added);
-	}
-	
-	public Collection<ShardEntity> getDutiesCrud() {
-		return Collections.unmodifiableCollection(this.dutyCrud.values());
-	}
-	public boolean removeCrud(final ShardEntity entity) {
-		boolean removed = false;
-		final ShardEntity candidate = dutyCrud.get(entity.getDuty());
-		// consistency check: only if they're the same action 
-		if (candidate!=null) {// && candidate.getLastEvent()==entity.getLastEvent().getRootCause()) {
-			removed =this.dutyCrud.remove(entity.getDuty()) != null;
-			turnOnStealth(removed);
-		}
-		return removed;
-	}
 
 	/** @return read only set */
 	public Collection<ShardEntity> getDutiesMissing() {
@@ -228,42 +199,103 @@ public class DirtyState {
 		turnOnStealth(added);
 		return true;
 	}
-
-	public void removeCrudDuties() {
-		checkNotOnSnap();
-		this.dutyCrud.clear();
-		turnOnStealth(true);
+	
+	// ====================================================================================================
+	
+	public int accountCrudDuties() {
+		return this.commitRequests.size();
 	}
-	public int sizeDutiesCrud(final Predicate<EntityEvent> event, final Predicate<EntityState> state) {
+
+	/* add it for the next Distribution cycle consideration */
+	/** @return true if added for the first time else is being replaced */
+	public void createCommitRequests(
+			final EntityEvent ee, 
+			final Collection<ShardEntity> coll, 
+			final BiConsumer<Duty, Boolean> callback) {
+		
+		final Map<Duty, CommitRequest> map = commitRequests.get(ee);
+		
+		// updates and transfer go in their own manner
+		boolean added = false; 
+		for (ShardEntity e: coll) {
+			final CommitRequest request = new CommitRequest(e);
+			final boolean put = map.put(e.getDuty(), request) == null;
+			if (callback!=null) {
+				callback.accept(e.getDuty(), put);
+			}
+			added |= put;
+		}
+		turnOnStealth(added);
+	}
+	
+	public Collection<ShardEntity> getDutiesCrud() {
+		return commitRequests.values().stream()
+			.flatMap(x->x.values().stream().map(CommitRequest::getEntity))
+			.collect(Collectors.toList());
+	}
+	
+	/** @return a CR matching {event & entity} if any, and step state to next according event */
+	public CommitRequest flowCommitRequest(final EntityEvent event, final ShardEntity entity) {
+		final EntityEvent slot = event.getType()==EntityEvent.Type.CRUD ? event : event.getUserCause();
+		final Map<Duty, CommitRequest> map = commitRequests.get(slot);
+		CommitRequest request = map.get(entity.getDuty());
+		if (request!=null) {
+			final CommitState next = request.getState().next(event);
+			if (next!=null) {
+				request.setState(next);
+				if (next==CommitState.NOTIFIED) {
+					map.remove(entity.getDuty());
+					request = null;
+				}
+				logger.info("{}: {} {}: {} ({})", getClass().getSimpleName(), 
+					next==CommitState.NOTIFIED ? "Removing" : "Moving", 
+					CommitRequest.class.getSimpleName(), request!=null ? request.getEntity().getDuty().getId():"", next);
+			}
+		}		
+		return request;
+	}
+
+
+	// ====================================================================================================
+	
+
+	public int sizeDutiesCrud(final EntityEvent event, final Predicate<EntityState> state) {
 		final int[] size = new int[1];
-		onEntitiesCrud(getDutiesCrud(), event, state, e->size[0]++);
+		onEntitiesCrud(event, state, e->size[0]++);
 		return size[0];
 	}
 	public void findDutiesCrud(
-			final Predicate<EntityEvent> event, 
+			final EntityEvent event, 
 			final Predicate<EntityState> state, 
 			final Consumer<ShardEntity> consumer) {
-		onEntitiesCrud(getDutiesCrud(), event, state, consumer);
+		onEntitiesCrud(event, state, consumer);
 	}
 	public void findPalletsCrud(
 			final Predicate<EntityEvent> event, 
 			final Predicate<EntityState> state, 
 			final Consumer<ShardEntity> consumer) {
-		onEntitiesCrud(palletCrud.values(), event, state, consumer);
+		onPalletsCrud(event, state, consumer);
 	}
 	
 	private void onEntitiesCrud(
-			final Collection<ShardEntity> coll, 
-			final Predicate<EntityEvent> eventPredicate, 
+			final EntityEvent eventPredicate, 
 			final Predicate<EntityState> statePredicate, 
 			final Consumer<ShardEntity> consumer) {
-		coll.stream()
-			.filter(e -> (eventPredicate == null || eventPredicate.test(e.getCommitTree().getLast().getEvent())) 
+		final Map<Duty, CommitRequest> x = commitRequests.get(eventPredicate);
+		x.values().stream().map(CommitRequest::getEntity)
+			.filter(e -> (eventPredicate == null || eventPredicate==(e.getCommitTree().getLast().getEvent())) 
 				&& (statePredicate == null || (statePredicate.test(e.getCommitTree().getLast().getLastState()))))
 			.forEach(consumer);
 	}
-	public ShardEntity getCrudByDuty(final Duty duty) {
-		return this.dutyCrud.get(duty);
+
+	private void onPalletsCrud(
+			final Predicate<EntityEvent> eventPredicate, 
+			final Predicate<EntityState> statePredicate, 
+			final Consumer<ShardEntity> consumer) {
+		palletCrud.values().stream()
+			.filter(e -> (eventPredicate == null || eventPredicate.test(e.getCommitTree().getLast().getEvent())) 
+				&& (statePredicate == null || (statePredicate.test(e.getCommitTree().getLast().getLastState()))))
+			.forEach(consumer);
 	}
 
 	public void logStatus() {
@@ -275,12 +307,18 @@ public class DirtyState {
 			logger.warn("{}: {} Dangling duties: [ {}]", getClass().getSimpleName(), dutyDangling.size(),
 					ShardEntity.toDutyStringIds(dutyDangling.keySet()));
 		}
-		if (dutyCrud.isEmpty()) {
+		if (commitRequests.isEmpty()) {
 			logger.info("{}: no CRUD duties", getClass().getSimpleName());
 		} else {
-			logger.info("{}: with {} CRUD duties: [ {}]", getClass().getSimpleName(), dutyCrud.size(),
+			logger.info("{}: with {} CRUD duties: [ {}]", getClass().getSimpleName(), getSize(),
 					ShardEntity.toStringIds(getDutiesCrud()));
 		}
+	}
+
+	public int getSize() {
+		return commitRequests.get(EntityEvent.ATTACH).size()
+			+ commitRequests.get(EntityEvent.CREATE).size()
+			+ commitRequests.get(EntityEvent.REMOVE).size();
 	}
 	
 }

@@ -79,8 +79,7 @@ public class Dispatch {
 	}
 
 	@JsonIgnore
-	public
-	List<ShardEntity> getDuties() {
+	public List<ShardEntity> getDuties() {
 		return this.duties;
 	}
 	@JsonIgnore
@@ -127,6 +126,7 @@ public class Dispatch {
 		return count;
 	}
 	
+	@JsonProperty(value="step", index=2)
 	public Step getStep() {
 		return this.step;
 	}
@@ -175,7 +175,7 @@ public class Dispatch {
 				.toString();
 	}
 	
-	@JsonProperty("event")
+	@JsonProperty(value="event", index=1)
 	private String getEventShard() {
 		return new StringBuilder()
 				.append(event).append(' ')
@@ -183,14 +183,15 @@ public class Dispatch {
 				.toString();
 	}
 
-	@JsonProperty("state")
+	@JsonProperty(value="state", index=3)
 	/* only for serialization */
 	Map<EntityState, StringBuilder> getState() {
 		final Map<EntityState, StringBuilder> ret = new HashMap<>(3); // any of given prepared, pending, confirmed
 		for (final ShardEntity duty: duties) {
 			ChangePlan.getOrPut(ret, 
-					duty.getCommitTree().findOne(this.planId, this.shard.getShardID(), this.event).getLastState(), 
-					() -> new StringBuilder())
+					duty.getCommitTree().findOne(
+							this.planId, this.shard.getShardID(), this.event).getLastState(), 
+							() -> new StringBuilder())
 					.append(duty.getDuty().getId())
 					.append(", ");
 		}

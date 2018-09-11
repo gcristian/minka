@@ -22,19 +22,24 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.api.CommitBatch.CommitBatchRequest;
+import io.tilt.minka.api.CommitBatch.CommitBatchResponse;
 import io.tilt.minka.api.Client;
+import io.tilt.minka.api.CommitBatch;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Reply;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.core.leader.data.DirtyFacade;
+import io.tilt.minka.core.leader.data.CrudController;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Service;
@@ -58,17 +63,23 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	private final Config config;
 	private final Scheme scheme;
 	private final Scheduler scheduler;
-	private final DirtyFacade stageRepo;
+	private final CrudController stageRepo;
 	private final EventBroker eventBroker;
 	private final NetworkShardIdentifier shardId;
 
 	private Date start;
+	
+	private final static Class[] subscriptions = new Class[] {
+		ShardEntity.class, 
+		ArrayList.class, 
+		CommitBatch.CommitBatchRequest.class
+	};
 
 	ClientEventsHandler(
 			final Config config, 
 			final Scheme scheme, 
 			final Scheduler scheduler,
-			final DirtyFacade stageRepo,
+			final CrudController stageRepo,
 			final EventBroker eventBroker, 
 			final NetworkShardIdentifier shardId) {
 
@@ -79,14 +90,15 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 		this.eventBroker = eventBroker;
 		this.shardId = shardId;
 	}
-
+	
 	private void listenUserEvents() {
 		final BrokerChannel channel = eventBroker.buildToTarget(
 				config, 
 				Channel.CLITOLEAD, 
 				shardId);
-		eventBroker.subscribe(channel, ShardEntity.class,this, 0);
-		eventBroker.subscribe(channel, ArrayList.class,this, 0);
+		for (Class c: subscriptions) {
+			eventBroker.subscribe(channel, c, this, 0);
+		}
 	}
 
 	@Override
@@ -99,8 +111,9 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	@Override
 	public void stop() {
 		logger.info("{}: Stopping", getClass().getSimpleName());
-		eventBroker.unsubscribe(eventBroker.build(config, Channel.CLITOLEAD), ShardEntity.class, this);
-		eventBroker.unsubscribe(eventBroker.build(config, Channel.CLITOLEAD), ArrayList.class, this);
+		for (Class c: subscriptions) {
+			eventBroker.unsubscribe(eventBroker.build(config, Channel.CLITOLEAD), c, this);
+		}
 	}
 
 	@Override
@@ -114,19 +127,26 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 			if (event instanceof ShardEntity) {
 				final ShardEntity entity = (ShardEntity) event;
 				mediateOnEntity(singletonList(entity), (r)->{});
-			} else if (event instanceof List) {
-				mediateOnEntity((List)event, (r)->{});
+			} else if (event instanceof CommitBatchRequest) {
+				handleRequest((CommitBatchRequest)event);
 			}
 		} else {
 			logger.error("{}: User events came but this master is no longer in service: {}", getClass().getSimpleName(),
 					event.getClass().getSimpleName());
 		}
 	}
-	
-	public enum Consistency {
-		LEADER,
-		
-		
+
+	private void handleRequest(final CommitBatchRequest req) {
+		final List<ShardEntity> ents = req.getEntities();
+		final Set<Reply> replies = new HashSet<>(ents.size());
+		mediateOnEntity(ents, replies::add);
+		final ShardEntity any = ents.get(0);
+		final String shardid = any.getCommitTree().getFirst().getTargetId();
+		final Shard shard = scheme.getCommitedState().findShard(shardid);
+		final CommitBatchResponse response = new CommitBatchResponse(req.getId(), replies);
+		if (!eventBroker.send(shard.getBrokerChannel(), response)) {
+			logger.error("{}: Cannot answer client back on Shard: {}", getClass().getSimpleName(), shardid);
+		}
 	}
 
 	public synchronized void mediateOnEntity(final Collection<ShardEntity> entities, final Consumer<Reply> callback) {

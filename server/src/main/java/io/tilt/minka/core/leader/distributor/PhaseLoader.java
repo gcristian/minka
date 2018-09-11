@@ -1,6 +1,5 @@
 package io.tilt.minka.core.leader.distributor;
 
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -12,11 +11,11 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Duty;
+import io.tilt.minka.api.DutyBuilder.Task;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Reply;
-import io.tilt.minka.api.DutyBuilder.Task;
+import io.tilt.minka.core.leader.data.CrudController;
 import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.core.leader.data.DirtyFacade;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.Shard;
@@ -30,7 +29,7 @@ public class PhaseLoader {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
-	private final DirtyFacade dirtyFacade;
+	private final CrudController crudController;
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final Config config;
 	private final Scheme scheme;
@@ -39,12 +38,12 @@ public class PhaseLoader {
 	private int counterForReloads;
 
 	PhaseLoader(
-			final DirtyFacade dirtyFacade, 
+			final CrudController crudController, 
 			final DependencyPlaceholder dependencyPlaceholder,
 			final Config config, 
 			final Scheme scheme) {
 		super();
-		this.dirtyFacade = dirtyFacade;
+		this.crudController = crudController;
 		this.dependencyPlaceholder = dependencyPlaceholder;
 		this.config = config;
 		this.scheme = scheme;
@@ -64,12 +63,12 @@ public class PhaseLoader {
 			
 			if (loadPallets()) {
 				loadDuties();
-				final Collection<ShardEntity> crudReady = scheme.getDirty().getDutiesCrud();
-				if (crudReady.isEmpty()) {
+				final int size = scheme.getDirty().getSize();
+				if (size>0) {
 					logger.warn("{}: Aborting first distribution (no CRUD duties)", getClass().getSimpleName());
 					ret = false;
 				} else {
-					logger.info("{}: reported {} entities for sharding...", getClass().getSimpleName(), crudReady.size());
+					logger.info("{}: reported {} entities for sharding...", getClass().getSimpleName(), size);
 				}
 			}
 			delegateFirstCall = false;
@@ -96,7 +95,7 @@ public class PhaseLoader {
 		for (final Map.Entry<Shard, Set<ShardEntity>> e: scheme.getLearningState().getReplicasByShard().entrySet()) {
 			scheme.getCommitedState().loadReplicas(e.getKey(), e.getValue());
 		}
-		dirtyFacade.loadRawDuties(duties, logger("Duty"));
+		crudController.loadRawDuties(duties, logger("Duty"));
 	}
 
 	private boolean loadPallets() {
@@ -115,7 +114,7 @@ public class PhaseLoader {
 					getClass().getSimpleName(), pallets);
 			return false;
 		} else {
-			return dirtyFacade.loadRawPallets(pallets, logger("Pallet"));
+			return crudController.loadRawPallets(pallets, logger("Pallet"));
 		}
 	}
 

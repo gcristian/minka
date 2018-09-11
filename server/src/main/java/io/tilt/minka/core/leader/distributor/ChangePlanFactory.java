@@ -34,9 +34,9 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Spot;
-import io.tilt.minka.core.leader.data.CommitedState;
-import io.tilt.minka.core.leader.data.Scheme;
+import io.tilt.minka.core.leader.data.CommittedState;
 import io.tilt.minka.core.leader.data.DirtyState;
+import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
@@ -45,7 +45,7 @@ import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.utils.LogUtils;
 
 /**
- * Factory for {@linkplain Plan} instances when neccesary.
+ * Factory for {@linkplain ChangePlan} instances when neccesary.
  * Calls the configred {@linkplain Balancer} for each group of duties of the same {@linkplain Pallet} 
  * Balancers use a {@linkplain Migrator} to plan its shippings, which are later written to the plan.
  * 
@@ -78,20 +78,17 @@ class ChangePlanFactory {
 		}
 
 		final DirtyCompiler compiler = new DirtyCompiler(scheme.getCommitedState(), previous, plan, snapshot);
-		final Set<ShardEntity> creations = compiler.compileCreations();
-		final Set<ShardEntity> deletions = compiler.compileRemovals(creations);
-		
 		final Set<ShardEntity> ents = new HashSet<>();
 		scheme.getCommitedState().findDuties(ents::add);
-		ents.addAll(creations);
+		ents.addAll(compiler.getCreations());
 		final Map<String, List<ShardEntity>> schemeByPallets = ents.stream()
 				.collect(Collectors.groupingBy(e -> e.getDuty().getPalletId()));
 		if (schemeByPallets.isEmpty()) {
-			logger.warn("{}: CommitedState and DirtyState are empty. Nothing to balance (C:{}, R:{})", 
-					name, creations.size(), deletions.size());
+			logger.warn("{}: CommittedState and DirtyState are empty. Nothing to balance (C:{}, R:{})", 
+					name, compiler.getCreations().size(), compiler.getDeletions().size());
 			plan = null;
 		} else {
-			if (!build(scheme, plan, creations, deletions, schemeByPallets)) {
+			if (!build(scheme, plan, compiler, schemeByPallets)) {
 				plan = null;
 			}
 		}
@@ -101,19 +98,19 @@ class ChangePlanFactory {
 	
 	private boolean build(
 			final Scheme scheme, final ChangePlan changePlan,
-			final Set<ShardEntity> creations, final Set<ShardEntity> deletions, 
+			final DirtyCompiler compiler, 
 			final Map<String, List<ShardEntity>> schemeByPallets) {
 		try {
 			boolean changes = false;
-			final Replicator replicator = new Replicator(scheme);
+			final Replicator replicator = new Replicator(aware.getLeaderShardId(), scheme);
 			for (final Map.Entry<String, List<ShardEntity>> e : schemeByPallets.entrySet()) {
 				final Pallet pallet = scheme.getCommitedState().getPalletById(e.getKey()).getPallet();
 				final Balancer balancer = Balancer.Directory.getByStrategy(pallet.getMetadata().getBalancer());
-				logStatus(scheme, creations, deletions, e.getValue(), pallet, balancer);
+				logStatus(scheme, compiler.getCreations(), compiler.getDeletions(), e.getValue(), pallet, balancer);
 				if (balancer != null) {
-					final Migrator migra = balance(scheme, pallet, balancer, creations, deletions);
+					final Migrator migra = balance(scheme, pallet, balancer, compiler.getCreations(), compiler.getDeletions());
 					changes |= migra.write(changePlan);
-					changes |= replicator.write(changePlan, creations, deletions, aware.getLeaderShardId(), pallet);
+					changes |= replicator.write(changePlan, compiler, pallet);
 				} else {
 					logger.warn("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", name,
 						pallet.getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());
@@ -123,7 +120,7 @@ class ChangePlanFactory {
 			// only when everything went well otherwise'd be lost
 			scheme.getDirty().clearAllocatedMissing(null);
 			scheme.getDirty().cleanAllocatedDanglings(null);
-			if (!changes && deletions.isEmpty()) {
+			if (!changes && compiler.getDeletions().isEmpty()) {
 				return false;
 			}
 		} catch (Exception e) {
@@ -200,7 +197,7 @@ class ChangePlanFactory {
 		});
 		logger.info("{}: Total cluster capacity: {}", name, clusterCapacity);
 		logger.info("{}: RECKONING #{}; +{}; -{} duties: {}", name,
-			new CommitedState.SchemeExtractor(partition.getCommitedState())
+			new CommittedState.SchemeExtractor(partition.getCommitedState())
 				.getAccountConfirmed(pallet), 
 			dutyCreations.stream()
 				.filter(d->d.getDuty().getPalletId().equals(pallet.getId()))

@@ -18,32 +18,15 @@ package io.tilt.minka.api;
 
 import static java.util.Collections.singletonList;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang.Validate;
-import org.glassfish.hk2.external.org.objectweb.asm.tree.TryCatchBlockNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.broker.EventBroker.BrokerChannel;
-import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.core.leader.ClientEventsHandler;
 import io.tilt.minka.core.leader.LeaderBootstrap;
-import io.tilt.minka.core.leader.data.CommitState;
-import io.tilt.minka.core.leader.data.StageRequestLatch;
 import io.tilt.minka.core.monitor.DistroJSONBuilder;
-import io.tilt.minka.core.task.LeaderAware;
-import io.tilt.minka.core.task.impl.ZookeeperLeaderAware;
-import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityState;
-import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.shard.ShardIdentifier;
 
@@ -60,36 +43,26 @@ import io.tilt.minka.shard.ShardIdentifier;
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
  */
-@SuppressWarnings({ "unchecked", "rawtypes" })
 public class Client {
 
-	private static final Logger logger = LoggerFactory.getLogger(Client.class);
-
+	private final CrudExecutor crudExec;
 	private final LeaderBootstrap leaderBootstrap;
-	private final EventBroker eventBroker;
-	private final ClientEventsHandler clientMediator;
 	private final ShardIdentifier shardId;
-	private final Config config;
-	private final LeaderAware leaderAware;
 	private final DistroJSONBuilder distroJSONBuilder;
 	private final ShardedPartition partition;
+	
 	private EventMapper eventMapper;
-
+	private long futureMaxWaitMs = ParkingThreads.NO_EXPIRATION;
+	
 	protected Client(
-			final Config config, 
+			final CrudExecutor crudExec,
 			final LeaderBootstrap leaderBootstrap, 
-			final EventBroker eventBroker,
-			final ClientEventsHandler mediator, 
 			final ShardIdentifier shardId, 
-			final ZookeeperLeaderAware leaderAware, 
 			final DistroJSONBuilder distroJSONBuilder,
 			final ShardedPartition partition) {
-		this.config = config;
+		this.crudExec = crudExec;
 		this.leaderBootstrap = leaderBootstrap;
-		this.eventBroker = eventBroker;
-		this.clientMediator = mediator;
 		this.shardId = shardId;
-		this.leaderAware = leaderAware;
 		this.distroJSONBuilder = distroJSONBuilder;
 		this.partition = partition;
 	}
@@ -101,6 +74,7 @@ public class Client {
 	public Map<String, Object> getStatus() {
 		return distroJSONBuilder.buildDistribution();
 	}
+
 	/**
 	* Remove duties already running/distributed by Minka
 	* This causes the duty to be stopped at Minkas's FollowerBootstrap context.
@@ -115,15 +89,15 @@ public class Client {
 	* @param duty	    a duty sharded or to be sharded in the cluster
 	* @return whether or not the operation succeed
 	*/
-	public Reply remove(final Duty duty) {
-		return push(singletonList(duty), EntityEvent.REMOVE, null, null);
+	public Future<Collection<Reply>> remove(final Duty duty) {
+		return crudExec.execute(futureMaxWaitMs, singletonList(duty), EntityEvent.REMOVE, null);
 	}
-	public void removeAll(final Collection<Entity> coll, final Consumer<Reply> callback) {
-		push(coll, EntityEvent.REMOVE, null, callback);
+	public Future<Collection<Reply>> removeAll(final Collection<Entity> coll) {
+		return crudExec.execute(futureMaxWaitMs, coll, EntityEvent.REMOVE, null);
 	}
 
-	public Reply remove(final Pallet pallet) {
-		return push(singletonList(pallet), EntityEvent.REMOVE, null, null);
+	public Future<Collection<Reply>> remove(final Pallet pallet) {
+		return crudExec.execute(futureMaxWaitMs, singletonList(pallet), EntityEvent.REMOVE, null);
 	}
 
 	/**
@@ -149,20 +123,20 @@ public class Client {
 	* Otherwise client uses a {@linkplain PartitionMaster} and this's intended for events after bootstraping.
 	* Post-conditions:
 	*     1) use after {@linkplain PartitionMaster}'s source has been updated, or within same TX.
-	*     2) These duties must be also present when Minka uses {@linkplain PartitionMaster} at leader's promotion 
+	*     2) These duties must be also present when Minka uses {@linkplain PartitionMaster} at leaderBootstrap's promotion 
 	* 
 	* @param duty      a duty sharded or to be sharded in the cluster
 	* @return whether or not the operation succeed
 	*/
-	public Reply add(final Duty duty) {
-		return push(singletonList(duty), EntityEvent.CREATE, null, null);
+	public Future<Collection<Reply>> add(final Duty duty) {
+		return crudExec.execute(futureMaxWaitMs, singletonList(duty), EntityEvent.CREATE, null);
 	}
-	public void addAll(final Collection<? extends Entity> duty, final Consumer<Reply> callback) {
-		push(duty, EntityEvent.CREATE, null, callback); 
+	public Future<Collection<Reply>> addAll(final Collection<? extends Entity> duty) {
+		return crudExec.execute(futureMaxWaitMs, duty, EntityEvent.CREATE, null); 
 	}
 
-	public Reply add(final Pallet pallet) {
-		return push(singletonList(pallet), EntityEvent.CREATE, null, null);
+	public Future<Collection<Reply>> add(final Pallet pallet) {
+		return crudExec.execute(futureMaxWaitMs, singletonList(pallet), EntityEvent.CREATE, null);
 	}
 
 	/**
@@ -170,108 +144,23 @@ public class Client {
 	* @param duty the duty to update
 	* @return whether or not the operation succeed
 	*/
-	public Reply update(final Duty duty) {
-		return push(singletonList(duty), EntityEvent.UPDATE, null, null);
+	public Future<Collection<Reply>> update(final Duty duty) {
+		return crudExec.execute(futureMaxWaitMs, singletonList(duty), EntityEvent.UPDATE, null);
 	}
-	public Reply update(final Pallet pallet) {
-		return push(singletonList(pallet), EntityEvent.UPDATE, null, null);
+	public Future<Collection<Reply>> update(final Pallet pallet) {
+		return crudExec.execute(futureMaxWaitMs, singletonList(pallet), EntityEvent.UPDATE, null);
 	}
-	public Reply transfer(final Duty duty, final EntityPayload userPayload) {
-		return push(singletonList(duty), EntityEvent.TRANSFER, userPayload, null);
+	public Future<Collection<Reply>> transfer(final Duty duty, final EntityPayload userPayload) {
+		return crudExec.execute(futureMaxWaitMs, singletonList(duty), EntityEvent.TRANSFER, userPayload);
 	}
-	public Reply transfer(final Pallet pallet, final EntityPayload userPayload) {
-		return push(singletonList(pallet), EntityEvent.TRANSFER, userPayload, null);
+	public Future<Collection<Reply>> transfer(final Pallet pallet, final EntityPayload userPayload) {
+		return crudExec.execute(futureMaxWaitMs, singletonList(pallet), EntityEvent.TRANSFER, userPayload);
 	}
 	
-	private Reply push(final Collection<? extends Entity> raws, 
-			final EntityEvent event, 
-			final EntityPayload userPayload, 
-			final Consumer<Reply> callback) {
-		
-		Validate.notNull(raws, "an entity is required");
-		// only not null when raws.size > 1 
-		final Reply[] r = {null};
-
-		try {
-			final List<ShardEntity> entities = toEntities(raws, event, userPayload);
-			
-			if (leader.inService()) {
-				if (logger.isDebugEnabled()) {
-					logger.debug("{}: Recurring to local leader !", getClass().getSimpleName());
-				}
-				clientMediator.mediateOnEntity(entities, 
-						callback != null ? callback : reply->r[0]=reply);
-			} else {
-				if (logger.isDebugEnabled()) {
-					logger.debug("{}: Sending event: {} to leader in service", 
-						getClass().getSimpleName(), event, raws, event);
-				}
-				r[0] = sendAndReply(event, callback, r, entities);
-			}			
-		} catch (Exception e) {
-			logger.error("Cannot mediate to leader", e);
-			r[0] = Reply.error(e);
-		}
-		return r[0];
+	public void setFutureMaxWaitMs(long futureMaxWaitMs) {
+		this.futureMaxWaitMs = futureMaxWaitMs;
 	}
-
-	private Reply sendAndReply(
-			final EntityEvent event, 
-			final Consumer<Reply> callback, 
-			final Reply[] r,
-			final List<ShardEntity> tmp) {
-		int tries = 10;
-		boolean[] sent = {false};
-		while (!Thread.interrupted() && !sent[0] && tries-->0) {
-			if (leaderAware.getLeaderShardId()!=null) {
-				final BrokerChannel channel = eventBroker.buildToTarget(config, 
-						Channel.CLITOLEAD,
-						leaderAware.getLeaderShardId());
-				sent[0] = eventBroker.send(channel, (List)tmp);
-			} else {
-				try {
-					Thread.sleep(config.beatToMs(10));
-				} catch (InterruptedException ie) {
-					break;
-				}
-			}
-		}
-		if (callback==null) {
-			return Reply.sent(sent[0], tmp.get(0).getEntity());
-		} else {
-			for (ShardEntity e: tmp) {
-				try {
-					callback.accept(Reply.sent(sent[0], e.getEntity()));	
-				} catch (Exception e2) {
-					logger.warn("{}: reply callback throwed exception: {}", getClass().getSimpleName(), e2.getMessage());
-				}
-			}
-		}
-		return null;
-	}
-
-	private List<ShardEntity> toEntities(
-			final Collection<? extends Entity> raws, 
-			final EntityEvent event,
-			final EntityPayload userPayload) {
-		
-		final List<ShardEntity> tmp = new ArrayList<>();
-		for (final Entity e: raws) {
-			final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
-			if (userPayload != null) {
-				builder.withPayload(userPayload);
-			}
-			final ShardEntity tmpp = builder.build();
-			tmpp.getCommitTree().addEvent(
-					event, 
-					EntityState.PREPARED,  
-					this.shardId, 
-					CommitTree.PLAN_NA);
-			tmp.add(tmpp);
-		}
-		return tmp;
-	}
-
+	
 	public String getShardIdentity() {
 		return this.shardId.getId();
 	}
@@ -279,7 +168,7 @@ public class Client {
 	public EventMapper getEventMapper() {
 		return this.eventMapper;
 	}
-	public void setEventMapper(EventMapper eventMapper) {
+	final void setEventMapper(EventMapper eventMapper) {
 		this.eventMapper = eventMapper;
 	}
 	

@@ -31,16 +31,16 @@ import io.tilt.minka.shard.ShardState;
  * Representation of the known confirmed status of distribution of duties.
  * Only maintainer: {@linkplain StateSentry}
  */
-public class CommitedState {
+public class CommittedState {
 
-	private static final Logger logger = LoggerFactory.getLogger(CommitedState.class);
+	private static final Logger logger = LoggerFactory.getLogger(CommittedState.class);
 
 	private final Map<ShardIdentifier, Shard> shardsByID;
 	private final Map<Shard, ShardedPartition> partitionsByShard;
 	final Map<String, ShardEntity> palletsById;
 	private boolean stealthChange;
 	
-	CommitedState() {
+	CommittedState() {
 		this.shardsByID = new HashMap<>();
 		this.partitionsByShard = new HashMap<>();
 		this.palletsById = new HashMap<>();
@@ -149,7 +149,7 @@ public class CommitedState {
 	 * @param duty 		the entity to act on
 	 * @param where		the sard where it resides
 	 * @param callback	called when writting is possible
-	 * @return if there was a CommitedState change after the action 
+	 * @return if there was a CommittedState change after the action 
 	 */
 	public boolean commit(final ShardEntity duty, final Shard where, final EntityEvent event) {
 		final boolean add = event.is(EntityEvent.ATTACH);// || event.is(EntityEvent.CREATE);
@@ -341,9 +341,9 @@ public class CommitedState {
 
 	/** Read-only access */
 	public static class SchemeExtractor {
-		private final CommitedState reference;
+		private final CommittedState reference;
 
-		public SchemeExtractor(final CommitedState reference) {
+		public SchemeExtractor(final CommittedState reference) {
 			this.reference = reference;
 		}
 

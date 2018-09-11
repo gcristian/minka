@@ -25,7 +25,7 @@ import io.tilt.minka.domain.DependencyPlaceholder;
  */
 public class EventMapper {
 
-	private Server.Tenant tenant;
+	private final Server.Tenant tenant;
 
 	protected EventMapper(final Server.Tenant tenant)  {
 		this.tenant = tenant;

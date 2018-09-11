@@ -22,18 +22,19 @@ import static io.tilt.minka.domain.EntityState.COMMITED;
 import static io.tilt.minka.domain.EntityState.DANGLING;
 import static io.tilt.minka.domain.EntityState.MISSING;
 
-import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.core.leader.data.CommitedState;
-import io.tilt.minka.core.leader.data.Scheme;
+import io.tilt.minka.core.leader.data.CommittedState;
 import io.tilt.minka.core.leader.data.DirtyState;
+import io.tilt.minka.core.leader.data.Scheme;
+import io.tilt.minka.core.leader.data.CommitRequest;
 import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityRecord;
@@ -43,7 +44,7 @@ import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.shard.Transition;
 /**
- * Single-point of write access to the {@linkplain CommitedState}
+ * Single-point of write access to the {@linkplain CommittedState}
  * Watches follower's heartbeats taking action on any update
  * Beats with changes are delegated to a {@linkplain StateExpected} 
  * Anomalies and CRUD ops. are recorded into {@linkplain DirtyState}
@@ -66,6 +67,7 @@ public class StateWriter {
 	void commit(final Shard shard, 
 			final Log changelog, 
 			final ShardEntity entity, 
+			final Consumer<CommitRequest> requestConsumer,
 			final Map<EntityEvent, StringBuilder> logging) {
 		
 		if (scheme.getCommitedState().commit(entity, shard, changelog.getEvent())) {
@@ -77,11 +79,20 @@ public class StateWriter {
 					shard.getShardID(),
 					changelog.getPlanId());
 						
-			if (changelog.getEvent().getType()==EntityEvent.Type.ALLOC) {
-				if (changelog.getEvent().is(EntityEvent.DETACH)) {
-					moveToVault(shard, changelog, entity);
+			final Log request = findEventRootLog(changelog, entity); 
+			if (request!=null) {
+				// move to vault only on drop (detach preceeds drop)
+				if (request.getEvent().is(EntityEvent.REMOVE) 
+						&& changelog.getEvent().is(EntityEvent.DROP)) {
+					scheme.getVault().add(shard.getShardID().getId(), EntityRecord.fromEntity(entity, false));
 				}
-				clearDirtyState(changelog, entity, shard);
+				final CommitRequest req = scheme.getDirty().flowCommitRequest(changelog.getEvent(), entity);
+				if (req!=null) {
+					requestConsumer.accept(req);
+					logger.info("{} CommitRequest updated: {} (state:{})", classname, entity.toBrief(), req.getState());
+				} else {
+					logger.warn("{} CommitRequest not found: {}", classname, entity.toBrief());
+				}
 			}
 		}
 	}
@@ -95,42 +106,37 @@ public class StateWriter {
 			sb.append(entity.getEntity().getId()).append(',');
 		}
 	}
-
-	private void moveToVault(final Shard shard, final Log changelog, final ShardEntity entity) {
-		if (null != entity.getCommitTree().findOne(
-				changelog.getPlanId(), 
-				shard.getShardID(), 
-				EntityEvent.REMOVE)) {
-			scheme.getVault().add(shard.getShardID().getId(), EntityRecord.fromEntity(entity, false));
+	
+	/** @return Log if the event may reflect a {@linkplain CommitRequest} */
+	private static Log findEventRootLog(final Log changelog, final ShardEntity entity) {
+		final EntityEvent e = changelog.getEvent();
+		if (e.getUserCause()==null) {
+			return null;
 		}
+		if (e.getUserCause()==EntityEvent.CREATE) {
+			// prevent Nthuplicated events
+			if (isNormalEcho(changelog, entity)) {
+				return null;
+			}
+		}
+		// look up for all plans
+		final long minTime = 0;
+		return entity.getCommitTree().existsWithLimit(e.getUserCause(), minTime);
 	}
 
-	/** keep the uncommited-changes repo clean to its purpose */
-	private void clearDirtyState(final Log changelog, final ShardEntity entity, Shard shard) {
-		// remember crud is opaque from user, without any other info.
-		final ShardEntity crud = scheme.getDirty().getCrudByDuty(entity.getDuty());
-		if (crud!=null) {
-			// BUG: el crud de un remove tiene shardid: leader (q recibio el req) no lo
-			// va a encontrar ahi al REMOVE que planea targeteado al Shard donde esta VERDADERAMENTE..
-			// esta es una asumpcion erronea
-			//for (Log crudL: crud.getCommitTree().findAll(shard.getShardID())) {
-			final Log crudL = crud.getCommitTree().getLast();
-			final Instant lastEventOnCrud = crudL.getHead().toInstant();
-			boolean previousThanCrud = changelog.getHead().toInstant().isBefore(lastEventOnCrud);
-			// if the update corresponds to the last CRUD OR they're both the same event (duplicated operation)
-			if (!previousThanCrud || changelog.getEvent().getUserCause()==crud.getLastEvent()) {
-				if (!scheme.getDirty().removeCrud(entity)) {
-					logger.warn("{} DirtyState CRUD didnt existed: {}", classname, entity);
-				} else {
-					logger.info("{} DirtyState CRUD discarded ok: {}", classname, entity);
-				}
-			} else {
-				logger.warn("{}: Avoiding DirtyState remove (diff & after last event: {}, {})", 
-						classname, entity, previousThanCrud);
-			}			
-		} else {
-			// they were not crud: (dangling/missing/..)
-		}
+	/** 
+	 * @return TRUE when the current log's event is a normal 
+	 * alloc/replica out of a creation/removal stage request */
+	private static boolean isNormalEcho(final Log current, final ShardEntity entity) {
+		final long minimumPlan = entity.getCommitTree().getFirst().getPlanId();
+		final boolean echo[] = {false};
+		entity.getCommitTree().filterWithLimit(current.getEvent(), minimumPlan, log-> {
+			// avoid current log
+			if (!log.equals(current)) {
+				echo[0]|=log.getLastState()==EntityState.COMMITED;
+			}
+		});
+		return echo[0];
 	}
 	
 	void writeShardState(final Shard shard, final ShardState prior, final Transition transition) {

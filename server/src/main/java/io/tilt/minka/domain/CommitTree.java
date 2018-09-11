@@ -199,7 +199,7 @@ public class CommitTree implements Serializable {
 			final EntityEvent...events) { 
 		Log ret = null;
 		for (Long pid: tree.descendingKeySet()) {
-			if (pid>timestampLimit) {
+			if (pid>=timestampLimit) {
 				for (LimMap<EntityEvent, Log> m: tree.get(pid).values()) {
 					for (EntityEvent ee: events) {
 						final Log l = m.get(ee);
@@ -353,10 +353,14 @@ public class CommitTree implements Serializable {
 	    return false;
 	}
 
-	public Log exists(final EntityEvent ee, final long timestamp) {
-		return findWithLimitForEvent(timestamp, null, ee);
+	/** @return a Log representing the event occurred after the minTimestamp arg. */
+	public Log existsWithLimit(final EntityEvent ee, final long minTimestamp) {
+		return findWithLimitForEvent(minTimestamp, null, ee);
 	}
-	
+	public void filterWithLimit(final EntityEvent ee, final long minTimestamp, final Consumer<Log> c) {
+		findWithLimitForEvent(minTimestamp, c, ee);
+	}
+
 	/** 
 	 * @return reading from latest to earliest a Log that matches given:
 	 * plan version, target shard and specific events, or any if null

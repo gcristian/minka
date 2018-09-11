@@ -20,9 +20,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import javax.inject.Singleton;
@@ -51,10 +52,11 @@ import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 
 import io.tilt.minka.core.leader.balancer.Balancer;
+import io.tilt.minka.core.leader.data.CommitState;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.monitor.CrossJSONBuilder;
-import io.tilt.minka.core.monitor.FollowerJSONBuilder;
 import io.tilt.minka.core.monitor.DistroJSONBuilder;
+import io.tilt.minka.core.monitor.FollowerJSONBuilder;
 import io.tilt.minka.core.monitor.OnDemandAppender;
 import io.tilt.minka.core.monitor.SchemeJSONBuilder;
 
@@ -101,6 +103,10 @@ public class AdminEndpoint {
 		ret.put("/partition", "show duty partition on current shard");
 		ret.put("/plans", "show distribution change plans");
 		ret.put("/log/text", "capture logging on demand");
+		ret.put(PATH_CREATE_PALLET, "create pallet");
+		ret.put(PATH_CREATE_DUTY, "create duty");
+		ret.put(PATH_DELETE_DUTY, "delete duty");
+		ret.put(PATH_SHARD_CAPACITY, "set shard capacity");
 		return Response.accepted(ret).build();
 	}
 	
@@ -255,8 +261,8 @@ public class AdminEndpoint {
 				bm = Balancer.Strategy.valueOf(strategy).getBalancerMetadata();
 			}
 			final Pallet p = Pallet.builder(palletId).with(bm).build();
-			Reply r = client.add(p);
-			return Response.accepted(r).build();
+			client.add(p);
+			return Response.accepted("").build();
 		} catch (Exception e) {
 			logger.error("while " + PATH_CREATE_PALLET, e);
 			return Response.serverError().build();
@@ -292,7 +298,8 @@ public class AdminEndpoint {
 	public Response createDuty(
 			@PathParam("palletid") final String palletId,
 			@PathParam("id") final String dutyId,
-			@QueryParam("weight") String weight) throws JsonProcessingException {
+			@QueryParam("weight") final String weight,
+			@QueryParam("cl") final int consistencyLevel) throws JsonProcessingException {
 		
 		try {
 			long w = 1;
@@ -300,9 +307,18 @@ public class AdminEndpoint {
 				w = Long.parseLong(weight);
 			}
 			final Duty d = Duty.builder(dutyId, palletId).with(w).build();
-			final Reply r = client.add(d);
-			//CompletableFuture.runAsync(()->client.add(d));
-			return Response.accepted(r).build();
+			final Future<Collection<Reply>> f = client.add(d);
+			final Reply r = f.get().iterator().next();
+			// 0 = fire and forget, 
+			// 1 = leader ack, 
+			// 2 = first follower ack, 
+			// 3 = all followers ack.
+			if (r.isSuccess() && consistencyLevel>0) {
+				r.getState().get();
+			}
+			return Response.accepted(r)
+					.status(r.getValue().getHttpCode())
+					.build();
 		} catch (Exception e) {
 			logger.error("while " + PATH_CREATE_DUTY, e);
 			return Response.serverError().build();
@@ -315,11 +331,17 @@ public class AdminEndpoint {
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response deleteDuty(
 			@PathParam("palletid") final String palletId,
-			@PathParam("id") final String dutyId) throws JsonProcessingException {
+			@PathParam("id") final String dutyId,
+			@QueryParam("cl") final int consistencyLevel) throws JsonProcessingException {
 		try {
 			final Duty d = Duty.builder(dutyId, palletId).with(1).build();
-			final Reply r = client.remove(d);
-			return Response.accepted(r).build();
+			final Reply r = client.remove(d).get().iterator().next();
+			if (r.isSuccess() && consistencyLevel>0) {
+				r.getState().get();
+			}
+			return Response.accepted(r)
+					.status(r.getValue().getHttpCode())
+					.build();
 		} catch (Exception e) {
 			logger.error("while " + PATH_DELETE_DUTY, e);
 			return Response.serverError().build();

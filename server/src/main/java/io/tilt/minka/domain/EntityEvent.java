@@ -78,6 +78,22 @@ public enum EntityEvent {
 		NONE
 	}
 
+	public EntityEvent typeSibling() {
+		switch (this) {
+			case STOCK:
+				return ATTACH;
+			case ATTACH:
+				return STOCK;
+			case DROP:
+				return DETACH;
+			case DETACH:
+				return DROP;
+			default:
+				return null;
+		}
+	}
+
+		
 	public EntityEvent getUserCause() {
 		switch (this) {
 		case STOCK:

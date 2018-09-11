@@ -56,7 +56,6 @@ public class LeaderBootstrap implements Service {
 
 	private boolean served;
 	private Date start;
-	private Date stop;
 
 	LeaderBootstrap(
 			final Config config, 
@@ -92,47 +91,39 @@ public class LeaderBootstrap implements Service {
 	@Override
 	public void start() {
 		try {
-			//if (!locks.runOnLockRace(Names.getLeaderLockName(config.getServiceName()), ()-> {
 			scheduler.run(scheduler.getFactory().build(
 					Action.LEADERSHIP, 
 					PriorityLock.LOW_ON_PERMISSION, 
-					() -> {
-				
-				try {
-					served = true;
-					final Date start = new Date();
-					final long w = System.currentTimeMillis() - start.getTime();
-					logger.info("{}: Registering as LeaderBootstrap at well after waiting {} msecs", getName(), w);
-					leaderAware.setNewLeader(shardId);
-					final long e = DateTime.now().getMillis() - config.loadTime.getMillis();
-					logger.info("{}: {} msec since load till leader election", getName(), e);
-					// start analyzing the shards and distribute duties
-					shardKeeper.start();
-					distributor.start();
-					// start listening events from followers and clients alike
-					followerEventsHandler.start();
-					clientEventsHandler.start();
-					this.start = start;
-				} catch (Exception e) {
-					logger.error("Unexpected error when starting service. Cannot procede", e);
-				}
-			}));/*
-					 * { logger.error(
-					 * "A blocking cluster operation is running to avoid Master start"
-					 * ); //Distributed.stopCandidate(Names.getLeaderName(config.
-					 * getServiceName()), false); // subscriptions never made }
-					 */
+					this::start_));
 		} catch (Exception e) {
 			logger.error("Unexpected error when starting service. Cannot procede", e);
-		} finally {
+		}
+	}
 
+	private void start_() {
+		try {
+			served = true;
+			final Date start = new Date();
+			final long w = System.currentTimeMillis() - start.getTime();
+			logger.info("{}: Registering as LeaderBootstrap at well after waiting {} msecs", getName(), w);
+			leaderAware.setNewLeader(shardId);
+			final long e = DateTime.now().getMillis() - config.loadTime.getMillis();
+			logger.info("{}: {} msec since load till leader election", getName(), e);
+			// start analyzing the shards and distribute duties
+			shardKeeper.start();
+			distributor.start();
+			// start listening events from followers and clients alike
+			followerEventsHandler.start();
+			clientEventsHandler.start();
+			this.start = start;
+		} catch (Exception e) {
+			logger.error("Unexpected error when starting service. Cannot procede", e);
 		}
 	}
 
 	@Override
 	public void stop() {
 		if (start!=null) {
-			this.stop = new Date();
 			this.start = null;
 			logger.info("{}: Stopping ({})", getName(), !served ? "never served" : "paid my duty");
 			shardKeeper.stop();

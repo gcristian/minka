@@ -28,7 +28,8 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.core.leader.data.StageRequest;
+import io.tilt.minka.core.leader.data.CommitRequest;
+import io.tilt.minka.core.leader.data.CommitState;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.leader.distributor.Dispatch;
 import io.tilt.minka.core.task.Scheduler;
@@ -52,6 +53,7 @@ import io.tilt.minka.shard.ShardState;
  * @author Cristian Gonzalez
  * @since Jan 4, 2016
  */
+@SuppressWarnings({ "rawtypes", "unchecked" })
 public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -61,12 +63,14 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	private final StateExpected expected;
 	private final StateUnexpected unexpected;
 	private final StateWriter writer;
+	private final EventBroker broker; 
 	
-	StateSentry(final Scheme scheme, final Scheduler scheduler, final StateWriter writer) {
+	StateSentry(final Scheme scheme, final Scheduler scheduler, final StateWriter writer, final EventBroker broker) {
 		this.scheme = scheme;
 		this.expected = new StateExpected(scheme);
 		this.unexpected = new StateUnexpected(scheme);
 		this.writer = writer;
+		this.broker = broker;
 	}
 
 	/**
@@ -106,31 +110,63 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 			unexpected.detectInvalidSpots(shard, reportedDuties);
 		}
 	}
-
 	
 	private void detectExpectedChanges(final Shard shard, final Heartbeat beat) {
 		final ChangePlan changePlan = scheme.getCurrentPlan();
 		if (changePlan!=null && !changePlan.getResult().isClosed()) {
 			
-			final Delivery delivery = changePlan.getDelivery(shard);
-			if (delivery!=null && delivery.getStep()==Delivery.Step.PENDING) {
-				final Map<EntityEvent, StringBuilder> logg = new HashMap<>(EntityEvent.values().length);				
+			final Dispatch dispatch = changePlan.get(shard);
+			if (dispatch!=null && dispatch.getStep()==Dispatch.Step.PENDING) {
+				final Map<EntityEvent, StringBuilder> logg = new HashMap<>(EntityEvent.values().length);
+				final List<CommitRequest> requests = new ArrayList<>(beat.getCaptured().size());
 				if (expected.detect(
-						delivery, 
+						dispatch, 
 						changePlan.getId(), 
 						beat, 
 						shard.getShardID(), 
-						(log, del)-> writer.commit(shard, log, del, logg),
-						EntityEvent.ATTACH, EntityEvent.STOCK, EntityEvent.DROP)) { 
-					delivery.calculateState(logger::info);
+						(log, del)-> writer.commit(shard, log, del, requests::add, logg),
+						EntityEvent.ATTACH, EntityEvent.STOCK, EntityEvent.DROP)) {
+					dispatch.calculateState(logger::info);
+					notifyUser(requests);
 				}
-				logging(shard, changePlan, logg);
+				doLogging(shard, changePlan, logg);
 			} else if (logger.isDebugEnabled()) {
-				logger.debug("{}: no {} Delivery for heartbeat's shard: {}", getClass().getSimpleName(), 
-						Delivery.Step.PENDING, shard.getShardID().toString());
+				logger.debug("{}: no {} Dispatch for heartbeat's shard: {}", getClass().getSimpleName(), 
+						Dispatch.Step.PENDING, shard.getShardID().toString());
 			}			
 		} else if (isLazyOrSurvivor(beat, changePlan)) {
 			scheme.getLearningState().learn(beat.getCaptured(), shard);
+		}
+	}
+
+	private void notifyUser(final List<CommitRequest> requests) {
+		if (!requests.isEmpty()) {
+			requests.stream()
+				.filter(r->!r.isSent(EntityEvent.Type.ALLOC) 
+						&& r.getState()==CommitState.COMMITTED_ALLOCATION)
+				.collect(Collectors.groupingBy((req)->
+					scheme.getCommitedState().findShard(
+							s->s.getShardID().getId().equals(
+									req.getEntity().getCommitTree().getFirst().getTargetId()))
+			)).forEach((shard, stageRequestsGroup)-> {
+				if (shard!=null) {
+					logger.info("{}: Notifying user at {}", getClass().getSimpleName(), shard);
+					if (broker.send(shard.getBrokerChannel(), (List)stageRequestsGroup)) {
+						for (CommitRequest req: stageRequestsGroup) {
+							req.markSent();
+							// clear for good out of DirtyState
+							scheme.getDirty().flowCommitRequest(
+									req.getEntity().getLastEvent(), 
+									req.getEntity());
+						}
+					} else {
+						logger.error("{}: Couldnt notify CommitRequest's to User", getClass().getSimpleName());
+					}
+				} else {
+					logger.error("{}: Cannot process CommitRequest on dissapeared Shards", 
+							getClass().getSimpleName());
+				}
+			});
 		}
 	}
 

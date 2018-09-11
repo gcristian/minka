@@ -71,7 +71,7 @@ public class CmdLineApp {
 	private Map<Quest, String> readParameters(final Scanner scan) {
 		
 		final Map<Quest, String> suggest = new HashMap<>();
-		suggest.put(Quest.namespace, "demo");
+		suggest.put(Quest.namespace, "demo1");
 		final String ms = String.valueOf(System.currentTimeMillis());
 		suggest.put(Quest.tag, System.getProperty("user.name") + "-" + ms.substring(ms.length()-3));
 		suggest.put(Quest.zk, "localhost:2181");
@@ -188,18 +188,18 @@ public class CmdLineApp {
 		}
 	}
 	
-	private boolean run(String[] split, final Client client) {
+	private boolean run(String[] split, final Client client) throws Exception {
 		String cmd=split[0].toLowerCase();
 		final String tagPrefix = ""; //quest.get(Quest.tag) + "-";
 		Reply res = null;
 		if (cmd.equals("d")) {
-			res = client.add(duty(tagPrefix, split));
+			res = client.add(duty(tagPrefix, split)).get().iterator().next();
 		} else if (cmd.equals("!d")) {
-			res = client.remove(duty(tagPrefix, split));
+			res = client.remove(duty(tagPrefix, split)).get().iterator().next();
 		} else if (cmd.equals("p")) {
-			res = client.add(pallet(split));
+			res = client.add(pallet(split)).get().iterator().next();
 		} else if (cmd.equals("!p")) {
-			res = client.remove(pallet(split));
+			res = client.remove(pallet(split)).get().iterator().next();
 		} else if (cmd.equals("c")) {
 			client.getEventMapper().setCapacity(pallet(split), 999d);
 		}
