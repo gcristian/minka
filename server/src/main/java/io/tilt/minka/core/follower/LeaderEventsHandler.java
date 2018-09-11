@@ -49,7 +49,7 @@ import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.shard.Clearance;
 
 /**
- * Leader event handler.
+ * LeaderBootstrap event handler.
  * Subscribes to broker events for follower reactions
  * 
  * @author Cristian Gonzalez

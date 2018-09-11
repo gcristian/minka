@@ -66,10 +66,10 @@ public class CrossJSONBuilder {
 	 * <p>
 	 * Shows metrics on the event broker's server and clients, used to communicate shards.  
 	 * Each shard has at least one server to listen events from the leader and one client to send
-	 * events to the leader. The Leader has one server to listen events from all followers, and 
+	 * events to the leader. The LeaderBootstrap has one server to listen events from all followers, and 
 	 * one client for each follower that sends events to.  
 	 * <p>
-	 * Full when the current server is the Leader, self broker information when the server is a Follower.
+	 * Full when the current server is the LeaderBootstrap, self broker information when the server is a FollowerBootstrap.
 	 * @return			a String in json format
 	 */
 	public String brokerToJson() {
@@ -80,7 +80,7 @@ public class CrossJSONBuilder {
 	 * <p>
 	 * Shows the state of the scheduler 
 	 * <p>
-	 * Non-Empty only when the current server is the Leader.
+	 * Non-Empty only when the current server is the LeaderBootstrap.
 	 * @return			a String in json format
 	 */
 	public String scheduleToJson(final boolean detail) {

@@ -33,7 +33,7 @@ import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.Scheme.ClusterHealth;
-import io.tilt.minka.core.leader.data.DirtyRepository;
+import io.tilt.minka.core.leader.data.DirtyFacade;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -77,7 +77,7 @@ public class Distributor implements Service {
 			final Scheduler scheduler, 
 			final EventBroker eventBroker,
 			final Scheme scheme, 
-			final DirtyRepository stageRepo,
+			final DirtyFacade stageRepo,
 			final ShardIdentifier shardId,
 			final DependencyPlaceholder dependencyPlaceholder, 
 			final LeaderAware leaderAware) {
@@ -192,7 +192,7 @@ public class Distributor implements Service {
 
 	/* retry already pushed deliveries with pending duties */
 	private void repushPendings(final ChangePlan changePlan) {
-		changePlan.onDeliveries(d->d.getStep() == Delivery.Step.PENDING, delivery-> {
+		changePlan.onDispatches(d->d.getStep() == Dispatch.Step.PENDING, delivery-> {
 			if (!changePlan.getResult().isClosed()) {
 				push(changePlan, delivery, true);
 			}
@@ -218,7 +218,7 @@ public class Distributor implements Service {
 
 	private boolean checkAllDeliveriesValid(final ChangePlan changePlan) {
 		final boolean valid[] = new boolean[] {true};
-		changePlan.onDeliveries(d->d.getStep() == Delivery.Step.PENDING, d-> {
+		changePlan.onDispatches(d->d.getStep() == Dispatch.Step.PENDING, d-> {
 			if (!deliveryShardValid(d)) {
 				logger.error("{}: ChangePlan lost a target shard as online: {}", getName(), d.getShard());
 				changePlan.obsolete();
@@ -228,35 +228,35 @@ public class Distributor implements Service {
 		return valid[0];
 	}
 
-	private boolean deliveryShardValid(final Delivery d) {
+	private boolean deliveryShardValid(final Dispatch d) {
 		return scheme.getCommitedState().filterShards(
 				sh->sh.equals(d.getShard()) && sh.getState().isAlive());							
 	}
 
 	/** @return if plan is still valid */
-	private boolean push(final ChangePlan changePlan, final Delivery delivery, final boolean retrying) {
+	private boolean push(final ChangePlan changePlan, final Dispatch dispatch, final boolean retrying) {
 		// check it's still in ptable
-		if (!deliveryShardValid(delivery)) {
-			logger.error("{}: Scheme lost transport's target shard: {}", getName(), delivery.getShard());
+		if (!deliveryShardValid(dispatch)) {
+			logger.error("{}: Scheme lost transport's target shard: {}", getName(), dispatch.getShard());
 			changePlan.obsolete();
 			return false;
 		} else {
 			final List<ShardEntity> payload = new ArrayList<>();
 			final List<Log> logs = new ArrayList<>();
 			final BiConsumer<ShardEntity, Log> bc = (e, l)-> { payload.add(e); logs.add(l); };
-			int deliCount = (retrying)  ? delivery.contentsByState(EntityState.PENDING, bc) :  delivery.contentsByState(bc);
+			int deliCount = (retrying)  ? dispatch.contentsByState(EntityState.PENDING, bc) :  dispatch.contentsByState(bc);
 			if (deliCount == 0) {
 				throw new IllegalStateException("delivery with no duties to send ?");
 			}
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), delivery.getEvent().toVerb(),
-						delivery.getShard().getShardID(), deliCount,
+				logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), dispatch.getEvent().toVerb(),
+						dispatch.getShard().getShardID(), deliCount,
 						ShardEntity.toStringIds(payload));
 			}	
 			logs.forEach(l->l.addState(EntityState.PENDING));
 			if (eventBroker.send(delivery.getShard().getBrokerChannel(), (List)payload)) {
 				// dont mark to wait for those already confirmed (from fallen shards)
-				delivery.markSent();
+				dispatch.markSent();
 			} else {
 				logs.forEach(l->l.addState(EntityState.PREPARED));
 				logger.error("{}: Couldnt transport current issues !!!", getName());
@@ -287,7 +287,7 @@ public class Distributor implements Service {
 	private void logStatus() {
 		if (logger.isInfoEnabled()) {
 			StringBuilder title = new StringBuilder("Distributor (i").append(counterForDistro)
-					.append(" by Leader: ").append(shardId.toString());
+					.append(" by LeaderBootstrap: ").append(shardId.toString());
 			logger.info(LogUtils.titleLine(title.toString()));
 		}
 		scheme.logStatus();

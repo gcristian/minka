@@ -222,7 +222,7 @@ public interface Semaphore extends Service {
 		rules.add(builder(SHUTDOWN)
 				.add(PARENT, asList(ANY)));
 
-		// At Leader's
+		// At LeaderBootstrap's
 		rules.add(builder(LEADERSHIP)
 				.add(CHILD, asList(Action.BOOTSTRAP)));
 		rules.add(builder(PROCTOR)
@@ -232,7 +232,7 @@ public interface Semaphore extends Service {
 		rules.add(builder(PARTITION_TABLE_UPDATE)
 				.add(SIBLING, asList(PROCTOR, DISTRIBUTOR)));
 
-		// At Follower's
+		// At FollowerBootstrap's
 		rules.add(builder(INSTRUCT_DELEGATE)
 				.add(SIBLING, asList(HEARTBEAT_REPORT)));
 		rules.add(builder(HEARTBEAT_REPORT)

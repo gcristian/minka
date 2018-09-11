@@ -153,7 +153,7 @@ class ShardKeeper implements Service {
 			if (trans.getState() != priorState) {
 				explainToLog(trans, priorState, shard, actions.isEmpty(), size);
 				lastUnstableAnalysisId = analysisCounter;
-				actions.add(()->writer.shardStateTransition(shard, priorState, trans));
+				actions.add(()->writer.writeShardState(shard, priorState, trans));
 			} else if (lastAnalysys.isBefore(shard.getFirstTimeSeen())) {
 				explainToLog(trans, priorState, shard, actions.isEmpty(), size);
 			}
@@ -187,7 +187,7 @@ class ShardKeeper implements Service {
 				if (atFirstChange) {
 					logger.info(LogUtils.titleLine(new StringBuilder("Analyzing Shards (i")
 							.append(analysisCounter)
-							.append(") by Leader: ")
+							.append(") by LeaderBootstrap: ")
 							.append(shardId.toString())
 							.toString()));
 					final StringBuilder sb = new StringBuilder();

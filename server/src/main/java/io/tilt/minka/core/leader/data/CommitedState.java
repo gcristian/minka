@@ -4,7 +4,6 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -27,9 +26,6 @@ import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.ShardIdentifier;
 import io.tilt.minka.shard.ShardState;
-import io.tilt.minka.shard.Transition;
-import io.tilt.minka.utils.CollectionUtils;
-import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 
 /**
  * Representation of the known confirmed status of distribution of duties.
@@ -42,11 +38,9 @@ public class CommitedState {
 	private final Map<ShardIdentifier, Shard> shardsByID;
 	private final Map<Shard, ShardedPartition> partitionsByShard;
 	final Map<String, ShardEntity> palletsById;
-	private final Map<ShardIdentifier, SlidingSortedSet<Transition>> goneShards;
 	private boolean stealthChange;
 	
 	CommitedState() {
-		this.goneShards = new HashMap<>();
 		this.shardsByID = new HashMap<>();
 		this.partitionsByShard = new HashMap<>();
 		this.palletsById = new HashMap<>();
@@ -122,7 +116,6 @@ public class CommitedState {
 			logger.error("{}: trying to delete unexisting Shard: {}", getClass().getSimpleName(), shard);
 		}
 		final boolean changed = rem!=null && part!=null;
-		addGoneShard(shard);
 		stealthChange |= changed;
 		return changed;
 	}
@@ -143,17 +136,6 @@ public class CommitedState {
 		}
 	}
 	
-	/** backup gone shards for history */
-	private void addGoneShard(final Shard shard) {
-		int max = 5;
-		for (final Iterator<Transition> it = shard.getTransitions().values().iterator(); it.hasNext() && max>0;max--) {
-			SlidingSortedSet<Transition> set = goneShards.get(shard.getShardID());
-			if (set==null) {
-				goneShards.put(shard.getShardID(), set = CollectionUtils.sliding(max));
-			}
-			set.add(it.next());
-		}
-	}
 	
 	public void loadReplicas(final Shard shard, final Set<ShardEntity> replicas) {
 		for (ShardEntity replica: replicas) {
@@ -319,10 +301,6 @@ public class CommitedState {
 	
 	public int shardsSize() {
 		return this.shardsByID.values().size();
-	}
-
-	public Map<ShardIdentifier, SlidingSortedSet<Transition>> getGoneShards() {
-		return goneShards;
 	}
 	
 	public void logStatus() {

@@ -34,15 +34,15 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.follower.Follower;
-import io.tilt.minka.core.leader.Leader;
+import io.tilt.minka.core.follower.FollowerBootstrap;
+import io.tilt.minka.core.leader.LeaderBootstrap;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.Transition;
 
 /**
  * A heartbeat is a sign that the node must be considered alive.
- * built by {@link Follower}s holding statistics for allowing the {@link Leader} to balance work.  
+ * built by {@link FollowerBootstrap}s holding statistics for allowing the {@link LeaderBootstrap} to balance work.  
  *  
  * @author Cristian Gonzalez
  * @since Nov 5, 2015

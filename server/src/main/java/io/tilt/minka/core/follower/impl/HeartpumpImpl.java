@@ -64,7 +64,7 @@ class HeartpumpImpl implements Heartpump {
 	public boolean emit(final Heartbeat arg) {
 		try {
 			if (leaderAware.getLeaderShardId() == null) {
-				logger.warn("{}: Still without an acknowledged Leader shard !", classname,
+				logger.warn("{}: Still without an acknowledged LeaderBootstrap shard !", classname,
 						config.getLoggingShardId());
 				return false;
 			}

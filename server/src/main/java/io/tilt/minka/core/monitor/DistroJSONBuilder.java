@@ -92,12 +92,11 @@ public class DistroJSONBuilder {
 		});
 	}
 
-
 	/**
 	 * <p>
 	 * Gives detailed information on the shards, members of the cluster within the namespace, reporting to the leader.
 	 * <p>
-	 * Full when the current server is the Leader, self shard info. when the server is a Follower.
+	 * Full when the current server is the LeaderBootstrap, self shard info. when the server is a FollowerBootstrap.
 	 * @return			a String in json format
 	 */
 	public String shardsToJson()  {
@@ -115,7 +114,7 @@ public class DistroJSONBuilder {
 		map.put("shards", list);
 		
 		final Map<String, List<String>> tmp = new HashMap<>();
-		scheme.getCommitedState().getGoneShards().entrySet().forEach(e-> {
+		scheme.getVault().getGoneShards().entrySet().forEach(e-> {
 			tmp.put(e.getKey().getId(), 
 					e.getValue().values().stream()
 						.map(c->c.toString()).collect(toList()));
@@ -130,7 +129,7 @@ public class DistroJSONBuilder {
 	 * Gives detailed information on change plans built in distributor phase
 	 * to accomodate duties into shards. Including any on-going plan, and historic plans.
 	 * <p>
-	 * Non-Empty only when the current server is the Leader.
+	 * Non-Empty only when the current server is the LeaderBootstrap.
 	 * @return			a String in json format
 	 */
 	public String plansToJson(final boolean detail) {
@@ -168,7 +167,7 @@ public class DistroJSONBuilder {
 	 * <p>
 	 * Gives detailed information on distributed duties and their shard locations
 	 * <p>
-	 * Non-Empty only when the current server is the Leader.
+	 * Non-Empty only when the current server is the LeaderBootstrap.
 	 * @return			a String in json format
 	 */
 	public String distributionToJson() {

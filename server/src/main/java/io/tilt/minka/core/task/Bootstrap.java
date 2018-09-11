@@ -33,8 +33,8 @@ import org.slf4j.Logger;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.ConfigValidator;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.follower.Follower;
-import io.tilt.minka.core.leader.Leader;
+import io.tilt.minka.core.follower.FollowerBootstrap;
+import io.tilt.minka.core.leader.LeaderBootstrap;
 import io.tilt.minka.core.monitor.SystemStateMonitor;
 import io.tilt.minka.core.task.Scheduler.Agent;
 import io.tilt.minka.core.task.Scheduler.Frequency;
@@ -55,12 +55,12 @@ import io.tilt.minka.spectator.ServerCandidate;
 public class Bootstrap implements Service {
 
 	
-	public Logger logger = Leader.logger;
+	public Logger logger = LeaderBootstrap.logger;
 	
 	private final Config config;
 	private final ConfigValidator validator;
-	private final Leader leader;
-	private final Follower follower;
+	private final LeaderBootstrap leaderBootstrap;
+	private final FollowerBootstrap followerBootstrap;
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final Scheduler scheduler;
 	private final LeaderAware leaderAware;
@@ -86,8 +86,8 @@ public class Bootstrap implements Service {
 			final ConfigValidator validator, 
 			final SpectatorSupplier spectatorSupplier,
 			final boolean autoStart, 
-			final Leader leader, 
-			final Follower follower,
+			final LeaderBootstrap leaderBootstrap, 
+			final FollowerBootstrap followerBootstrap,
 			final DependencyPlaceholder dependencyPlaceholder, 
 			final Scheduler scheduler,
 			final LeaderAware leaderAware, 
@@ -97,8 +97,8 @@ public class Bootstrap implements Service {
 		this.config = requireNonNull(config, "a unique service name is required (within the ZK ensemble)");
 		this.validator = requireNonNull(validator);
 		this.spectatorSupplier = requireNonNull(spectatorSupplier);
-		this.leader = requireNonNull(leader);
-		this.follower = requireNonNull(follower);
+		this.leaderBootstrap = requireNonNull(leaderBootstrap);
+		this.followerBootstrap = requireNonNull(followerBootstrap);
 		this.dependencyPlaceholder = requireNonNull(dependencyPlaceholder);
 		this.scheduler = requireNonNull(scheduler);
 		this.leaderAware = requireNonNull(leaderAware);
@@ -174,10 +174,10 @@ public class Bootstrap implements Service {
 		    this.start=null;
 			logger.info("{}: ({}) Destroying context..", getName(), shardId);
 			if (config.getBootstrap().isLeaderShardAlsoFollows()) {
-				follower.stop();
+				followerBootstrap.stop();
 			}
-			if (config.getBootstrap().isPublishLeaderCandidature() && leader.inService()) {
-				leader.stop();
+			if (config.getBootstrap().isPublishLeaderCandidature() && leaderBootstrap.inService()) {
+				leaderBootstrap.stop();
 			}
 			leaderAware.stop();
 			eventBroker.stop();
@@ -192,16 +192,16 @@ public class Bootstrap implements Service {
 
 	/**
 	 * when ZK connection's lost:
-	 * kill the leader and reboot
-	 * let the follower keep working as it's not compromised 
+	 * kill the leaderBootstrap and reboot
+	 * let the followerBootstrap keep working as it's not compromised 
 	 */
 	private void restart() {
-		logger.warn("{}: ({}) ZK Connection's lost fallback: restarting leader and leader's shard-container", getName(),
+		logger.warn("{}: ({}) ZK Connection's lost fallback: restarting leaderBootstrap and leaderBootstrap's shard-container", getName(),
 				shardId);
 
-		// stop current leader if on service and start the highlander booting all over again
-		if (config.getBootstrap().isPublishLeaderCandidature() && leader.inService()) {
-			leader.stop();
+		// stop current leaderBootstrap if on service and start the highlander booting all over again
+		if (config.getBootstrap().isPublishLeaderCandidature() && leaderBootstrap.inService()) {
+			leaderBootstrap.stop();
 		}
 		// ignore container's current held refs. and start it over
 		leaderAware.stop();
@@ -210,12 +210,12 @@ public class Bootstrap implements Service {
 		bootLeadershipCandidate();
 	}
 
-	// check if PartitionDelegate is ready and if it must: start follower and candidate leader
+	// check if PartitionDelegate is ready and if it must: start followerBootstrap and candidate leaderBootstrap
 	private void readyAwareBooting() {
 		if (dependencyPlaceholder.getDelegate().isReady()) {
 			logger.info("{}: ({}) Starting...", getName(), shardId);
 			if (config.getBootstrap().isLeaderShardAlsoFollows()) {
-				follower.start();
+				followerBootstrap.start();
 			}
 			bootLeadershipCandidate();
 		} else {
@@ -232,41 +232,41 @@ public class Bootstrap implements Service {
 	 */
 	private void bootLeadershipCandidate() {
 		if (config.getBootstrap().isPublishLeaderCandidature()) {
-			logger.info("{}: ({}) Candidating Leader (lap: {})", getName(), shardId, repostulationCounter);
+			logger.info("{}: ({}) Candidating LeaderBootstrap (lap: {})", getName(), shardId, repostulationCounter);
 			this.serverCallbacks = new ServerCandidate() {
 				@Override
 				public void start() {
-					logger.info("Bootstrap: {} Elected as Leader", leader.getShardId());
-					leader.start();
+					logger.info("Bootstrap: {} Elected as LeaderBootstrap", leaderBootstrap.getShardId());
+					leaderBootstrap.start();
 					//scheduler.schedule(unconfidentLeader);
 					//for testing only: hoppingLeader(latchName);
 				}
 				@Override
 				public void stop() {
-					leader.stop();
+					leaderBootstrap.stop();
 					//scheduler.stop(unconfidentLeader);
 					if (inService()) {
-						logger.info("Bootstrap: {} Stopping Leader: now Candidate", leader.getShardId());
+						logger.info("Bootstrap: {} Stopping LeaderBootstrap: now Candidate", leaderBootstrap.getShardId());
 						scheduler.schedule(bootLeadershipCandidate);
 					} else {
-						logger.info("Bootstrap: {} Stopping Leader at shutdown", leader.getShardId());
+						logger.info("Bootstrap: {} Stopping LeaderBootstrap at shutdown", leaderBootstrap.getShardId());
 					}
 				}
 			};
 			final boolean promoted = locks.runWhenLeader(leaderLatchPath, serverCallbacks); 
 			if (!promoted) {
 				// may be ZK's down: so retry
-				logger.error("{}: ({}) Leader membership rejected, retrying", getName(), shardId);
+				logger.error("{}: ({}) LeaderBootstrap membership rejected, retrying", getName(), shardId);
 				scheduler.schedule(bootLeadershipCandidate);
 			} else {
 				repostulationCounter++;
 			}
 		} else {
-			logger.info("{}: ({}) Avoiding leader candidate according Config", getName(), shardId);
+			logger.info("{}: ({}) Avoiding leaderBootstrap candidate according Config", getName(), shardId);
 		}
 	}
 
-	/** programatically make the leader serve among short lapses before hopping again */
+	/** programatically make the leaderBootstrap serve among short lapses before hopping again */
 	private void hoppingLeader() {
 		scheduler.schedule(
 			scheduler.getAgentFactory().create(
@@ -278,13 +278,13 @@ public class Bootstrap implements Service {
 			.build());
 	}
 
-	/* if no beats received then no true leader: stop candidate  **/ 
+	/* if no beats received then no true leaderBootstrap: stop candidate  **/ 
 	private void checkReceivingBeats() {
-		if (!leader.inService()) {
+		if (!leaderBootstrap.inService()) {
 			return;
 		}
 		final Instant now = Instant.now();
-		final Instant last = leader.getFollowerEventsHandler().getLastBeat();
+		final Instant last = leaderBootstrap.getFollowerEventsHandler().getLastBeat();
 		if (last!=null && serverCallbacks!=null) {
 			if (now.minusMillis(config.beatToMs(5)).isAfter(last)) {
 				logger.error("{}: ({}) No beats received recently. Cancelling leadership and candidate. (last: {})", getName(), shardId, last);

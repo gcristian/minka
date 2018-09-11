@@ -51,23 +51,15 @@ import io.tilt.minka.shard.ShardIdentifier;
  *  
  * Deliveries are organized so events occurr in this order:
  * 
- * "plan-id:1729318729": {
- *		"shard-id:192.168.0.0": {
- * 			"detach": {
- * 				"prepared": "2018-08-21:11:22:32",
- *	 			"pending": "2018-08-21:11:22:32",
- * 				"ack": "2018-08-21:11:22:32",
- *	 			"committed": "2018-08-21:11:22:32",
+ * "plan-id:N": {
+ *		"shard-id:X": {
+ * 			"event-K": {
+ * 				"prepared": $date,
+ *	 			"pending": $date,
+ * 				"ack": $date,
+ *	 			"committed": $date
  * 			}	
  *  	},
- *   	"shard-id:192.168.0.1": {
- * 			"attach": {
- * 				"prepared": "2018-08-21:11:22:32",
- *	 			"pending": "2018-08-21:11:22:32",
- * 				"ack": "2018-08-21:11:22:32",
- *	 			"committed": "2018-08-21:11:22:32",
- * 			}	
- *  	}
  * }
  *  
  *  @author Cristian Gonzalez

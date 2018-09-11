@@ -24,6 +24,7 @@ import static io.tilt.minka.domain.EntityState.PREPARED;
 import static io.tilt.minka.domain.ShardEntity.toStringIds;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -34,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.data.CommitedState;
 import io.tilt.minka.core.leader.data.DirtyState;
+import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.Shard;
 

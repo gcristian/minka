@@ -53,7 +53,7 @@ public class SchemeJSONBuilder {
 	/**
 	 * 
 	 * <p>
-	 * Non-Empty only when the current server is the Leader.
+	 * Non-Empty only when the current server is the LeaderBootstrap.
 	 * @return			a String in json format
 	 */
 	public String schemeToJson(final boolean detail) {

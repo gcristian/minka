@@ -61,8 +61,8 @@ import io.tilt.minka.utils.LogUtils;
  * caused by CRUD operations to the {@linkplain CommitedState}. <br>
  * Contains a matrix of actions with minimum behaviour scoped to the pace of scheme change.
  * <br>
- * Composed of many {@linkplain Delivery} objects sent to different {@linkplain Shard},
- * representing changes in progress of confirmation, which in turn forward to more deliveries. <br> 
+ * Composed of many {@linkplain Dispatch} objects sent to different {@linkplain Shard},
+ * representing changes in progress of confirmation, which in turn forward to more dispatchs. <br> 
  * The plan is driven by the {@linkplain Distributor}, and takes at most 4 steps in a consistent order. <br>
  * <br>
  * Built by the @{@linkplain ChangePlanFactory} and written by the {@linkplain Migrator}. <br>
@@ -77,7 +77,7 @@ import io.tilt.minka.utils.LogUtils;
  * @since Dec 11, 2015
  */
 @JsonAutoDetect
-@JsonPropertyOrder({"id", "created", "started", "elapsed", "ended", "deliveries", "pending"})
+@JsonPropertyOrder({"id", "created", "started", "elapsed", "ended", "dispatchs", "pending"})
 public class ChangePlan implements Comparable<ChangePlan> {
 
 	protected static final Logger logger = LoggerFactory.getLogger(ChangePlan.class);
@@ -89,10 +89,10 @@ public class ChangePlan implements Comparable<ChangePlan> {
 
 	private final Map<EntityEvent, Map<Shard, List<ShardEntity>>> dispatches;
 	
-	private Delivery lastDelivery;
+	private Dispatch lastDelivery;
 	private int deliveryIdx;
-	private Iterator<Delivery> iterator;
-	private List<Delivery> deliveries;
+	private Iterator<Dispatch> iterator;
+	private List<Dispatch> dispatchs;
 	private Instant started;
 	private Instant ended;
 	private ChangePlanState changePlanState = ChangePlanState.RUNNING;
@@ -107,7 +107,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	ChangePlan(final long maxMillis, final int maxRetries) {
 		this.created = Instant.now();
 		this.dispatches = new HashMap<>(consistentEventsOrder.size());
-		this.deliveries = Collections.emptyList();
+		this.dispatchs = Collections.emptyList();
 		this.maxMillis = maxMillis;
 		this.maxRetries = maxRetries;
 		// to avoid id retraction at leader reelection causing wrong journal order
@@ -132,9 +132,9 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		return this.changePlanState;
 	}
 
-	public Delivery getDelivery(final Shard shard) {
-		return deliveries.stream()
-				.filter(d -> d.getStep() == Delivery.Step.PENDING && d.getShard().equals(shard))
+	public Dispatch get(final Shard shard) {
+		return dispatchs.stream()
+				.filter(d -> d.getStep() == Dispatch.Step.PENDING && d.getShard().equals(shard))
 				.findFirst()
 				.orElse(null);
 	}
@@ -170,16 +170,16 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	}
 
 	@JsonIgnore
-	void onDeliveries(final Predicate<Delivery> test, final Consumer<Delivery> d) {
-		deliveries.stream()
+	void onDispatches(final Predicate<Dispatch> test, final Consumer<Dispatch> d) {
+		dispatchs.stream()
 				.filter(test)
 				.forEach(d);
 	}
 	
 	int findAllNonConfirmedFromAllDeliveries(final Consumer<ShardEntity> c) {
 		int rescueCount = 0;
-		for (final Delivery delivery: deliveries) {
-			for (final ShardEntity duty: delivery.getDuties()) {
+		for (final Dispatch dispatch: dispatchs) {
+			for (final ShardEntity duty: dispatch.getDuties()) {
 				for (final Log log : duty.getCommitTree().getLogs(id)) {
 					final EntityState ls = log.getLastState();
 					if (ls==EntityState.PENDING ||
@@ -198,7 +198,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	
 	/**
 	 * transforms shippings of transfers and overrides, into a consistent gradual change plan
-	 * @return whether or not there're deliveries to distribute. */
+	 * @return whether or not there're dispatchs to distribute. */
 	boolean prepare() {
 		this.started= Instant.now();
 		int order = 0;
@@ -207,26 +207,26 @@ public class ChangePlan implements Comparable<ChangePlan> {
 				for (final Entry<Shard, List<ShardEntity>> e: dispatches.get(event).entrySet()) {
 					// one delivery for each shard
 					if (!e.getValue().isEmpty()) {
-						if (deliveries.isEmpty()) {
-							deliveries = new ArrayList<>();
+						if (dispatchs.isEmpty()) {
+							dispatchs = new ArrayList<>();
 						}
-						deliveries.add(new Delivery(e.getValue(), e.getKey(), event, order++, id));
+						dispatchs.add(new Dispatch(e.getValue(), e.getKey(), event, order++, id));
 					}
 				}
 			}
 		}
-		checkAllEventsPaired(deliveries, (unpaired)-> {
+		checkAllEventsPaired(dispatchs, (unpaired)-> {
 			this.changePlanState = ChangePlanState.CLOSED_ERROR;
 			this.ended = Instant.now();
 			logger.error("{}: Invalid ChangePlan with an operation unpaired: {}", getClass().getSimpleName(), 
 					unpaired.toBrief());
 		});
 		this.dispatches.clear();
-		iterator = deliveries.iterator();
+		iterator = dispatchs.iterator();
 		return iterator.hasNext();
 	}
 
-	Delivery next() {
+	Dispatch next() {
 		if (!hasNextParallel(null)) {
 			throw new IllegalAccessError("no permission to advance forward");
 		}
@@ -235,15 +235,15 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		return lastDelivery;
 	}
 	
-	 /** @return whether or not all sent and pending deliveries were confirmed
-	  * and following ENQUEUED deliveries can be requested */
+	 /** @return whether or not all sent and pending dispatchs were confirmed
+	  * and following ENQUEUED dispatchs can be requested */
 	public boolean hasUnlatched() {
-		return deliveries.stream().allMatch(d -> d.getStep() == Delivery.Step.DONE);
+		return dispatchs.stream().allMatch(d -> d.getStep() == Dispatch.Step.DONE);
 
 	}
 
 	/** @return the inverse operation expected at another shard */
-	private static EntityEvent inverse(final Delivery del) {
+	private static EntityEvent inverse(final Dispatch del) {
 		// we care only movements
 		switch (del.getEvent()) {
 		case ATTACH:
@@ -264,10 +264,10 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	 *             followed by an ATTACH and viceversa
 	 */
 	private static void checkAllEventsPaired(
-			final List<Delivery> deliveries, 
+			final List<Dispatch> dispatchs, 
 			final Consumer<ShardEntity> unpaired) {
 		final Set<ShardEntity> alreadyPaired = new TreeSet<>();
-		for (Delivery del : deliveries) {
+		for (Dispatch del : dispatchs) {
 			
 			final EntityEvent inversion = inverse(del);
 			if (inversion == null) {
@@ -279,7 +279,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 						&& j.hasEverBeenDistributed() 
 						&& entity.getLastEvent() != EntityEvent.REMOVE) {
 					boolean pair = false;
-					for (Delivery tmp : deliveries) {
+					for (Dispatch tmp : dispatchs) {
 						if (pair |= tmp.getDuties()
 								.stream()
 								.filter(e -> e.equals(entity) && e.getLastEvent() == inversion)
@@ -306,7 +306,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 			throw new IllegalStateException("ChangePlan not prepared yet !");
 		}
 		// set done if none pending
-		deliveries.forEach(d -> d.calculateState(c));
+		dispatchs.forEach(d -> d.calculateState(c));
 		if (!iterator.hasNext()) {
 			return false;
 		}
@@ -315,16 +315,16 @@ public class ChangePlan implements Comparable<ChangePlan> {
 			// first time here
 			return true;
 		}
-		if (deliveries.get(deliveryIdx).getEvent() == lastDelivery.getEvent()) {
+		if (dispatchs.get(deliveryIdx).getEvent() == lastDelivery.getEvent()) {
 				//|| lastDelivery.getEvent().getType()==EntityEvent.Type.REPLICA) {
 			// identical future events are parallelized
 			return true;
 		}
 		// other future events require all past confirmed
 		for (int i = 0; i < deliveryIdx; i++) {
-			final Delivery d = deliveries.get(i);
-			if (d.getStep() == Delivery.Step.PENDING) {
-				c.accept(String.format("%s: No more parallels: past deliveries yet pending", 
+			final Dispatch d = dispatchs.get(i);
+			if (d.getStep() == Dispatch.Step.PENDING) {
+				c.accept(String.format("%s: No more parallels: past dispatchs yet pending", 
 						getClass().getSimpleName()));
 				return false;
 			}
@@ -332,16 +332,16 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		return true;
 	}
 
-	/** recalculates state according its deliveries states */
+	/** recalculates state according its dispatchs states */
 	void calculateState() {
 		if (this.changePlanState.isClosed()) {
 			return;
-		} else if (deliveries.isEmpty()) {
-			throw new IllegalStateException("plan without deliveries cannot compute state");
+		} else if (dispatchs.isEmpty()) {
+			throw new IllegalStateException("plan without dispatchs cannot compute state");
 		}
 		boolean allDone = true;
-		for (Delivery d : deliveries) {
-			if (d.getStep() != Delivery.Step.DONE) {
+		for (Dispatch d : dispatchs) {
+			if (d.getStep() != Dispatch.Step.DONE) {
 				allDone = false;
 				break;
 			}
@@ -388,7 +388,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	public boolean hasMigration(final Duty duty) {
 		boolean detaching = false;
 		boolean attaching = false;
-		for(Delivery d: deliveries) {
+		for(Dispatch d: dispatchs) {
 			for (ShardEntity s: d.getDuties()) {
 				if (s.getDuty().getId().equals(duty.getId()) 
 						&& s.getDuty().getPalletId().equals(duty.getPalletId())) {
@@ -460,9 +460,9 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		return "";
 	}
 
-	@JsonProperty("deliveries")
-	private List<Delivery> getDeliveries() {
-		return this.deliveries;
+	@JsonProperty("dispatchs")
+	private List<Dispatch> getDeliveries() {
+		return this.dispatchs;
 	}
 
 	@JsonProperty("created")
@@ -472,10 +472,10 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	@JsonProperty("summary")
 	private String getSummary() {
 		final StringBuilder sb = new StringBuilder();
-		if (!deliveries.isEmpty()) {
+		if (!dispatchs.isEmpty()) {
 			for (final EntityEvent event: consistentEventsOrder) {
 				int size = 0 ;
-				for (Delivery d: deliveries) {
+				for (Dispatch d: dispatchs) {
 					size+= d.getEvent() == event ? d.getDuties().size() : 0;
 				}
 				if (size>0) {

@@ -47,12 +47,12 @@ public class EventMapper {
 		}
 	}
 	/**
-	 * Mandatory. In case the current shard's elected as Leader.
+	 * Mandatory. In case the current shard's elected as LeaderBootstrap.
 	 * Remember the supplier's source of duties must be ACID with the Client methods used to CRUD duties.
 	 * As long as Minka lacks of a CAP storage facility.
 	 * Note duty instances should be created only once and then references returned. 
 	 * To avoid inconsistency their return must always include any additions made thru {@linkplain Client}
-	 * @param supplier	to be called only at shard's election as Leader  
+	 * @param supplier	to be called only at shard's election as LeaderBootstrap  
 	 * @return	the event mapper builder
 	 */
 	public EventMapper onLoad(final Supplier<Set<Duty>> supplier) {
@@ -61,9 +61,9 @@ public class EventMapper {
 		return this;
 	}
 	/**
-	 * Mandatory. In case the current shard's elected as Leader.
+	 * Mandatory. In case the current shard's elected as LeaderBootstrap.
 	 * To avoid inconsistency their return must always include any additions made thru {@linkplain Client}
-	 * @param supplier	to be called only at shard's election as Leader
+	 * @param supplier	to be called only at shard's election as LeaderBootstrap
 	 * @return	the event mapper builder
 	 */
 	public EventMapper onPalletLoad(final Supplier<Set<Pallet>> supplier) {

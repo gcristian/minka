@@ -18,8 +18,8 @@ package io.tilt.minka.api;
 
 import java.util.Set;
 
-import io.tilt.minka.core.follower.Follower;
-import io.tilt.minka.core.leader.Leader;
+import io.tilt.minka.core.follower.FollowerBootstrap;
+import io.tilt.minka.core.leader.LeaderBootstrap;
 import io.tilt.minka.core.task.Bootstrap;
 import io.tilt.minka.domain.ShardEntity;
 
@@ -31,7 +31,7 @@ import io.tilt.minka.domain.ShardEntity;
  * 
  * Adds and Removes from {@linkplain Client} are yet properly functional.
  * Adds and Removes should be ONLY used to enter new Duties to Minka after bootstrap.
- * In case of Leader reelection/termination: Minka recalls this implementation 
+ * In case of LeaderBootstrap reelection/termination: Minka recalls this implementation 
  * and forgets previously added duties thru add/remove from {@linkplain Client}
  *    
  * @author Cristian Gonzalez
@@ -40,8 +40,8 @@ import io.tilt.minka.domain.ShardEntity;
 public interface PartitionMaster extends PartitionDelegate {
 
 	/**
-	* This is a hint for the {@link Leader} to know in forehand the size
-	* of duties and do an initially massive {@link Follower} assignment.
+	* This is a hint for the {@link LeaderBootstrap} to know in forehand the size
+	* of duties and do an initially massive {@link FollowerBootstrap} assignment.
 	* 
 	* In case of {@linkplain Config} parameter distributorRunConsistencyCheck is TRUE
 	* this will be called profusely only to check there's no duty unnassigned or lost.

@@ -70,7 +70,7 @@ public class TransportlessLeaderAware implements LeaderAware {
 		// already elected then tell him 
 		if (leaderShardId != null) {
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: ({}) Leader election already happened !: calling {} for consumption (hash {})", 
+				logger.info("{}: ({}) LeaderBootstrap election already happened !: calling {} for consumption (hash {})", 
 						getName(), myShardId, consumer, consumer.hashCode());
 			}
 			consumer.accept(leaderShardId);
@@ -86,13 +86,13 @@ public class TransportlessLeaderAware implements LeaderAware {
 			boolean firstLeader = lastLeaderShardId == null;
 			if (!firstLeader && lastLeaderShardId.equals(newLeader)) {
 				if (logger.isInfoEnabled()) {
-					logger.info("{}: ({}) same Leader {} reelected, skipping observer notification",
+					logger.info("{}: ({}) same LeaderBootstrap {} reelected, skipping observer notification",
 							getName(), myShardId, this.leaderShardId.getId());
 			    }
 				previousLeaders.add(leaderShardId);
 			} else {
 				if (logger.isInfoEnabled()) {
-					logger.info("{}: ({}) Updating new Leader elected: {}", getName(), myShardId, newLeader);
+					logger.info("{}: ({}) Updating new LeaderBootstrap elected: {}", getName(), myShardId, newLeader);
 				}
 				if (!firstLeader) {
 					previousLeaders.add(leaderShardId);

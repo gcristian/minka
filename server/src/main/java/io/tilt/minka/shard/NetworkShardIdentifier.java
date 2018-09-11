@@ -18,11 +18,11 @@ package io.tilt.minka.shard;
 
 import java.net.InetAddress;
 
-import io.tilt.minka.core.follower.Follower;
+import io.tilt.minka.core.follower.FollowerBootstrap;
 
 /**
  * Identity of a shard (followers and leader alike)
- * Created by the {@linkplain Follower}
+ * Created by the {@linkplain FollowerBootstrap}
  * 
  * @author Cristian Gonzalez
  * @since Dec 3, 2015

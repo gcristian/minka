@@ -21,9 +21,9 @@ import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.Shard;
 
 /**
- * Replication mechanism know-how to allow Leader fall.
+ * Replication mechanism know-how to allow LeaderBootstrap fall.
  * I.e.: leader's post-load affected duties by all CRUD operations (after distribution)
- * to be reported by SURVIVING followers, to the new Leader.   
+ * to be reported by SURVIVING followers, to the new LeaderBootstrap.   
  * 
  * More specifically: ships {@linkplain EntityEvent.STOCK and DROP} to the {@link ChangePlan}
  * those duties affected by Creating and Removing root causes.

@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
-import io.tilt.minka.core.leader.distributor.Delivery;
+import io.tilt.minka.core.leader.distributor.Dispatch;
 import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityRecord;
@@ -73,7 +73,7 @@ public class StateExpected {
 
 	/** Finds sharding changes by matching entity journals for planned reallocations */
 	public boolean detect(
-			final Delivery delivery, 
+			final Dispatch dispatch, 
 			final long pid, 
 			final Heartbeat beat, 
 			final ShardIdentifier source,
@@ -84,10 +84,10 @@ public class StateExpected {
 		if (beat.reportsDuties()) {
 			lattestPlanId = latestPlan(beat.getCaptured());
 			if (lattestPlanId==pid) {
-				found|=onFoundPairings(source, beat.getCaptured(), delivery.getDuties(), bicons, pid, events);
+				found|=onFoundPairings(source, beat.getCaptured(), dispatch.getDuties(), bicons, pid, events);
 			}
 		}
-		found|=onFoundDetachments(source, beat.getCaptured(), delivery.getDuties(), bicons, pid);
+		found|=onFoundDetachments(source, beat.getCaptured(), dispatch.getDuties(), bicons, pid);
 
 		if (lattestPlanId<pid && !found) {
 			// delivery found, no change but expected ? 

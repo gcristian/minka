@@ -101,7 +101,7 @@ class StateUnexpected {
 						case FINALIZED:
 							return null;
 						default:
-							logger.error("{}: Follower beated duty {} as {} when in scheme is: {}",
+							logger.error("{}: FollowerBootstrap beated duty {} as {} when in scheme is: {}",
 									classname, reported.getId(), r.getLastState(), committed.getLastState());
 							return stateForThatShard;
 						}

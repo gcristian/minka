@@ -28,7 +28,7 @@ import io.tilt.minka.shard.DomainInfo;
 public interface HeartbeatFactory {
 
 	/**
-	 * Gather follower's status data and build conclusive info for Leader decisions. 
+	 * Gather follower's status data and build conclusive info for LeaderBootstrap decisions. 
 	 * @param forceFullReport	force factory to build a complete detail even when not obliged to.  
 	 * @return	a beat with duties taken, differences, consistency details.
 	 */

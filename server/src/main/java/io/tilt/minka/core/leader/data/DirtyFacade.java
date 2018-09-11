@@ -29,7 +29,7 @@ import io.tilt.minka.shard.ShardIdentifier;
  * Entry point for outter clients of the {@linkplain DirtyState}
  * Validations and consistency considerations for {@linkplain Client} usage
  */
-public class DirtyRepository {
+public class DirtyFacade {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
@@ -37,7 +37,7 @@ public class DirtyRepository {
 	private final Scheme scheme;
 	private final ShardIdentifier shardId;
 
-	public DirtyRepository(final Scheme scheme, final ShardIdentifier shardId) {
+	public DirtyFacade(final Scheme scheme, final ShardIdentifier shardId) {
 		super();
 		this.scheme = scheme;
 		this.shardId = shardId;

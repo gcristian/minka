@@ -34,8 +34,9 @@ import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.leader.ClientEventsHandler;
-import io.tilt.minka.core.leader.Leader;
-import io.tilt.minka.core.leader.distributor.ChangePlan;
+import io.tilt.minka.core.leader.LeaderBootstrap;
+import io.tilt.minka.core.leader.data.CommitState;
+import io.tilt.minka.core.leader.data.StageRequestLatch;
 import io.tilt.minka.core.monitor.DistroJSONBuilder;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.impl.ZookeeperLeaderAware;
@@ -48,11 +49,11 @@ import io.tilt.minka.shard.ShardIdentifier;
 
 /**
  * Facility to execute CRUD ops. to {@linkplain Duty} on the cluster.<br> 
- * All ops. are forwarded thru the network broker to the leader, and then routed to its final target shard.<br>  
+ * All ops. are forwarded thru the network broker to the leaderBootstrap, and then routed to its final target shard.<br>  
  * Updates and Transfers are executed without a distributor's balance calculation.<br>
- * In case the leader runs within the same follower's shard, no network communication is needed.<br>
+ * In case the leaderBootstrap runs within the same follower's shard, no network communication is needed.<br>
  *<br><br>
- * Remember no CRUD survives leader-reelection (by now), and all ops must be ACID with the<br> 
+ * Remember no CRUD survives leaderBootstrap-reelection (by now), and all ops must be ACID with the<br> 
  * client's supplier callback of duties. (see  {@linkplain Server.onLoad(..))}  <br>
  * As long as Minka lacks of a CAP storage facility.<br>
  * <br><br>
@@ -64,7 +65,7 @@ public class Client {
 
 	private static final Logger logger = LoggerFactory.getLogger(Client.class);
 
-	private final Leader leader;
+	private final LeaderBootstrap leaderBootstrap;
 	private final EventBroker eventBroker;
 	private final ClientEventsHandler clientMediator;
 	private final ShardIdentifier shardId;
@@ -76,7 +77,7 @@ public class Client {
 
 	protected Client(
 			final Config config, 
-			final Leader leader, 
+			final LeaderBootstrap leaderBootstrap, 
 			final EventBroker eventBroker,
 			final ClientEventsHandler mediator, 
 			final ShardIdentifier shardId, 
@@ -84,7 +85,7 @@ public class Client {
 			final DistroJSONBuilder distroJSONBuilder,
 			final ShardedPartition partition) {
 		this.config = config;
-		this.leader = leader;
+		this.leaderBootstrap = leaderBootstrap;
 		this.eventBroker = eventBroker;
 		this.clientMediator = mediator;
 		this.shardId = shardId;
@@ -95,14 +96,14 @@ public class Client {
 
 	/**
 	 * A representation Status of Minka's domain objects
-	 * @return a nonempty Status only when the curent shard is the Leader 
+	 * @return a nonempty Status only when the curent shard is the LeaderBootstrap 
 	 */
 	public Map<String, Object> getStatus() {
 		return distroJSONBuilder.buildDistribution();
 	}
 	/**
 	* Remove duties already running/distributed by Minka
-	* This causes the duty to be stopped at Minkas's Follower context.
+	* This causes the duty to be stopped at Minkas's FollowerBootstrap context.
 	* So expect a call at PartitionDelegate.release
 	* 
 	* Pre-conditions:
@@ -287,12 +288,12 @@ public class Client {
 	* Client should not need to use this method unless is misunderstanding Minka.
 	* Any CRUD operation over a service inside Minka, must use the crud methods.
 	* But in order to handle "other" dependencies you may need to know where 
-	* leader is temporarily, as it will change without you being noticed.
+	* leaderBootstrap is temporarily, as it will change without you being noticed.
 	*   
 	* @return    whether or not the current partition has taken leadership
 	*/
 	public boolean isCurrentLeader() {
-		return leader.inService();
+		return leaderBootstrap.inService();
 	}
 
 }

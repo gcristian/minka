@@ -32,7 +32,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.tilt.minka.api.EntityPayload;
 
 /**
- * Follower's report on {@linkplain ShardedPartition} packed in
+ * FollowerBootstrap's report on {@linkplain ShardedPartition} packed in
  * {@linkplain Heartbeats}. And leader's in-memory version held after
  * distribution.
  */

@@ -43,7 +43,7 @@ import io.tilt.minka.shard.Shard;
  * @since Aug 11, 2017
  */
 @JsonPropertyOrder({"order", "shard", "event", "state"})
-public class Delivery {
+public class Dispatch {
 
 	private final List<ShardEntity> duties;
 	private final Shard shard;
@@ -55,7 +55,7 @@ public class Delivery {
 	@JsonIgnore
 	private boolean sent;
 	
-	protected Delivery(
+	protected Dispatch(
 			final List<ShardEntity> duties,
 			final Shard shard,
 			final EntityEvent event,

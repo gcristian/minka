@@ -51,7 +51,7 @@ import io.tilt.minka.shard.Transition;
  * @since Nov 7, 2015
  *
  */
-public class Follower implements Service {
+public class FollowerBootstrap implements Service {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
@@ -71,7 +71,7 @@ public class Follower implements Service {
 	
 	private boolean lastSuccess;
 	
-	Follower(
+	FollowerBootstrap(
 			final Config config, 
 			final Heartpump heartpump, 
 			final LeaderEventsHandler leaderConsumer,
@@ -137,7 +137,7 @@ public class Follower implements Service {
 			this.leaderEventsHandler.stop();
 		} else {
 			if (logger.isInfoEnabled()) {
-				logger.info("{}: ({}) Follower was not longer in service", classname, config.getLoggingShardId());
+				logger.info("{}: ({}) FollowerBootstrap was not longer in service", classname, config.getLoggingShardId());
 			}
 		}
 	}
@@ -175,7 +175,7 @@ public class Follower implements Service {
 					clear != null ? clear.getCreation() : "null", maxAbsenceMs, delta);
 				leaderEventsHandler.getPartitionManager().releaseAllOnPolicies();
 			} else if (!lost && logger.isDebugEnabled()) {
-				logger.debug("{}: ({}) Clearence certified #{} from Leader: {}", classname,
+				logger.debug("{}: ({}) Clearence certified #{} from LeaderBootstrap: {}", classname,
 						config.getLoggingShardId(), clear.getSequenceId(), clear.getLeaderShardId());
 			}
 		}

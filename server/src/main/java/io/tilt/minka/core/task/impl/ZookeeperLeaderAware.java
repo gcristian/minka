@@ -75,7 +75,7 @@ public class ZookeeperLeaderAware extends TransportlessLeaderAware implements Se
 	@Override
 	public void start() {
 		this.wells = new Wells(supplier.get());
-		logger.info("{}: ({}) Listening Leader change", getName(), getMyShardId());
+		logger.info("{}: ({}) Listening LeaderBootstrap change", getName(), getMyShardId());
 		wells.runOnUpdate(zookeeperPath, callbackConsumer);
 	}
 

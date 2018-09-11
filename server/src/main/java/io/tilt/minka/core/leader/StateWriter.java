@@ -133,7 +133,7 @@ public class StateWriter {
 		}
 	}
 	
-	void shardStateTransition(final Shard shard, final ShardState prior, final Transition transition) {
+	void writeShardState(final Shard shard, final ShardState prior, final Transition transition) {
 		shard.applyChange(transition);
 		scheme.getCommitedState().stealthChange(true);		
 		switch (transition.getState()) {
@@ -173,7 +173,9 @@ public class StateWriter {
 						e.getCommitTree().getLast().getPlanId());
 			}
 		}
-		scheme.getCommitedState().removeShard(shard);		
+		scheme.getCommitedState().removeShard(shard);
+		scheme.getVault().addGoneShard(shard);
+
 	}
 
 	void recover(final Shard shard, final Entry<EntityState, List<ShardEntity>> e) {

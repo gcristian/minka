@@ -41,7 +41,7 @@ import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 
 /**
- * Compound information about a node, maintained by the Leader
+ * Compound information about a node, maintained by the LeaderBootstrap
  * 
  * @author Cristian Gonzalez
  * @since Nov 5, 2015

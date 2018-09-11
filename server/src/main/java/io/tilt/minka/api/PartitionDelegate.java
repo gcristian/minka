@@ -38,13 +38,13 @@ public interface PartitionDelegate {
 	Logger logger = LoggerFactory.getLogger(PartitionDelegate.class);
 
 	/*
-	* Instruct the Follower shard to take management responsibilities on these duties
+	* Instruct the FollowerBootstrap shard to take management responsibilities on these duties
 	*/
 	void capture(Set<Duty> duties);
 	void capturePallet(Set<Pallet> pallets);
 
 	/*
-	* Instruct the Follower shard to release management 
+	* Instruct the FollowerBootstrap shard to release management 
 	* responsibi﻿lities on these duties.
 	* Not doing so will make Minka apply rules set in {@linkplain Config} about {@linkplain ShardState}
 	*/
@@ -52,7 +52,7 @@ public interface PartitionDelegate {
 	void releasePallet(Set<Pallet> pallets);
 
 	/*
-	 * Instruct the Follower shard to acknowledge an update ocurred on a duty's payload
+	 * Instruct the FollowerBootstrap shard to acknowledge an update ocurred on a duty's payload
 	 */
 	default void update(Duty duties) {
 		logger.error(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "update");
@@ -61,7 +61,7 @@ public interface PartitionDelegate {
 		logger.error(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "update");
 	}
 	/*
-	 * Instruct te Follower shard to get a client payload event for a particular duty 
+	 * Instruct te FollowerBootstrap shard to get a client payload event for a particular duty 
 	 */
 	default void transfer(Duty duty, Serializable clientPayload) {
 		logger.error(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "transfer");
@@ -113,7 +113,7 @@ public interface PartitionDelegate {
 	 * Is the service ready for sharding ?
 	 * Sometimes a Shard serer needs of external or non propietary events to start collaborating
 	 * 
-	 * @return  Leader and Follower will not command until this returns true
+	 * @return  LeaderBootstrap and FollowerBootstrap will not command until this returns true
 	 */
 	default boolean isReady() {
 		logger.warn(METHOD_NOT_IMPLEMENTED, getClass().getSimpleName(), "readyness");

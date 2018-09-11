@@ -41,9 +41,9 @@ import io.tilt.minka.core.task.Service;
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
  */
-public class Leader implements Service {
+public class LeaderBootstrap implements Service {
 
-	public final static Logger logger = LoggerFactory.getLogger(Leader.class);
+	public final static Logger logger = LoggerFactory.getLogger(LeaderBootstrap.class);
 
 	private final Config config;
 	private final ShardKeeper shardKeeper;
@@ -58,7 +58,7 @@ public class Leader implements Service {
 	private Date start;
 	private Date stop;
 
-	Leader(
+	LeaderBootstrap(
 			final Config config, 
 			final ShardKeeper shardKeeper,
 			final Distributor distributor,
@@ -102,7 +102,7 @@ public class Leader implements Service {
 					served = true;
 					final Date start = new Date();
 					final long w = System.currentTimeMillis() - start.getTime();
-					logger.info("{}: Registering as Leader at well after waiting {} msecs", getName(), w);
+					logger.info("{}: Registering as LeaderBootstrap at well after waiting {} msecs", getName(), w);
 					leaderAware.setNewLeader(shardId);
 					final long e = DateTime.now().getMillis() - config.loadTime.getMillis();
 					logger.info("{}: {} msec since load till leader election", getName(), e);

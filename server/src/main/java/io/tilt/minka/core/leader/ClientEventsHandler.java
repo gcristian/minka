@@ -31,12 +31,11 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Reply;
-import io.tilt.minka.api.ReplyValue;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
+import io.tilt.minka.core.leader.data.DirtyFacade;
 import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.core.leader.data.DirtyRepository;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.EntityEvent;
@@ -46,7 +45,7 @@ import io.tilt.minka.shard.Shard;
 
 /**
  * Drives events generated thru the {@linkplain Client} by the client
- * when the {@linkplain Leader} is not activated in that Shard
+ * when the {@linkplain LeaderBootstrap} is not activated in that Shard
  *  
  * @author Cristian Gonzalez
  * @since Dec 2, 2015
@@ -59,7 +58,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	private final Config config;
 	private final Scheme scheme;
 	private final Scheduler scheduler;
-	private final DirtyRepository stageRepo;
+	private final DirtyFacade stageRepo;
 	private final EventBroker eventBroker;
 	private final NetworkShardIdentifier shardId;
 
@@ -69,7 +68,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 			final Config config, 
 			final Scheme scheme, 
 			final Scheduler scheduler,
-			final DirtyRepository stageRepo,
+			final DirtyFacade stageRepo,
 			final EventBroker eventBroker, 
 			final NetworkShardIdentifier shardId) {
 

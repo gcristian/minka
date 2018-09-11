@@ -6,7 +6,7 @@ import java.io.Serializable;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 /**
- * Facility to transport streams for large binaries from Leader to Followers.
+ * Facility to transport streams for large binaries from LeaderBootstrap to Followers.
  * 
  * @author Cristian Gonzalez
  * @since Apr 1, 2016

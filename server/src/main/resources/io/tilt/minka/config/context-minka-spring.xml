@@ -100,7 +100,7 @@
     </bean>
     
     <!-- simplemente bootstrapea los servicios -->
-    <bean id="follower" class="io.tilt.minka.core.follower.Follower">
+    <bean id="follower" class="io.tilt.minka.core.follower.FollowerBootstrap">
         <constructor-arg ref="config" />
         <constructor-arg ref="heartpump" />
         <constructor-arg ref="leaderEventsHandler" />
@@ -119,7 +119,7 @@
     
     <bean id="shardingScheme" class="io.tilt.minka.core.leader.data.Scheme"/>
             
-    <bean id="stageRepository" class="io.tilt.minka.core.leader.data.DirtyRepository">
+    <bean id="stageRepository" class="io.tilt.minka.core.leader.data.DirtyFacade">
     	<constructor-arg ref="shardingScheme" />
     	<constructor-arg ref="shardId" />
     </bean>																																														
@@ -179,7 +179,7 @@
     </bean>
     
     <!-- simplemente bootstrapea los servicios -->
-    <bean id="leader" class="io.tilt.minka.core.leader.Leader">
+    <bean id="leader" class="io.tilt.minka.core.leader.LeaderBootstrap">
         <constructor-arg ref="config" />
         <constructor-arg ref="proctor" />
         <constructor-arg ref="distributor" />

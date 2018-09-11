@@ -16,19 +16,21 @@
  */
 package io.tilt.minka.core.leader;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.core.leader.data.CommitedState;
+import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.core.leader.data.DirtyState;
+import io.tilt.minka.core.leader.data.StageRequest;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
-import io.tilt.minka.core.leader.distributor.Delivery;
+import io.tilt.minka.core.leader.distributor.Dispatch;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.CommitTree.Log;
@@ -68,13 +70,13 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	}
 
 	/**
-	 * Mission: watch Follower's heartbeats for changes.
+	 * Mission: watch FollowerBootstrap's heartbeats for changes.
 	 */
 	@Override
 	public void accept(final Heartbeat beat, final Shard shard) {
 		if (beat.getShardChange() != null) {
 			logger.info("{}: ShardID: {} changes to: {}", classname, shard, beat.getShardChange());
-   			writer.shardStateTransition(shard, shard.getState(), beat.getShardChange());
+   			writer.writeShardState(shard, shard.getState(), beat.getShardChange());
 			if (beat.getShardChange().getState() == ShardState.QUITTED) {
 				return;
 			}
@@ -160,7 +162,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		return lazySurvivor || recentSurvivor;
 	}
 
-	private void logging(final Shard shard, final ChangePlan changePlan, final Map<EntityEvent, StringBuilder> logg) {
+	private void doLogging(final Shard shard, final ChangePlan changePlan, final Map<EntityEvent, StringBuilder> logg) {
 		if (logg.size()>0 && logger.isInfoEnabled()) {
 			logg.entrySet().forEach(e-> logger.info("{}: Written expected change {} at [{}] on: {}", 
 					getClass().getSimpleName(), e.getKey().name(), shard, e.getValue().toString()));

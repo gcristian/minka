@@ -16,7 +16,7 @@ import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Reply;
 import io.tilt.minka.api.DutyBuilder.Task;
 import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.core.leader.data.DirtyRepository;
+import io.tilt.minka.core.leader.data.DirtyFacade;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.Shard;
@@ -30,7 +30,7 @@ public class PhaseLoader {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
-	private final DirtyRepository dirtyRepository;
+	private final DirtyFacade dirtyFacade;
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final Config config;
 	private final Scheme scheme;
@@ -39,12 +39,12 @@ public class PhaseLoader {
 	private int counterForReloads;
 
 	PhaseLoader(
-			final DirtyRepository dirtyRepository, 
+			final DirtyFacade dirtyFacade, 
 			final DependencyPlaceholder dependencyPlaceholder,
 			final Config config, 
 			final Scheme scheme) {
 		super();
-		this.dirtyRepository = dirtyRepository;
+		this.dirtyFacade = dirtyFacade;
 		this.dependencyPlaceholder = dependencyPlaceholder;
 		this.config = config;
 		this.scheme = scheme;
@@ -96,7 +96,7 @@ public class PhaseLoader {
 		for (final Map.Entry<Shard, Set<ShardEntity>> e: scheme.getLearningState().getReplicasByShard().entrySet()) {
 			scheme.getCommitedState().loadReplicas(e.getKey(), e.getValue());
 		}
-		dirtyRepository.loadRawDuties(duties, logger("Duty"));
+		dirtyFacade.loadRawDuties(duties, logger("Duty"));
 	}
 
 	private boolean loadPallets() {
@@ -115,7 +115,7 @@ public class PhaseLoader {
 					getClass().getSimpleName(), pallets);
 			return false;
 		} else {
-			return dirtyRepository.loadRawPallets(pallets, logger("Pallet"));
+			return dirtyFacade.loadRawPallets(pallets, logger("Pallet"));
 		}
 	}
 
