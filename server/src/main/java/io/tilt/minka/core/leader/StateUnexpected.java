@@ -23,7 +23,6 @@ import static java.util.Collections.emptyMap;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -50,8 +49,8 @@ class StateUnexpected {
 		this.scheme = scheme;
 	}
 	
-	Map<EntityState, List<ShardEntity>> findLost(final Shard shard, final List<EntityRecord> reportedDuties) {
-		Map<EntityState, List<ShardEntity>> lost = null;
+	Map<EntityState, Collection<ShardEntity>> findLost(final Shard shard, final Collection<EntityRecord> reportedDuties) {
+		Map<EntityState, Collection<ShardEntity>> lost = null;
 		for (final ShardEntity committed : scheme.getCommitedState().getDutiesByShard(shard)) {
 			boolean found = false;
 			EntityState wrongState = null;
@@ -67,7 +66,7 @@ class StateUnexpected {
 					lost = new HashMap<>();
 				}
 				final EntityState k = !found? MISSING : wrongState;
-				List<ShardEntity> list = lost.get(k);
+				Collection<ShardEntity> list = lost.get(k);
 				if (list==null) {
 					lost.put(k, list = new LinkedList<>());
 				}
@@ -114,7 +113,7 @@ class StateUnexpected {
 		return null;
 	}
 	
-	void detectInvalidSpots(final Shard sourceShard, final List<EntityRecord> reportedCapturedDuties) {
+	void detectInvalidSpots(final Shard sourceShard, final Collection<EntityRecord> reportedCapturedDuties) {
 		for (final EntityRecord e : reportedCapturedDuties) {
 			for (final Log log: e.getCommitTree().findAll(sourceShard.getShardID())) {
 				final boolean commited = log.getLastState()==EntityState.COMMITED;

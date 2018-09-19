@@ -17,6 +17,7 @@
 package io.tilt.minka.core.leader;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,9 +28,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.CommitRequest;
 import io.tilt.minka.core.leader.data.CommitState;
+import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.leader.distributor.Dispatch;
 import io.tilt.minka.core.task.Scheduler;
@@ -101,8 +102,8 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	}
 	
 	/* this checks partition table looking for missing duties (not declared dangling, that's diff) */
-	private void detectUnexpected(final Shard shard, final List<EntityRecord> reportedDuties) {
-		for (Map.Entry<EntityState, List<ShardEntity>> e: 
+	private void detectUnexpected(final Shard shard, final Collection<EntityRecord> reportedDuties) {
+		for (Map.Entry<EntityState, Collection<ShardEntity>> e: 
 			unexpected.findLost(shard, reportedDuties).entrySet()) {
 			writer.recover(shard, e);
 		}
@@ -139,9 +140,10 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 
-	private void notifyUser(final List<CommitRequest> requests) {
+	private void notifyUser(final Collection<CommitRequest> requests) {
 		if (!requests.isEmpty()) {
 			requests.stream()
+				.filter(CommitRequest::isRespondState)
 				.filter(r->!r.isSent(EntityEvent.Type.ALLOC) 
 						&& r.getState()==CommitState.COMMITTED_ALLOCATION)
 				.collect(Collectors.groupingBy((req)->
@@ -167,6 +169,14 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 							getClass().getSimpleName());
 				}
 			});
+			
+			requests.stream()
+				.filter(r-> !r.isRespondState())
+				.forEach(r-> {
+					scheme.getDirty().flowCommitRequest(
+							r.getEntity().getLastEvent(), 
+							r.getEntity());
+				});
 		}
 	}
 

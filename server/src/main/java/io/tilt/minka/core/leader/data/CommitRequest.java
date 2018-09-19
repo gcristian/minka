@@ -14,16 +14,21 @@ public class CommitRequest implements Serializable {
 	
 	private final ShardEntity entity;
 	private CommitState state = CommitState.PROCESSING;
+	private final boolean respondState;
 	
 	private final Map<EntityEvent.Type, Boolean> sentByState = new LinkedHashMap(2) {{
 		put(EntityEvent.Type.ALLOC, false);
 		put(EntityEvent.Type.REPLICA, false);
 	}};
 	
-	CommitRequest(final ShardEntity entity) {
+	CommitRequest(final ShardEntity entity, final boolean respondState) {
 		this.entity = entity;
+		this.respondState = respondState;
 	}
 	
+	public boolean isRespondState() {
+		return respondState;
+	}
 	public void markSent() {
 		sentByState.put(state.getType(), true);
 	}

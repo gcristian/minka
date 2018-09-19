@@ -16,6 +16,8 @@
  */
 package io.tilt.minka.api;
 
+import static java.util.Collections.singleton;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -50,8 +52,14 @@ import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.ShardIdentifier;
 
-@SuppressWarnings({ "unchecked", "rawtypes" })
-public class CrudExecutor {
+/**
+ * Handles CRUD ops from Client. 
+ * With a fireAndForget mechanism to send Leader write requests, 
+ * and an async-promise response mechanism, to request for Leader reply and duty state data.
+ * 
+ * @since Sept 1, 2018
+ */
+class CrudExecutor {
 
 	private static final Logger logger = LoggerFactory.getLogger(CrudExecutor.class);
 
@@ -85,6 +93,39 @@ public class CrudExecutor {
 		this.parkingThreads = parkingThreads;
 	}
 
+	/** flags the request so the leader knows it must not respond a reply or state back */
+	Collection<Reply> execute(
+			final Collection<? extends Entity> raws, 
+			final EntityEvent event, 
+			final EntityPayload userPayload) {
+		
+		Validate.notNull(raws, "an entity is required");
+		final long start = System.currentTimeMillis();
+		Set<Reply> replies;
+		try {
+			final List<ShardEntity> entities = toEntities(raws, event, userPayload);
+			if (leaderBootstrap.inService()) {
+				final Set<Reply> replies_ = replies = new HashSet<>(raws.size());
+				clientHandler.mediateOnEntity(entities, r-> {
+					replies_.add(r.withTiming(Reply.Timing.CLIENT_CREATED_TS, start));	
+					replies_.add(r.withTiming(Reply.Timing.LEADER_REPLY_TS, System.currentTimeMillis()));
+				}, false);
+				timeReceived(replies_);
+			} else {
+				final CommitBatchRequest request = new CommitBatchRequest(entities, false);
+				boolean success = false;
+				if (! (success = sendWithRetries(request))) {
+					logger.warn("{}: Couldnt send entities: {}", getClass().getSimpleName());
+				}
+				replies = singleton(success ? Reply.sentAsync(null) : Reply.failedToSend(null));
+			}
+		} catch (Exception e) {
+			logger.error("Cannot mediate to leaderBootstrap", e);
+			replies = singleton(Reply.error(e));
+		}
+		return replies;
+	}
+
 	Future<Collection<Reply>> execute(
 			final long futureMaxWaitMs,
 			final Collection<? extends Entity> raws, 
@@ -95,7 +136,18 @@ public class CrudExecutor {
 		final Callable<Collection<Reply>> call = () -> resolveReplies(raws, event, userPayload, futureMaxWaitMs);
 		return executor.submit(call);
 	}
-	
+
+	Future<Reply> executeSingle(
+			final long futureMaxWaitMs,
+			final Collection<? extends Entity> raws, 
+			final EntityEvent event, 
+			final EntityPayload userPayload) {
+		
+		Validate.notNull(raws, "an entity is required");
+		final Callable<Reply> call = () -> resolveReplies(raws, event, userPayload, futureMaxWaitMs).iterator().next();
+		return executor.submit(call);
+	}
+
 	private Collection<Reply> resolveReplies(
 			final Collection<? extends Entity> raws, 
 			final EntityEvent event, 
@@ -109,13 +161,13 @@ public class CrudExecutor {
 				clientHandler.mediateOnEntity(entities, r-> {
 					replies.add(r.withTiming(Reply.Timing.CLIENT_CREATED_TS, start));	
 					replies.add(r.withTiming(Reply.Timing.LEADER_REPLY_TS, System.currentTimeMillis()));
-				});
+				}, true);
 				timeReceived(replies);
 			} else {
 				replies.addAll(forwardReplyResolution(entities, futureMaxWaitMs));
 			}
 			if (entities.iterator().next().getType()==ShardEntity.Type.DUTY) {
-				attachPromises(replies, futureMaxWaitMs);
+				linkFuturePromises(replies, futureMaxWaitMs);
 			}
 		} catch (Exception e) {
 			logger.error("Cannot mediate to leaderBootstrap", e);
@@ -128,7 +180,7 @@ public class CrudExecutor {
 	private Collection<Reply> forwardReplyResolution(final List<ShardEntity> entities, 
 			final long futureMaxWaitMs) {
 		final long start = System.currentTimeMillis();
-		final CommitBatchRequest request = new CommitBatchRequest(entities);
+		final CommitBatchRequest request = new CommitBatchRequest(entities, true);
 		if (sendWithRetries(request)) {
 			final long sent = System.currentTimeMillis();
 			final CommitBatchResponse response = parkingThreads.wait(request.getId(), futureMaxWaitMs);
@@ -156,7 +208,8 @@ public class CrudExecutor {
 	}
 
 	/** links the reply with a Future knowing the system's commit-state of a Duty  */
-	private void attachPromises(final Collection<Reply> replies, final long maxWaitMs) { 
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private void linkFuturePromises(final Collection<Reply> replies, final long maxWaitMs) { 
 		for (final Reply reply: replies) {
 			// only successful replies
 			if ((reply.getValue()==ReplyValue.SUCCESS)) {
@@ -165,15 +218,16 @@ public class CrudExecutor {
 						new FutureTask<CommitState>(()-> { 
 							final CommitState dcs = parkingThreads.wait(reply.getEntity(), maxWaitMs);
 							reply.withTiming(Reply.Timing.CLIENT_RECEIVED_STATE_TS, System.currentTimeMillis());
-							logger.info("{}: Client op done. elapsed: {} ms", 
-									getClass().getSimpleName(), reply.getTimeElapsedSoFar());
+							logger.info("{}: Client op done: {}: for: {} ({} ms)", 
+									getClass().getSimpleName(), reply.getState(), reply.getEntity().getId(),
+									reply.getTimeElapsedSoFar());
 							return dcs;
 						})));
 				} catch (Exception e) {
 					logger.error("{}: Unexpected linking promise for {}", getClass().getSimpleName(), reply, e);
 				}
 			} else {
-				logger.warn("{}: Reply without promise (not success) {}", getClass().getSimpleName(), reply);
+				logger.warn("{}: Reply without promise ({}): {}", getClass().getSimpleName(), reply, reply.getEntity().getId());
 			}
 		}
 	}

@@ -21,7 +21,6 @@ import java.io.Serializable;
 import java.util.function.Supplier;
 
 import org.apache.commons.lang.Validate;
-import org.apache.commons.lang.builder.HashCodeBuilder;
 
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
@@ -103,8 +102,12 @@ public class PalletBuilder {
 
 		@Override
 		public int hashCode() {
-			return new HashCodeBuilder().append(getId()).toHashCode();
+			final int prime = 31;
+			int res = 1;
+			res *= prime + (id==null ? 1 : id.hashCode());
+			return res;
 		}
+		
 		@Override
 		public boolean equals(Object obj) {
 			if (obj != null && obj instanceof Entity) {

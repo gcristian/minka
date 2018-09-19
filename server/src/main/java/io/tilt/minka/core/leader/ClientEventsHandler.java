@@ -16,8 +16,6 @@
  */
 package io.tilt.minka.core.leader;
 
-import static java.util.Collections.singletonList;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -30,10 +28,10 @@ import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.CommitBatch.CommitBatchRequest;
-import io.tilt.minka.api.CommitBatch.CommitBatchResponse;
 import io.tilt.minka.api.Client;
 import io.tilt.minka.api.CommitBatch;
+import io.tilt.minka.api.CommitBatch.CommitBatchRequest;
+import io.tilt.minka.api.CommitBatch.CommitBatchResponse;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Reply;
 import io.tilt.minka.broker.EventBroker;
@@ -124,41 +122,47 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	@Override
 	public void accept(final Serializable event) {
 		if (inService()) {
-			if (event instanceof ShardEntity) {
-				final ShardEntity entity = (ShardEntity) event;
-				mediateOnEntity(singletonList(entity), (r)->{});
-			} else if (event instanceof CommitBatchRequest) {
+			if (event instanceof CommitBatchRequest) {
 				handleRequest((CommitBatchRequest)event);
+			} else {
+				logger.error("{}: Unknown type: {}", getClass().getSimpleName(), 
+					event.getClass().getSimpleName());
 			}
 		} else {
-			logger.error("{}: User events came but this master is no longer in service: {}", getClass().getSimpleName(),
-					event.getClass().getSimpleName());
+			logger.error("{}: User events came but this master is no longer in service: {}", 
+					getClass().getSimpleName(), event.getClass().getSimpleName());
 		}
 	}
 
 	private void handleRequest(final CommitBatchRequest req) {
 		final List<ShardEntity> ents = req.getEntities();
 		final Set<Reply> replies = new HashSet<>(ents.size());
-		mediateOnEntity(ents, replies::add);
-		final ShardEntity any = ents.get(0);
-		final String shardid = any.getCommitTree().getFirst().getTargetId();
-		final Shard shard = scheme.getCommitedState().findShard(shardid);
-		final CommitBatchResponse response = new CommitBatchResponse(req.getId(), replies);
-		if (!eventBroker.send(shard.getBrokerChannel(), response)) {
-			logger.error("{}: Cannot answer client back on Shard: {}", getClass().getSimpleName(), shardid);
+		mediateOnEntity(ents, replies::add, req.isRespondBack());
+		if (req.isRespondBack()) {
+			final ShardEntity any = ents.get(0);
+			final String shardid = any.getCommitTree().getFirst().getTargetId();
+			final Shard shard = scheme.getCommitedState().findShard(shardid);
+			final CommitBatchResponse response = new CommitBatchResponse(req.getId(), replies);
+			if (!eventBroker.send(shard.getBrokerChannel(), response)) {
+				logger.error("{}: Cannot answer client back on Shard: {}", getClass().getSimpleName(), shardid);
+			}
 		}
 	}
 
-	public synchronized void mediateOnEntity(final Collection<ShardEntity> entities, final Consumer<Reply> callback) {
+	public synchronized void mediateOnEntity(
+			final Collection<ShardEntity> entities, 
+			final Consumer<Reply> callback,
+			final boolean respondState) {
+		
 	    final ShardEntity first = entities.iterator().next();
     	if (first.is(EntityEvent.UPDATE) || first.is(EntityEvent.TRANSFER)) {
 			updateOrTransfer(callback, first);
 		} else {
 		    if (first.getType()==ShardEntity.Type.DUTY) {
 				if (first.is(EntityEvent.CREATE)) {
-					stageRepo.saveAllDuties(entities, callback);
+					stageRepo.saveAllDuties(entities, callback, respondState);
 				} else {
-				    stageRepo.removeAllDuties(entities, callback);
+				    stageRepo.removeAllDuties(entities, callback, respondState);
 				}
 			} else {
 				if (first.is(EntityEvent.CREATE)) {

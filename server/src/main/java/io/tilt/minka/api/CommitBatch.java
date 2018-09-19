@@ -51,13 +51,19 @@ public abstract class CommitBatch implements Serializable {
 		private static final long serialVersionUID = 5457510210525879884L;
 		
 		private final List<ShardEntity> entities;
+		private final boolean respondBack;
 		
-		CommitBatchRequest(final List<ShardEntity> entities) {
+		CommitBatchRequest(final List<ShardEntity> entities, final boolean respondBack) {
 			super(UUID.randomUUID().toString());
 			this.entities = entities;
+			this.respondBack = respondBack;
 		}
 		public List<ShardEntity> getEntities() {
 			return entities;
+		}
+		/** @return TRUE if the leader must respond with replies and duty CommitState results */
+		public boolean isRespondBack() {
+			return respondBack;
 		}
 	}
 	

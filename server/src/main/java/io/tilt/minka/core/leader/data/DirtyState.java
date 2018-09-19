@@ -211,14 +211,15 @@ public class DirtyState {
 	public void createCommitRequests(
 			final EntityEvent ee, 
 			final Collection<ShardEntity> coll, 
-			final BiConsumer<Duty, Boolean> callback) {
+			final BiConsumer<Duty, Boolean> callback,
+			final boolean respondState) {
 		
 		final Map<Duty, CommitRequest> map = commitRequests.get(ee);
 		
 		// updates and transfer go in their own manner
 		boolean added = false; 
 		for (ShardEntity e: coll) {
-			final CommitRequest request = new CommitRequest(e);
+			final CommitRequest request = new CommitRequest(e, respondState);
 			final boolean put = map.put(e.getDuty(), request) == null;
 			if (callback!=null) {
 				callback.accept(e.getDuty(), put);

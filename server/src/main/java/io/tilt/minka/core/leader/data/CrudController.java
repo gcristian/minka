@@ -57,7 +57,7 @@ public class CrudController {
 
 	////////////////////////// DUTIES
 
-	public void removeAllDuties(final Collection<ShardEntity> coll, final Consumer<Reply> callback) {
+	public void removeAllDuties(final Collection<ShardEntity> coll, final Consumer<Reply> callback, final boolean respondState) {
 		final List<ShardEntity> tmp = new ArrayList<>(coll.size());
 		for (ShardEntity remove : coll) {
 			final ShardEntity current = scheme.getCommitedState().getByDuty(remove.getDuty());
@@ -74,7 +74,7 @@ public class CrudController {
 			} else {
 				respond(callback, Reply.alreadySubmitted(duty));
 			}
-		});
+		}, respondState);
 	}
 	
 	/** duties directly from client */
@@ -94,7 +94,7 @@ public class CrudController {
 		});
 		
 		if (!merged.isEmpty()) {
-			saveAllDuties(merged, callback);
+			saveAllDuties(merged, callback, false);
 		}
 		return !merged.isEmpty();
 	}
@@ -122,7 +122,7 @@ public class CrudController {
 		}
 	}
 		
-	public void saveAllDuties(final Collection<ShardEntity> coll, final Consumer<Reply> callback) {
+	public void saveAllDuties(final Collection<ShardEntity> coll, final Consumer<Reply> callback, final boolean respondState) {
 		final List<ShardEntity> tmp = new ArrayList<>(coll.size());
 		for (final ShardEntity duty: coll) {
 			if (presentInPartition(duty)) {
@@ -158,7 +158,7 @@ public class CrudController {
 			} else {
 				respond(callback, Reply.alreadySubmitted(duty));
 			}
-		});
+		}, respondState);
 		if (sb.length()>0) {
 			logger.info("{}: Added New Duties: {}", classname, sb.toString());
 		}

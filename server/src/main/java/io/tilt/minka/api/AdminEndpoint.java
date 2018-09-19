@@ -20,7 +20,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.Future;
@@ -52,7 +51,6 @@ import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 
 import io.tilt.minka.core.leader.balancer.Balancer;
-import io.tilt.minka.core.leader.data.CommitState;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.monitor.CrossJSONBuilder;
 import io.tilt.minka.core.monitor.DistroJSONBuilder;
@@ -307,8 +305,8 @@ public class AdminEndpoint {
 				w = Long.parseLong(weight);
 			}
 			final Duty d = Duty.builder(dutyId, palletId).with(w).build();
-			final Future<Collection<Reply>> f = client.add(d);
-			final Reply r = f.get().iterator().next();
+			final Future<Reply> f = client.add(d);
+			final Reply r = f.get();
 			// 0 = fire and forget, 
 			// 1 = leader ack, 
 			// 2 = first follower ack, 
@@ -335,7 +333,7 @@ public class AdminEndpoint {
 			@QueryParam("cl") final int consistencyLevel) throws JsonProcessingException {
 		try {
 			final Duty d = Duty.builder(dutyId, palletId).with(1).build();
-			final Reply r = client.remove(d).get().iterator().next();
+			final Reply r = client.remove(d).get();
 			if (r.isSuccess() && consistencyLevel>0) {
 				r.getState().get();
 			}

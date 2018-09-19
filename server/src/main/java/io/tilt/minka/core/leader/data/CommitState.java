@@ -27,7 +27,7 @@ import io.tilt.minka.domain.EntityEvent.Type;
  * 							for replication and allocation as well
  * --------------------------------------------------------------------------------------------------------
  * CommittedReplication		confirmed that the action derived in replication phase 
- * 							and was committed by at least by 1 follower.
+ * 							and was committed by at least 1 follower.
  * 							in single-node cluster mode: this phase will not exist
  * 		Meaning:
  * 		--------

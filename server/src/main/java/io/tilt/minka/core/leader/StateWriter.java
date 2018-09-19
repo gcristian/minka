@@ -23,7 +23,6 @@ import static io.tilt.minka.domain.EntityState.DANGLING;
 import static io.tilt.minka.domain.EntityState.MISSING;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Consumer;
@@ -31,10 +30,10 @@ import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.core.leader.data.CommitRequest;
 import io.tilt.minka.core.leader.data.CommittedState;
 import io.tilt.minka.core.leader.data.DirtyState;
 import io.tilt.minka.core.leader.data.Scheme;
-import io.tilt.minka.core.leader.data.CommitRequest;
 import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityRecord;
@@ -184,7 +183,7 @@ public class StateWriter {
 
 	}
 
-	void recover(final Shard shard, final Entry<EntityState, List<ShardEntity>> e) {
+	void recover(final Shard shard, final Entry<EntityState, Collection<ShardEntity>> e) {
 		final StringBuilder log = new StringBuilder();
 		boolean uncommitted = false;
 		if (e.getKey()==DANGLING) {

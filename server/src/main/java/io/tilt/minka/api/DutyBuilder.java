@@ -5,7 +5,6 @@ import java.time.Instant;
 import java.util.function.Supplier;
 
 import org.apache.commons.lang.Validate;
-import org.apache.commons.lang.builder.HashCodeBuilder;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -128,7 +127,6 @@ public class DutyBuilder {
 				if (obj == this ) {
 					return true;
 				} else {
-					@SuppressWarnings("unchecked")
 					Entity entity = (Entity) obj;
 					return getId().equals(entity.getId());
 				}
@@ -139,7 +137,10 @@ public class DutyBuilder {
 
 		@Override
 		public int hashCode() {
-			return new HashCodeBuilder().append(getId()).toHashCode();
+			final int prime = 31;
+			int res = 1;
+			res *= prime + (id==null ? 1 : id.hashCode());
+			return res;
 		}
 
 		@Override

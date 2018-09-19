@@ -14,7 +14,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.core.leader.data.CommitState;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.EntityState;
 
 /**
  * Response of an operation sent from the Client to the Leader shard.
@@ -113,9 +112,14 @@ public class Reply {
 		e.setSourceResponse(this);
 		return e;
 	}
-	/** @return Future if ReplyValue is SUCCESS or SUCCESS_SENT, null otherwise */
+	
+	/**
+	 * Gets the result of replication and distribution status.  
+	 * @return Future if ReplyValue is SUCCESS or SUCCESS_SENT
+	 * @throws IllegalStateException if the operation was a fireAndForget type of ReplyValue  
+	 */
 	public Future<CommitState> getState() {
-		if (value==ReplyValue.SUCCESS || value==ReplyValue.SENT_SUCCESS) {
+		if (isSuccess()) {
 			return commitState;
 		} else {
 			throw new IllegalStateException("Current Reply was " + value.toString() + " and lacks of a CommitState");
@@ -127,7 +131,11 @@ public class Reply {
 	
 	@Override
 	public int hashCode() {
-		return entity.getId().hashCode();
+		final int prime = 31;
+		int res = 1;
+		res *= prime + (entity==null ? 1 : entity.getId().hashCode());
+		res *= prime + value.hashCode();
+		return res;
 	}
 	@Override
 	public boolean equals(Object obj) {
@@ -137,7 +145,12 @@ public class Reply {
 			return true;
 		} else {
 			final Reply r = (Reply)obj;
-			return r.getEntity().getId().equals(entity.getId());
+			if (r.getEntity()!=null && entity!=null) {
+				return r.getEntity().getId().equals(entity.getId())
+						&& r.getValue().equals(value);
+			} else {
+				return false;
+			}
 		}
  	}
 	

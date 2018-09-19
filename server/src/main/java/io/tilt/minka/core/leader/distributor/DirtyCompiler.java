@@ -198,7 +198,7 @@ class DirtyCompiler {
 				}
 			}
 			missed.getCommitTree().addEvent(CREATE, PREPARED,"N/A",changePlan.getId());
-			snapshot.createCommitRequests(EntityEvent.ATTACH, Collections.singleton(missed), null);
+			snapshot.createCommitRequests(EntityEvent.ATTACH, Collections.singleton(missed), null, false);
 		}
 		if (!missing.isEmpty()) {
 			logger.info(DC_DANGLING_RESUME, name, missing.size(), toStringIds(missing));

@@ -171,7 +171,7 @@ public class ClusterResilienceTest {
 		
 		sleep(wait * 5);
 		
-		set.iterator().next().getServer().getClient().addAll(duties, null);
+		set.iterator().next().getServer().getClient().fireAndForget().addAll(duties);
 		
 		sleep(wait * 5);
  		//assertDistribution(set, duties);
@@ -194,7 +194,7 @@ public class ClusterResilienceTest {
 		final Set<ServerWhitness> set = buildCluster(servers, proto, pallets, emptySet());
 		final Collection<Duty> duties = duties(p, 10);
 		sleep(wait * 10);
-		set.iterator().next().getServer().getClient().addAll(duties, null);
+		set.iterator().next().getServer().getClient().fireAndForget().addAll(duties);
 		for (int i = 0 ; i < servers; i ++) {
 			sleep(wait * 10);
 	 		assertDistribution(set, duties);

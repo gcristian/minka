@@ -41,7 +41,7 @@ public class ParkingThreads {
 		V ret = null;
 		try {
 			final CountDownLatch latch = new CountDownLatch(1);
-			logger.info("{}: Parking future for: {}", getClass().getSimpleName(), k);
+			logger.debug("{}: Parking future for: {}", getClass().getSimpleName(), k);
 			latches(k).put(k, latch);
 			if (maxWaitMs>0) {
 				latch.await(maxWaitMs, TimeUnit.MILLISECONDS);
@@ -49,7 +49,7 @@ public class ParkingThreads {
 				latch.await();
 			}			
 			ret = (V) resolutions(k).remove(k);
-			logger.info("{}: Resuming latch for: {} ({}) {}", getClass().getSimpleName(), k, 
+			logger.debug("{}: Resuming latch for: {} ({}) {}", getClass().getSimpleName(), k, 
 					ret==null ? "not found" : "found", ret);
 		} catch (Exception e) {
 			logger.error("{}: Unexpected parking: {}", getClass().getSimpleName(), k, e);
