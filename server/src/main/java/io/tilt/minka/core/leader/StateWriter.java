@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.data.CommitRequest;
+import io.tilt.minka.core.leader.data.CommitState;
 import io.tilt.minka.core.leader.data.CommittedState;
 import io.tilt.minka.core.leader.data.DirtyState;
 import io.tilt.minka.core.leader.data.Scheme;
@@ -85,7 +86,7 @@ public class StateWriter {
 						&& changelog.getEvent().is(EntityEvent.DROP)) {
 					scheme.getVault().add(shard.getShardID().getId(), EntityRecord.fromEntity(entity, false));
 				}
-				final CommitRequest req = scheme.getDirty().flowCommitRequest(changelog.getEvent(), entity);
+				final CommitRequest req = scheme.getDirty().updateCommitRequest(changelog.getEvent(), entity);				
 				if (req!=null) {
 					requestConsumer.accept(req);
 					logger.info("{} CommitRequest updated: {} (state:{})", classname, entity.toBrief(), req.getState());
@@ -112,15 +113,19 @@ public class StateWriter {
 		if (e.getUserCause()==null) {
 			return null;
 		}
-		if (e.getUserCause()==EntityEvent.CREATE) {
-			// prevent Nthuplicated events
-			if (isNormalEcho(changelog, entity)) {
-				return null;
-			}
+		// prevent Nthuplicated events
+		if (e.getUserCause()==EntityEvent.CREATE && isNormalEcho(changelog, entity)) {
+			return null;
 		}
 		// look up for all plans
 		final long minTime = 0;
-		return entity.getCommitTree().existsWithLimit(e.getUserCause(), minTime);
+		final Log root = entity.getCommitTree().existsWithLimit(e.getUserCause(), minTime);
+		if (root!=null && root.getEvent().getUserCause()!=null) {
+			// REAL root has no root :) 
+			return null;
+		} else {
+			return root;
+		}
 	}
 
 	/** 

@@ -1,5 +1,7 @@
 #!/bin/bash
-[ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] && echo "Usage: ./rembatt {pallet-id} {duty-initial-id} {duty-final-id}" && exit 1
+[ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] && \
+	echo "Usage: ./rembatt {pallet-id} {duty-initial-id} {duty-final-id} [consistency-level]" && exit 1
 for i in $(seq $2 $3); do 
-	./remduty $1 $1$i 99$i | grep message & sleep 0.2; 
+	./remduty $1 $1$i 99$i $4 | grep -e message -e 'Ms' #& sleep 0.2; 
+
 done

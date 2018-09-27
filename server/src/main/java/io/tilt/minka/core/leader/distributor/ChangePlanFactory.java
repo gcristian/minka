@@ -173,7 +173,6 @@ class ChangePlanFactory {
 		return ret;
 	}
 	
-
 	private void logStatus(
 			final Scheme partition, 
 			final Set<ShardEntity> dutyCreations, 
@@ -192,20 +191,26 @@ class ChangePlanFactory {
 		partition.getCommitedState().findShards(ShardState.ONLINE.filter(), node-> {
 			final ShardCapacity cap = node.getCapacities().get(pallet);
 			final double currTotal = cap == null ? 0 :  cap.getTotal();
-			logger.info("{}: ShardCapacity Shard {} : {}", name, node.toString(), currTotal);
+			logger.info("{}: Capacity Shard {} : {}", name, node.toString(), currTotal);
 			clusterCapacity[0] += currTotal;
 		});
-		logger.info("{}: Total cluster capacity: {}", name, clusterCapacity);
-		logger.info("{}: RECKONING #{}; +{}; -{} duties: {}", name,
-			new CommittedState.SchemeExtractor(partition.getCommitedState())
-				.getAccountConfirmed(pallet), 
-			dutyCreations.stream()
+		logger.info("{}: Cluster capacity: {}", name, clusterCapacity);
+		
+		logger.info("{}: Living #{}", name,
+			new CommittedState.SchemeExtractor(partition.getCommitedState()).getAccountConfirmed(pallet));
+		
+		final Set<ShardEntity> creapa = dutyCreations.stream()
 				.filter(d->d.getDuty().getPalletId().equals(pallet.getId()))
-				.count(),
-			dutyDeletions.stream()
+				.collect(Collectors.toSet());
+		if (!creapa.isEmpty() && logger.isInfoEnabled()) {
+			logger.info("{}: Add +{}: {}", name, creapa.size(), ShardEntity.toStringIds(creapa));
+		}
+		final Set<ShardEntity> delepa = dutyDeletions.stream()
 				.filter(d->d.getDuty().getPalletId().equals(pallet.getId()))
-				.count(),
-			ShardEntity.toStringIds(duties));
+				.collect(Collectors.toSet());
+		if (!delepa.isEmpty() && logger.isInfoEnabled()) {
+			logger.info("{}: Rem -{}: {}", name, delepa.size(), ShardEntity.toStringIds(delepa));
+		}
 	}
 	
 }

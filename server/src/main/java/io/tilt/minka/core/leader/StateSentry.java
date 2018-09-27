@@ -90,7 +90,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		shard.enterHeartbeat(beat);
 		
 		// contrast current change-plan deliveries and discover new answers
-		detectExpectedChanges(shard, beat);
+		final Collection<CommitRequest> reqs = detectExpectedChanges(shard, beat);
 
 		// look for problems
 		if ((beat.reportsDuties()) 
@@ -98,6 +98,10 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 				&& scheme.getLearningState().isEmpty()) {
 			detectUnexpected(shard, beat.getCaptured());
 		}
+		if (reqs!=null) {
+			notifyUser(reqs);
+		}	
+		
 		beat.clear();
 	}
 	
@@ -112,10 +116,9 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		}
 	}
 	
-	private void detectExpectedChanges(final Shard shard, final Heartbeat beat) {
+	private Collection<CommitRequest> detectExpectedChanges(final Shard shard, final Heartbeat beat) {
 		final ChangePlan changePlan = scheme.getCurrentPlan();
 		if (changePlan!=null && !changePlan.getResult().isClosed()) {
-			
 			final Dispatch dispatch = changePlan.get(shard);
 			if (dispatch!=null && dispatch.getStep()==Dispatch.Step.PENDING) {
 				final Map<EntityEvent, StringBuilder> logg = new HashMap<>(EntityEvent.values().length);
@@ -126,58 +129,56 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 						beat, 
 						shard.getShardID(), 
 						(log, del)-> writer.commit(shard, log, del, requests::add, logg),
-						EntityEvent.ATTACH, EntityEvent.STOCK, EntityEvent.DROP)) {
+						EntityEvent.ATTACH, EntityEvent.STOCK)) {
 					dispatch.calculateState(logger::info);
-					notifyUser(requests);
 				}
 				doLogging(shard, changePlan, logg);
-			} else if (logger.isDebugEnabled()) {
-				logger.debug("{}: no {} Dispatch for heartbeat's shard: {}", getClass().getSimpleName(), 
-						Dispatch.Step.PENDING, shard.getShardID().toString());
-			}			
+				return requests;
+			}
 		} else if (isLazyOrSurvivor(beat, changePlan)) {
 			scheme.getLearningState().learn(beat.getCaptured(), shard);
 		}
+		return null;
 	}
-
+	
 	private void notifyUser(final Collection<CommitRequest> requests) {
-		if (!requests.isEmpty()) {
-			requests.stream()
-				.filter(CommitRequest::isRespondState)
-				.filter(r->!r.isSent(EntityEvent.Type.ALLOC) 
-						&& r.getState()==CommitState.COMMITTED_ALLOCATION)
-				.collect(Collectors.groupingBy((req)->
-					scheme.getCommitedState().findShard(
-							s->s.getShardID().getId().equals(
-									req.getEntity().getCommitTree().getFirst().getTargetId()))
-			)).forEach((shard, stageRequestsGroup)-> {
-				if (shard!=null) {
-					logger.info("{}: Notifying user at {}", getClass().getSimpleName(), shard);
-					if (broker.send(shard.getBrokerChannel(), (List)stageRequestsGroup)) {
-						for (CommitRequest req: stageRequestsGroup) {
-							req.markSent();
-							// clear for good out of DirtyState
-							scheme.getDirty().flowCommitRequest(
-									req.getEntity().getLastEvent(), 
-									req.getEntity());
-						}
-					} else {
-						logger.error("{}: Couldnt notify CommitRequest's to User", getClass().getSimpleName());
+		requests.stream()
+			.filter(CommitRequest::isRespondState)
+			.filter(r->!r.isSent(EntityEvent.Type.ALLOC) 
+					&& (r.getState()==CommitState.FINISHED 
+						|| r.getState()==CommitState.ALLOCATION))
+			.collect(Collectors.groupingBy((req)->
+				scheme.getCommitedState().findShard(
+						s->s.getShardID().getId().equals(
+								req.getEntity().getCommitTree().getFirst().getTargetId()))
+		)).forEach((shard, stageRequestsGroup)-> {
+			if (shard!=null) {
+				logger.info("{}: Notifying user at {}", getClass().getSimpleName(), shard);
+				if (broker.send(shard.getBrokerChannel(), (List)stageRequestsGroup)) {
+					for (CommitRequest req: stageRequestsGroup) {
+						req.markSent();
+						// clear for good out of DirtyState							
+						scheme.getDirty().updateCommitRequest(
+								req.getEntity().getLastEvent(), 
+								req.getEntity(), 
+								CommitState.FINISHED);
 					}
 				} else {
-					logger.error("{}: Cannot process CommitRequest on dissapeared Shards", 
-							getClass().getSimpleName());
+					logger.error("{}: Couldnt notify CommitRequest's to User", getClass().getSimpleName());
 				}
+			} else {
+				logger.error("{}: Cannot process CommitRequest on dissapeared Shards", 
+						getClass().getSimpleName());
+			}
+		});
+		
+		requests.stream()
+			.filter(r-> !r.isRespondState())
+			.forEach(r-> {
+				scheme.getDirty().updateCommitRequest(
+						r.getEntity().getLastEvent(), 
+						r.getEntity());
 			});
-			
-			requests.stream()
-				.filter(r-> !r.isRespondState())
-				.forEach(r-> {
-					scheme.getDirty().flowCommitRequest(
-							r.getEntity().getLastEvent(), 
-							r.getEntity());
-				});
-		}
 	}
 
 	/**

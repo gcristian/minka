@@ -8,6 +8,8 @@ import org.apache.commons.lang.Validate;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import io.tilt.minka.domain.ShardEntity;
+
 /**
  * Note this builder does not support large binary payloads as duties are loaded into memory and transported
  * 
@@ -123,12 +125,12 @@ public class DutyBuilder {
 
 		@Override
 		public boolean equals(Object obj) {
-			if (obj != null && obj instanceof Entity) {
+			if (obj != null && obj instanceof Duty) {
 				if (obj == this ) {
 					return true;
 				} else {
-					Entity entity = (Entity) obj;
-					return getId().equals(entity.getId());
+					final Duty duty = (Duty)obj;
+					return (palletId + id).equals(duty.getPalletId() + duty.getId());
 				}
 			} else {
 				return false;
@@ -139,7 +141,8 @@ public class DutyBuilder {
 		public int hashCode() {
 			final int prime = 31;
 			int res = 1;
-			res *= prime + (id==null ? 1 : id.hashCode());
+			res *= prime + palletId.hashCode();
+			res *= prime + id.hashCode();
 			return res;
 		}
 

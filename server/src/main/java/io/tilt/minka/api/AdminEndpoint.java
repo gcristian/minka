@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import javax.inject.Singleton;
@@ -305,15 +304,17 @@ public class AdminEndpoint {
 				w = Long.parseLong(weight);
 			}
 			final Duty d = Duty.builder(dutyId, palletId).with(w).build();
-			final Future<Reply> f = client.add(d);
-			final Reply r = f.get();
-			// 0 = fire and forget, 
-			// 1 = leader ack, 
-			// 2 = first follower ack, 
-			// 3 = all followers ack.
-			if (r.isSuccess() && consistencyLevel>0) {
-				r.getState().get();
+
+			final Reply r;
+			if (consistencyLevel==0) {
+				r = client.fireAndForget().add(d);
+			} else {
+				r = client.add(d).get();
+				if (r.isSuccess()) {
+					r.getState().get();
+				}
 			}
+			
 			return Response.accepted(r)
 					.status(r.getValue().getHttpCode())
 					.build();
@@ -332,11 +333,18 @@ public class AdminEndpoint {
 			@PathParam("id") final String dutyId,
 			@QueryParam("cl") final int consistencyLevel) throws JsonProcessingException {
 		try {
-			final Duty d = Duty.builder(dutyId, palletId).with(1).build();
-			final Reply r = client.remove(d).get();
-			if (r.isSuccess() && consistencyLevel>0) {
-				r.getState().get();
+			final Duty d = Duty.builder(dutyId, palletId).build();
+			
+			final Reply r;
+			if (consistencyLevel==0) {
+				r = client.fireAndForget().remove(d);
+			} else {
+				r = client.remove(d).get();
+				if (r.isSuccess()) {
+					r.getState().get();
+				}
 			}
+
 			return Response.accepted(r)
 					.status(r.getValue().getHttpCode())
 					.build();

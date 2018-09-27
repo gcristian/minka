@@ -19,6 +19,7 @@ package io.tilt.minka.core.leader;
 import static java.util.Objects.requireNonNull;
 
 import java.time.Instant;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -72,6 +73,10 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 		this.eventBroker = requireNonNull(eventBroker);
 		this.scheduler = requireNonNull(scheduler);
 		this.shardId = requireNonNull(shardId);		
+	}
+	
+	public static void main(String[] args) {
+		System.out.println(new AtomicInteger(0).getAndIncrement());
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })

@@ -44,7 +44,7 @@ import io.tilt.minka.domain.EntityEvent.Type;
  * --------------------------------------------------------------------------------------------------------
  * 
  */
-public enum CommitState {
+public enum CreateState {
 	/** as arrived to leader from client's follower: before distribution */
 	//INIT(EntityEvent.Type.NONE, 0),
 	/** once dispatched to follower by distributor phase */
@@ -54,15 +54,13 @@ public enum CommitState {
 	/** after reaching {@linkplain EntityEvent.Type.ALLOC} expected state */
 	ALLOCATION(EntityEvent.Type.ALLOC, 3),
 	/** an internal state only known to leader (not notified to user) */
-	FINISHED(EntityEvent.Type.NONE, 4),
-	/** the duty operation was cancelled */
-	CANCELLED(EntityEvent.Type.NONE, 5),
+	FINISHED(EntityEvent.Type.NONE, 4)
 	;
 	
 	private Type type;
 	private int order;
 
-	CommitState(final EntityEvent.Type type, final int order) {
+	CreateState(final EntityEvent.Type type, final int order) {
 		this.type = type;
 		this.order = order;
 	}
@@ -73,13 +71,9 @@ public enum CommitState {
 		return this==FINISHED;
 	}
 	
-	public boolean isEnded() {
-		return this==FINISHED || this==CANCELLED;
-	}
-	
-	public CommitState next(final EntityEvent ee) {
-		CommitState ret = null;
-		if (this!=FINISHED) {
+	public CreateState next(final EntityEvent ee) {
+		CreateState ret = null;
+		if (order!=4) {
 			if (this==PROCESSING || this==REPLICATION) {
 				if (ee.getType()==EntityEvent.Type.ALLOC) { 
 					ret = ALLOCATION;
@@ -87,7 +81,7 @@ public enum CommitState {
 						&& this!=REPLICATION) {
 					ret = REPLICATION;
 				}
-			} else if (this==CommitState.ALLOCATION) {
+			} else if (this==CreateState.ALLOCATION) {
 				ret = FINISHED;
 			}
 		}

@@ -33,7 +33,6 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.EntityPayload;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.shard.Shard;
 /**
  * Representation of a {@linkplain Duty} selected for an action in a {@linkplain Shard}  
@@ -137,15 +136,6 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 			return (Pallet) this.from;
 		}
 		throw new IllegalArgumentException("This entity doesnt hold a Pallet !");
-	}
-
-	public String getEntityId() {
-		if (type==Type.DUTY) {
-			final Duty d = (Duty)from;
-			return d.getPalletId() + d.getId();
-		} else {
-			return from.getId();
-		}
 	}
 	
 	@JsonIgnore
@@ -254,7 +244,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 
 	@Override
 	public int compareTo(final ShardEntity o) {
-		return this.getEntity().getId().compareTo(o.getEntity().getId());
+		return this.getQualifiedId().compareTo(o.getQualifiedId());
 	}
 
 	@JsonIgnore
@@ -276,11 +266,29 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 	    this.tree = journal;
 	}
 	
+	public static String qualifiedId(final Duty d) {
+		return new StringBuilder()
+			.append(d.getPalletId())
+			.append('-')
+			.append(d.getId())
+			.toString();
+	}
+	
+	@JsonProperty("qid")
+	public String getQualifiedId() {
+		final StringBuilder sb = new StringBuilder();
+		if (getType()==Type.DUTY) {
+			sb.append(((Duty)from).getPalletId()).append('-');
+		}
+		sb.append(from.getId());
+		return sb.toString();
+	}
+
+	
 	public int hashCode() {
 		final int prime = 31;
 		int res = 1;
-		res *= prime + ((type== null ) ? 0 : type.hashCode());
-		res *= prime + ((getEntity().getId()== null ) ? 0 : getEntity().getId().hashCode());
+		res *= prime + getQualifiedId().hashCode();
 		return res;
 	}
 
@@ -292,9 +300,7 @@ public class ShardEntity implements Comparable<ShardEntity>, Comparator<ShardEnt
 			return true;
 		} else {
 			final ShardEntity o = (ShardEntity) obj;
-			return getEntity()!=null
-					&& getType()==o.getType()
-					&& getEntity().getId().equals(o.getEntity().getId());
+			return getQualifiedId().equals(o.getQualifiedId());
 		}
 	}
 

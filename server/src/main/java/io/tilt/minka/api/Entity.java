@@ -44,7 +44,7 @@ public abstract interface Entity extends Comparable<Entity>, Comparator<Entity> 
 	*/
 	@JsonProperty("id") 
 	String getId();
-
+	
 	@Override
 	default public int compareTo(Entity o) {
 		return compare(this, o);

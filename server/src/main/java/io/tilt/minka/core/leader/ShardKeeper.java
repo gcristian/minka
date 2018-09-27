@@ -104,7 +104,7 @@ class ShardKeeper implements Service {
 				.every(config.beatToMs(config.getProctor().getPhaseFrequency()))
 				.build();
 		this.lastAnalysys = now();
-		this.transitioner = new Transitioner(config, new ShardBeatsHealth(config));
+		this.transitioner = new Transitioner(config, new HealthCheck(config));
 	}
 
 	@Override

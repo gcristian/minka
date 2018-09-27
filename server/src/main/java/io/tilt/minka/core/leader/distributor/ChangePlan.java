@@ -297,12 +297,12 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	}
     
     /** @return whether caller has permission to get next delivery   */
-	boolean hasNextParallel(final Consumer<String> c) {
+	boolean hasNextParallel(final Consumer<String> msg) {
 		if (started == null) {
 			throw new IllegalStateException("ChangePlan not prepared yet !");
 		}
 		// set done if none pending
-		builtDispatches.forEach(d -> d.calculateState(c));
+		builtDispatches.forEach(d -> d.calculateState(msg));
 		if (!iterator.hasNext()) {
 			return false;
 		}
@@ -320,7 +320,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		for (int i = 0; i < deliveryIdx; i++) {
 			final Dispatch d = builtDispatches.get(i);
 			if (d.getStep() == Dispatch.Step.PENDING) {
-				c.accept(String.format("%s: No more parallels: past dispatches yet pending", 
+				msg.accept(String.format("%s: No more parallels: past dispatches yet pending", 
 						getClass().getSimpleName()));
 				return false;
 			}
@@ -361,7 +361,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 				}
 			} else {
 				if (logger.isInfoEnabled()) {
-					logger.info("{}: id:{} in progress ({}'s to expire)",
+					logger.info("{}: Continuing:{} ({}'s to expire)",
 							getClass().getSimpleName(),
 							getId(),
 							secsToExpire(expiration));
@@ -381,13 +381,26 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		return (st.toEpochMilli() - System.currentTimeMillis()) / 1000;
 	}
 
+	/** @return the dispatching event for the duty if existing, else: NULL */
+	public boolean hasDispatch(final Duty duty, final EntityEvent ee) {
+		for(Dispatch d: builtDispatches) {
+			for (ShardEntity e: d.getDuties()) {
+				if (ShardEntity.qualifiedId(e.getDuty()).equals(e.getQualifiedId()) 
+						&& ee==d.getEvent()) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	/** @return TRUE if Duty is moving betweem Shards */
 	public boolean hasMigration(final Duty duty) {
 		boolean detaching = false;
 		boolean attaching = false;
 		for(Dispatch d: builtDispatches) {
-			for (ShardEntity s: d.getDuties()) {
-				if (s.getDuty().getId().equals(duty.getId()) 
-						&& s.getDuty().getPalletId().equals(duty.getPalletId())) {
+			for (ShardEntity e: d.getDuties()) {
+				if (ShardEntity.qualifiedId(duty).equals(e.getQualifiedId())) {
 					detaching |=d.getEvent()==EntityEvent.DETACH;
 					attaching |=d.getEvent()==EntityEvent.ATTACH;
 					break;

@@ -88,7 +88,7 @@
         <constructor-arg ref="heartbeatFactory" />
     </bean>
     
-    <bean id="parkingThreads" class="io.tilt.minka.api.ParkingThreads"/>
+    <bean id="parkingThreads" class="io.tilt.minka.api.RequestLatches"/>
     
     <!-- Maneja la particion a traves del delegado -->
     <bean id="leaderEventsHandler" class="io.tilt.minka.core.follower.LeaderEventsHandler">
@@ -209,13 +209,14 @@
     <bean id="distroJSONBuilder" class="io.tilt.minka.core.monitor.DistroJSONBuilder">
         <constructor-arg ref="leaderAware"/>
         <constructor-arg ref="config"/>
-        <constructor-arg ref="shardingScheme"/>
+        <constructor-arg ref="shardingScheme"/>        
     </bean>
     
     <bean id="followerJSONBuilder" class="io.tilt.minka.core.monitor.FollowerJSONBuilder">
         <constructor-arg ref="shardingScheme"/>
         <constructor-arg ref="partition"/>
         <constructor-arg ref="leaderEventsHandler"/>
+        <constructor-arg ref="leader"/>
     </bean>
 
     <bean id="crossJSONBuilder" class="io.tilt.minka.core.monitor.CrossJSONBuilder">

@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -65,7 +66,10 @@ public class DirtyState {
 		checkNotOnSnap();
 		if (snapshot==null) {
 			final DirtyState tmp = new DirtyState(committedState);
-			tmp.commitRequests.putAll(this.commitRequests);
+			// copy CRs to a new structure
+			for (Map.Entry<EntityEvent, Map<Duty, CommitRequest>> e: commitRequests.entrySet()) {
+				tmp.commitRequests.put(e.getKey(), new HashMap<>(e.getValue()));
+			}
 			tmp.dutyDangling.putAll(this.dutyDangling);
 			tmp.dutyMissings.putAll(this.dutyMissings);
 			tmp.palletCrud.putAll(this.palletCrud);
@@ -235,27 +239,38 @@ public class DirtyState {
 			.collect(Collectors.toList());
 	}
 	
+	public EntityEvent existCommitRequest(final Duty duty) {
+		for(Map.Entry<EntityEvent, Map<Duty, CommitRequest>> e: commitRequests.entrySet()) {
+			if (e.getValue().get(duty)!=null) {
+				return e.getKey();
+			}
+		}
+		return null;
+	}
+	
 	/** @return a CR matching {event & entity} if any, and step state to next according event */
-	public CommitRequest flowCommitRequest(final EntityEvent event, final ShardEntity entity) {
+	public CommitRequest updateCommitRequest(final EntityEvent event, final ShardEntity entity) {
+		return updateCommitRequest(event, entity, null);
+	}
+	
+	public CommitRequest updateCommitRequest(final EntityEvent event, final ShardEntity entity, final CommitState arg) {
 		final EntityEvent slot = event.getType()==EntityEvent.Type.CRUD ? event : event.getUserCause();
 		final Map<Duty, CommitRequest> map = commitRequests.get(slot);
 		CommitRequest request = map.get(entity.getDuty());
 		if (request!=null) {
-			final CommitState next = request.getState().next(event);
+			final CommitState next = arg!=null ? arg : request.getState().next(event);
 			if (next!=null) {
 				request.setState(next);
-				if (next==CommitState.NOTIFIED) {
+				if (next.isEnded()) {
 					map.remove(entity.getDuty());
-					request = null;
 				}
 				logger.info("{}: {} {}: {} ({})", getClass().getSimpleName(), 
-					next==CommitState.NOTIFIED ? "Removing" : "Moving", 
-					CommitRequest.class.getSimpleName(), request!=null ? request.getEntity().getDuty().getId():"", next);
+					next.isEnded() ? "Removing" : "Moving", 
+					CommitRequest.class.getSimpleName(), request.getEntity().getDuty().getId(), next);
 			}
 		}		
 		return request;
 	}
-
 
 	// ====================================================================================================
 	
@@ -308,11 +323,10 @@ public class DirtyState {
 			logger.warn("{}: {} Dangling duties: [ {}]", getClass().getSimpleName(), dutyDangling.size(),
 					ShardEntity.toDutyStringIds(dutyDangling.keySet()));
 		}
-		if (commitRequests.isEmpty()) {
+		if (getSize()==0) {
 			logger.info("{}: no CRUD duties", getClass().getSimpleName());
 		} else {
-			logger.info("{}: with {} CRUD duties: [ {}]", getClass().getSimpleName(), getSize(),
-					ShardEntity.toStringIds(getDutiesCrud()));
+			logger.info("{}: with {} CRUD duties", getClass().getSimpleName(), getSize());
 		}
 	}
 

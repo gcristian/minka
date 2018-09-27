@@ -149,10 +149,7 @@ class PartitionManagerImpl implements PartitionManager {
 	}
 	
 	private boolean dettach_(final Collection<ShardEntity> duties, final Runnable cleanPartitionCallback) {
-		if (logger.isInfoEnabled()) {
-			logger.info("{}: ({}) # -{} RELEASE: {}", getClass().getSimpleName(),
-				partition.getId(), duties.size(), ShardEntity.toStringIds(duties));
-		}
+		log(duties, "RELEASE");
 		
 		try {
 			dependencyPlaceholder.getDelegate().release(toSet(duties, duty -> {
@@ -185,11 +182,15 @@ class PartitionManagerImpl implements PartitionManager {
 		return false;
 	}
 
-	public boolean attach(final Collection<ShardEntity> duties) {
+	public void log(final Collection<ShardEntity> duties, final String action) {
 		if (logger.isInfoEnabled()) {
-			logger.info("{}: ({}) # +{} CAPTURE: {}", getClass().getSimpleName(), partition.getId(),
-				duties.size(), ShardEntity.toStringIds(duties));
+			logger.info("{}: ({}) # +{} {}: {}", getClass().getSimpleName(), partition.getId(),
+				duties.size(), action, ShardEntity.toStringIds(duties));
 		}
+	}
+	
+	public boolean attach(final Collection<ShardEntity> duties) {
+		log(duties, "CAPTURE");
 		// TODO si falla el cliente no nos importa... ? rollbackeamos todo ? entrariamos en un ciclo...
 		final Set<Pallet> pallets = new HashSet<>();
 		duties.stream().filter(d->partition.add(d))
@@ -227,19 +228,13 @@ class PartitionManagerImpl implements PartitionManager {
 
 	@Override
 	public boolean stock(Collection<ShardEntity> duties) {
-		if (logger.isInfoEnabled()) {
-			logger.info("{}: ({}) # +{} STOCK: {}", getClass().getSimpleName(), partition.getId(),
-				duties.size(), ShardEntity.toStringIds(duties));
-		}
+		log(duties, "STOCK");
 		return partition.stockAll(duties);
 	}
 
 	@Override
 	public boolean drop(Collection<ShardEntity> duties) {
-		if (logger.isInfoEnabled()) {
-			logger.info("{}: ({}) # +{} DROP: {}", getClass().getSimpleName(), partition.getId(),
-				duties.size(), ShardEntity.toStringIds(duties));
-		}
+		log(duties, "DROP");
 		return partition.dropAll(duties);
 	}
 

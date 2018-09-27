@@ -205,11 +205,17 @@ public class Distributor implements Service {
 			logger.info("{}: Driving ChangePlan: {}", getName(), changePlan.getId());
 		}
 		boolean deliveryValid = true;
-		
 		// lets log when it's about to expire
 		while (changePlan.hasNextParallel(justBuilt ? (msg)-> msg.length(): logger::info) 
 				&& !changePlan.getResult().isClosed()) {
-			deliveryValid &= push(changePlan, changePlan.next(), false);
+			final Dispatch d = changePlan.next();
+			if (deliveryShardValid(d)) {
+				push(changePlan, d, false);
+			} else {
+				logger.error("{}: Scheme lost transport's target shard: {}", getName(), d.getShard());
+				changePlan.obsolete();
+				deliveryValid = false;
+			}
 		}	
 		if (deliveryValid) {
 			checkAllDeliveriesValid(changePlan);
@@ -228,52 +234,43 @@ public class Distributor implements Service {
 		return valid[0];
 	}
 
+	/** @return TRUE when dispatch has an alive shard */
 	private boolean deliveryShardValid(final Dispatch d) {
 		return scheme.getCommitedState().filterShards(
 				sh->sh.equals(d.getShard()) && sh.getState().isAlive());							
 	}
 
-	/** @return if plan is still valid */
-	private boolean push(final ChangePlan changePlan, final Dispatch dispatch, final boolean retrying) {
-		// check it's still in ptable
-		if (!deliveryShardValid(dispatch)) {
-			logger.error("{}: Scheme lost transport's target shard: {}", getName(), dispatch.getShard());
-			changePlan.obsolete();
-			return false;
-		} else {
-			final List<ShardEntity> payload = new ArrayList<>();
-			final List<Log> logs = new ArrayList<>();
-			final BiConsumer<ShardEntity, Log> bc = (e, l)-> { 
-				payload.add(e); 
-				logs.add(l); 
-			};
-			int deliCount = (retrying)  ? 
-					dispatch.contentsByState(EntityState.PENDING, bc) :  
-					dispatch.contentsByState(bc);
-			if (deliCount == 0) {
-				throw new IllegalStateException("delivery with no duties to send ?");
-			}
-			if (logger.isInfoEnabled()) {
-				logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), dispatch.getEvent().toVerb(),
-						dispatch.getShard().getShardID(), deliCount,
-						ShardEntity.toStringIds(payload));
-			}	
-			logs.forEach(l->l.addState(EntityState.PENDING));
-			for (ShardEntity s: payload) {
-				if (s.getRelatedEntity()==null) {
-					logger.info("{}: nop ", s);
-				}
-			}
-			if (eventBroker.send(dispatch.getShard().getBrokerChannel(), (List)payload)) {
-				// dont mark to wait for those already confirmed (from fallen shards)
-				dispatch.markSent();
-			} else {
-				logs.forEach(l->l.addState(EntityState.PREPARED));
-				logger.error("{}: Couldnt transport current issues !!!", getName());
-			}
-			
-			return true;
+	private void push(final ChangePlan changePlan, final Dispatch dispatch, final boolean retrying) {
+		final List<ShardEntity> payload = new ArrayList<>();
+		final List<Log> logs = new ArrayList<>();
+		final BiConsumer<ShardEntity, Log> bc = (e, l)-> { 
+			payload.add(e); 
+			logs.add(l); 
+		};
+		int deliCount = (retrying)  ? 
+				dispatch.contentsByState(EntityState.PENDING, bc) :  
+				dispatch.contentsByState(bc);
+		if (deliCount == 0) {
+			throw new IllegalStateException("delivery with no duties to send ?");
 		}
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: {} to Shard: {} Duties ({}): {}", getName(), dispatch.getEvent().toVerb(),
+					dispatch.getShard().getShardID(), deliCount,
+					ShardEntity.toStringIds(payload));
+		}	
+		logs.forEach(l->l.addState(EntityState.PENDING));
+		for (ShardEntity s: payload) {
+			if (s.getRelatedEntity()==null) {
+				logger.info("{}: nop ", s);
+			}
+		}
+		if (eventBroker.send(dispatch.getShard().getBrokerChannel(), (List)payload)) {
+			// dont mark to wait for those already confirmed (from fallen shards)
+			dispatch.markSent();
+		} else {
+			logs.forEach(l->l.addState(EntityState.PREPARED));
+			logger.error("{}: Couldnt transport current issues !!!", getName());
+		}		
 	}
 
 	private void communicateUpdates() {

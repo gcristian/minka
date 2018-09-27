@@ -50,7 +50,7 @@ public class CommitRequest implements Serializable {
 	
 	@Override
 	public int hashCode() {
-		return entity.getEntityId().hashCode();
+		return entity.getQualifiedId().hashCode();
 	}
 	
 	@Override
@@ -61,7 +61,8 @@ public class CommitRequest implements Serializable {
 			return true;
 		} else {
 			final CommitRequest sr = (CommitRequest)obj;
-			return sr.getEntity().getEntityId().equals(entity.getEntityId());
+			return sr.getEntity().getQualifiedId()
+					.equals(entity.getQualifiedId());
 		}
 	}
 	

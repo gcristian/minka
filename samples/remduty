@@ -8,14 +8,16 @@ jq=$(which jq); tr=$(which tr)
 
 # ------------------------------------------------------
 
-[ -z "$1" ] || [ -z "$2" ] && echo "Usage: ./remduty {pallet-id} {duty-id} " && exit 1
+[ -z "$1" ] || [ -z "$2" ] && echo "Usage: ./remduty {pallet-id} {duty-id} [consistency-level]" && exit 1
 
 PID="$1"
 ID="$2"
+CL="$3"
+[ ! -z "$3" ] || CL="0"
 
 leader=$(./leader)
 CONTEXT="/minka/admin"
 DUTIES="$CONTEXT/crud/duty"
 
-$curl -XDELETE -s $leader$DUTIES"/$PID/$ID" | $jq '.'
+$curl -XDELETE -s $leader$DUTIES"/$PID/$ID?cl=$CL" | $jq '.'
 

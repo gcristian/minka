@@ -83,7 +83,7 @@ class Replicator {
 				r[0] |=cs.findShardsAnd(
 						availabilityRule(event, leader, duty)
 							.and(shard-> ! changePlan.isDispatching(duty, shard, event)),
-						replicate(changePlan, duty, event.typeSibling())
+						replicate(changePlan, duty, event.typeSibling(), "dispatchNew")
 				);
 			}
 		}
@@ -95,7 +95,7 @@ class Replicator {
 							// thou not suppored: double events same shard/entity: generates inconsistent state
 							// (not deletable entity)
 								//.and(shard-> ! changePlan.isDispatching(duty, shard, event)),
-							replicate(changePlan, duty, event.typeSibling())
+							replicate(changePlan, duty, event.typeSibling(), "dispatchNewDetach")
 					);
 				}
 	
@@ -112,14 +112,16 @@ class Replicator {
 		final boolean[] r = {false};
 		state.findDutiesByPallet(pallet, duty-> {
 			// of course avoid those going to die (drop, remove)
-			if (!changePlan.isDispatching(duty, DROP, REMOVE)) {
+			if (!changePlan.isDispatching(duty, DROP) 
+					&& (!changePlan.isDispatching(duty, DETACH) 
+							|| changePlan.isDispatching(duty, ATTACH))) {
 				r[0] |= state.findShardsAnd(
 					availabilityRule(ATTACH, null, duty)
 						// leader doesnt needs the replication
 						.and(shard-> ! leaderId.equals(shard.getShardID()))
 						// avoid two-events on same shard/entity (not supported)
 						.and(shard-> ! changePlan.isDispatching(duty, shard, ATTACH)),
-					replicate(changePlan, duty, STOCK)
+					replicate(changePlan, duty, STOCK, "knownActive")
 				);
 			}
 		});
@@ -130,14 +132,15 @@ class Replicator {
 	private static Function<Shard, Boolean> replicate(
 			final ChangePlan changePlan, 
 			final ShardEntity replicated, 
-			final EntityEvent event) {
+			final EntityEvent event,
+			final String tag) {
 		return nextHost-> {
 			replicated.getCommitTree().addEvent(
 					event, 
 					EntityState.PREPARED, 
 					nextHost.getShardID(), 
 					changePlan.getId());
-			logger.info("Replicator: {} duty {} to {}", event.toVerb(), replicated.getDuty().getId(), nextHost);
+			logger.info("Replicator: {} duty {} to {} ({})", event.toVerb(), replicated.getDuty().getId(), nextHost, tag);
 			changePlan.dispatch(nextHost, replicated);
 			return true;
 		};

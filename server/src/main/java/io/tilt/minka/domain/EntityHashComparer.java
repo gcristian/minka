@@ -14,7 +14,7 @@ public class EntityHashComparer implements Comparator<Duty>, Serializable {
 		if (o1 == null || o2 == null) {
 			return ShardEntity.compareNulls(o1, o2);
 		} else {
-			int i = o1.getId().compareTo(o2.getId());
+			int i = (o1.getPalletId()+o1.getId()).compareTo(o2.getPalletId()+o2.getId());
 			if (i == 0) {
 				i = ShardEntity.compareTieBreak(o1, o2);
 			}

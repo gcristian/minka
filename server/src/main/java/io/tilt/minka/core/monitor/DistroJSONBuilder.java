@@ -41,6 +41,7 @@ import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
@@ -181,7 +182,7 @@ public class DistroJSONBuilder {
 	public Map<String, Object> buildDistribution() {
 		final Map<String, Object> map = new LinkedHashMap<>(2);
 		map.put("global", buildGlobal(scheme));
-		map.put("distribution", buildShardRep(scheme));
+		map.put("distribution", buildShardRep(scheme, leaderAware.getLeaderShardId()));
 		return map;
 	}
 	
@@ -223,7 +224,7 @@ public class DistroJSONBuilder {
 		return ret;
 	}
 
-	private static List<Map<String, Object>> buildShardRep(final Scheme table) {	    
+	private static List<Map<String, Object>> buildShardRep(final Scheme table, final NetworkShardIdentifier leader) {
 		final List<Map<String, Object>> ret = new LinkedList<>();
 		final CommittedState.SchemeExtractor extractor = new CommittedState.SchemeExtractor(table.getCommitedState());
 		for (final Shard shard : extractor.getShards()) {
@@ -257,7 +258,8 @@ public class DistroJSONBuilder {
 					shard.getShardID().getId() + " (" + shard.getShardID().getTag() + ")",
 					shard.getFirstTimeSeen(),
 					palletsAtShard, 
-					shard.getState().toString()));
+					shard.getState().toString(),
+					shard.getShardID().equals(leader) ? "leader":"follower"));
 		}
 		return ret;
 	}
@@ -281,9 +283,11 @@ public class DistroJSONBuilder {
 			final String shardId, 
 			final Instant creation, 
 			final List<Map<String, Object>> pallets, 
-			final String status) {
+			final String status, 
+			final String mode) {
 			
 		final Map<String, Object> map = new LinkedHashMap<>(4);
+		map.put("mode", mode);
 		map.put("shard-id", shardId);
 		map.put("creation", creation.toString());
 		map.put("status", status);

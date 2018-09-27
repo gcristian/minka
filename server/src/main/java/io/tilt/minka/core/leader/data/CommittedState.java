@@ -161,10 +161,8 @@ public class CommittedState {
 		} 
 		if ((add && part.add(duty)) || (del && part.remove(duty))) {
 			stealthChange = impact = true; 
-		} else if (event.is(EntityEvent.STOCK)) {
-			impact = part.stock(duty);
-		} else if (event.is(EntityEvent.DROP)) {
-			impact = part.drop(duty);
+		} else if (event.is(EntityEvent.STOCK) && (impact = part.stock(duty))) {
+		} else if (event.is(EntityEvent.DROP) && (impact = part.drop(duty))) {
 		} else {
 			throw new ConsistencyException("Commit failure (" + duty + ") Operation does not apply [" + event + "]");
 		}
@@ -267,10 +265,10 @@ public class CommittedState {
 		}
 		return null;
 	}
-	public Shard findDutyLocation(final String dutyId) {
+	public Shard findDutyLocation(final String qid) {
 		for (final Shard shard : partitionsByShard.keySet()) {
 			for (ShardEntity st : partitionsByShard.get(shard).getDuties()) {
-				if (st.getEntity().getId().equals(dutyId)) {
+				if (st.getQualifiedId().equals(qid)) {
 					return shard;
 				}
 			}

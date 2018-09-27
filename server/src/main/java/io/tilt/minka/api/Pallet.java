@@ -43,7 +43,6 @@ public interface Pallet extends Entity {
 	/** @return the Balancer strategy and metadata to use for the pallet */
 	BalancerMetadata getMetadata();
 	
-
 	/** @return only to be used for balancers making use of a sorting previous to duty rebalance */
 	default Comparator<Duty> getPreSortComparator() {
 		return null;
