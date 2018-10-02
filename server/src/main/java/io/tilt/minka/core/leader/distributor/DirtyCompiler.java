@@ -33,7 +33,6 @@ import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.core.leader.data.CommitRequest;
 import io.tilt.minka.core.leader.data.CommitState;
 import io.tilt.minka.core.leader.data.CommittedState;
 import io.tilt.minka.core.leader.data.DirtyState;

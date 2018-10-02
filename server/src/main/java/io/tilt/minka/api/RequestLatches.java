@@ -48,7 +48,7 @@ public class RequestLatches {
 			} else {
 				latch.await();
 			}			
-			ret = (V) resolutions(k).remove(k);
+			ret = (V) resolutions(k).remove(k);			
 			logger.debug("{}: Resuming latch for: {} ({}) {}", getClass().getSimpleName(), k, 
 					ret==null ? "not found" : "found", ret);
 		} catch (Exception e) {

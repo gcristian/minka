@@ -43,7 +43,7 @@ public abstract class CommitBatch implements Serializable {
 
 	/**
 	 * Internal summary of a single operation done to a number of entities
-	 * thru the Client instance when its shard is not a Leader.
+	 * by the Client instance thru CrudExecutor when its shard is not a Leader.
 	 * Deviated from the follower shard to the leader one. 
 	 */
 	public static class CommitBatchRequest extends CommitBatch {

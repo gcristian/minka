@@ -57,6 +57,8 @@ public enum CommitState {
 	FINISHED(EntityEvent.Type.NONE, 4),
 	/** the duty operation was cancelled */
 	CANCELLED(EntityEvent.Type.NONE, 5),
+	/** the operation was unable to process */
+	REJECTED(EntityEvent.Type.NONE, 6),
 	;
 	
 	private Type type;

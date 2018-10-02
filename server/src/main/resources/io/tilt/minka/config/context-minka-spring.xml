@@ -244,6 +244,7 @@
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderAware" />
         <constructor-arg ref="parkingThreads" />
+        <constructor-arg ref="partition" />
 	</bean>    
 	
     <!-- Integracion con el cliente  -->

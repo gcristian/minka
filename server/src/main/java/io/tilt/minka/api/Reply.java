@@ -25,12 +25,7 @@ import io.tilt.minka.domain.EntityEvent;
  */
 @JsonInclude(Include.NON_NULL)
 public class Reply {
-	
-	private ReplyValue value;
-	private Entity entity;
-	private String message;
-	private Future<CommitState> commitState;
-	
+
 	static enum Timing {
 		// the CRUD request born
 		CLIENT_CREATED_TS,
@@ -43,9 +38,14 @@ public class Reply {
 		// when answer state arrives (CommitState)
 		CLIENT_RECEIVED_STATE_TS,
 	}
-	
+
+	private ReplyValue value;
+	private Entity entity;
+	private String message;
+	private Future<CommitState> commitState;
 	private Map<Timing, Long> times = new HashMap<>(Timing.values().length);
-	
+	private int retries;
+		
 	//serialization
 	public Reply() {}
 	Reply(
@@ -57,6 +57,19 @@ public class Reply {
 		this.entity = entity;
 		this.message = msg;
 		withTiming(Timing.LEADER_REPLY_TS, System.currentTimeMillis());
+	}
+	
+	/** 
+	 * copy internal data from another reply 
+	 * in order to keep current instance reference 
+	 * that's in posession of the Client's caller (user) 
+	 */
+	Reply copyFrom(final Reply r) {
+		value = r.getValue();
+		message = r.getMessage();
+		commitState = r.getState();
+		times = r.getTimes_();
+		return this;
 	}
 	
 	Reply withTiming(final Timing t, final long value) {
@@ -85,6 +98,9 @@ public class Reply {
 		} else {
 			return -1;
 		}
+	}
+	public long getTiming(final Timing t) {
+		return times.get(t);
 	}
 	@JsonIgnore
 	long getTimeElapsedSoFar() {
@@ -125,7 +141,7 @@ public class Reply {
 			throw new IllegalStateException("Current Reply was " + value.toString() + " and lacks of a CommitState");
 		}
 	}
-	void setFuture(Future<CommitState> future) {
+	void setState(Future<CommitState> future) {
 		this.commitState = future;
 	}
 	
@@ -235,6 +251,13 @@ public class Reply {
 	public static Reply sent(boolean sent, final Entity e) {
 		return new Reply(sent ? ReplyValue.SENT_SUCCESS : ReplyValue.SENT_FAILED, e, null);
 	}
+	void addRetry() {
+		retries++;
+	}	
+	public int getRetryCounter() {
+		return retries;
+	}
+
 	
 	
 }
