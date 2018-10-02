@@ -2,6 +2,7 @@ package io.tilt.minka.api;
 
 import static io.tilt.minka.api.ReplyValue.SUCCESS;
 import static io.tilt.minka.api.ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED;
+import static java.lang.String.format;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -25,12 +26,7 @@ import io.tilt.minka.domain.EntityEvent;
  */
 @JsonInclude(Include.NON_NULL)
 public class Reply {
-	
-	private ReplyValue value;
-	private Entity entity;
-	private String message;
-	private Future<CommitState> commitState;
-	
+
 	static enum Timing {
 		// the CRUD request born
 		CLIENT_CREATED_TS,
@@ -43,11 +39,16 @@ public class Reply {
 		// when answer state arrives (CommitState)
 		CLIENT_RECEIVED_STATE_TS,
 	}
-	
+
+	private ReplyValue value;
+	private Entity entity;
+	private String message;
+	private Future<CommitState> commitState;
 	private Map<Timing, Long> times = new HashMap<>(Timing.values().length);
-	
+	private int retries;
+		
 	//serialization
-	public Reply() {}
+	Reply() {}
 	Reply(
 			final ReplyValue value, 
 			final Entity entity, 
@@ -57,6 +58,19 @@ public class Reply {
 		this.entity = entity;
 		this.message = msg;
 		withTiming(Timing.LEADER_REPLY_TS, System.currentTimeMillis());
+	}
+	
+	/** 
+	 * copy internal data from another reply 
+	 * in order to keep current instance reference 
+	 * that's in posession of the Client's caller (user) 
+	 */
+	Reply copyFrom(final Reply r) {
+		value = r.getValue();
+		message = r.getMessage();
+		commitState = r.getState();
+		times = r.getTimes_();
+		return this;
 	}
 	
 	Reply withTiming(final Timing t, final long value) {
@@ -85,6 +99,9 @@ public class Reply {
 		} else {
 			return -1;
 		}
+	}
+	public long getTiming(final Timing t) {
+		return times.get(t);
 	}
 	@JsonIgnore
 	long getTimeElapsedSoFar() {
@@ -125,7 +142,7 @@ public class Reply {
 			throw new IllegalStateException("Current Reply was " + value.toString() + " and lacks of a CommitState");
 		}
 	}
-	void setFuture(Future<CommitState> future) {
+	void setState(Future<CommitState> future) {
 		this.commitState = future;
 	}
 	
@@ -169,13 +186,13 @@ public class Reply {
 	}
 	
 	// serialization
-	public void setValue(final ReplyValue value) {
+	void setValue(final ReplyValue value) {
 		this.value = value;
 	}
-	public void setEntity(final Entity entity) {
+	void setEntity(final Entity entity) {
 		this.entity = entity;
 	}
-	public void setMessage(final String message) {
+	void setMessage(final String message) {
 		this.message = message;
 	}
 	
@@ -187,6 +204,13 @@ public class Reply {
 				.toString();
 	}
 	
+	void addRetry() {
+		retries++;
+	}	
+	int getRetryCounter() {
+		return retries;
+	}
+
 	
 	
 	// ================================= Utility builder methods =================================  
@@ -197,12 +221,11 @@ public class Reply {
 	}
 	
 	public static Reply notFound(Entity entity) {
-		final String msg = String.format("Skipping operation not found in CommittedState: %s", 
-				entity.getId());
+		final String msg = format("Skipping operation not found in CommittedState: %s", entity.getId());
 		return new Reply(ReplyValue.ERROR_ENTITY_NOT_FOUND, entity, msg);
 	}
 	public static Reply success(final Entity e, boolean added) {
-		final String msg = String.format("Operation %s done: %s", added ? "": "already", e.getId());
+		final String msg = format("Operation %s done: %s", added ? "": "already", e.getId());
 		return new Reply(
 				added ? ReplyValue.SUCCESS : ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED, 
                 e, msg);
@@ -210,17 +233,15 @@ public class Reply {
 
 	public static Reply alreadySubmitted(final Duty duty) {
 		return new Reply(ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED, duty,  
-				 String.format("Submited before !: %s", duty));
+				 format("Submited before !: %s", duty));
 	}
 	
 	public static Reply alreadyExists(final Entity entity) {
-		final String msg = String.format("Skipping operation, entity already in CommittedState: %s", 
-				entity.getId());
+		final String msg = format("Skipping operation, entity already in CommittedState: %s", entity.getId());
 		return new Reply(ReplyValue.ERROR_ENTITY_ALREADY_EXISTS, entity, msg);
 	}
-	public static Reply inconsistent(final Duty duty) {
-		final String msg = String.format("Skipping Crud Event %s: Pallet ID :%s set not found or yet created",
-				EntityEvent.CREATE, null, duty.getPalletId());
+	public static Reply inconsistent(final Duty duty, final String reason) {
+		final String msg = format("Skipping Crud Event %s: %s", EntityEvent.CREATE, null, reason);
 		return new Reply(ReplyValue.ERROR_ENTITY_INCONSISTENT, duty, msg);
 	}
 	public static Reply sentAsync(final Entity entity) {
@@ -235,6 +256,5 @@ public class Reply {
 	public static Reply sent(boolean sent, final Entity e) {
 		return new Reply(sent ? ReplyValue.SENT_SUCCESS : ReplyValue.SENT_FAILED, e, null);
 	}
-	
 	
 }

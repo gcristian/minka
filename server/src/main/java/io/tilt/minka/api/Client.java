@@ -48,7 +48,6 @@ public class Client {
 	private final ShardedPartition partition;
 	
 	private EventMapper eventMapper;
-	private long futureMaxWaitMs = RequestLatches.NO_EXPIRATION;
 	
 	protected Client(
 			final CrudExecutor crudExec,
@@ -94,15 +93,15 @@ public class Client {
 	* @return whether or not the operation succeed
 	*/
 	public Future<Reply> add(final Duty duty) {
-		return crudExec.executeSingle(futureMaxWaitMs, singletonList(duty), EntityEvent.CREATE, null);
+		return crudExec.executeSingle(singletonList(duty), EntityEvent.CREATE, null);
 	}
 	
 	public Future<Collection<Reply>> addAll(final Collection<Duty> duty) {
-		return crudExec.execute(futureMaxWaitMs, duty, EntityEvent.CREATE, null); 
+		return crudExec.request(duty, EntityEvent.CREATE, null); 
 	}
 
 	public Future<Reply> add(final Pallet pallet) {
-		return crudExec.executeSingle(futureMaxWaitMs, singletonList(pallet), EntityEvent.CREATE, null);
+		return crudExec.executeSingle(singletonList(pallet), EntityEvent.CREATE, null);
 	}
 
 	/**
@@ -113,18 +112,18 @@ public class Client {
 	* @return whether or not the operation succeed
 	*/
 	public Future<Reply> remove(final Duty duty) {
-		return crudExec.executeSingle(futureMaxWaitMs, singletonList(duty), EntityEvent.REMOVE, null);
+		return crudExec.executeSingle(singletonList(duty), EntityEvent.REMOVE, null);
 	}
 	public Future<Collection<Reply>> removeAll(final Collection<Duty> coll) {
-		return crudExec.execute(futureMaxWaitMs, coll, EntityEvent.REMOVE, null);
+		return crudExec.request(coll, EntityEvent.REMOVE, null);
 	}
 
 	public Future<Reply> remove(final Pallet pallet) {
-		return crudExec.executeSingle(futureMaxWaitMs, singletonList(pallet), EntityEvent.REMOVE, null);
+		return crudExec.executeSingle(singletonList(pallet), EntityEvent.REMOVE, null);
 	}
 	
 	public void setFutureMaxWaitMs(long futureMaxWaitMs) {
-		this.futureMaxWaitMs = futureMaxWaitMs;
+		this.crudExec.setFutureMaxWaitMs(futureMaxWaitMs);
 	}
 	
 	/**

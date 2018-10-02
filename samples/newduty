@@ -23,5 +23,4 @@ CONTEXT="/minka/admin"
 DUTIES="$CONTEXT/crud/duty"
 
 $curl -XPUT -s $(./leader)$DUTIES"/$PID/$ID?weight=$WEIGHT&cl=$CL" #| $jq '.'
-#$wget --method PUT $(./leader)$DUTIES"/$PID/$ID?weight=$WEIGHT&cl=$CL" #| $jq '.'
 

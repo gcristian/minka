@@ -234,6 +234,7 @@ public class LearningState {
 	
 	/** @return pallets taken from replicas (overlapped if any) */
 	public Set<Pallet> collectPallets() {
+		// TODO get the last updated
 		final Set<Pallet> ret = new HashSet<>();
 		for (Set<ShardEntity> set: this.replicas.values()) {
 			for (ShardEntity e: set) {
@@ -244,5 +245,19 @@ public class LearningState {
 		}
 		return ret;
 	}
+	
+	/** @return pallets taken from replicas (overlapped if any) */
+	public ShardEntity getPalletFromReplicas(final String pid) {
+		// TODO get the last updated
+		for (Set<ShardEntity> set: this.replicas.values()) {
+			for (ShardEntity e: set) {
+				if (e.getRelatedEntity()!=null && e.getDuty().getPalletId().equals(pid)) {
+					return e.getRelatedEntity();
+				}
+			}
+		}
+		return null;
+	}
+
 	
 }

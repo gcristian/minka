@@ -1,5 +1,7 @@
 package io.tilt.minka.core.leader.data;
 
+import static java.lang.String.format;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -121,16 +123,22 @@ public class CrudController {
 			logger.warn("{}: reply consumer throwed exception: ", CrudController.class.getSimpleName(), e.getMessage());
 		}
 	}
-		
+	
 	public void saveAllDuties(final Collection<ShardEntity> coll, final Consumer<Reply> callback, final boolean respondState) {
 		final List<ShardEntity> tmp = new ArrayList<>(coll.size());
 		for (final ShardEntity duty: coll) {
 			if (presentInPartition(duty)) {
 				respond(callback, Reply.alreadyExists(duty.getDuty()));
 			} else {
-				final ShardEntity pallet = scheme.getCommitedState().getPalletById(duty.getDuty().getPalletId());
+				final String pid = duty.getDuty().getPalletId();
+				ShardEntity pallet = scheme.getCommitedState().getPalletById(pid);
 				if (pallet==null) {
-					respond(callback, Reply.inconsistent(duty.getDuty()));
+					pallet = scheme.getLearningState().getPalletFromReplicas(pid);
+				}
+				
+				if (pallet==null) {
+					respond(callback, Reply.inconsistent(duty.getDuty(), 
+							format("Pallet ID :%s not found or yet created", pid)));
 				} else {
 					final ShardEntity newone = ShardEntity.Builder
 							.builder(duty.getDuty())
