@@ -83,7 +83,9 @@ class CrudExecutor {
 	private final LeaderAware leaderAware;
 	private final RequestLatches requestLatches;
 	private final ShardedPartition partition;
-	
+
+	private long maxWaitMs = RequestLatches.NO_EXPIRATION;
+
 	private final ExecutorService executor = Executors.newCachedThreadPool(
 			new ThreadFactoryBuilder()
 				.setNameFormat(SchedulerSettings.PNAME + "CL")
@@ -106,6 +108,10 @@ class CrudExecutor {
 		this.leaderAware = leaderAware;
 		this.requestLatches = requestLatches;
 		this.partition = partition;
+	}
+
+	void setFutureMaxWaitMs(long futureMaxWaitMs) {
+		this.maxWaitMs = futureMaxWaitMs;
 	}
 
 	/** flags the request so the leader knows it must not respond a reply or state back */
@@ -141,40 +147,36 @@ class CrudExecutor {
 		return replies;
 	}
 
-	Future<Collection<Reply>> execute(
-			final long futureMaxWaitMs,
+	Future<Collection<Reply>> request(
 			final Collection<? extends Entity> raws, 
 			final EntityEvent event, 
 			final EntityPayload userPayload) {
 		
 		Validate.notNull(raws, "an entity is required");
-		return executor.submit(() -> resolve(raws, event, userPayload, futureMaxWaitMs));
+		return executor.submit(() -> resolve(raws, event, userPayload));
 	}
 
 	Future<Reply> executeSingle(
-			final long maxWaitMs,
 			final Collection<? extends Entity> raws, 
 			final EntityEvent event, 
 			final EntityPayload payload) {
 		
 		Validate.notNull(raws, "an entity is required");
-		return executor.submit(() -> resolve(raws, event, payload, maxWaitMs).iterator().next());
+		return executor.submit(() -> resolve(raws, event, payload).iterator().next());
 	}
 
 	private Collection<Reply> resolve(
 			final Collection<? extends Entity> raws, 
 			final EntityEvent event, 
-			final EntityPayload userPayload,
-			final long maxWaitMs) {
+			final EntityPayload userPayload) {
 		final long start = System.currentTimeMillis();
 		final Set<Reply> replies = new HashSet<>(raws.size());
-		forwardLeader(event, maxWaitMs, start, replies, toEntities(raws, event, userPayload));
+		forwardLeader(event, start, replies, toEntities(raws, event, userPayload));
 		return replies;
 	}
 
 	private void forwardLeader(
 			final EntityEvent event, 
-			final long maxWaitMs, 
 			final long start, 
 			final Set<Reply> source, 
 			final List<ShardEntity> entities) {
@@ -188,10 +190,10 @@ class CrudExecutor {
 				}, true);
 				timeReceived(source);
 			} else {
-				requestBatch(entities, maxWaitMs).mergeOnSource(source);
+				requestBatch(entities).mergeOnSource(source);
 			}
 			if (futurable) {
-				buildFutures(source, maxWaitMs, event);
+				assignFutures(source, event);
 			}
 		} catch (Exception e) {
 			logger.error("Cannot mediate to leaderBootstrap", e);
@@ -199,11 +201,13 @@ class CrudExecutor {
 		}
 	}
 	
-	public static class CommitBatchRequestResponse {
+	static class CommitBatchRequestResponse {
+		
 		private final CommitBatchResponse response;
 		private final boolean sent;
 		private final CommitBatchRequest request;
-		public CommitBatchRequestResponse(
+		
+		CommitBatchRequestResponse(
 				final CommitBatchRequest request, 
 				final CommitBatchResponse response, 
 				final boolean sent) {
@@ -212,13 +216,13 @@ class CrudExecutor {
 			this.response = response;
 			this.sent = sent;
 		}
-		public boolean isSent() {
+		boolean isSent() {
 			return sent;
 		}
-		public CommitBatchResponse getResponse() {
+		CommitBatchResponse getResponse() {
 			return response;
 		}
-		public CommitBatchRequest getRequest() {
+		CommitBatchRequest getRequest() {
 			return request;
 		}
 		/** identify leader: send and wait for response  */
@@ -264,7 +268,7 @@ class CrudExecutor {
 		}
 	}
 
-	private CommitBatchRequestResponse requestBatch(final List<ShardEntity> entities, final long maxWaitMs) {
+	private CommitBatchRequestResponse requestBatch(final List<ShardEntity> entities) {
 		long sentTs = 0;
 		final CommitBatchRequest request = new CommitBatchRequest(entities, true);		
 		CommitBatchResponse response = null;
@@ -305,7 +309,7 @@ class CrudExecutor {
 	/** links the reply with a Future knowing the system's commit-state of a Duty  
 	 * @param event */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private void buildFutures(final Collection<Reply> replies, final long maxWaitMs, final EntityEvent event) { 
+	private void assignFutures(final Collection<Reply> replies, final EntityEvent event) {
 		final NetworkShardIdentifier prevLeader = leaderAware.getLeaderShardId();
 		for (final Reply reply: replies) {
 			// only successful replies
@@ -314,19 +318,19 @@ class CrudExecutor {
 					if (reply.getRetryCounter() == 0) {
 						reply.setState((Future)executor.submit(
 							new FutureTask<CommitState>(()-> 
-								waitOrRetry(maxWaitMs, event, prevLeader, reply)
+								waitOrRetry(event, prevLeader, reply)
 							)));
 					} else {
 						// Retry: we're already in a blocking future
 						// replies is a collection of 1 object so we can block
 						reply.setState(CompletableFuture.completedFuture(
-								waitOrRetry(maxWaitMs, event, prevLeader, reply)));
+								waitOrRetry(event, prevLeader, reply)));
 					}
 				} catch (Exception e) {
 					logger.error("{}: Unexpected linking promise for {}", getClass().getSimpleName(), reply, e);
 				}
 			} else {
-				logger.warn("{}: Reply without promise ({}): {}", getClass().getSimpleName(), 
+				logger.warn("{}: Reply failure ({}): {}", getClass().getSimpleName(), 
 						reply, reply.getEntity().getId());
 			}
 		}
@@ -335,7 +339,6 @@ class CrudExecutor {
 	/** block and sleep until leader response or retry while quota 
 	 * @throws InterruptedException */
 	private CommitState waitOrRetry(
-			final long maxWaitMs, 
 			final EntityEvent event, 
 			final NetworkShardIdentifier prevLeader, 
 			final Reply reply) throws InterruptedException {
@@ -350,7 +353,7 @@ class CrudExecutor {
 					Thread.sleep(RETRY_SLEEP);
 					logger.warn("{}: Retrying after leader reelection, duty: {}", 
 							getClass().getSimpleName(), reply.getEntity());
-					forwardLeader(event, maxWaitMs, 
+					forwardLeader(event, 
 							reply.getTiming(Reply.Timing.CLIENT_CREATED_TS), 
 							Collections.singleton(reply), 
 							toEntities(
@@ -442,5 +445,6 @@ class CrudExecutor {
 		}
 		return tmp;
 	}
+
 
 }
