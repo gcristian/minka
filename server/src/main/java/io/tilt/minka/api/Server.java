@@ -5,17 +5,9 @@ import static io.tilt.minka.api.config.SchedulerSettings.THREAD_NAME_WEBSERVER_W
 
 import java.io.File;
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.net.URI;
 import java.util.Iterator;
-import java.util.Map;
-import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
 import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.grizzly.http.server.NetworkListener;
@@ -33,7 +25,6 @@ import io.tilt.minka.api.config.BrokerConfiguration;
 import io.tilt.minka.domain.AwaitingDelegate;
 import io.tilt.minka.domain.ConsumerDelegate;
 import io.tilt.minka.domain.DependencyPlaceholder;
-import io.tilt.minka.shard.TCPShardIdentifier;
 import io.tilt.minka.utils.LogUtils;
 
 /**
@@ -58,9 +49,6 @@ public class Server {
 	protected static final Logger logger = LoggerFactory.getLogger(Server.class);
 	private final String name = getClass().getSimpleName();
 	
-	/* to enable many minka shards on the same JVM */
-	private static final Map<String, Tenant> tenants = new ConcurrentHashMap<>();
-	private static Lock lock = new ReentrantLock();
 	
 	/* current holder's tenant, and one for each instance held by applications */
 	private Tenant tenant;
@@ -73,9 +61,8 @@ public class Server {
 	 * @throws Exception when given file is invalid
 	 * */
 	public Server(final File jsonFormatConfig) throws Exception {
-		Validate.notNull(jsonFormatConfig);
-		Config config = Config.fromJsonFile(jsonFormatConfig);
-		init(config);
+		//Validate.notNull(jsonFormatConfig);
+		this(Config.fromJsonFile(jsonFormatConfig));
 	}
 	/**
 	 * Create a Minka server. All mandatory events must be mapped to consumers/suppliers. 
@@ -148,10 +135,9 @@ public class Server {
 		config.getBootstrap().validate();
 		config.getBroker().validate();
 		
-		createTenant(config);
+		tenant = new Tenant(config);
 		logger.info("{}: Initializing context for namespace: {}", name, config.getBootstrap().getNamespace());
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> destroy(false)));
-		tenant.setConfig(config);
 		final ClassPathXmlApplicationContext ctx = new ClassPathXmlApplicationContext(new String[] { CONTEXT_PATH }, false);
 		tenant.setContext(ctx);
 		ctx.addBeanFactoryPostProcessor(beanFactory-> beanFactory.registerSingleton("config", config));
@@ -164,111 +150,33 @@ public class Server {
 		//logger.info("{}: Using configuration: {}", name, config.toString());
 		ctx.setId(namespace);
 		mapper = new EventMapper(tenant);
-		startContext(config);
+		startContext(tenant);
 	}
 	
-	
-	private void createTenant(final Config config) {
-		try {
-			lock.tryLock(500l, TimeUnit.MILLISECONDS);
-		} catch (InterruptedException e) {
-			throw new IllegalThreadStateException("Other Server instances are being created concurrently (lock wait exhausted)");
-		}
-		final String namespace = config.getBootstrap().getNamespace();
-		RuntimeException runtime = null;
-		try {
-			// namespace cannot be default or preexistent if ZK's chroot is not set
-			final boolean chrootUsed = config.getBootstrap().getZookeeperHostPort().indexOf('/') > 0;
-			final boolean duplicateName = tenants.containsKey(namespace);
-			final boolean vmLimitAware = config.getBootstrap().isDropVMLimit();
-			if (!chrootUsed && duplicateName && !vmLimitAware) {
-				runtime = exceptionSameName(namespace);
-			} else {
-				if (!vmLimitAware) {
-					if (!duplicateName) {
-						final long maxTenants = config.getBootstrap().getMaxServicesPerMachine();
-						if (tenants.size()>maxTenants) {
-							runtime = exceptionMaxTenants();
-						}
-					} else {
-						runtime = exceptionMaxTenantsSameVM();
-					}
-				}
-			}
-			for (Tenant t: tenants.values()) {
-				logger.warn("Other tenant within the VM on the namespace: {} on broker hostport: {}", 
-						t.getConfig().getBootstrap().getNamespace(), t.getConfig().getBroker().getHostPort());
-			}
-			if (duplicateName && !vmLimitAware) {
-				// client should not depend on it anyway
-				final String newName = namespace + "_" + new Random(System.currentTimeMillis()).nextInt(999999);
-				logger.warn("{}: Overwritting service name: {} to avoid colission with other servers within the same JVM", 
-						name, newName);
-				config.getBootstrap().setNamespace(newName);
-			}
-			if (runtime == null) {
-				tenants.put(config.getBootstrap().getNamespace(), tenant = new Tenant());
-			}
-		} finally {
-			lock.unlock();
-		}
-		if (runtime != null) {
-			throw runtime;
-		}
-	}
-	private IllegalArgumentException exceptionMaxTenantsSameVM() {
-		return new IllegalArgumentException(new StringBuilder()
-				.append(tenant.getConnectReference())
-				.append(": There're ")
-				.append(tenants.size())
-				.append(" server/s already")
-				.append(" in this VM with the same service-name: set a different one")
-				.toString());
-	}
-	private IllegalStateException exceptionMaxTenants() {
-		return new IllegalStateException(new StringBuilder()
-				.append(tenant.getConnectReference())
-				.append(": There's been created ")
-				.append(tenants.size()) 
-				.append(" server/s already in this VM. If you indeed want that many: ")
-				.append(" increase bootstrap's MAX_SERVICES_PER_MACHINE default value")
-				.toString());
-	}
-	private IllegalArgumentException exceptionSameName(final String namespace) {
-		return new IllegalArgumentException(new StringBuilder()
-					.append(tenant.getConnectReference())
-					.append(" a service on the namespace: ")
-					.append(namespace)
-					.append(" already exists!")
-					.toString());
-	}
 	   
-	private void startContext(final Config config) {
-		if (!tenant.getContext().isActive()) {
-			tenant.getContext().refresh();
-			if (tenant.getConfig().getBootstrap().isEnableWebserver()) {
-				startWebserver();
-				logger.info(LogUtils.getGreetings(
-						config.getBootstrap().getZookeeperHostPort(),
-						config.getResolvedShardId(), 
-						config.getBootstrap().getNamespace(), 
-						config.getBootstrap().getWebServerHostPort()));
+	private void startContext(final Tenant t) {
+		t.getContext().refresh();
+		if (t.getConfig().getBootstrap().isEnableWebserver()) {
+			startWebserver(t);
+			logger.info(LogUtils.getGreetings(
+					t.getConfig().getBootstrap().getZookeeperHostPort(),
+					t.getConfig().getResolvedShardId(), 
+					t.getConfig().getBootstrap().getNamespace(), 
+					t.getConfig().getBootstrap().getWebServerHostPort()));
 
-			} else {
-				logger.info("{}: {} Webserver disabled by configuration. Enable for a fully functional shard", name,
-						tenant.getConnectReference());
-			}
 		} else {
-			logger.error("{}: {} Can only load Minka once !", name);
+			logger.info("{}: {} Webserver disabled by configuration. Enable for a fully functional shard", name,
+					t.getConnectReference());
 		}
 	}
 
-	private void startWebserver() {
+	private void startWebserver(final Tenant t) {
 		final ResourceConfig res = new ResourceConfig(AdminEndpoint.class);
 		
-		res.property("contextConfig", tenant.getContext());
-		final URI uri = resolveWebServerBindAddress(tenant.getConfig());
+		res.property("contextConfig", t.getContext());
+		final URI uri = resolveWebServerBindAddress(t.getConfig());
 		final HttpServer webServer = GrizzlyHttpServerFactory.createHttpServer(uri, res, false);
+		t.setWebServer(webServer);
 		final ThreadPoolConfig config = ThreadPoolConfig.defaultConfig()
 				.setCorePoolSize(10)
 				.setMaxPoolSize(10);
@@ -276,7 +184,7 @@ public class Server {
 		final Iterator<NetworkListener> it = webServer.getListeners().iterator();
 		while (it.hasNext()) {
 			final NetworkListener listener = it.next();
-			logger.info("{}: {} Configuring webserver listener {}", name, tenant.getConnectReference(), listener);
+			logger.info("{}: {} Configuring webserver listener {}", name, t.getConnectReference(), listener);
 			final TCPNIOTransport transport = listener.getTransport();
 			transport.setSelectorRunnersCount(1);
 			transport.setWorkerThreadPoolConfig(config.copy().setPoolName(THREAD_NAME_WEBSERVER_WORKER));
@@ -285,12 +193,10 @@ public class Server {
 			// as an instance private field which sizes the kernel pool to 10, unmodifiable.
 		}
 		
-        // TODO disable ssl etc
-		tenants.get(tenant.getConfig().getBootstrap().getNamespace()).setWebServer(webServer);
 		try {
 			webServer.start();
 		} catch (IOException e) {
-			logger.info("{}: {} Unable to start web server", name, tenant.getConnectReference(), e);
+			logger.info("{}: {} Unable to start web server", name, t.getConnectReference(), e);
 		}
     }
 
@@ -327,51 +233,14 @@ public class Server {
 	}
 	
 	protected synchronized void destroy(final boolean wait) {
-		if (tenant != null && tenant.getContext()!=null && tenant.getContext().isActive()) {
-			try {
-				tenant.getContext().close();	
-			} catch (Exception e) {
-				logger.error("{}: {} Unexpected while destroying context at client call", 
-						name, tenant.getConnectReference(), e.getMessage());
-			}
-			if (tenant.getConfig().getBootstrap().isEnableWebserver() && tenant.getWebServer()!=null) {
-				try {
-					tenant.getWebServer().shutdown();
-				} catch (Exception e) {
-					logger.error("{}: {} Unexpected while stopping server at client call", 
-							name, tenant.getConnectReference(), e.getMessage());
-				}
-			}
-			tenants.remove(tenant.getConfig().getBootstrap().getNamespace());
-			if (wait && !holdUntilDisconnect()) {
-				logger.error("{}: {} Couldnt wait for finalization of resources (may still remain open)", 
-						name, tenant.getConnectReference());
-			}
+		if (tenant != null) {
+			tenant.destroy(wait);
 			tenant = null;
 		}
 	}
 	
-	/** 
-	 * sleep and block current thread 3 times with 1s delay until broker's host-port is available again
-	 * in order to properly enable further tenant systems to initiate with a clean environment  
-	 */
-	private boolean holdUntilDisconnect() {
-		final Config c = tenant.getConfig();
-		final String[] parts = c.getBroker().getHostPort().split(":");
-		for(int retry = 0; retry < 3; retry++) {
-			try (ServerSocket tmp = new ServerSocket(Integer.parseInt(parts[1]))) {
-				return true;
-			} catch (IOException ioe) {
-				try {
-					Thread.sleep(c.beatToMs(c.getBootstrap().getResourceReleaseWait()));
-				} catch (InterruptedException e) {
-				}
-			}
-		}
-		return false;
-	}
-	
 	private DependencyPlaceholder getDepPlaceholder() {
+		checkInit();
 		return tenant.getContext().getBean(DependencyPlaceholder.class);
 	}
 
@@ -383,7 +252,6 @@ public class Server {
 	 */
 	public void setDelegate(final ConsumerDelegate delegate) {
 		Validate.notNull(delegate);
-		checkInit();		
 		final DependencyPlaceholder holder = getDepPlaceholder();
 		Validate.isTrue(holder==null || (holder.getDelegate() instanceof AwaitingDelegate), 
 				"You're overwriting previous delegate or event's consumer: " + delegate.getClass().getSimpleName());
@@ -398,7 +266,6 @@ public class Server {
 	 */
 	public void setMaster(final PartitionMaster master) {
 		Validate.notNull(master);
-		checkInit();		
 		final DependencyPlaceholder holder = getDepPlaceholder();
 		Validate.isTrue(holder==null || (holder.getMaster() instanceof AwaitingDelegate), 
 				"You're overwriting previous delegate or event's consumer: " + master.getClass().getSimpleName());
@@ -439,50 +306,5 @@ public class Server {
 	}
 	public void shutdown() {
 		shutdown(true);
-	}
-	
-
-	/**
-	 * A way to permit several Server instances running within the same VM
-	 */
-	protected static class Tenant {
-		private HttpServer webServer;
-		private String connectReference;
-		private ClassPathXmlApplicationContext context;
-		private Config config;
-		private Tenant() {}
-		public HttpServer getWebServer() {
-			return this.webServer;
-		}
-		public void setWebServer(HttpServer webServer) {
-			this.webServer = webServer;
-		}
-		public void setConnectReference(String connectReference) {
-			this.connectReference = connectReference;
-		}
-		public String getConnectReference() {
-			String ret = StringUtils.EMPTY;
-			if (StringUtils.isEmpty(connectReference)) {
-				if (getContext()!=null 
-						&& getContext().isActive()) {
-					ret = connectReference = getContext().getBean(TCPShardIdentifier.class).getConnectString();
-				}
-			} else {
-				ret = connectReference;
-			}
-			return ret;
-		}
-		public ClassPathXmlApplicationContext getContext() {
-			return this.context;
-		}
-		public void setContext(ClassPathXmlApplicationContext context) {
-			this.context = context;
-		}
-		public Config getConfig() {
-			return this.config;
-		}
-		public void setConfig(Config config) {
-			this.config = config;
-		}
 	}
 }
