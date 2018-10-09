@@ -3,7 +3,7 @@
 # ----------------- Dependencies -----------------------
 
 jps=$(which jps); grep=$(which grep); cut=$(which cut)
-curl=$(which curl); awk=$(which awk); lsof=$(which lsof)
+curl=$(which curl); awk=$(which awk); lsof=$(which lsof); wget=$(which wget)
 jq=$(which jq); tr=$(which tr)
 
 # ------------------------------------------------------
@@ -23,4 +23,5 @@ CONTEXT="/minka/admin"
 DUTIES="$CONTEXT/crud/duty"
 
 $curl -XPUT -s $(./leader)$DUTIES"/$PID/$ID?weight=$WEIGHT&cl=$CL" #| $jq '.'
+#$wget --method PUT $(./leader)$DUTIES"/$PID/$ID?weight=$WEIGHT&cl=$CL" #| $jq '.'
 

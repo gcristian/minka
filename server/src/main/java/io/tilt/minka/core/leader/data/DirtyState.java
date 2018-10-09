@@ -1,5 +1,7 @@
 package io.tilt.minka.core.leader.data;
 
+import static java.util.Collections.synchronizedMap;
+
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
@@ -33,11 +35,11 @@ public class DirtyState {
 
 	private static final Logger logger = LoggerFactory.getLogger(DirtyState.class);
 
-	private final Map<EntityEvent, Map<Duty, CommitRequest>> commitRequests = new HashMap() {{
-		put(EntityEvent.ATTACH, new HashMap<>());
-		put(EntityEvent.CREATE, new HashMap<>());
-		put(EntityEvent.REMOVE, new HashMap<>());
-	}};
+	private final Map<EntityEvent, Map<Duty, CommitRequest>> commitRequests = synchronizedMap(new HashMap() {{
+		put(EntityEvent.ATTACH, synchronizedMap(new HashMap<>()));
+		put(EntityEvent.CREATE, synchronizedMap(new HashMap<>()));
+		put(EntityEvent.REMOVE, synchronizedMap(new HashMap<>()));
+	}});
 	// creations and removes willing to be attached or detached to/from shards.
 	private final Map<Pallet, ShardEntity> palletCrud;
 	// absences in shards's reports
@@ -51,13 +53,11 @@ public class DirtyState {
 	private boolean stealthChange;
 	private boolean snap = false;
 	private Instant lastStealthChange;
-	private final CommittedState committedState;
 	
-	public DirtyState(final CommittedState cs) {
-		this.palletCrud = new HashMap<>();
-		this.dutyMissings = new HashMap<>();
-		this.dutyDangling = new HashMap<>();
-		this.committedState = cs;
+	public DirtyState() {
+		this.palletCrud = synchronizedMap(new HashMap<>());
+		this.dutyMissings = synchronizedMap(new HashMap<>());
+		this.dutyDangling = synchronizedMap(new HashMap<>());
 	}
 
 	/** @return a frozen state of stage, so message-events threads 
@@ -65,7 +65,7 @@ public class DirtyState {
 	public synchronized DirtyState snapshot() {
 		checkNotOnSnap();
 		if (snapshot==null) {
-			final DirtyState tmp = new DirtyState(committedState);
+			final DirtyState tmp = new DirtyState();
 			// copy CRs to a new structure
 			for (Map.Entry<EntityEvent, Map<Duty, CommitRequest>> e: commitRequests.entrySet()) {
 				tmp.commitRequests.put(e.getKey(), new HashMap<>(e.getValue()));

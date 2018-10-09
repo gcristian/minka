@@ -221,7 +221,7 @@ public class Reply {
 	}
 	
 	public static Reply notFound(Entity entity) {
-		final String msg = format("Skipping operation not found in CommittedState: %s", entity.getId());
+		final String msg = format("Skipping operation not found in CommittedState: %s", entity.toString());
 		return new Reply(ReplyValue.ERROR_ENTITY_NOT_FOUND, entity, msg);
 	}
 	public static Reply success(final Entity e, boolean added) {

@@ -134,7 +134,7 @@ public class SocketClient {
 			return false;
 		} else {
 			long elapsed = System.currentTimeMillis() - lastUsage;
-			if (elapsed > this.clientExpiration) {
+			if (elapsed > 5000) { // this.clientExpiration) {
 				logger.warn("{}: ({}) expired ! {} old (for max is: {})", classname, loggingName,
 						elapsed, this.clientExpiration);
 				return true;

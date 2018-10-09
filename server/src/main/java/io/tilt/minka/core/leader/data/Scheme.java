@@ -94,7 +94,7 @@ public class Scheme {
 		this.visibilityHealth = ClusterHealth.STABLE;
 		this.distributionHealth = ClusterHealth.STABLE;
 		this.committedState = new CommittedState();
-		this.dirtyState = new DirtyState(committedState);
+		this.dirtyState = new DirtyState();
 		this.vault = new Vault();
 	}
 	

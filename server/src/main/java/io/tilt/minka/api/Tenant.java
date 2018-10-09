@@ -33,6 +33,37 @@ class Tenant {
 	private ClassPathXmlApplicationContext context;
 	private Config config;
 	
+	public Tenant(final Config config) {
+		this.config = config;
+		try {
+			lock.tryLock(500l, TimeUnit.MILLISECONDS);
+		} catch (InterruptedException e) {
+			throw new IllegalThreadStateException("Other Server instances are being created concurrently (lock wait exhausted)");
+		}
+		
+		final RuntimeException e;
+		try {			
+			e = validate();
+			if (e!=null) {
+				for (Tenant t: tenants.values()) {
+					Server.logger.warn("Other tenant within the VM on the namespace: {} on broker hostport: {}", 
+							t.getConfig().getBootstrap().getNamespace(), t.getConfig().getBroker().getHostPort());
+				}
+				// client should not depend on it anyway
+				final String newName = config.getBootstrap().getNamespace() + "_" + new Random(System.currentTimeMillis()).nextInt(999999);
+				Server.logger.warn("{}: Overwritting service name: {} to avoid colission with other servers within the same JVM", 
+						Tenant.class.getSimpleName(), newName);
+				config.getBootstrap().setNamespace(newName);			
+				tenants.put(config.getBootstrap().getNamespace(), this);
+			}
+		} finally {
+			lock.unlock();
+		}
+		if (e!=null) {
+			throw e;
+		}
+	}
+	
 	public HttpServer getWebServer() {
 		return this.webServer;
 	}
@@ -67,74 +98,47 @@ class Tenant {
 		this.config = config;
 	}
 	
-	public Tenant(final Config config) {
-		try {
-			lock.tryLock(500l, TimeUnit.MILLISECONDS);
-		} catch (InterruptedException e) {
-			throw new IllegalThreadStateException("Other Server instances are being created concurrently (lock wait exhausted)");
-		}
+	private RuntimeException validate() {
 		final String namespace = config.getBootstrap().getNamespace();
-		RuntimeException runtime = null;
-		try {
-			// namespace cannot be default or preexistent if ZK's chroot is not set
-			final boolean chrootUsed = config.getBootstrap().getZookeeperHostPort().indexOf('/') > 0;
-			final boolean duplicateName = tenants.containsKey(namespace);
-			final boolean vmLimitAware = config.getBootstrap().isDropVMLimit();
-			if (!chrootUsed && duplicateName && !vmLimitAware) {
-				runtime = exceptionSameName(namespace, null);
-			} else {
-				if (!vmLimitAware) {
-					if (!duplicateName) {
-						final long maxTenants = config.getBootstrap().getMaxServicesPerMachine();
-						if (tenants.size()>maxTenants) {
-							runtime = exceptionMaxTenants(null);
-						}
-					} else {
-						runtime = exceptionMaxTenantsSameVM(null);
+		// namespace cannot be default or preexistent if ZK's chroot is not set
+		final boolean chrootUsed = config.getBootstrap().getZookeeperHostPort().indexOf('/') > 0;
+		final boolean duplicateName = tenants.containsKey(namespace);
+		final boolean vmLimitAware = config.getBootstrap().isDropVMLimit();
+		if (!chrootUsed && duplicateName && !vmLimitAware) {
+			return exceptionSameName(namespace, null);
+		} else {
+			if (!vmLimitAware) {
+				if (!duplicateName) {
+					final long maxTenants = config.getBootstrap().getMaxServicesPerMachine();
+					if (tenants.size()>maxTenants) {
+						return exceptionMaxTenants(null);
 					}
+				} else {
+					return exceptionMaxTenantsSameVM(null);
 				}
 			}
-			for (Tenant t: tenants.values()) {
-				Server.logger.warn("Other tenant within the VM on the namespace: {} on broker hostport: {}", 
-						t.getConfig().getBootstrap().getNamespace(), t.getConfig().getBroker().getHostPort());
-			}
-			if (duplicateName && !vmLimitAware) {
-				// client should not depend on it anyway
-				final String newName = namespace + "_" + new Random(System.currentTimeMillis()).nextInt(999999);
-				Server.logger.warn("{}: Overwritting service name: {} to avoid colission with other servers within the same JVM", 
-						Tenant.class.getSimpleName(), newName);
-				config.getBootstrap().setNamespace(newName);
-			}
-			if (runtime == null) {
-				this.config = config;
-				tenants.put(config.getBootstrap().getNamespace(), this);
-			}
-		} finally {
-			lock.unlock();
 		}
-		if (runtime != null) {
-			throw runtime;
-		}
+		return null;
 	}
 	
 	protected synchronized void destroy(final boolean wait) {
-		if (getContext()!=null && getContext().isActive()) {
+		if (context!=null && context.isActive()) {
 			try {
-				getContext().close();	
+				context.close();	
 			} catch (Exception e) {
 				logger.error("{}: {} Unexpected while destroying context at client call", 
 						getClass().getSimpleName(), getConnectReference(), e.getMessage());
 			}
-			if (getConfig().getBootstrap().isEnableWebserver() && getWebServer()!=null) {
+			if (config.getBootstrap().isEnableWebserver() && getWebServer()!=null) {
 				try {
-					getWebServer().shutdown();
+					webServer.shutdown();
 				} catch (Exception e) {
 					logger.error("{}: {} Unexpected while stopping server at client call", 
 							getClass().getSimpleName(), getConnectReference(), e.getMessage());
 				}
 			}
-			tenants.remove(getConfig().getBootstrap().getNamespace());
-			if (wait && !holdUntilDisconnect()) {
+			tenants.remove(config.getBootstrap().getNamespace());
+			if (wait && !blockToDisconnect()) {
 				logger.error("{}: {} Couldnt wait for finalization of resources (may still remain open)", 
 						getClass().getSimpleName(), getConnectReference());
 			}
@@ -145,15 +149,14 @@ class Tenant {
 	 * sleep and block current thread 3 times with 1s delay until broker's host-port is available again
 	 * in order to properly enable further tenant systems to initiate with a clean environment  
 	 */
-	private boolean holdUntilDisconnect() {
-		final Config c = getConfig();
-		final String[] parts = c.getBroker().getHostPort().split(":");
+	private boolean blockToDisconnect() {
+		final String[] parts = config.getBroker().getHostPort().split(":");
 		for(int retry = 0; retry < 3; retry++) {
 			try (ServerSocket tmp = new ServerSocket(Integer.parseInt(parts[1]))) {
 				return true;
 			} catch (IOException ioe) {
 				try {
-					Thread.sleep(c.beatToMs(c.getBootstrap().getResourceReleaseWait()));
+					Thread.sleep(config.beatToMs(config.getBootstrap().getResourceReleaseWait()));
 				} catch (InterruptedException e) {
 				}
 			}

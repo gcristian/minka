@@ -1,7 +1,25 @@
 #!/bin/bash
 [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] && \
 	echo "Usage: ./newbatt {pallet-id} {duty-initial-id} {duty-final-id} [consistency-level]" && exit 1
-for i in $(seq $2 $3); do 
-	./newduty $1 $1$i 99$i $4 | jq . -s | jq .
-#jq '."reply:\(.value), msg:\(.message), replied-ms: \(.repliedMs), distributed-ms:\(.distributedMs)"'
+x=""
+echo "building..."
+
+curl=$(which curl)
+leader=$(./leader)
+CONTEXT="/minka/admin"
+DUTIES="$CONTEXT/crud/duty"
+
+PID="$1"
+ID="$2"
+WEIGHT="$3"
+CL="$4"
+
+x=""
+dir=$(date +"%s")
+mkdir -p $dir
+for did in $(seq $2 $3); do 
+	x="$x $curl -XPUT -s \"$leader$DUTIES/$PID/$PID$did?weight=$WEIGHT&cl=$CL\" -o $dir/$did &"
 done
+
+echo "requesting...$dir"
+eval $x

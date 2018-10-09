@@ -25,13 +25,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
@@ -70,9 +68,7 @@ class CrudExecutor {
 	private static final Logger logger = LoggerFactory.getLogger(CrudExecutor.class);
 
 	private static final int MAX_REELECTION_TOLERANCE = 10;
-
 	private static final int MAX_RETRIES = 3;
-
 	private static final long RETRY_SLEEP = 1000;
 
 	private final Config config;

@@ -31,9 +31,9 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Pallet;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.balancer.Balancer;
+import io.tilt.minka.core.leader.data.CrudController;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.Scheme.ClusterHealth;
-import io.tilt.minka.core.leader.data.CrudController;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -91,7 +91,7 @@ public class Distributor implements Service {
 				.create(Action.DISTRIBUTOR, 
 						PriorityLock.MEDIUM_BLOCKING, 
 						Frequency.PERIODIC, 
-						() -> distribute())
+						this::distribute)
 				.delayed(config.beatToMs(config.getDistributor().getStartDelay()))
 				.every(config.beatToMs(config.getDistributor().getPhaseFrequency()))
 				.build();

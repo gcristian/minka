@@ -170,9 +170,7 @@ public class FollowerBootstrap implements Service {
 			lost = lastClearanceDate.plusMillis(maxAbsenceMs).isBefore(now);
 			delta = now.getMillis() - lastClearanceDate.getMillis();
 			if (lost && !partition.getDuties().isEmpty()) {
-				logger.error("{}: ({}) Executing Clearance policy, last: {} too old (Max: {}, Past: {} msecs)",
-					getClass().getSimpleName(), config.getLoggingShardId(),
-					clear != null ? clear.getCreation() : "null", maxAbsenceMs, delta);
+				log(clear, delta, maxAbsenceMs);
 				leaderEventsHandler.getPartitionManager().releaseAllOnPolicies();
 			} else if (!lost && logger.isDebugEnabled()) {
 				logger.debug("{}: ({}) Clearence certified #{} from LeaderBootstrap: {}", classname,
@@ -182,12 +180,18 @@ public class FollowerBootstrap implements Service {
 		return !lost;
 	}
 
+	private void log(final Clearance clear, long delta, int maxAbsenceMs) {
+		logger.error("{}: ({}) Executing Clearance policy, last: {} too old (Max: {}, Past: {} msecs)",
+			getClass().getSimpleName(), config.getLoggingShardId(),
+			clear != null ? clear.getCreation() : "null", maxAbsenceMs, delta);
+	}
+
 	/** @return give an aditional breath when leader has recently changed */
 	private int eventualMultiplier() {
 		int breath = 1;
 		final Instant leaderChanged = leaderAware.getLastLeaderChange();
 		if (leaderChanged!=null && leaderChanged.isAfter(Instant.now().minusMillis(2000l))) {
-			breath = 2;
+			breath = 4;
 		}
 		return breath;
 	}
