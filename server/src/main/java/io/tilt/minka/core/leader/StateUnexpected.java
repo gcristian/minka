@@ -28,9 +28,9 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.domain.CommitTree.Log;
+import io.tilt.minka.model.Duty;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;

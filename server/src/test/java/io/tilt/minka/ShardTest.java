@@ -31,9 +31,9 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
 
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.core.leader.balancer.Spot;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.SpotCapacityComparer;
 import io.tilt.minka.shard.SpotDateComparer;

@@ -2,10 +2,10 @@ package io.tilt.minka.core.leader.balancer;
 
 import java.util.Comparator;
 
-import io.tilt.minka.api.Duty;
 import io.tilt.minka.domain.EntityDateComparer;
 import io.tilt.minka.domain.EntityHashComparer;
 import io.tilt.minka.domain.EntityWeightComparer;
+import io.tilt.minka.model.Duty;
 
 public enum PreSort {
 	/**

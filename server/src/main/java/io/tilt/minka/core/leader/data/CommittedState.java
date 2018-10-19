@@ -14,13 +14,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.ConsistencyException;
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.ConcurrentDutyException;
 import io.tilt.minka.core.leader.StateSentry;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardCapacity;

@@ -15,11 +15,11 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Entity;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.StateSentry;
 import io.tilt.minka.domain.CommitTree.Log;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Entity;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;

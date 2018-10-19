@@ -29,8 +29,8 @@ import org.junit.Test;
 
 import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
 
 public class ClientCRUDTest {
 

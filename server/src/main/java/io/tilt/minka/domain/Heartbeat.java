@@ -33,9 +33,9 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.FollowerBootstrap;
 import io.tilt.minka.core.leader.LeaderBootstrap;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.Transition;

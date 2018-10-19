@@ -16,6 +16,8 @@
  */
 package io.tilt.minka.api;
 
+import io.tilt.minka.model.PartitionMaster;
+
 public class ConfigValidator {
 
 	/* TODO este metodo va a crecer mucho y requiere un monton de calculo */

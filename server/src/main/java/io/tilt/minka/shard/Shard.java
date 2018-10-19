@@ -33,10 +33,10 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.config.ProctorSettings;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.domain.Heartbeat;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.utils.CollectionUtils;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 

@@ -30,8 +30,6 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
 import io.tilt.minka.core.leader.balancer.BalancingException;
@@ -41,6 +39,8 @@ import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardIdentifier;

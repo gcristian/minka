@@ -1,4 +1,4 @@
-package io.tilt.minka.api;
+package io.tilt.minka.model;
 
 import java.io.InputStream;
 import java.time.Instant;

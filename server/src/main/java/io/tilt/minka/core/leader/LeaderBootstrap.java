@@ -46,7 +46,7 @@ public class LeaderBootstrap implements Service {
 	public final static Logger logger = LoggerFactory.getLogger(LeaderBootstrap.class);
 
 	private final Config config;
-	private final ShardKeeper shardKeeper;
+	private final ClusterController clusterController;
 	private final Distributor distributor;
 	private final FollowerEventsHandler followerEventsHandler;
 	private final ClientEventsHandler clientEventsHandler;
@@ -59,7 +59,7 @@ public class LeaderBootstrap implements Service {
 
 	LeaderBootstrap(
 			final Config config, 
-			final ShardKeeper shardKeeper,
+			final ClusterController clusterController,
 			final Distributor distributor,
 			final FollowerEventsHandler followerEventsHandler,
 			final ClientEventsHandler clientEventsHandler,
@@ -70,7 +70,7 @@ public class LeaderBootstrap implements Service {
 
 		super();
 		this.config = config;
-		this.shardKeeper = shardKeeper;
+		this.clusterController = clusterController;
 		this.distributor = distributor;
 		this.followerEventsHandler = followerEventsHandler;
 		this.clientEventsHandler = clientEventsHandler;
@@ -110,7 +110,7 @@ public class LeaderBootstrap implements Service {
 			final long e = DateTime.now().getMillis() - config.loadTime.getMillis();
 			logger.info("{}: {} msec since load till leader election", getName(), e);
 			// start analyzing the shards and distribute duties
-			shardKeeper.start();
+			clusterController.start();
 			distributor.start();
 			// start listening events from followers and clients alike
 			followerEventsHandler.start();
@@ -126,7 +126,7 @@ public class LeaderBootstrap implements Service {
 		if (start!=null) {
 			this.start = null;
 			logger.info("{}: Stopping ({})", getName(), !served ? "never served" : "paid my duty");
-			shardKeeper.stop();
+			clusterController.stop();
 			distributor.stop();
 			followerEventsHandler.stop();
 			clientEventsHandler.stop();

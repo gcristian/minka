@@ -30,8 +30,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.balancer.Spot;
 import io.tilt.minka.core.leader.data.CommittedState;
@@ -40,6 +38,8 @@ import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.utils.LogUtils;

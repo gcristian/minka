@@ -14,14 +14,14 @@ import java.util.stream.Collectors;
 import org.junit.Test;
 
 import io.tilt.minka.ShardTest;
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.FairWeightToCapacity;
 import io.tilt.minka.core.leader.balancer.Spot;
 import io.tilt.minka.core.leader.balancer.PreSort;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.shard.Shard;
 
 public class FairWeightBalancerTest {

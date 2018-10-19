@@ -19,8 +19,8 @@ package io.tilt.minka.sampler;
 
 import java.util.Set;
 
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
 
 /** 
  * a basic cluster emulator that provides constant contents (the same entities in every shard)

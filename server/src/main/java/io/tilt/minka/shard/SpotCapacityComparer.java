@@ -5,8 +5,8 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.stream.Collectors;
 
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Spot;
+import io.tilt.minka.model.Pallet;
 
 /* is important to maintain a predictable order to avoid migration churning */
 public class SpotCapacityComparer implements Comparator<Spot>, Serializable {

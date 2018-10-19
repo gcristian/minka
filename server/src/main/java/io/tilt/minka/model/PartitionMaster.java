@@ -14,10 +14,12 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.api;
+package io.tilt.minka.model;
 
 import java.util.Set;
 
+import io.tilt.minka.api.Client;
+import io.tilt.minka.api.Config;
 import io.tilt.minka.core.follower.FollowerBootstrap;
 import io.tilt.minka.core.leader.LeaderBootstrap;
 import io.tilt.minka.core.task.Bootstrap;

@@ -18,10 +18,8 @@ package io.tilt.minka.core.monitor;
 
 import static java.util.Objects.requireNonNull;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -118,18 +116,18 @@ public class SchemeJSONBuilder {
 			
 			if (entity instanceof ShardEntity) {
 				ShardEntity du = ((ShardEntity)entity);
-				final JSONObject ks = du.getCommitTree().toJson();
+				final JSONObject ks = CommitTreeConverter.toJson(du.getCommitTree());
 				ks.put("id", du.getDuty().getId());
 				array.put(ks);
 			} else if (entity instanceof EntityRecord) {
 				final EntityRecord er = (EntityRecord)entity;
-				final JSONObject ks = er.getCommitTree().toJson();
+				final JSONObject ks = CommitTreeConverter.toJson(er.getCommitTree());
 				ks.put("id", er.getId());
 				array.put(ks);
 			}
 		};
 	}
-
+	
 	private Consumer<Object> collecter(final Map<String, Object> byPalletId) {
 		return d-> {
 			final String pid;

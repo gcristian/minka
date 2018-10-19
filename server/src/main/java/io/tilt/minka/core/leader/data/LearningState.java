@@ -17,7 +17,6 @@ import java.util.function.BiConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.StateSentry;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.domain.CommitTree;
@@ -25,6 +24,7 @@ import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardIdentifier;
 

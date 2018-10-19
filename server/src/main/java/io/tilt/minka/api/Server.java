@@ -25,6 +25,8 @@ import io.tilt.minka.api.config.BrokerConfiguration;
 import io.tilt.minka.domain.AwaitingDelegate;
 import io.tilt.minka.domain.ConsumerDelegate;
 import io.tilt.minka.domain.DependencyPlaceholder;
+import io.tilt.minka.model.PartitionDelegate;
+import io.tilt.minka.model.PartitionMaster;
 import io.tilt.minka.utils.LogUtils;
 
 /**
@@ -171,7 +173,9 @@ public class Server {
 	}
 
 	private void startWebserver(final Tenant t) {
-		final ResourceConfig res = new ResourceConfig(AdminEndpoint.class);
+		final ResourceConfig res = new ResourceConfig(
+				AdminEndpoint.class,
+				CRUDEndpoint.class);
 		
 		res.property("contextConfig", t.getContext());
 		final URI uri = resolveWebServerBindAddress(t.getConfig());

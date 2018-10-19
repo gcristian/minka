@@ -43,11 +43,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.CommittedState;
 import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.CommitTree.Log;
+import io.tilt.minka.model.Duty;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;

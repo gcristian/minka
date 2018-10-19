@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.CommitBatch.CommitBatchResponse;
 import io.tilt.minka.core.leader.data.CommitState;
+import io.tilt.minka.model.Duty;
 
 /**
  * Coordination place where futures as responses to User's CRUD operations are
@@ -41,7 +42,7 @@ public class RequestLatches {
 		V ret = null;
 		try {
 			final CountDownLatch latch = new CountDownLatch(1);
-			logger.debug("{}: Parking future for: {}", getClass().getSimpleName(), k);
+			logger.info("{}: Parking future for: {}", getClass().getSimpleName(), k);
 			latches(k).put(k, latch);
 			if (maxWaitMs>0) {
 				latch.await(maxWaitMs, TimeUnit.MILLISECONDS);
@@ -49,7 +50,7 @@ public class RequestLatches {
 				latch.await();
 			}			
 			ret = (V) resolutions(k).remove(k);			
-			logger.debug("{}: Resuming latch for: {} ({}) {}", getClass().getSimpleName(), k, 
+			logger.info("{}: Resuming latch for: {} ({}) {}", getClass().getSimpleName(), k, 
 					ret==null ? "not found" : "found", ret);
 		} catch (Exception e) {
 			logger.error("{}: Unexpected parking: {}", getClass().getSimpleName(), k, e);

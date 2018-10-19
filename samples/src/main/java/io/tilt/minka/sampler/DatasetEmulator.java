@@ -33,9 +33,9 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.AtomicDouble;
 
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.balancer.Balancer.Strategy;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
 
 /**
  * Testing facility

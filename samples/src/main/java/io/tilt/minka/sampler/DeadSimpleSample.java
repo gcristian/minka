@@ -21,9 +21,9 @@ import static jersey.repackaged.com.google.common.collect.Sets.newHashSet;
 import java.util.Set;
 import java.util.TreeSet;
 
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Server;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
 
 public class DeadSimpleSample {
 

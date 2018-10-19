@@ -28,11 +28,11 @@ import java.util.TreeSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.config.BalancerConfiguration;
 import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.shard.ShardCapacity;
 import io.tilt.minka.shard.SpotCapacityComparer;
 

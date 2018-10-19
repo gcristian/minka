@@ -25,8 +25,6 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.HeartbeatFactory;
 import io.tilt.minka.core.follower.PartitionManager;
 import io.tilt.minka.core.task.LeaderAware;
@@ -37,6 +35,8 @@ import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.shard.DomainInfo;
 
 class PartitionManagerImpl implements PartitionManager {

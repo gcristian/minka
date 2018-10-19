@@ -15,6 +15,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.core.leader.data.CommitState;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Entity;
 
 /**
  * Response of an operation sent from the Client to the Leader shard.
@@ -135,6 +137,7 @@ public class Reply {
 	 * @return Future if ReplyValue is SUCCESS or SUCCESS_SENT
 	 * @throws IllegalStateException if the operation was a fireAndForget type of ReplyValue  
 	 */
+	@JsonIgnore
 	public Future<CommitState> getState() {
 		if (isSuccess()) {
 			return commitState;

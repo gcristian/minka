@@ -2,8 +2,8 @@ package io.tilt.minka.domain;
 
 import org.apache.commons.lang.Validate;
 
-import io.tilt.minka.api.PartitionDelegate;
-import io.tilt.minka.api.PartitionMaster;
+import io.tilt.minka.model.PartitionDelegate;
+import io.tilt.minka.model.PartitionMaster;
 
 /**
  * Value object for information that is held or provided by the client,

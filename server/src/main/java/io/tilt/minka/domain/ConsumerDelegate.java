@@ -28,9 +28,9 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
-import io.tilt.minka.api.PartitionMaster;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
+import io.tilt.minka.model.PartitionMaster;
 
 /**
  * Contract bridge to encapsulate delegate implementation at Minka  

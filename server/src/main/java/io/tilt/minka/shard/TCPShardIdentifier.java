@@ -52,7 +52,6 @@ import io.tilt.minka.core.follower.FollowerBootstrap;
  * 
  * @author Cristian Gonzalez
  * @since Dec 3, 2015
- *
  */
 public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 
@@ -295,11 +294,10 @@ public class TCPShardIdentifier implements NetworkShardIdentifier, Closeable {
 	}
 
 	public static void main(String[] args) throws Exception {
-		mama();
-		//System.out.println(findLANAddress().getHostAddress());
+		printDevice();
 	}
 	
-	public static void mama() throws Exception {
+	public static void printDevice() throws Exception {
 			final Enumeration<NetworkInterface> nis = NetworkInterface.getNetworkInterfaces();
 			while (nis.hasMoreElements()) {
 				System.out.println("=================================================");

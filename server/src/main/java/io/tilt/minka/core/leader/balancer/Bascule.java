@@ -21,7 +21,7 @@ import java.util.Set;
 
 import org.apache.commons.lang.Validate;
 
-import io.tilt.minka.api.Duty;
+import io.tilt.minka.model.Duty;
 
 /**
  * for measuring, lifting, and controlling duty load on limited capacities

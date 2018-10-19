@@ -2,9 +2,9 @@ package io.tilt.minka.domain;
 
 import java.util.Set;
 
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
-import io.tilt.minka.api.PartitionMaster;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
+import io.tilt.minka.model.PartitionMaster;
 
 /** 
  * an always awaiting never ready delegate

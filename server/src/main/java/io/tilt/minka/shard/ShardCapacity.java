@@ -2,7 +2,7 @@ package io.tilt.minka.shard;
 
 import java.io.Serializable;
 
-import io.tilt.minka.api.Pallet;
+import io.tilt.minka.model.Pallet;
 
 public class ShardCapacity implements Serializable {
 	

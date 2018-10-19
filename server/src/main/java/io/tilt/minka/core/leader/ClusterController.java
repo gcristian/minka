@@ -59,7 +59,7 @@ import io.tilt.minka.utils.LogUtils;
  * @author Cristian Gonzalez
  * @since Dec 2, 2015
  */
-class ShardKeeper implements Service {
+class ClusterController implements Service {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -78,7 +78,7 @@ class ShardKeeper implements Service {
 	private Instant lastAnalysys;
 	
 
-	ShardKeeper(
+	ClusterController(
 			final Config config, 
 			final Scheme scheme, 
 			final StateWriter writer, 

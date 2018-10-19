@@ -19,7 +19,7 @@ MODE="$4"
 [ ! -z "$4" ] || MODE="ff"
 
 leader=$(./leader)
-CONTEXT="/minka/admin"
+CONTEXT="/minka"
 DUTIES="$CONTEXT/crud/duty"
 
 $curl -XPUT -s $(./leader)$DUTIES"/$PID/$ID?weight=$WEIGHT&mode=$MODE" #| $jq '.'

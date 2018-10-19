@@ -1,4 +1,18 @@
 #!/bin/bash
+
+# DEMO SCRIPTS (for testing and demo)
+
+# Script to request the Leader to Create duties with discret IDs (min,max)
+# using the AdminEndpoint's facility createDuty() EP
+
+# modes: 
+#	ff	fire and forget: 	leader wont send a response, **
+#	nb	non-blocking:		wait for response asynchronously, *
+#	b 	blocking:			wait for response synchronously, *
+
+# *	with CommitState notification
+# ** without CS notification.
+
 [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] && \
 	echo "Usage: ./newbatt {pallet-id} {duty-initial-id} {duty-final-id} [mode:ff,nb,b]" && exit 1
 x=""
@@ -6,7 +20,7 @@ echo "building..."
 
 curl=$(which curl)
 leader=$(./leader)
-CONTEXT="/minka/admin"
+CONTEXT="/minka"
 DUTIES="$CONTEXT/crud/duty"
 
 PID="$1"
@@ -19,5 +33,5 @@ for did in $(seq $2 $3); do
 	x="$x $curl -XPUT -s \"$leader$DUTIES/$PID/$PID$did?weight=$did&mode=$MODE\" -o $dir/$did &"
 done
 
-echo "requesting...$dir"
+echo "requesting... $dir"
 eval $x

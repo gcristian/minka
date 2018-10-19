@@ -33,7 +33,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.follower.HeartbeatFactory;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.DependencyPlaceholder;
@@ -44,6 +43,7 @@ import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.Builder;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.shard.DomainInfo;
 import io.tilt.minka.shard.NetworkShardIdentifier;

@@ -2,9 +2,9 @@ package io.tilt.minka.core.leader.distributor;
 
 import java.util.Set;
 
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.shard.Shard;
 
 

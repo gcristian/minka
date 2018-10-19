@@ -27,11 +27,11 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.core.leader.distributor.Migrator;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
 
 /**
  * Analyze the current distribution of {@linkplain Duty}'s and propose changes.

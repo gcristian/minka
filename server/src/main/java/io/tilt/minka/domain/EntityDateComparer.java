@@ -3,9 +3,9 @@ package io.tilt.minka.domain;
 import java.io.Serializable;
 import java.util.Comparator;
 
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.DutyBuilder;
-import io.tilt.minka.api.DutyBuilder.Task;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.DutyBuilder;
+import io.tilt.minka.model.DutyBuilder.Task;
 
 public class EntityDateComparer implements Comparator<Duty>, Serializable {
 	

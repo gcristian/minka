@@ -30,13 +30,16 @@ import io.tilt.minka.core.leader.data.CommitState;
 import io.tilt.minka.core.monitor.DistroJSONBuilder;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardedPartition;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.EntityPayload;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.shard.ShardIdentifier;
 
 /**
  * Facility to execute CRUD ops. to {@linkplain Duty} on the cluster.<br> 
- * All ops. are forwarded thru the network broker to the leaderBootstrap, and then routed to its final target shard.<br>  
+ * All ops. are forwarded thru the network broker to the Leader shard, and then routed to its final target shard.<br>  
  * Updates and Transfers are executed without a distributor's balance calculation.<br>
- * In case the leaderBootstrap runs within the same follower's shard, no network communication is needed.<br>
+ * In case the Leader runs within Client's shard, no network communication is needed.<br>
  * <br><br>
  * @author Cristian Gonzalez
  * @since Nov 7, 2015
@@ -118,9 +121,6 @@ public class Client {
 	public void setFutureMaxWaitMs(long futureMaxWaitMs) {
 		this.crudExec.setFutureMaxWaitMs(futureMaxWaitMs);
 	}
-	public void setExecutor(final ExecutorService e) {
-		crudExec.setExecutor(e);
-	}
 	
 	/**
 	* Enter a new duty to Minka so it can distribute it to proper shards. 
@@ -176,7 +176,7 @@ public class Client {
 	
 	/**
 	 * Obtain a facility to dispatch operations asynchronously.
-	 * It will still schedule waiting tasks to wait for leader's response replies 
+	 * It will still add tasks to FJP waiting for leader's response replies 
 	 * and then (for successful replies) to receive distribution's status as {@linkplain CommitState}
 	 * For that matter all methods return Futures. 
 	 */

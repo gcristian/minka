@@ -36,9 +36,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import io.tilt.minka.domain.CommitTree.Log.StateStamp;
@@ -587,7 +584,7 @@ public class CommitTree implements Serializable {
 	}
 
 	/** a limited map */
-	static class LimMap<K, V> extends TreeMap<K, V> implements Common<K, V>, Serializable {
+	public static class LimMap<K, V> extends TreeMap<K, V> implements Common<K, V>, Serializable {
 		private static final long serialVersionUID = 9044973294863922841L;
 		private final int limit;
 		
@@ -606,7 +603,7 @@ public class CommitTree implements Serializable {
 	}
 	
 	/** a limited and insertion order map */
-	static class InsMap<K, V> extends LinkedHashMap<K, V> implements Common<K, V>, Serializable {
+	public static class InsMap<K, V> extends LinkedHashMap<K, V> implements Common<K, V>, Serializable {
 		
 		private static final long serialVersionUID = -315653595943790784L;
 		private final int limit;
@@ -641,62 +638,8 @@ public class CommitTree implements Serializable {
 		
 	}
 
-
-	/** A realistic synthetized view of data structure */
-	public JSONObject toJson() {
-		JSONObject ret = null;
-		if (!tree.isEmpty()) {
-			final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
-			final JSONObject plans = new JSONObject();
-			for (Map.Entry<Long, InsMap<String , LimMap<EntityEvent, Log>>> byPlan: tree.descendingMap().entrySet()) {
-				final JSONObject shards = new JSONObject();
-				for (Map.Entry<String, LimMap<EntityEvent, Log>> e: byPlan.getValue().entrySet()) {
-					final JSONObject events = new JSONObject();
-					for (Map.Entry<EntityEvent, Log> ee: e.getValue().entrySet()) {
-						final JSONObject stamps = new JSONObject();
-						for (StateStamp ss: ee.getValue().getStates()) {
-							stamps.put(ss.getState().name().toLowerCase(), sdf.format(ss.getDate()));
-						}
-						events.put(ee.getKey().name(), stamps);
-					}
-					shards.put("shard-id:" + e.getKey(), events);
-				}
-				plans.put("plan-id:" + byPlan.getKey(), shards);
-			}
-			ret = plans;
-		}
-		return ret;
-	}
-
-	public JSONObject toOrderedJson() {
-		JSONObject ret = null;
-		if (!tree.isEmpty()) {
-			final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
-			final JSONArray plans = new JSONArray();
-			for (Map.Entry<Long, InsMap<String , LimMap<EntityEvent, Log>>> byPlan: tree.entrySet()) {
-				final JSONArray shards = new JSONArray();
-				for (Map.Entry<String, LimMap<EntityEvent, Log>> e: byPlan.getValue().entrySet()) {
-					final JSONObject events = new JSONObject();
-					for (Map.Entry<EntityEvent, Log> ee: e.getValue().entrySet()) {
-						final JSONObject stamps = new JSONObject();
-						for (StateStamp ss: ee.getValue().getStates()) {
-							stamps.put(ss.getState().name().toLowerCase(), sdf.format(ss.getDate()));
-						}
-						events.put(ee.getKey().name(), stamps);
-					}
-					JSONObject newshard = new JSONObject();
-					newshard.put("shard-id:" + byPlan.getKey(), events);
-					shards.put(newshard);
-				}
-				JSONObject newplan = new JSONObject();
-				newplan.put("plan-id:" + byPlan.getKey(), shards);
-				
-				plans.put(newplan);
-			}
-			ret = new JSONObject();
-			ret.put("plans", plans);
-		}
-		return ret;
+	public LimMap<Long, InsMap<String, LimMap<EntityEvent, Log>>> getInnerMap() {
+		return tree;
 	}
 
 }

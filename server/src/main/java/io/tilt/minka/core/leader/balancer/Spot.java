@@ -4,8 +4,8 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.Map;
 
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.shard.ShardCapacity;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.Shard;
 

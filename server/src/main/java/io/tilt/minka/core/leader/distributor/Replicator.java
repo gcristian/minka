@@ -15,12 +15,12 @@ import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.core.leader.data.CommittedState;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.Shard;
 

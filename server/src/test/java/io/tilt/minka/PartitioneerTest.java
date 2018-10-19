@@ -6,9 +6,9 @@ import java.util.List;
 import org.junit.Test;
 import org.springframework.util.Assert;
 
-import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.leader.balancer.WeightBasedClusterizer;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.model.Duty;
 
 /**
  * Balanced Partition problem: Given a sorted list of Weights, creates a fair distribution

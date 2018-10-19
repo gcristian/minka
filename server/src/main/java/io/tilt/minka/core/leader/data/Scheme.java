@@ -25,11 +25,11 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.leader.StateSentry;
 import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.model.Duty;
 import io.tilt.minka.shard.Shard;
 
 /**

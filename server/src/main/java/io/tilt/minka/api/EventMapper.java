@@ -12,6 +12,9 @@ import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.domain.AwaitingDelegate;
 import io.tilt.minka.domain.ConsumerDelegate;
 import io.tilt.minka.domain.ConsumerDelegate.MappingEvent;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
+import io.tilt.minka.model.PartitionDelegate;
 import io.tilt.minka.domain.DependencyPlaceholder;
 
 /**

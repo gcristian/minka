@@ -26,8 +26,8 @@ import java.util.TreeSet;
 
 import org.apache.commons.lang.Validate;
 
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.Pallet;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.Shard;
 

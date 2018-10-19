@@ -3,7 +3,7 @@ package io.tilt.minka.domain;
 import java.io.Serializable;
 import java.util.Comparator;
 
-import io.tilt.minka.api.Duty;
+import io.tilt.minka.model.Duty;
 
 public class EntityWeightComparer implements Comparator<Duty>, Serializable {
 	

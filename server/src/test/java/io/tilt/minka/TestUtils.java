@@ -12,11 +12,11 @@ import java.util.concurrent.CompletableFuture;
 import org.junit.Assert;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.EventMapper;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Server;
 import io.tilt.minka.core.leader.balancer.Balancer.BalancerMetadata;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.core.leader.balancer.SizeEqualizer;
 import io.tilt.minka.core.leader.balancer.WeightEqualizer;
 import io.tilt.minka.core.leader.balancer.FairWeightToCapacity;

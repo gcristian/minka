@@ -28,7 +28,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.CrudController;
@@ -42,6 +41,7 @@ import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Semaphore.Action;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.domain.CommitTree.Log;
+import io.tilt.minka.model.Pallet;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;

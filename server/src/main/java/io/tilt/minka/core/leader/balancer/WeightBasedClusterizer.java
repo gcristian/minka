@@ -7,7 +7,7 @@ import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Duty;
+import io.tilt.minka.model.Duty;
 
 /**
  * Balanced Partition problem: Given a sorted list of Weights, creates a fair distribution of duties

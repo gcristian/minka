@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-import io.tilt.minka.api.EntityPayload;
+import io.tilt.minka.model.EntityPayload;
 
 /**
  * FollowerBootstrap's report on {@linkplain ShardedPartition} packed in

@@ -17,7 +17,8 @@
 package io.tilt.minka.api;
 
 import static java.util.Collections.singleton;
-import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -26,24 +27,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-
 import io.tilt.minka.api.CommitBatch.CommitBatchRequest;
 import io.tilt.minka.api.CommitBatch.CommitBatchResponse;
-import io.tilt.minka.api.config.SchedulerSettings;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
@@ -56,12 +50,14 @@ import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
+import io.tilt.minka.model.Entity;
+import io.tilt.minka.model.EntityPayload;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.ShardIdentifier;
 
 /**
- * Handles CRUD ops from Client. 
- * With a fireAndForget mechanism to send Leader write requests, 
+ * Transfers the CRUD operation from Client to the Leader. 
+ * With a fire and forget mechanism to send Leader write requests, 
  * and an async-promise response mechanism, to request for Leader reply and duty state data.
  * It has the logic to retry requests when leader reelection occurs.
  * 
@@ -74,9 +70,8 @@ class CrudExecutor {
 	private static final int MAX_REELECTION_TOLERANCE = 10;
 	private static final int RETRY_SLEEP = 1000;
 	private static final int MAX_RETRIES = 3;
-	private static final int MAX_THREADS = 8;
-
-	private static final int MAX_CONCURRENT = Short.MAX_VALUE;
+	//private static final int MAX_THREADS = 8;
+	//private static final int MAX_CONCURRENT = Short.MAX_VALUE;
 	
 	private final Config config;
 	private final LeaderBootstrap leaderBootstrap;
@@ -89,7 +84,6 @@ class CrudExecutor {
 
 	private long maxWaitMs = RequestLatches.NO_EXPIRATION;
 
-	private ExecutorService executor;
 	private LinkedBlockingDeque<Runnable> deque;
 	
 	protected CrudExecutor(
@@ -114,10 +108,11 @@ class CrudExecutor {
 	void setFutureMaxWaitMs(long futureMaxWaitMs) {
 		this.maxWaitMs = futureMaxWaitMs;
 	}
-	
-	private synchronized void init() {
-		if (executor==null) {
-			executor = new ThreadPoolExecutor(1, MAX_THREADS, 30, TimeUnit.SECONDS, 
+
+	/*
+	private synchronized void initReplyPool() {
+		if (replyPool==null) {
+			replyPool = new ThreadPoolExecutor(1, MAX_THREADS, 30, TimeUnit.SECONDS, 
 					deque = new LinkedBlockingDeque<>(MAX_CONCURRENT), 
 					new ThreadFactoryBuilder()
 						.setNameFormat(SchedulerSettings.PNAME + "CL")
@@ -127,12 +122,13 @@ class CrudExecutor {
 	}
 
 	synchronized void setExecutor(final ExecutorService e) {
-		if (executor==null) {
-			executor = requireNonNull(e);
+		if (replyPool==null) {
+			replyPool = requireNonNull(e);
 		} else {
 			throw new IllegalStateException("Executor can only be set before running any CRUD operation and only once");
 		}
 	}
+	*/
 	
 	/** flags the request so the leader knows it must not respond a reply or state back */
 	Collection<Reply> fireAndForget(
@@ -141,7 +137,6 @@ class CrudExecutor {
 			final EntityPayload userPayload) {
 		
 		Validate.notNull(raws, "an entity is required");
-		init();
 		final long start = System.currentTimeMillis();
 		Set<Reply> replies;
 		try {			
@@ -174,12 +169,19 @@ class CrudExecutor {
 			final EntityPayload userPayload) {
 		
 		Validate.notNull(raws, "an entity is required");
-		init();
+		//logDeque();
+		final ForkJoinPool cp = ForkJoinPool.commonPool();
+		logger.info("{}: ForkJoinPool stats atc:{} rtc: {} ps:{} qtc:{} qsc:{}", 
+				cp.getActiveThreadCount(), cp.getRunningThreadCount(), 
+				cp.getPoolSize(), cp.getQueuedTaskCount(), cp.getQueuedSubmissionCount());
+		return resolve(raws, event, userPayload);
+	}
+
+	private void logDeque() {
 		final int size = deque.size();
 		if (size > 0) {
 			logger.warn("{}: Queue with: {} tasks already", getClass().getSimpleName(), size);
 		}
-		return resolve(raws, event, userPayload);
 	}
 
 	Future<Collection<Reply>> executeWithResponse(
@@ -188,12 +190,9 @@ class CrudExecutor {
 			final EntityPayload userPayload) {
 		
 		Validate.notNull(raws, "an entity is required");
-		init();
-		final int size = deque.size();
-		if (size > 0) {
-			logger.warn("{}: Queue with: {} tasks already", getClass().getSimpleName(), size);
-		}
-		return executor.submit(() -> resolve(raws, event, userPayload));
+		//logDeque();
+		//initReplyPool();
+		return supplyAsync(() -> resolve(raws, event, userPayload));
 	}
 
 	Future<Reply> executeWithResponseSingle(
@@ -202,8 +201,8 @@ class CrudExecutor {
 			final EntityPayload payload) {
 		
 		Validate.notNull(raws, "an entity is required");
-		init();
-		return executor.submit(() -> resolve(raws, event, payload).iterator().next());
+		//initReplyPool();
+		return supplyAsync(() -> resolve(raws, event, payload).iterator().next());
 	}
 	
 	private Collection<Reply> resolve(
@@ -213,7 +212,7 @@ class CrudExecutor {
 		final long start = System.currentTimeMillis();
 		final Set<Reply> replies = new HashSet<>(raws.size());
 		forwardLeader(event, start, replies, toEntities(raws, event, userPayload));
-		return replies;
+		return replies; 
 	}
 
 	private void forwardLeader(
@@ -233,13 +232,46 @@ class CrudExecutor {
 			} else {
 				requestBatch(entities).mergeOnSource(source);
 			}
-			if (futurable) {
+			if (futurable) {				
 				assignFutures(source, event);
 			}
 		} catch (Exception e) {
 			logger.error("Cannot mediate to leaderBootstrap", e);
 			source.add(Reply.error(e));
 		}
+	}
+
+	private CommitBatchRequestResponse requestBatch(final List<ShardEntity> entities) {
+		long sentTs = 0;
+		final CommitBatchRequest request = new CommitBatchRequest(entities, true);		
+		CommitBatchResponse response = null;
+		final long start = System.currentTimeMillis();
+		// support until 3 leader changes in a row
+		boolean sent = true;
+		boolean reelection = true;
+		
+		for (int retries = MAX_REELECTION_TOLERANCE; 
+				reelection && sent && retries>0 && !Thread.interrupted() && response==null; retries--) {
+			final NetworkShardIdentifier prevLeader = leaderAware.getLeaderShardId();			
+			if (sent = sendWithRetries(request)) {
+				sentTs = System.currentTimeMillis();
+				response = requestLatches.wait(request.getId(), maxWaitMs);
+				final boolean newleader = reelection = leaderAware.getLastLeaderChange().toEpochMilli() > start
+					&& !leaderAware.getLeaderShardId().equals(prevLeader);
+				if (response==null && newleader) {
+						logger.warn("{}: New leader, repeating operation: (RequestId: {})", 
+								getClass().getSimpleName(), request.getId());
+				} else if (response!=null) {
+					final long now = System.currentTimeMillis();
+					for (Reply r: response.getReplies()) {				
+						r.withTiming(Reply.Timing.CLIENT_CREATED_TS, start);
+						r.withTiming(Reply.Timing.CLIENT_SENT_TS, sentTs);
+						r.withTiming(Reply.Timing.CLIENT_RECEIVED_REPLY_TS, now);
+					}
+				}
+			}
+		}
+		return new CommitBatchRequestResponse(request, response, sent);
 	}
 	
 	static class CommitBatchRequestResponse {
@@ -309,39 +341,6 @@ class CrudExecutor {
 		}
 	}
 
-	private CommitBatchRequestResponse requestBatch(final List<ShardEntity> entities) {
-		long sentTs = 0;
-		final CommitBatchRequest request = new CommitBatchRequest(entities, true);		
-		CommitBatchResponse response = null;
-		final long start = System.currentTimeMillis();
-		// support until 3 leader changes in a row
-		boolean sent = true;
-		boolean reelection = true;
-		
-		for (int retries = MAX_REELECTION_TOLERANCE; 
-				reelection && sent && retries>0 && !Thread.interrupted() && response==null; retries--) {
-			final NetworkShardIdentifier prevLeader = leaderAware.getLeaderShardId();			
-			if (sent = sendWithRetries(request)) {
-				sentTs = System.currentTimeMillis();
-				response = requestLatches.wait(request.getId(), maxWaitMs);
-				final boolean newleader = reelection = leaderAware.getLastLeaderChange().toEpochMilli() > start
-					&& !leaderAware.getLeaderShardId().equals(prevLeader);
-				if (response==null && newleader) {
-						logger.warn("{}: New leader, repeating operation: (RequestId: {})", 
-								getClass().getSimpleName(), request.getId());
-				} else if (response!=null) {
-					final long now = System.currentTimeMillis();
-					for (Reply r: response.getReplies()) {				
-						r.withTiming(Reply.Timing.CLIENT_CREATED_TS, start);
-						r.withTiming(Reply.Timing.CLIENT_SENT_TS, sentTs);
-						r.withTiming(Reply.Timing.CLIENT_RECEIVED_REPLY_TS, now);
-					}
-				}
-			}
-		}
-		return new CommitBatchRequestResponse(request, response, sent);
-	}
-
 	private void timeReceived(final Set<Reply> replies) {
 		long now = System.currentTimeMillis();
 		replies.forEach(r->r.withTiming(Reply.Timing.CLIENT_RECEIVED_REPLY_TS, now));
@@ -351,21 +350,21 @@ class CrudExecutor {
 	 * @param event */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void assignFutures(final Collection<Reply> replies, final EntityEvent event) {
-		final NetworkShardIdentifier prevLeader = leaderAware.getLeaderShardId();
+		final NetworkShardIdentifier previous = leaderAware.getLeaderShardId();
 		for (final Reply reply: replies) {
 			// only successful replies
 			if ((reply.getValue()==ReplyValue.SUCCESS)) {
 				try {
 					if (reply.getRetryCounter() == 0) {
-						reply.setState((Future)executor.submit(
+						reply.setState((Future)supplyAsync(()->
 							new FutureTask<CommitState>(()-> 
-								waitOrRetry(event, prevLeader, reply)
+								waitOrRetry(event, previous, reply)
 							)));
 					} else {
 						// Retry: we're already in a blocking future
 						// replies is a collection of 1 object so we can block
-						reply.setState(CompletableFuture.completedFuture(
-								waitOrRetry(event, prevLeader, reply)));
+						reply.setState(completedFuture(
+								waitOrRetry(event, previous, reply)));
 					}
 				} catch (Exception e) {
 					logger.error("{}: Unexpected linking promise for {}", getClass().getSimpleName(), reply, e);

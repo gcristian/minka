@@ -10,14 +10,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Duty;
-import io.tilt.minka.api.DutyBuilder.Task;
-import io.tilt.minka.api.Pallet;
 import io.tilt.minka.api.Reply;
 import io.tilt.minka.core.leader.data.CrudController;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Pallet;
+import io.tilt.minka.model.DutyBuilder.Task;
 import io.tilt.minka.shard.Shard;
 
 /**

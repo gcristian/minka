@@ -6,7 +6,7 @@ PID="$1"
 MODE="$4"
 
 leader=$(./leader)
-CONTEXT="/minka/admin"
+CONTEXT="/minka"
 DUTIES="$CONTEXT/crud/duty"
 curl=$(which curl)
 x=""
@@ -15,5 +15,5 @@ mkdir -p $dir
 for did in $(seq $2 $3); do 
 	x="$x $curl -XDELETE -s $leader$DUTIES/$PID/$PID$did?mode=$MODE -o $dir/$did &"
 done
-echo "Requesting...$dir"
+echo "Requesting... $dir"
 eval $x

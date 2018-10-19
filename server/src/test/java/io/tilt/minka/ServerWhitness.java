@@ -2,8 +2,8 @@ package io.tilt.minka;
 
 import java.util.Set;
 
-import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Server;
+import io.tilt.minka.model.Duty;
 
 /**
  * Facility wrapper with the server instance 

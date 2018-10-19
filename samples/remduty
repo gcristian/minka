@@ -16,7 +16,7 @@ MODE="$3"
 [ ! -z "$3" ] || MODE="ff"
 
 leader=$(./leader)
-CONTEXT="/minka/admin"
+CONTEXT="/minka"
 DUTIES="$CONTEXT/crud/duty"
 
 $curl -XDELETE -s $leader$DUTIES"/$PID/$ID?mode=$MODE"
