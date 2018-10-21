@@ -1,4 +1,4 @@
-package io.tilt.minka.api;
+package io.tilt.minka.api.crud;
 
 import java.io.Serializable;
 import java.util.List;

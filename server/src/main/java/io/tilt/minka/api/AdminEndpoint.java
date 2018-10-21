@@ -48,6 +48,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 
+import io.tilt.minka.api.crud.CrudEndpoint;
+import io.tilt.minka.api.crud.Client;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.monitor.CrossJSONBuilder;
@@ -102,8 +104,6 @@ public class AdminEndpoint {
 		ret.put("/plans", "show distribution change plans");
 		ret.put("/log/text", "capture logging on demand");
 		ret.put(PATH_CREATE_PALLET, "create pallet");
-		ret.put(CRUDEndpoint.PATH_CREATE_DUTY, "create duty");
-		ret.put(CRUDEndpoint.PATH_DELETE_DUTY, "delete duty");
 		ret.put(PATH_SHARD_CAPACITY, "set shard capacity");
 		return Response.accepted(ret).build();
 	}

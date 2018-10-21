@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.leader.balancer.Balancer;
-import io.tilt.minka.core.leader.data.CrudController;
+import io.tilt.minka.core.leader.data.CrudRepository;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.leader.data.Scheme.ClusterHealth;
 import io.tilt.minka.core.task.LeaderAware;
@@ -77,7 +77,7 @@ public class Distributor implements Service {
 			final Scheduler scheduler, 
 			final EventBroker eventBroker,
 			final Scheme scheme, 
-			final CrudController stageRepo,
+			final CrudRepository stageRepo,
 			final ShardIdentifier shardId,
 			final DependencyPlaceholder dependencyPlaceholder, 
 			final LeaderAware leaderAware) {

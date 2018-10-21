@@ -1,5 +1,7 @@
 package io.tilt.minka.core.leader.data;
 
+import io.tilt.minka.api.crud.Reply;
+import io.tilt.minka.api.crud.ReplyValue;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityEvent.Type;
 
@@ -68,18 +70,18 @@ public enum CommitState {
 		this.type = type;
 		this.order = order;
 	}
-	public Type getType() {
+	Type getType() {
 		return type;
 	}
-	public boolean notifies() {
+	boolean notifies() {
 		return this==FINISHED;
 	}
 	
-	public boolean isEnded() {
+	boolean isEnded() {
 		return this==FINISHED || this==CANCELLED;
 	}
 	
-	public CommitState next(final EntityEvent ee) {
+	CommitState next(final EntityEvent ee) {
 		CommitState ret = null;
 		if (this!=FINISHED) {
 			if (this==PROCESSING || this==REPLICATION) {

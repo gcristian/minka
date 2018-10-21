@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.broker.impl;
+package io.tilt.minka.broker;
 
 import static java.util.Objects.requireNonNull;
 

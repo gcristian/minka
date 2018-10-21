@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.api;
+package io.tilt.minka.api.crud;
 
 import javax.inject.Singleton;
 import javax.ws.rs.Consumes;
@@ -44,7 +44,7 @@ import io.tilt.minka.model.Pallet;
 
 @Singleton
 @Component
-public class CRUDEndpoint {
+public class CrudEndpoint {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 

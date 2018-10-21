@@ -28,16 +28,16 @@ import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Client;
-import io.tilt.minka.api.CommitBatch;
-import io.tilt.minka.api.CommitBatch.CommitBatchRequest;
-import io.tilt.minka.api.CommitBatch.CommitBatchResponse;
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Reply;
+import io.tilt.minka.api.crud.Client;
+import io.tilt.minka.api.crud.CommitBatch;
+import io.tilt.minka.api.crud.Reply;
+import io.tilt.minka.api.crud.CommitBatch.CommitBatchRequest;
+import io.tilt.minka.api.crud.CommitBatch.CommitBatchResponse;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.core.leader.data.CrudController;
+import io.tilt.minka.core.leader.data.CrudRepository;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Service;
@@ -61,7 +61,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 	private final Config config;
 	private final Scheme scheme;
 	private final Scheduler scheduler;
-	private final CrudController stageRepo;
+	private final CrudRepository stageRepo;
 	private final EventBroker eventBroker;
 	private final NetworkShardIdentifier shardId;
 
@@ -77,7 +77,7 @@ public class ClientEventsHandler implements Service, Consumer<Serializable> {
 			final Config config, 
 			final Scheme scheme, 
 			final Scheduler scheduler,
-			final CrudController stageRepo,
+			final CrudRepository stageRepo,
 			final EventBroker eventBroker, 
 			final NetworkShardIdentifier shardId) {
 

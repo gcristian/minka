@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.api;
+package io.tilt.minka.api.crud;
 
 import static java.util.Collections.singletonList;
 
@@ -25,6 +25,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
+import io.tilt.minka.api.EventMapper;
 import io.tilt.minka.core.leader.LeaderBootstrap;
 import io.tilt.minka.core.leader.data.CommitState;
 import io.tilt.minka.core.monitor.DistroJSONBuilder;
@@ -84,7 +85,7 @@ public class Client {
 	public EventMapper getEventMapper() {
 		return this.eventMapper;
 	}
-	final void setEventMapper(EventMapper eventMapper) {
+	public final void setEventMapper(EventMapper eventMapper) {
 		this.eventMapper = eventMapper;
 	}
 	
@@ -118,7 +119,7 @@ public class Client {
 				.collect(Collectors.toList());
 	}
 
-	public void setFutureMaxWaitMs(long futureMaxWaitMs) {
+	public void setFutureMaxWaitMs(int futureMaxWaitMs) {
 		this.crudExec.setFutureMaxWaitMs(futureMaxWaitMs);
 	}
 	
@@ -202,16 +203,16 @@ public class Client {
 		* @param duty      a duty sharded or to be sharded in the cluster
 		* @return whether or not the operation succeed
 		*/
-		public Future<Reply> add(final Duty duty) {
-			return crudExec.executeWithResponseSingle(singletonList(duty), EntityEvent.CREATE, null);
-		}
-		
 		public Future<Collection<Reply>> addAll(final Collection<Duty> duty) {
 			return crudExec.executeWithResponse(duty, EntityEvent.CREATE, null); 
 		}
 
+		public Future<Reply> add(final Duty duty) {
+			return crudExec.executeWithResponseSingle(duty, EntityEvent.CREATE, null);
+		}
+		
 		public Future<Reply> add(final Pallet pallet) {
-			return crudExec.executeWithResponseSingle(singletonList(pallet), EntityEvent.CREATE, null);
+			return crudExec.executeWithResponseSingle(pallet, EntityEvent.CREATE, null);
 		}
 
 		/**
@@ -221,15 +222,15 @@ public class Client {
 		* @param duty	    a duty sharded or to be sharded in the cluster
 		* @return whether or not the operation succeed
 		*/
-		public Future<Reply> remove(final Duty duty) {
-			return crudExec.executeWithResponseSingle(singletonList(duty), EntityEvent.REMOVE, null);
-		}
 		public Future<Collection<Reply>> removeAll(final Collection<Duty> coll) {
 			return crudExec.executeWithResponse(coll, EntityEvent.REMOVE, null);
 		}
-
+		public Future<Reply> remove(final Duty duty) {
+			return crudExec.executeWithResponseSingle(duty, EntityEvent.REMOVE, null);
+		}
+		
 		public Future<Reply> remove(final Pallet pallet) {
-			return crudExec.executeWithResponseSingle(singletonList(pallet), EntityEvent.REMOVE, null);
+			return crudExec.executeWithResponseSingle(pallet, EntityEvent.REMOVE, null);
 		}
 	}
 	

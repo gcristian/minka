@@ -10,8 +10,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.Reply;
-import io.tilt.minka.core.leader.data.CrudController;
+import io.tilt.minka.api.crud.Reply;
+import io.tilt.minka.core.leader.data.CrudRepository;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.ShardEntity;
@@ -29,7 +29,7 @@ public class PhaseLoader {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
-	private final CrudController crudController;
+	private final CrudRepository crudRepository;
 	private final DependencyPlaceholder dependencyPlaceholder;
 	private final Config config;
 	private final Scheme scheme;
@@ -38,12 +38,12 @@ public class PhaseLoader {
 	private int counterForReloads;
 
 	PhaseLoader(
-			final CrudController crudController, 
+			final CrudRepository crudRepository, 
 			final DependencyPlaceholder dependencyPlaceholder,
 			final Config config, 
 			final Scheme scheme) {
 		super();
-		this.crudController = crudController;
+		this.crudRepository = crudRepository;
 		this.dependencyPlaceholder = dependencyPlaceholder;
 		this.config = config;
 		this.scheme = scheme;
@@ -95,7 +95,7 @@ public class PhaseLoader {
 		for (final Map.Entry<Shard, Set<ShardEntity>> e: scheme.getLearningState().getReplicasByShard().entrySet()) {
 			scheme.getCommitedState().loadReplicas(e.getKey(), e.getValue());
 		}
-		crudController.loadRawDuties(duties, logger("Duty"));
+		crudRepository.loadRawDuties(duties, logger("Duty"));
 	}
 
 	private boolean loadPallets() {
@@ -114,7 +114,7 @@ public class PhaseLoader {
 					getClass().getSimpleName(), pallets);
 			return false;
 		} else {
-			return crudController.loadRawPallets(pallets, logger("Pallet"));
+			return crudRepository.loadRawPallets(pallets, logger("Pallet"));
 		}
 	}
 

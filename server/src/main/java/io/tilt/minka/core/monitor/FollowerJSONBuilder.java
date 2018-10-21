@@ -28,6 +28,8 @@ import java.util.function.Consumer;
 
 import org.apache.commons.lang.Validate;
 
+import io.tilt.minka.api.crud.CrudExecutor;
+import io.tilt.minka.api.crud.LatchHandler;
 import io.tilt.minka.core.follower.LeaderEventsHandler;
 import io.tilt.minka.core.leader.LeaderBootstrap;
 import io.tilt.minka.core.leader.data.Scheme;
@@ -49,17 +51,24 @@ public class FollowerJSONBuilder {
 	private final ShardedPartition partition;
 	private final LeaderEventsHandler leaderHandler;
 	private final LeaderBootstrap leader;
+	private final LatchHandler latches;
+	private final CrudExecutor crudExec;
+	
 	
 	public FollowerJSONBuilder(
 			final Scheme scheme,
 			final ShardedPartition partition,
 			final LeaderBootstrap leader,
-			final LeaderEventsHandler leaderHandler) {
+			final LeaderEventsHandler leaderHandler,
+			final LatchHandler latches, 
+			final CrudExecutor crudExec) {
 		
 		this.scheme = requireNonNull(scheme);
 		this.partition = requireNonNull(partition);
 		this.leaderHandler = requireNonNull(leaderHandler);
 		this.leader = leader;
+		this.latches = requireNonNull(latches);
+		this.crudExec = requireNonNull(crudExec);
 	}
 	
 	public String beatsToJson() {
@@ -76,14 +85,17 @@ public class FollowerJSONBuilder {
 			return "";
 		}
 		
-		final Map<String, Object> ret = new LinkedHashMap<>(6);
+		final Map<String, Object> ret = new LinkedHashMap<>();
 		ret.put("mode", leader.inService() ? "leader": "follower");
 		ret.put("domain-pallets", ShardEntity.toStringBrief(
 				leaderHandler.getLastClearance().getInfo().getDomainPallets()));		
 		final long distance = System.currentTimeMillis() - 
 				leaderHandler.getLastClearance().getCreation().getMillis();
 		ret.put("clearance-distance-ms", distance);
-		
+		ret.put("latches-responses", latches.getResponsesSize());
+		ret.put("latches-commits", latches.getCommitsSize());
+		ret.putAll(crudExec.replyPool());
+		ret.putAll(crudExec.statePool());
 		ret.putAll(buildPartitionDuties(partition, detailed));
 		
 		return SystemStateMonitor.toJson(ret);

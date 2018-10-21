@@ -1,4 +1,4 @@
-package io.tilt.minka.api;
+package io.tilt.minka.api.crud;
 
 import javax.naming.ServiceUnavailableException;
 import javax.ws.rs.ClientErrorException;

@@ -9,11 +9,11 @@ import java.util.Set;
 
 import org.apache.commons.lang.StringUtils;
 
-import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.EventMapper;
-import io.tilt.minka.api.Reply;
 import io.tilt.minka.api.Server;
+import io.tilt.minka.api.crud.Client;
+import io.tilt.minka.api.crud.Reply;
 import io.tilt.minka.model.Duty;
 import io.tilt.minka.model.DutyBuilder;
 import io.tilt.minka.model.Pallet;

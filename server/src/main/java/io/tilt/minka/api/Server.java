@@ -22,6 +22,8 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import io.tilt.minka.api.config.BootstrapConfiguration;
 import io.tilt.minka.api.config.BrokerConfiguration;
+import io.tilt.minka.api.crud.CrudEndpoint;
+import io.tilt.minka.api.crud.Client;
 import io.tilt.minka.domain.AwaitingDelegate;
 import io.tilt.minka.domain.ConsumerDelegate;
 import io.tilt.minka.domain.DependencyPlaceholder;
@@ -175,7 +177,7 @@ public class Server {
 	private void startWebserver(final Tenant t) {
 		final ResourceConfig res = new ResourceConfig(
 				AdminEndpoint.class,
-				CRUDEndpoint.class);
+				CrudEndpoint.class);
 		
 		res.property("contextConfig", t.getContext());
 		final URI uri = resolveWebServerBindAddress(t.getConfig());

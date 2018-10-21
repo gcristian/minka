@@ -8,6 +8,7 @@ import java.util.function.Supplier;
 
 import org.apache.commons.lang.Validate;
 
+import io.tilt.minka.api.crud.Client;
 import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.domain.AwaitingDelegate;
 import io.tilt.minka.domain.ConsumerDelegate;

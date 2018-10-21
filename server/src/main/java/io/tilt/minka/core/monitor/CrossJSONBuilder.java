@@ -29,9 +29,9 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
+import io.tilt.minka.broker.SocketClient;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.broker.impl.SocketClient;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;

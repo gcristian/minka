@@ -26,9 +26,9 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.Server;
+import io.tilt.minka.api.crud.Client;
 import io.tilt.minka.model.Duty;
 import io.tilt.minka.model.Pallet;
 import io.tilt.minka.utils.LogUtils;

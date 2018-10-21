@@ -1,7 +1,7 @@
-package io.tilt.minka.api;
+package io.tilt.minka.api.crud;
 
-import static io.tilt.minka.api.ReplyValue.SUCCESS;
-import static io.tilt.minka.api.ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED;
+import static io.tilt.minka.api.crud.ReplyValue.SUCCESS;
+import static io.tilt.minka.api.crud.ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED;
 import static java.lang.String.format;
 
 import java.util.HashMap;
@@ -13,6 +13,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import io.tilt.minka.api.ConsistencyException;
 import io.tilt.minka.core.leader.data.CommitState;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.model.Duty;

@@ -27,7 +27,7 @@ import io.tilt.minka.domain.ShardEntity;
 /** 
  * Temporal state of modifications willing to be added to the {@linkplain CommittedState}
  * including inconsistencies detected by the sentry
- * Only maintainers: {@linkplain StateSentry} and {@linkplain CrudController}
+ * Only maintainers: {@linkplain StateSentry} and {@linkplain CrudRepository}
  * */
 @SuppressWarnings({"unchecked", "serial", "rawtypes"})
 public class DirtyState {

@@ -19,6 +19,7 @@ import io.tilt.minka.shard.TCPShardIdentifier;
 
 /**
  * A way to permit several Server instances running within the same VM
+ * Although this isn't recommended, isn't impossible with enough resources.
  */
 class Tenant {
 

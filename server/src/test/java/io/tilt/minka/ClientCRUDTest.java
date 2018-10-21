@@ -9,11 +9,11 @@ import static io.tilt.minka.TestUtils.duty;
 import static io.tilt.minka.TestUtils.pickAServer;
 import static io.tilt.minka.TestUtils.prototypeConfig;
 import static io.tilt.minka.TestUtils.shutdownServers;
-import static io.tilt.minka.api.ReplyValue.ERROR_ENTITY_ALREADY_EXISTS;
-import static io.tilt.minka.api.ReplyValue.ERROR_ENTITY_NOT_FOUND;
-import static io.tilt.minka.api.ReplyValue.SUCCESS;
-import static io.tilt.minka.api.ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED;
-import static io.tilt.minka.api.ReplyValue.SENT_SUCCESS;
+import static io.tilt.minka.api.crud.ReplyValue.ERROR_ENTITY_ALREADY_EXISTS;
+import static io.tilt.minka.api.crud.ReplyValue.ERROR_ENTITY_NOT_FOUND;
+import static io.tilt.minka.api.crud.ReplyValue.SENT_SUCCESS;
+import static io.tilt.minka.api.crud.ReplyValue.SUCCESS;
+import static io.tilt.minka.api.crud.ReplyValue.SUCCESS_OPERATION_ALREADY_SUBMITTED;
 import static java.lang.Thread.sleep;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.singleton;
@@ -27,8 +27,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Test;
 
-import io.tilt.minka.api.Client;
 import io.tilt.minka.api.Config;
+import io.tilt.minka.api.crud.Client;
 import io.tilt.minka.model.Duty;
 import io.tilt.minka.model.Pallet;
 

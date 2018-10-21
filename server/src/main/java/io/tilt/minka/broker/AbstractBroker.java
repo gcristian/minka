@@ -15,7 +15,7 @@
  * the License.
  */
 
-package io.tilt.minka.broker.impl;
+package io.tilt.minka.broker;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -29,7 +29,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
-import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.core.task.Service;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.spectator.MessageMetadata;

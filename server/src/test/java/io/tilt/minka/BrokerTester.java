@@ -20,8 +20,8 @@ import org.junit.Test;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
+import io.tilt.minka.broker.SocketBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
-import io.tilt.minka.broker.impl.SocketBroker;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.impl.SchedulerImpl;
 import io.tilt.minka.core.task.impl.SpectatorSupplier;

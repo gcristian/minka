@@ -14,36 +14,41 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package io.tilt.minka.api;
+package io.tilt.minka.api.crud;
 
 import static java.util.Collections.singleton;
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.CommitBatch.CommitBatchRequest;
-import io.tilt.minka.api.CommitBatch.CommitBatchResponse;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+
+import io.tilt.minka.api.Config;
+import io.tilt.minka.api.config.SchedulerSettings;
+import io.tilt.minka.api.crud.CommitBatch.CommitBatchRequest;
+import io.tilt.minka.api.crud.CommitBatch.CommitBatchResponse;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.leader.ClientEventsHandler;
 import io.tilt.minka.core.leader.LeaderBootstrap;
-import io.tilt.minka.core.leader.data.CommitState;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.EntityEvent;
@@ -63,15 +68,15 @@ import io.tilt.minka.shard.ShardIdentifier;
  * 
  * @since Sept 1, 2018
  */
-class CrudExecutor {
+public class CrudExecutor {
 
-	private static final Logger logger = LoggerFactory.getLogger(CrudExecutor.class);
+	static final Logger logger = LoggerFactory.getLogger(CrudExecutor.class);
 
 	private static final int MAX_REELECTION_TOLERANCE = 10;
-	private static final int RETRY_SLEEP = 1000;
-	private static final int MAX_RETRIES = 3;
-	//private static final int MAX_THREADS = 8;
-	//private static final int MAX_CONCURRENT = Short.MAX_VALUE;
+	static final int RETRY_SLEEP = 1000;
+	static final int MAX_RETRIES = 3;
+	private static final int MAX_THREADS = 8;
+	private static final int MAX_CONCURRENT = Short.MAX_VALUE;
 	
 	private final Config config;
 	private final LeaderBootstrap leaderBootstrap;
@@ -79,13 +84,18 @@ class CrudExecutor {
 	private final ClientEventsHandler clientHandler;
 	private final ShardIdentifier shardId;
 	private final LeaderAware leaderAware;
-	private final RequestLatches requestLatches;
+	private final LatchHandler latchHandler;
 	private final ShardedPartition partition;
-
-	private long maxWaitMs = RequestLatches.NO_EXPIRATION;
-
-	private LinkedBlockingDeque<Runnable> deque;
 	
+	private CommitLinkage linkage;
+			
+	int maxWaitMs = LatchHandler.NO_EXPIRATION;
+
+	private BlockingQueue<Runnable> replyQueue;
+	private BlockingQueue<Runnable> stateQueue;
+	private ThreadPoolExecutor replyPool;
+	private ThreadPoolExecutor statePool;
+
 	protected CrudExecutor(
 			final Config config, 
 			final LeaderBootstrap leaderBootstrap, 
@@ -93,7 +103,7 @@ class CrudExecutor {
 			final ClientEventsHandler mediator, 
 			final ShardIdentifier shardId, 
 			final LeaderAware leaderAware,
-			final RequestLatches requestLatches,
+			final LatchHandler latchHandler,
 			final ShardedPartition partition) {
 		this.config = config;
 		this.leaderBootstrap = leaderBootstrap;
@@ -101,35 +111,38 @@ class CrudExecutor {
 		this.clientHandler = mediator;
 		this.shardId = shardId;
 		this.leaderAware = leaderAware;
-		this.requestLatches = requestLatches;
+		this.latchHandler = latchHandler;
 		this.partition = partition;
 	}
 
-	void setFutureMaxWaitMs(long futureMaxWaitMs) {
+	void setFutureMaxWaitMs(int futureMaxWaitMs) {
 		this.maxWaitMs = futureMaxWaitMs;
 	}
 
-	/*
+	
 	private synchronized void initReplyPool() {
 		if (replyPool==null) {
-			replyPool = new ThreadPoolExecutor(1, MAX_THREADS, 30, TimeUnit.SECONDS, 
-					deque = new LinkedBlockingDeque<>(MAX_CONCURRENT), 
+			replyPool = new ThreadPoolExecutor(0, MAX_THREADS, 30, TimeUnit.SECONDS, 
+					replyQueue = new ArrayBlockingQueue<Runnable>(MAX_CONCURRENT), 
 					new ThreadFactoryBuilder()
-						.setNameFormat(SchedulerSettings.PNAME + "CL")
+						.setNameFormat(SchedulerSettings.PNAME + "CLRP")
 						.build(), 
 				new ThreadPoolExecutor.AbortPolicy());
 		}
 	}
 
-	synchronized void setExecutor(final ExecutorService e) {
-		if (replyPool==null) {
-			replyPool = requireNonNull(e);
-		} else {
-			throw new IllegalStateException("Executor can only be set before running any CRUD operation and only once");
+	private synchronized void initStatePool() {
+		if (statePool==null) {
+			statePool = new ThreadPoolExecutor(0, MAX_THREADS, 30, TimeUnit.SECONDS, 
+					stateQueue = new ArrayBlockingQueue<>(MAX_CONCURRENT), 
+					new ThreadFactoryBuilder()
+						.setNameFormat(SchedulerSettings.PNAME + "CLRP")
+						.build(), 
+				new ThreadPoolExecutor.AbortPolicy());
+			linkage = new CommitLinkage(latchHandler, leaderAware, partition, statePool, maxWaitMs);
 		}
 	}
-	*/
-	
+
 	/** flags the request so the leader knows it must not respond a reply or state back */
 	Collection<Reply> fireAndForget(
 			final Collection<? extends Entity> raws, 
@@ -169,19 +182,9 @@ class CrudExecutor {
 			final EntityPayload userPayload) {
 		
 		Validate.notNull(raws, "an entity is required");
-		//logDeque();
-		final ForkJoinPool cp = ForkJoinPool.commonPool();
-		logger.info("{}: ForkJoinPool stats atc:{} rtc: {} ps:{} qtc:{} qsc:{}", 
-				cp.getActiveThreadCount(), cp.getRunningThreadCount(), 
-				cp.getPoolSize(), cp.getQueuedTaskCount(), cp.getQueuedSubmissionCount());
+		initReplyPool();
+		initStatePool();
 		return resolve(raws, event, userPayload);
-	}
-
-	private void logDeque() {
-		final int size = deque.size();
-		if (size > 0) {
-			logger.warn("{}: Queue with: {} tasks already", getClass().getSimpleName(), size);
-		}
 	}
 
 	Future<Collection<Reply>> executeWithResponse(
@@ -190,21 +193,33 @@ class CrudExecutor {
 			final EntityPayload userPayload) {
 		
 		Validate.notNull(raws, "an entity is required");
-		//logDeque();
-		//initReplyPool();
-		return supplyAsync(() -> resolve(raws, event, userPayload));
+		initReplyPool();
+		initStatePool();
+		return replyPool.submit(()->resolve(raws, event, userPayload));
 	}
 
 	Future<Reply> executeWithResponseSingle(
-			final Collection<? extends Entity> raws, 
+			final Entity e, 
 			final EntityEvent event, 
 			final EntityPayload payload) {
 		
-		Validate.notNull(raws, "an entity is required");
-		//initReplyPool();
-		return supplyAsync(() -> resolve(raws, event, payload).iterator().next());
+		Validate.notNull(e, "an entity is required");
+		initReplyPool();
+		initStatePool();
+		return replyPool.submit(() -> resolveSingle(e, event, payload));
 	}
 	
+	private Reply resolveSingle(
+			final Entity e, 
+			final EntityEvent event, 
+			final EntityPayload userPayload) {
+		final long start = System.currentTimeMillis();
+		final Set<Reply> replies = new HashSet<>(1);
+		initStatePool();
+		forwardLeader(event, start, replies, toEntities(Arrays.asList(e), event, userPayload));
+		return replies.iterator().next();
+	}
+
 	private Collection<Reply> resolve(
 			final Collection<? extends Entity> raws, 
 			final EntityEvent event, 
@@ -212,16 +227,22 @@ class CrudExecutor {
 		final long start = System.currentTimeMillis();
 		final Set<Reply> replies = new HashSet<>(raws.size());
 		forwardLeader(event, start, replies, toEntities(raws, event, userPayload));
-		return replies; 
+		return replies;
 	}
 
-	private void forwardLeader(
+	private Void forwardLeader(
 			final EntityEvent event, 
 			final long start, 
 			final Set<Reply> source, 
 			final List<ShardEntity> entities) {
 		try {
 			final boolean futurable = entities.iterator().next().getType()==ShardEntity.Type.DUTY;
+			final Function<Reply, Void> retrier = (Reply reply)-> forwardLeader(event, 
+					reply.getTiming(Reply.Timing.CLIENT_CREATED_TS), 
+					Collections.singleton(reply), 
+					toEntities(
+							Collections.singletonList(reply.getEntity()), 
+							event, null));
 			if (leaderBootstrap.inService()) {
 				clientHandler.mediateOnEntity(entities, r-> {
 					r.withTiming(Reply.Timing.CLIENT_CREATED_TS, start);
@@ -232,13 +253,14 @@ class CrudExecutor {
 			} else {
 				requestBatch(entities).mergeOnSource(source);
 			}
-			if (futurable) {				
-				assignFutures(source, event);
+			if (futurable) {
+				linkage.assignFutures(source, event, retrier);
 			}
 		} catch (Exception e) {
 			logger.error("Cannot mediate to leaderBootstrap", e);
 			source.add(Reply.error(e));
 		}
+		return null;
 	}
 
 	private CommitBatchRequestResponse requestBatch(final List<ShardEntity> entities) {
@@ -255,7 +277,7 @@ class CrudExecutor {
 			final NetworkShardIdentifier prevLeader = leaderAware.getLeaderShardId();			
 			if (sent = sendWithRetries(request)) {
 				sentTs = System.currentTimeMillis();
-				response = requestLatches.wait(request.getId(), maxWaitMs);
+				response = latchHandler.waitAndGet(request.getId(), maxWaitMs);
 				final boolean newleader = reelection = leaderAware.getLastLeaderChange().toEpochMilli() > start
 					&& !leaderAware.getLeaderShardId().equals(prevLeader);
 				if (response==null && newleader) {
@@ -274,6 +296,54 @@ class CrudExecutor {
 		return new CommitBatchRequestResponse(request, response, sent);
 	}
 	
+
+	private void timeReceived(final Set<Reply> replies) {
+		long now = System.currentTimeMillis();
+		replies.forEach(r->r.withTiming(Reply.Timing.CLIENT_RECEIVED_REPLY_TS, now));
+	}
+
+	private boolean sendWithRetries(final CommitBatchRequest request) {
+		int tries = 10;
+		boolean sent = false;
+		while (!Thread.interrupted() && !sent && tries-->0) {
+			if (leaderAware.getLeaderShardId()!=null) {
+				final BrokerChannel channel = eventBroker.buildToTarget(config, 
+						Channel.CLITOLEAD,
+						leaderAware.getLeaderShardId());
+				sent = eventBroker.send(channel, request);
+			} else {
+				try {
+					Thread.sleep(config.beatToMs(10));
+				} catch (InterruptedException ie) {
+					break;
+				}
+			}
+		}
+		return sent;
+	}
+	
+	private List<ShardEntity> toEntities(
+			final Collection<? extends Entity> raws, 
+			final EntityEvent event,
+			final EntityPayload payload) {
+		
+		final List<ShardEntity> tmp = new ArrayList<>();
+		for (final Entity e: raws) {
+			final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
+			if (payload != null) {
+				builder.withPayload(payload);
+			}
+			final ShardEntity tmpp = builder.build();
+			tmpp.getCommitTree().addEvent(
+					event, 
+					EntityState.PREPARED,  
+					this.shardId, 
+					CommitTree.PLAN_NA);
+			tmp.add(tmpp);
+		}
+		return tmp;
+	}
+
 	static class CommitBatchRequestResponse {
 		
 		private final CommitBatchResponse response;
@@ -340,155 +410,29 @@ class CrudExecutor {
 			}
 		}
 	}
-
-	private void timeReceived(final Set<Reply> replies) {
-		long now = System.currentTimeMillis();
-		replies.forEach(r->r.withTiming(Reply.Timing.CLIENT_RECEIVED_REPLY_TS, now));
-	}
-
-	/** links the reply with a Future knowing the system's commit-state of a Duty  
-	 * @param event */
-	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private void assignFutures(final Collection<Reply> replies, final EntityEvent event) {
-		final NetworkShardIdentifier previous = leaderAware.getLeaderShardId();
-		for (final Reply reply: replies) {
-			// only successful replies
-			if ((reply.getValue()==ReplyValue.SUCCESS)) {
-				try {
-					if (reply.getRetryCounter() == 0) {
-						reply.setState((Future)supplyAsync(()->
-							new FutureTask<CommitState>(()-> 
-								waitOrRetry(event, previous, reply)
-							)));
-					} else {
-						// Retry: we're already in a blocking future
-						// replies is a collection of 1 object so we can block
-						reply.setState(completedFuture(
-								waitOrRetry(event, previous, reply)));
-					}
-				} catch (Exception e) {
-					logger.error("{}: Unexpected linking promise for {}", getClass().getSimpleName(), reply, e);
-				}
-			} else {
-				logger.warn("{}: Reply failure ({}): {}", getClass().getSimpleName(), 
-						reply, reply.getEntity().getId());
-			}
+ 
+	public Map<String, String> replyPool() {
+		if (replyPool==null) {
+			return Collections.emptyMap();
 		}
-	}
-
-	/** 
-	 * block and sleep until leader response or retry while quota
-	 * recursively retry.
-	 *  
-	 * @throws InterruptedException 
-	 */
-	private CommitState waitOrRetry(
-			final EntityEvent event, 
-			final NetworkShardIdentifier prevLeader, 
-			final Reply reply) throws InterruptedException {
-		
-		CommitState cs = requestLatches.wait(reply.getEntity(), maxWaitMs);
-		if (cs == null) {
-			cs = determineState(prevLeader, reply, event);
-			if (cs == CommitState.REJECTED) {
-				if (reply.getRetryCounter() < MAX_RETRIES) {
-					reply.addRetry();
-					// take adaptation period
-					Thread.sleep(RETRY_SLEEP);
-					logger.warn("{}: Retrying after leader reelection, duty: {}", 
-							getClass().getSimpleName(), reply.getEntity());
-					forwardLeader(event, 
-							reply.getTiming(Reply.Timing.CLIENT_CREATED_TS), 
-							Collections.singleton(reply), 
-							toEntities(
-									Collections.singletonList(reply.getEntity()), 
-									event, null));
-				} else {
-					logger.error("{}: Reply from Leader retries exhausted for {}", getClass().getSimpleName(), reply);								
-				}
-			}
-		} else {
-			reply.withTiming(Reply.Timing.CLIENT_RECEIVED_STATE_TS, System.currentTimeMillis());
-			logger.info("{}: Client op done: {}: for: {} ({} ms)", getClass().getSimpleName(), 
-					cs, reply.getEntity().getId(), reply.getTimeElapsedSoFar());
-		}
-		return cs;
-	}
-
-	private CommitState determineState(final NetworkShardIdentifier prevLeader, final Reply reply, final EntityEvent ee) {
-		// a good reason for leader indifference: reelection happened
-		if (leaderAware.getLastLeaderChange().toEpochMilli() 
-					> reply.getTiming(Reply.Timing.CLIENT_RECEIVED_REPLY_TS)
-				&& !leaderAware.getLeaderShardId().equals(prevLeader)) {
-			return convalidate(reply, ee) ? CommitState.FINISHED : CommitState.REJECTED;
-		} else {
-			logger.error("{}: Client op cancelled for starvation!: for: {} ({} ms)", 
-				getClass().getSimpleName(), reply.getEntity().getId(), reply.getTimeElapsedSoFar());
-			return CommitState.CANCELLED;
-		}
-	}
-
-	/**
-	 * now how is the current CommitedState about the asked operation ?
-	 * convalidate the current state if it reflects the user's intention
-	 */
-	private boolean convalidate(final Reply r, final EntityEvent ee) {
-		// TODO FALSO myself may not be involved
-		final Optional<ShardEntity> se = this.partition.getDuties().stream()
-				.filter(d->d.getDuty().equals(r.getEntity()))
-				.findFirst();
-		if (ee==EntityEvent.CREATE && se.isPresent() || ee==EntityEvent.REMOVE && !se.isPresent()) {
-			// leader changed after commiting request but before replying state
-			return true;
-		} else {
-			//if (se.isPresent() && se.get().getCommitTree().getLast())
-			logger.error("{}: Client op rejected for leader reelection!: for: {} ({} ms)", 
-					getClass().getSimpleName(), r.getEntity().getId(), r.getTimeElapsedSoFar());
-			return false;
-		}
+		return poolToMap(replyPool, "replies", replyQueue);
 	}
 	
-	private boolean sendWithRetries(final CommitBatchRequest request) {
-		int tries = 10;
-		boolean sent = false;
-		while (!Thread.interrupted() && !sent && tries-->0) {
-			if (leaderAware.getLeaderShardId()!=null) {
-				final BrokerChannel channel = eventBroker.buildToTarget(config, 
-						Channel.CLITOLEAD,
-						leaderAware.getLeaderShardId());
-				sent = eventBroker.send(channel, request);
-			} else {
-				try {
-					Thread.sleep(config.beatToMs(10));
-				} catch (InterruptedException ie) {
-					break;
-				}
-			}
+	public Map<String, String> statePool() {
+		if (statePool==null) {
+			return Collections.emptyMap();
 		}
-		return sent;
+		return poolToMap(statePool, "commits", stateQueue);
 	}
 	
-	private List<ShardEntity> toEntities(
-			final Collection<? extends Entity> raws, 
-			final EntityEvent event,
-			final EntityPayload payload) {
-		
-		final List<ShardEntity> tmp = new ArrayList<>();
-		for (final Entity e: raws) {
-			final ShardEntity.Builder builder = ShardEntity.Builder.builder(e);
-			if (payload != null) {
-				builder.withPayload(payload);
-			}
-			final ShardEntity tmpp = builder.build();
-			tmpp.getCommitTree().addEvent(
-					event, 
-					EntityState.PREPARED,  
-					this.shardId, 
-					CommitTree.PLAN_NA);
-			tmp.add(tmpp);
-		}
-		return tmp;
+	private Map<String, String> poolToMap(final ThreadPoolExecutor tpe, final String prefix, final BlockingQueue q) {
+		final Map<String, String> m = new LinkedHashMap<>();
+		m.put(prefix+"-queuesize", String.valueOf(q.size()));
+		m.put(prefix+"-active-threads", String.valueOf(tpe.getActiveCount()));
+		m.put(prefix+"-submitted-tasks", String.valueOf(tpe.getTaskCount()));
+		m.put(prefix+"-completed-tasks", String.valueOf(tpe.getCompletedTaskCount()));
+		m.put(prefix+"-poolsize", String.valueOf(tpe.getPoolSize()));
+		return m;
 	}
-
 
 }

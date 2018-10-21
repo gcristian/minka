@@ -28,10 +28,10 @@ import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.CommitBatch;
-import io.tilt.minka.api.CommitBatch.CommitBatchResponse;
 import io.tilt.minka.api.Config;
-import io.tilt.minka.api.RequestLatches;
+import io.tilt.minka.api.crud.CommitBatch;
+import io.tilt.minka.api.crud.LatchHandler;
+import io.tilt.minka.api.crud.CommitBatch.CommitBatchResponse;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
@@ -70,7 +70,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
 	private final LeaderAware leaderContainer;
-	private final RequestLatches requestLatches;
+	private final LatchHandler latchHandler;
 	
 	private Clearance lastClearance;
 	private BrokerChannel channel;
@@ -92,7 +92,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 			final EventBroker eventBroker,
 			final Scheduler scheduler, 
 			final LeaderAware leaderContainer,
-			final RequestLatches requestLatches) {
+			final LatchHandler latchHandler) {
 
 		super();
 		this.config = config;
@@ -102,7 +102,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		this.eventBroker = eventBroker;
 		this.scheduler = scheduler;
 		this.leaderContainer = leaderContainer;
-		this.requestLatches = requestLatches;
+		this.latchHandler = latchHandler;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -112,7 +112,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		logger.info("{}: ({}) Preparing for leader events", getName(), config.getLoggingShardId());
 		final long sinceNow = System.currentTimeMillis();
 		this.channel = eventBroker.buildToTarget(config, Channel.LEADTOFOLL, partition.getId());
-		for (Class c: subscriptions) {
+		for (Class<? extends Serializable> c: subscriptions) {
 			eventBroker.subscribe(channel,this, sinceNow, c);	
 		}
 		
@@ -147,12 +147,12 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 				onCollection(al);				
 			} else if (any instanceof CommitRequest) {
 				for (final CommitRequest sr: (List<CommitRequest>)event) {
-					requestLatches.resolve(sr.getEntity().getDuty(), sr.getState());
+					latchHandler.transfer(sr.getEntity().getDuty(), sr.getState());
 				}
 			}
 		} else if (event instanceof CommitBatchResponse) {
 			final CommitBatchResponse cr = (CommitBatchResponse)event;
-			requestLatches.resolve(cr.getId(), cr);
+			latchHandler.transfer(cr.getId(), cr);
 		} else if (event instanceof Clearance) {
 			onClearance((Clearance) event);
 		} else {

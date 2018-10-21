@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.tilt.minka.api.Client;
-import io.tilt.minka.api.Reply;
+import io.tilt.minka.api.crud.Client;
+import io.tilt.minka.api.crud.Reply;
 import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.model.Duty;
@@ -31,15 +31,15 @@ import io.tilt.minka.shard.ShardIdentifier;
  * Entry point for outter clients of the {@linkplain DirtyState}
  * Validations and consistency considerations for {@linkplain Client} usage
  */
-public class CrudController {
+public class CrudRepository {
 
-	private static final Logger logger = LoggerFactory.getLogger(CrudController.class);
+	private static final Logger logger = LoggerFactory.getLogger(CrudRepository.class);
 	private final String classname = getClass().getSimpleName();
 
 	private final Scheme scheme;
 	private final ShardIdentifier shardId;
 
-	public CrudController(final Scheme scheme, final ShardIdentifier shardId) {
+	public CrudRepository(final Scheme scheme, final ShardIdentifier shardId) {
 		super();
 		this.scheme = scheme;
 		this.shardId = shardId;
@@ -120,7 +120,7 @@ public class CrudController {
 		try {
 			callback.accept(reply);
 		} catch (Exception e) {
-			logger.warn("{}: reply consumer throwed exception: ", CrudController.class.getSimpleName(), e.getMessage());
+			logger.warn("{}: reply consumer throwed exception: ", CrudRepository.class.getSimpleName(), e.getMessage());
 		}
 	}
 	
