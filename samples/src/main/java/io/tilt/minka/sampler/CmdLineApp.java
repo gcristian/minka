@@ -193,13 +193,13 @@ public class CmdLineApp {
 		final String tagPrefix = ""; //quest.get(Quest.tag) + "-";
 		Reply res = null;
 		if (cmd.equals("d")) {
-			res = client.add(duty(tagPrefix, split)).get();
+			res = client.fireAndForget().add(duty(tagPrefix, split));
 		} else if (cmd.equals("!d")) {
-			res = client.remove(duty(tagPrefix, split)).get();
+			res = client.fireAndForget().remove(duty(tagPrefix, split));
 		} else if (cmd.equals("p")) {
-			res = client.add(pallet(split)).get();
+			res = client.fireAndForget().add(pallet(split));
 		} else if (cmd.equals("!p")) {
-			res = client.remove(pallet(split)).get();
+			res = client.fireAndForget().remove(pallet(split));
 		} else if (cmd.equals("c")) {
 			client.getEventMapper().setCapacity(pallet(split), 999d);
 		}
