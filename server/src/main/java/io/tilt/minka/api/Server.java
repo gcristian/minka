@@ -179,14 +179,14 @@ public class Server {
 		t.setWebServer(webServer);
 		final ThreadPoolConfig config = ThreadPoolConfig.defaultConfig()
 				.setCorePoolSize(10)
-				.setMaxPoolSize(10);
+				.setMaxPoolSize(50);
 		
 		final Iterator<NetworkListener> it = webServer.getListeners().iterator();
 		while (it.hasNext()) {
 			final NetworkListener listener = it.next();
 			logger.info("{}: {} Configuring webserver listener {}", name, t.getConnectReference(), listener);
 			final TCPNIOTransport transport = listener.getTransport();
-			transport.setSelectorRunnersCount(1);
+			transport.setSelectorRunnersCount(10);
 			transport.setWorkerThreadPoolConfig(config.copy().setPoolName(THREAD_NAME_WEBSERVER_WORKER));
 			transport.setWorkerThreadPoolConfig(config.copy().setPoolName(THREAD_NAME_WEBSERVER_KERNEL));
 			// note the transport class has an inner channel connector disabled to configure
