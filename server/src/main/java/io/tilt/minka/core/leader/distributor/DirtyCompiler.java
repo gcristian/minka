@@ -33,9 +33,12 @@ import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.core.leader.data.CommitRequest;
+import io.tilt.minka.core.leader.data.CommitState;
 import io.tilt.minka.core.leader.data.CommittedState;
 import io.tilt.minka.core.leader.data.DirtyState;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.Shard;
 
@@ -52,6 +55,7 @@ class DirtyCompiler {
 	private final String DC_UNFINISHED_DANGLING	= "{}: Previous change's unfinished business saved as Dangling: {}";
 	private final String DC_FALSE_UNFINISHED = "{}: Previous change although unfinished hasnt waiting duties";
 	private final String DC_SHIPPED_FROM_DUTY	 =" {}: Shipped {} from: {}, Duty: {}";
+	private final String DC_REMOVAL_WINS = "{}: Duty ({}) deletion wins over creation concurrency";
 
 	private static final Logger logger = LoggerFactory.getLogger(DirtyCompiler.class);
 
@@ -78,10 +82,10 @@ class DirtyCompiler {
 		this.deletions = compileRemovals(creations);
 	}
 	
-	public Set<ShardEntity> getCreations() {
+	Set<ShardEntity> getCreations() {
 		return creations;
 	}
-	public Set<ShardEntity> getDeletions() {
+	Set<ShardEntity> getDeletions() {
 		return deletions;
 	}
 
@@ -107,15 +111,21 @@ class DirtyCompiler {
 			if (schemed!=null) {
 				// translate the REMOVAL event
 				schemed.getCommitTree().addEvent(
-						crud.getLastEvent(), 
-						crud.getLastState(), 
+						REMOVE, 
+						EntityState.PREPARED, 
 						state.findDutyLocation(schemed).getShardID(), 
 						changePlan.getId());
 				dutyDeletions.add(schemed);
-				// prevail user's deletion op. over clustering restore/creation
-				dutyCreations.remove(schemed);
 			}
 		});
+		// prevail user's deletion op. over clustering restore/creation
+		for (ShardEntity removing: dutyDeletions) {
+			if (dutyCreations.remove(removing)) {
+				logger.warn(DC_REMOVAL_WINS, getClass().getSimpleName(), removing);
+				snapshot.updateCommitRequest(EntityEvent.REMOVE, removing, CommitState.CANCELLED);
+				// TODO stateSentry.notifysers(...)
+			}
+		}
 	}
 
 	/*
@@ -134,7 +144,6 @@ class DirtyCompiler {
 				}
 			});
 			if (rescued ==0 && logger.isInfoEnabled()) {
-				
 				logger.info(DC_FALSE_UNFINISHED, name);
 			} else {
 				if (logger.isInfoEnabled()) {
@@ -198,7 +207,7 @@ class DirtyCompiler {
 				}
 			}
 			missed.getCommitTree().addEvent(CREATE, PREPARED,"N/A",changePlan.getId());
-			snapshot.createCommitRequests(EntityEvent.ATTACH, Collections.singleton(missed), null, false);
+			snapshot.createCommitRequests(EntityEvent.CREATE, Collections.singleton(missed), null, false);
 		}
 		if (!missing.isEmpty()) {
 			logger.info(DC_DANGLING_RESUME, name, missing.size(), toStringIds(missing));

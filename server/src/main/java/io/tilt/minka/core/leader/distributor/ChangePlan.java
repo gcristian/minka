@@ -381,6 +381,20 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		return (st.toEpochMilli() - System.currentTimeMillis()) / 1000;
 	}
 
+	/** @return the dispatching event for the duty if existing, else: NULL */
+	public boolean hasDispatch(final Duty duty, final EntityEvent ee) {
+		for(Dispatch d: builtDispatches) {
+			for (ShardEntity e: d.getDuties()) {
+				if (ShardEntity.qualifiedId(e.getDuty()).equals(e.getQualifiedId()) 
+						&& ee==d.getEvent()) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	/** @return TRUE if Duty is moving betweem Shards */
 	public boolean hasMigration(final Duty duty) {
 		boolean detaching = false;
 		boolean attaching = false;

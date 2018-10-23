@@ -50,11 +50,13 @@ public enum CommitState {
 	/** once dispatched to follower by distributor phase */
 	PROCESSING(EntityEvent.Type.NONE, 1),
 	/** after reaching {@linkplain EntityEvent.Type.REPLICA} expected state */
-	COMMITTED_REPLICATION(EntityEvent.Type.REPLICA, 2),
+	REPLICATION(EntityEvent.Type.REPLICA, 2),
 	/** after reaching {@linkplain EntityEvent.Type.ALLOC} expected state */
-	COMMITTED_ALLOCATION(EntityEvent.Type.ALLOC, 3),
+	ALLOCATION(EntityEvent.Type.ALLOC, 3),
 	/** an internal state only known to leader (not notified to user) */
-	NOTIFIED(EntityEvent.Type.NONE, 4)
+	FINISHED(EntityEvent.Type.NONE, 4),
+	/** the duty operation was cancelled */
+	CANCELLED(EntityEvent.Type.NONE, 5),
 	;
 	
 	private Type type;
@@ -68,21 +70,25 @@ public enum CommitState {
 		return type;
 	}
 	public boolean notifies() {
-		return this==NOTIFIED;
+		return this==FINISHED;
+	}
+	
+	public boolean isEnded() {
+		return this==FINISHED || this==CANCELLED;
 	}
 	
 	public CommitState next(final EntityEvent ee) {
 		CommitState ret = null;
-		if (order!=4) {
-			if (this==PROCESSING || this==COMMITTED_REPLICATION) {
+		if (this!=FINISHED) {
+			if (this==PROCESSING || this==REPLICATION) {
 				if (ee.getType()==EntityEvent.Type.ALLOC) { 
-					ret = COMMITTED_ALLOCATION;
+					ret = ALLOCATION;
 				} else if (ee.getType()==EntityEvent.Type.REPLICA 
-						&& this!=COMMITTED_REPLICATION) {
-					ret = COMMITTED_REPLICATION;
+						&& this!=REPLICATION) {
+					ret = REPLICATION;
 				}
-			} else if (this==CommitState.COMMITTED_ALLOCATION) {
-				ret = NOTIFIED;
+			} else if (this==CommitState.ALLOCATION) {
+				ret = FINISHED;
 			}
 		}
 		return ret;
