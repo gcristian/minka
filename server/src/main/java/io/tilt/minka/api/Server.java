@@ -270,8 +270,8 @@ public class Server {
 		final URI uri = resolveWebServerBindAddress(tenant.getConfig());
 		final HttpServer webServer = GrizzlyHttpServerFactory.createHttpServer(uri, res, false);
 		final ThreadPoolConfig config = ThreadPoolConfig.defaultConfig()
-				.setCorePoolSize(1)
-				.setMaxPoolSize(1);
+				.setCorePoolSize(10)
+				.setMaxPoolSize(10);
 		
 		final Iterator<NetworkListener> it = webServer.getListeners().iterator();
 		while (it.hasNext()) {
