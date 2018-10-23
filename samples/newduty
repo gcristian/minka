@@ -11,16 +11,17 @@ jq=$(which jq); tr=$(which tr)
 PID="$1"
 ID="$2"
 WEIGHT="$3"
-CL="$4"
+MODE="$4"
 
-[ -z "$1" ] || [ -z "$2" ] && echo "Usage: ./newduty {pallet-id} {duty-id} [duty-weight] [consistency-level]" && exit 1
+[ -z "$1" ] || [ -z "$2" ] && echo "Usage: ./newduty {pallet-id} {duty-id} [duty-weight] [mode:ff,nb,b]" && exit 1
 
 [ ! -z "$3" ] || WEIGHT="1"
-[ ! -z "$4" ] || CL="0"
+[ ! -z "$4" ] || MODE="ff"
 
 leader=$(./leader)
 CONTEXT="/minka/admin"
 DUTIES="$CONTEXT/crud/duty"
 
-$curl -XPUT -s $(./leader)$DUTIES"/$PID/$ID?weight=$WEIGHT&cl=$CL" #| $jq '.'
+$curl -XPUT -s $(./leader)$DUTIES"/$PID/$ID?weight=$WEIGHT&mode=$MODE" #| $jq '.'
+#$wget --method PUT $(./leader)$DUTIES"/$PID/$ID?weight=$WEIGHT&mode=$MODE" #| $jq '.'
 

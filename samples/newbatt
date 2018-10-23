@@ -1,6 +1,6 @@
 #!/bin/bash
 [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] && \
-	echo "Usage: ./newbatt {pallet-id} {duty-initial-id} {duty-final-id} [consistency-level]" && exit 1
+	echo "Usage: ./newbatt {pallet-id} {duty-initial-id} {duty-final-id} [mode:ff,nb,b]" && exit 1
 x=""
 echo "building..."
 
@@ -10,15 +10,13 @@ CONTEXT="/minka/admin"
 DUTIES="$CONTEXT/crud/duty"
 
 PID="$1"
-ID="$2"
-WEIGHT="$3"
-CL="$4"
+MODE="$4"
 
 x=""
 dir=$(date +"%s")
 mkdir -p $dir
 for did in $(seq $2 $3); do 
-	x="$x $curl -XPUT -s \"$leader$DUTIES/$PID/$PID$did?weight=$WEIGHT&cl=$CL\" -o $dir/$did &"
+	x="$x $curl -XPUT -s \"$leader$DUTIES/$PID/$PID$did?weight=$did&mode=$MODE\" -o $dir/$did &"
 done
 
 echo "requesting...$dir"

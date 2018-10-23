@@ -189,8 +189,6 @@ public class Server {
 			transport.setSelectorRunnersCount(10);
 			transport.setWorkerThreadPoolConfig(config.copy().setPoolName(THREAD_NAME_WEBSERVER_WORKER));
 			transport.setWorkerThreadPoolConfig(config.copy().setPoolName(THREAD_NAME_WEBSERVER_KERNEL));
-			// note the transport class has an inner channel connector disabled to configure
-			// as an instance private field which sizes the kernel pool to 10, unmodifiable.
 		}
 		
 		try {

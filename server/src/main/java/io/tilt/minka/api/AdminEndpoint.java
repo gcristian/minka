@@ -290,6 +290,14 @@ public class AdminEndpoint {
 		}
 	}
 
+	// this's just a facility for testing endpoints
+	// in no way represents minka's concepts whatsoever
+	public static enum Mode {
+		ff,
+		nb,
+		b
+	}
+	
 	private final static String PATH_CREATE_DUTY = "/crud/duty/{palletid}/{id}";
 	@PUT
 	@Path(PATH_CREATE_DUTY)
@@ -299,7 +307,7 @@ public class AdminEndpoint {
 			@PathParam("palletid") final String palletId,
 			@PathParam("id") final String dutyId,
 			@QueryParam("weight") final String weight,
-			@QueryParam("cl") final int consistencyLevel) throws JsonProcessingException {
+			@QueryParam("mode") final Mode mode) throws JsonProcessingException {
 		
 		try {
 			long w = 1;
@@ -309,15 +317,28 @@ public class AdminEndpoint {
 			final Duty d = Duty.builder(dutyId, palletId).with(w).build();
 
 			final Reply r;
-			if (consistencyLevel==0) {
+			if (mode==Mode.ff) {
+				// mode fire and forget: client doesnt get leader's response 
+				// unless lives within the follower JVM
 				r = client.fireAndForget().add(d);
-			} else {
-				r = client.add(d).get();
+			} else if (mode==Mode.nb){
+				// mode non blocking: client gets a future with leader's response
+				// no matter where it lives, sucessful replies: has futures for each duty's CommitState result
+				client.nonBlocking().add(d);
+				return Response.accepted()
+						.status(204)
+						.build();
+			} else if (mode==Mode.b){
+				// mode blocking: client blocks until gets leader's response 
+				// successfull replies: has futures for each duty CommitState result
+				// for which client will also block the current thread.
+				r = client.add(d);
 				if (r.isSuccess()) {
 					r.getState().get();
 				}
+			} else {
+				return Response.status(400).build();	
 			}
-			
 			return Response.accepted(r)
 					.status(r.getValue().getHttpCode())
 					.build();
@@ -326,7 +347,7 @@ public class AdminEndpoint {
 			return Response.serverError().build();
 		}
 	}
-
+	
 	private final static String PATH_DELETE_DUTY = "/crud/duty/{palletid}/{id}";
 	@DELETE
 	@Path(PATH_DELETE_DUTY)
@@ -334,23 +355,37 @@ public class AdminEndpoint {
 	public Response deleteDuty(
 			@PathParam("palletid") final String palletId,
 			@PathParam("id") final String dutyId,
-			@QueryParam("cl") final int consistencyLevel) throws JsonProcessingException {
+			@QueryParam("mode") final Mode mode) throws JsonProcessingException {
 		try {
 			final Duty d = Duty.builder(dutyId, palletId).build();
 			
+
 			final Reply r;
-			if (consistencyLevel==0) {
+			if (mode==Mode.ff) {
+				// mode fire and forget: client doesnt get leader's response 
+				// unless lives within the follower JVM
 				r = client.fireAndForget().remove(d);
-			} else {
-				r = client.remove(d).get();
+			} else if (mode==Mode.nb){
+				// mode non blocking: client gets a future with leader's response
+				// no matter where it lives, sucessful replies: has futures for each duty's CommitState result
+				client.nonBlocking().remove(d);
+				return Response.accepted()
+						.status(204)
+						.build();
+			} else if (mode==Mode.b){
+				// mode blocking: client blocks until gets leader's response 
+				// successfull replies: has futures for each duty CommitState result
+				// for which client will also block the current thread.
+				r = client.remove(d);
 				if (r.isSuccess()) {
 					r.getState().get();
 				}
+			} else {
+				return Response.status(400).build();	
 			}
-
 			return Response.accepted(r)
 					.status(r.getValue().getHttpCode())
-					.build();
+					.build();		
 		} catch (Exception e) {
 			logger.error("while " + PATH_DELETE_DUTY, e);
 			return Response.serverError().build();

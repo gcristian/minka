@@ -21,10 +21,12 @@ import static java.util.Collections.singletonList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import io.tilt.minka.core.leader.LeaderBootstrap;
+import io.tilt.minka.core.leader.data.CommitState;
 import io.tilt.minka.core.monitor.DistroJSONBuilder;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.ShardedPartition;
@@ -48,6 +50,8 @@ public class Client {
 	private final ShardedPartition partition;
 	
 	private EventMapper eventMapper;
+	private NonBlockingAPI nonblocking;
+	private FireAndForgetAPI fireAndForget;
 	
 	protected Client(
 			final CrudExecutor crudExec,
@@ -70,122 +74,6 @@ public class Client {
 		return distroJSONBuilder.buildDistribution();
 	}
 
-	/**
-	 * <p>
-	 * A list of duties currently captured by the server shard. 
-	 * Calling this method twice may not return the same contents.
-	 * Although difference may not exist if:
-	 * 	1) no CRUD operations occurr
-	 *  2) no shard falls down or changes health state
-	 *  3) no balancer's migrations occurr
-	 *  
-	 * @return			a list of captured duties
-	 */
-	public List<Duty> captured() {
-		return this.partition.getDuties().stream()
-				.map(d->(Duty)d.getDuty())
-				.collect(Collectors.toList());
-	}
-	
-	/**
-	* Enter a new duty to Minka so it can distribute it to proper shards. 
-	* @param duty      a duty sharded or to be sharded in the cluster
-	* @return whether or not the operation succeed
-	*/
-	public Future<Reply> add(final Duty duty) {
-		return crudExec.executeSingle(singletonList(duty), EntityEvent.CREATE, null);
-	}
-	
-	public Future<Collection<Reply>> addAll(final Collection<Duty> duty) {
-		return crudExec.request(duty, EntityEvent.CREATE, null); 
-	}
-
-	public Future<Reply> add(final Pallet pallet) {
-		return crudExec.executeSingle(singletonList(pallet), EntityEvent.CREATE, null);
-	}
-
-	/**
-	* Remove duties already running/distributed by Minka
-	* This causes the duty to be stopped at Minkas's FollowerBootstrap context.
-	* So expect a call at PartitionDelegate.release
-	* @param duty	    a duty sharded or to be sharded in the cluster
-	* @return whether or not the operation succeed
-	*/
-	public Future<Reply> remove(final Duty duty) {
-		return crudExec.executeSingle(singletonList(duty), EntityEvent.REMOVE, null);
-	}
-	public Future<Collection<Reply>> removeAll(final Collection<Duty> coll) {
-		return crudExec.request(coll, EntityEvent.REMOVE, null);
-	}
-
-	public Future<Reply> remove(final Pallet pallet) {
-		return crudExec.executeSingle(singletonList(pallet), EntityEvent.REMOVE, null);
-	}
-	
-	public void setFutureMaxWaitMs(long futureMaxWaitMs) {
-		this.crudExec.setFutureMaxWaitMs(futureMaxWaitMs);
-	}
-	
-	/**
-	 * A way to execute operations without saving resources neither locally waiting for the leader reply,
-	 * nor the leader shard responding back the result of the crud operation, and it's later distribution status.
-	 * 
-	 * In case the local shard hosts the Leader shard, replies will have some detail on {@linkplain ReplyValue}
-	 * about the consistency or legality of the operation.
-	 * In case the local is a follower shard, reply will have a sent_failed or sent_success flag.
-	 * 
-	 * Operation still runs in the caller's thread but there's no blocking step internally,
-	 * in any case you could also call it asynchronously in a separated thread.
-	 * 
-	 * @return	an instance with the same capabilities but with much lighter resource usage, better for performance.
-	 */
-	public FireAndForget fireAndForget() {
-		return new FireAndForget(this.crudExec);
-	}
-	
-	public static class FireAndForget {
-		
-		private final CrudExecutor crudExec;
-		
-		public FireAndForget(final CrudExecutor crudExec) {
-			this.crudExec = crudExec;
-		}
-
-		public Reply add(final Pallet pallet) {
-			return crudExec.execute(singletonList(pallet), EntityEvent.CREATE, null).iterator().next();
-		}
-		public Reply add(final Duty duty) {
-			return addAll(singletonList(duty)).iterator().next();
-		}
-		public Collection<Reply> addAll(final Collection<Duty> duty) {
-			return crudExec.execute(duty, EntityEvent.CREATE, null);
-		}
-		
-		public Reply remove(final Duty duty) {
-			return removeAll(singletonList(duty)).iterator().next();
-		}
-		public Collection<Reply> removeAll(final Collection<Duty> coll) {
-			return crudExec.execute(coll, EntityEvent.REMOVE, null);
-		}
-		public Reply remove(final Pallet pallet) {
-			return crudExec.execute(singletonList(pallet), EntityEvent.REMOVE, null).iterator().next();
-		}
-		
-		public Reply update(final Duty duty) {
-			return crudExec.execute(singletonList(duty), EntityEvent.UPDATE, null).iterator().next();
-		}
-		public Reply update(final Pallet pallet) {
-			return crudExec.execute(singletonList(pallet), EntityEvent.UPDATE, null).iterator().next();
-		}
-		public Reply transfer(final Duty duty, final EntityPayload userPayload) {
-			return crudExec.execute(singletonList(duty), EntityEvent.TRANSFER, userPayload).iterator().next();
-		}
-		public Reply transfer(final Pallet pallet, final EntityPayload userPayload) {
-			return crudExec.execute(singletonList(pallet), EntityEvent.TRANSFER, userPayload).iterator().next();
-		}
-	}
-	
-	
 	public String getShardIdentity() {
 		return this.shardId.getId();
 	}
@@ -210,4 +98,201 @@ public class Client {
 		return leaderBootstrap.inService();
 	}
 
+	/**
+	 * <p>
+	 * A list of duties currently captured by the server shard. 
+	 * Calling this method twice may not return the same contents.
+	 * Although difference may not exist if:
+	 * 	1) no CRUD operations occurr
+	 *  2) no shard falls down or changes health state
+	 *  3) no balancer's migrations occurr
+	 *  
+	 * @return			a list of captured duties
+	 */
+	public List<Duty> captured() {
+		return this.partition.getDuties().stream()
+				.map(d->(Duty)d.getDuty())
+				.collect(Collectors.toList());
+	}
+
+	public void setFutureMaxWaitMs(long futureMaxWaitMs) {
+		this.crudExec.setFutureMaxWaitMs(futureMaxWaitMs);
+	}
+	public void setExecutor(final ExecutorService e) {
+		crudExec.setExecutor(e);
+	}
+	
+	/**
+	* Enter a new duty to Minka so it can distribute it to proper shards. 
+	* This causes the duty to be attached at Minka's Follower context.
+	* So expect a call at PartitionDelegate.capture 
+	* @param duty      a duty sharded or to be sharded in the cluster
+	* @return whether or not the operation succeed
+	*/
+	public Reply add(final Duty duty) {
+		return crudExec.executeBlockingWithResponse(
+					singletonList(duty), 
+					EntityEvent.CREATE, 
+					null)
+				.iterator().next();
+	}
+	
+	public Collection<Reply> addAll(final Collection<Duty> duty) {
+		return crudExec.executeBlockingWithResponse(duty, EntityEvent.CREATE, null); 
+	}
+
+	public Reply add(final Pallet pallet) {
+		return crudExec.executeBlockingWithResponse(
+					singletonList(pallet), 
+					EntityEvent.CREATE, 
+					null)
+				.iterator().next();
+	}
+
+	/**
+	* Remove duties already running/distributed by Minka
+	* This causes the duty to be stopped at Minkas's FollowerBootstrap context.
+	* So expect a call at PartitionDelegate.release
+	* @param duty	    a duty sharded or to be sharded in the cluster
+	* @return whether or not the operation succeed
+	*/
+	public Reply remove(final Duty duty) {
+		return crudExec.executeBlockingWithResponse(
+					singletonList(duty), 
+					EntityEvent.REMOVE, null)
+				.iterator().next();
+	}
+	public Collection<Reply> removeAll(final Collection<Duty> coll) {
+		return crudExec.executeBlockingWithResponse(coll, EntityEvent.REMOVE, null);
+	}
+
+	public Reply remove(final Pallet pallet) {
+		return crudExec.executeBlockingWithResponse(
+					singletonList(pallet), 
+					EntityEvent.REMOVE, 
+					null)
+				.iterator().next();
+	}
+	
+	/**
+	 * Obtain a facility to dispatch operations asynchronously.
+	 * It will still schedule waiting tasks to wait for leader's response replies 
+	 * and then (for successful replies) to receive distribution's status as {@linkplain CommitState}
+	 * For that matter all methods return Futures. 
+	 */
+	public synchronized NonBlockingAPI nonBlocking() {
+		if (this.nonblocking == null) {
+			this.nonblocking = new NonBlockingAPI(this.crudExec);
+		}
+		return nonblocking;
+	}
+	
+	public static class NonBlockingAPI {
+
+		private final CrudExecutor crudExec;
+
+		public NonBlockingAPI(CrudExecutor crudExec) {
+			this.crudExec = crudExec;
+		}
+
+		/**
+		* Enter a new duty to Minka so it can distribute it to proper shards.
+		* This causes the duty to be attached at Minka's Follower context.
+		* So expect a call at PartitionDelegate.capture 
+		* @param duty      a duty sharded or to be sharded in the cluster
+		* @return whether or not the operation succeed
+		*/
+		public Future<Reply> add(final Duty duty) {
+			return crudExec.executeWithResponseSingle(singletonList(duty), EntityEvent.CREATE, null);
+		}
+		
+		public Future<Collection<Reply>> addAll(final Collection<Duty> duty) {
+			return crudExec.executeWithResponse(duty, EntityEvent.CREATE, null); 
+		}
+
+		public Future<Reply> add(final Pallet pallet) {
+			return crudExec.executeWithResponseSingle(singletonList(pallet), EntityEvent.CREATE, null);
+		}
+
+		/**
+		* Remove duties already running/distributed by Minka
+		* This causes the duty to be stopped at Minkas's Follower context.
+		* So expect a call at PartitionDelegate.release
+		* @param duty	    a duty sharded or to be sharded in the cluster
+		* @return whether or not the operation succeed
+		*/
+		public Future<Reply> remove(final Duty duty) {
+			return crudExec.executeWithResponseSingle(singletonList(duty), EntityEvent.REMOVE, null);
+		}
+		public Future<Collection<Reply>> removeAll(final Collection<Duty> coll) {
+			return crudExec.executeWithResponse(coll, EntityEvent.REMOVE, null);
+		}
+
+		public Future<Reply> remove(final Pallet pallet) {
+			return crudExec.executeWithResponseSingle(singletonList(pallet), EntityEvent.REMOVE, null);
+		}
+	}
+	
+	/**
+	 * A way to execute operations without saving resources neither locally waiting for the leader reply,
+	 * nor the leader shard responding back the result of the crud operation, and it's later distribution status.
+	 * 
+	 * In case the local shard hosts the Leader shard, replies will have some detail on {@linkplain ReplyValue}
+	 * about the consistency or legality of the operation.
+	 * In case the local is a follower shard, reply will have a sent_failed or sent_success flag.
+	 * 
+	 * Operation still runs in the caller's thread but there's no blocking step internally,
+	 * 
+	 * @return	an instance with the same capabilities but with much lighter resource usage, better for performance.
+	 */
+	public synchronized FireAndForgetAPI fireAndForget() {
+		if (this.fireAndForget==null) { 
+			this.fireAndForget = new FireAndForgetAPI(this.crudExec);
+		}
+		return fireAndForget;
+	}
+	
+	public static class FireAndForgetAPI {
+		
+		private final CrudExecutor crudExec;
+		
+		public FireAndForgetAPI(final CrudExecutor crudExec) {
+			this.crudExec = crudExec;
+		}
+
+		public Reply add(final Pallet pallet) {
+			return crudExec.fireAndForget(singletonList(pallet), EntityEvent.CREATE, null).iterator().next();
+		}
+		public Reply add(final Duty duty) {
+			return addAll(singletonList(duty)).iterator().next();
+		}
+		public Collection<Reply> addAll(final Collection<Duty> duty) {
+			return crudExec.fireAndForget(duty, EntityEvent.CREATE, null);
+		}
+		
+		public Reply remove(final Duty duty) {
+			return removeAll(singletonList(duty)).iterator().next();
+		}
+		public Collection<Reply> removeAll(final Collection<Duty> coll) {
+			return crudExec.fireAndForget(coll, EntityEvent.REMOVE, null);
+		}
+		public Reply remove(final Pallet pallet) {
+			return crudExec.fireAndForget(singletonList(pallet), EntityEvent.REMOVE, null).iterator().next();
+		}
+		
+		public Reply update(final Duty duty) {
+			return crudExec.fireAndForget(singletonList(duty), EntityEvent.UPDATE, null).iterator().next();
+		}
+		public Reply update(final Pallet pallet) {
+			return crudExec.fireAndForget(singletonList(pallet), EntityEvent.UPDATE, null).iterator().next();
+		}
+		public Reply transfer(final Duty duty, final EntityPayload userPayload) {
+			return crudExec.fireAndForget(singletonList(duty), EntityEvent.TRANSFER, userPayload).iterator().next();
+		}
+		public Reply transfer(final Pallet pallet, final EntityPayload userPayload) {
+			return crudExec.fireAndForget(singletonList(pallet), EntityEvent.TRANSFER, userPayload).iterator().next();
+		}
+	}
+	
+	
 }

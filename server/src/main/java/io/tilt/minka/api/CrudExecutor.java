@@ -17,6 +17,7 @@
 package io.tilt.minka.api;
 
 import static java.util.Collections.singleton;
+import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -28,10 +29,11 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
-import java.util.stream.Collectors;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.Validate;
 import org.slf4j.Logger;
@@ -70,9 +72,12 @@ class CrudExecutor {
 	private static final Logger logger = LoggerFactory.getLogger(CrudExecutor.class);
 
 	private static final int MAX_REELECTION_TOLERANCE = 10;
+	private static final int RETRY_SLEEP = 1000;
 	private static final int MAX_RETRIES = 3;
-	private static final long RETRY_SLEEP = 1000;
+	private static final int MAX_THREADS = 8;
 
+	private static final int MAX_CONCURRENT = Short.MAX_VALUE;
+	
 	private final Config config;
 	private final LeaderBootstrap leaderBootstrap;
 	private final EventBroker eventBroker;
@@ -84,11 +89,9 @@ class CrudExecutor {
 
 	private long maxWaitMs = RequestLatches.NO_EXPIRATION;
 
-	private final ExecutorService executor = Executors.newCachedThreadPool(
-			new ThreadFactoryBuilder()
-				.setNameFormat(SchedulerSettings.PNAME + "CL")
-				.build());
-
+	private ExecutorService executor;
+	private LinkedBlockingDeque<Runnable> deque;
+	
 	protected CrudExecutor(
 			final Config config, 
 			final LeaderBootstrap leaderBootstrap, 
@@ -111,17 +114,37 @@ class CrudExecutor {
 	void setFutureMaxWaitMs(long futureMaxWaitMs) {
 		this.maxWaitMs = futureMaxWaitMs;
 	}
+	
+	private synchronized void init() {
+		if (executor==null) {
+			executor = new ThreadPoolExecutor(1, MAX_THREADS, 30, TimeUnit.SECONDS, 
+					deque = new LinkedBlockingDeque<>(MAX_CONCURRENT), 
+					new ThreadFactoryBuilder()
+						.setNameFormat(SchedulerSettings.PNAME + "CL")
+						.build(), 
+				new ThreadPoolExecutor.AbortPolicy());
+		}
+	}
 
+	synchronized void setExecutor(final ExecutorService e) {
+		if (executor==null) {
+			executor = requireNonNull(e);
+		} else {
+			throw new IllegalStateException("Executor can only be set before running any CRUD operation and only once");
+		}
+	}
+	
 	/** flags the request so the leader knows it must not respond a reply or state back */
-	Collection<Reply> execute(
+	Collection<Reply> fireAndForget(
 			final Collection<? extends Entity> raws, 
 			final EntityEvent event, 
 			final EntityPayload userPayload) {
 		
 		Validate.notNull(raws, "an entity is required");
+		init();
 		final long start = System.currentTimeMillis();
 		Set<Reply> replies;
-		try {
+		try {			
 			final List<ShardEntity> entities = toEntities(raws, event, userPayload);
 			if (leaderBootstrap.inService()) {
 				final Set<Reply> replies_ = replies = new HashSet<>(raws.size());
@@ -145,24 +168,44 @@ class CrudExecutor {
 		return replies;
 	}
 
-	Future<Collection<Reply>> request(
+	Collection<Reply> executeBlockingWithResponse(
 			final Collection<? extends Entity> raws, 
 			final EntityEvent event, 
 			final EntityPayload userPayload) {
 		
 		Validate.notNull(raws, "an entity is required");
+		init();
+		final int size = deque.size();
+		if (size > 0) {
+			logger.warn("{}: Queue with: {} tasks already", getClass().getSimpleName(), size);
+		}
+		return resolve(raws, event, userPayload);
+	}
+
+	Future<Collection<Reply>> executeWithResponse(
+			final Collection<? extends Entity> raws, 
+			final EntityEvent event, 
+			final EntityPayload userPayload) {
+		
+		Validate.notNull(raws, "an entity is required");
+		init();
+		final int size = deque.size();
+		if (size > 0) {
+			logger.warn("{}: Queue with: {} tasks already", getClass().getSimpleName(), size);
+		}
 		return executor.submit(() -> resolve(raws, event, userPayload));
 	}
 
-	Future<Reply> executeSingle(
+	Future<Reply> executeWithResponseSingle(
 			final Collection<? extends Entity> raws, 
 			final EntityEvent event, 
 			final EntityPayload payload) {
 		
 		Validate.notNull(raws, "an entity is required");
+		init();
 		return executor.submit(() -> resolve(raws, event, payload).iterator().next());
 	}
-
+	
 	private Collection<Reply> resolve(
 			final Collection<? extends Entity> raws, 
 			final EntityEvent event, 
@@ -334,8 +377,12 @@ class CrudExecutor {
 		}
 	}
 
-	/** block and sleep until leader response or retry while quota 
-	 * @throws InterruptedException */
+	/** 
+	 * block and sleep until leader response or retry while quota
+	 * recursively retry.
+	 *  
+	 * @throws InterruptedException 
+	 */
 	private CommitState waitOrRetry(
 			final EntityEvent event, 
 			final NetworkShardIdentifier prevLeader, 
