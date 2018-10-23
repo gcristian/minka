@@ -69,7 +69,7 @@ public class Clearance implements Serializable, Comparable<Clearance> {
 	@Override
 	public int hashCode() {
 		final int prime = 31;
-		int res = 0;
+		int res = 1;
 		res *= prime + (leaderShardId.hashCode());
 		res *= prime + (sequenceId);
 		return res;
