@@ -6,7 +6,10 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -17,12 +20,12 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.StateSentry;
 import io.tilt.minka.domain.CommitTree.Log;
-import io.tilt.minka.model.Duty;
-import io.tilt.minka.model.Entity;
-import io.tilt.minka.model.Pallet;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.model.Duty;
+import io.tilt.minka.model.Entity;
+import io.tilt.minka.model.Pallet;
 
 /** 
  * Temporal state of modifications willing to be added to the {@linkplain CommittedState}
@@ -32,6 +35,9 @@ import io.tilt.minka.domain.ShardEntity;
 @SuppressWarnings({"unchecked", "serial", "rawtypes"})
 public class DirtyState {
 
+	/** split volume in different plans: dont promote more than NN CommitRequests to the next ChangePlan */
+	private static final int MAX_CR_PROMOTION_SIZE = 200;
+	
 	private static final Logger logger = LoggerFactory.getLogger(DirtyState.class);
 
 	private final Map<EntityEvent, Map<Duty, CommitRequest>> commitRequests = synchronizedMap(new HashMap() {{
@@ -65,9 +71,20 @@ public class DirtyState {
 		checkNotOnSnap();
 		if (snapshot==null) {
 			final DirtyState tmp = new DirtyState();
-			// copy CRs to a new structure
+			// copy CRs to a new limited structure
 			for (Map.Entry<EntityEvent, Map<Duty, CommitRequest>> e: commitRequests.entrySet()) {
-				tmp.commitRequests.put(e.getKey(), new HashMap<>(e.getValue()));
+				final Map<Duty, CommitRequest> eelimited = e.getValue().entrySet().stream()
+						.limit(MAX_CR_PROMOTION_SIZE)
+						.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, 
+								(x,y)->x, LinkedHashMap::new));
+						
+				if (e.getValue().size() > MAX_CR_PROMOTION_SIZE) {
+					// remove current from next plan
+					e.getValue().keySet().removeAll(eelimited.keySet());
+					logger.warn("{}: Limiting CommitRequests promotion ({} left to next plan)",
+							getClass().getSimpleName(), e.getValue().size());
+				}
+				tmp.commitRequests.put(e.getKey(), eelimited);
 			}
 			tmp.dutyDangling.putAll(this.dutyDangling);
 			tmp.dutyMissings.putAll(this.dutyMissings);
@@ -78,7 +95,7 @@ public class DirtyState {
 		}
 		return snapshot;
 	}
-
+	
 	private void checkNotOnSnap() {
 		if (snap) {
 			throw new IllegalStateException("already a snapshot - bad usage !");
@@ -264,9 +281,11 @@ public class DirtyState {
 				if (next.isEnded()) {
 					map.remove(entity.getDuty());
 				}
-				logger.info("{}: flowing {} -> {}: {} ({})", getClass().getSimpleName(),
-					prev, next, CommitRequest.class.getSimpleName(), 
-					request.getEntity().getDuty().getId(), next.isEnded() ? "discarding":"");
+				if (logger.isDebugEnabled()) {
+					logger.debug("{}: flowing {} -> {}: {} ({})", getClass().getSimpleName(),
+						prev, next, CommitRequest.class.getSimpleName(), 
+						request.getEntity().getDuty().getId(), next.isEnded() ? "discarding":"");
+				}
 			}
 		}		
 		return request;

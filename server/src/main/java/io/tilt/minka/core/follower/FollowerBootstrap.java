@@ -148,7 +148,7 @@ public class FollowerBootstrap implements Service {
 	
 	private void follow() {
 		checkClearanceOrDrop();		
-		checkBeatsOrDrop(); // avoid release twice
+		//checkBeatsOrDrop(); // avoid release twice
 		
 		// prevent factory of a non full detail heartbeat
 		lastSuccess = heartpump.emit(heartbeatFactory.create(!lastSuccess));		
@@ -204,6 +204,7 @@ public class FollowerBootstrap implements Service {
 			logger.error("{}: ({}) Executing Clearance policy, last: {} too old (Max: {}, Past: {} msecs: ({}))",
 					getClass().getSimpleName(), config.getLoggingShardId(),
 					clear != null ? clear.getCreation() : "null", delayedMs, delta, clear.hashCode());
+			System.exit(1);
 		}
 		return lost;
 	}

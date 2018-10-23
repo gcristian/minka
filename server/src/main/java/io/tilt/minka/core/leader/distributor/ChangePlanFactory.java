@@ -67,10 +67,12 @@ class ChangePlanFactory {
 
 	/** @return a plan if there're changes to apply or NULL if not */
 	ChangePlan create(final Scheme scheme, final ChangePlan previous) {
+		final long now = System.currentTimeMillis();
 		final DirtyState snapshot = scheme.getDirty().snapshot();
 		ChangePlan plan = new ChangePlan(
 				config.beatToMs(config.getDistributor().getPlanExpiration()), 
-				config.getDistributor().getPlanMaxRetries());
+				config.getDistributor().getPlanMaxRetries(),
+				previous==null ? 0 : previous.getVersion());
 		
 		// to record initial pid and detect lazy surviving followers
 		if (scheme.getCurrentPlan() == null && previous == null) {
@@ -93,6 +95,7 @@ class ChangePlanFactory {
 			}
 		}
 		scheme.getDirty().dropSnapshot();
+		logger.info("Factory: {}", System.currentTimeMillis() - now);
 		return plan;
 	}
 	

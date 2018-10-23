@@ -71,8 +71,8 @@ class Transfer {
 			}
 		}
 		
-		if (Migrator.log.isInfoEnabled()) {
-			Migrator.log.info("{}: Shipping duty {} from: {} to: {}",
+		if (Migrator.log.isDebugEnabled()) {
+			Migrator.log.debug("{}: Shipping duty {} from: {} to: {}",
 				getClass().getSimpleName(),
 				entity.getDuty().getId(),
 				source != null ? source.getShardID() : "[new]",

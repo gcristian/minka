@@ -98,14 +98,15 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	private Instant ended;
 	private ChangePlanState changePlanState = ChangePlanState.RUNNING;
 	private int retryCounter;
-
+	private int version;
+	
 	private static List<EntityEvent> consistentEventsOrder = Arrays.asList(
 			EntityEvent.DROP,
 			EntityEvent.DETACH,
 			EntityEvent.STOCK,
 			EntityEvent.ATTACH);
 
-	ChangePlan(final long maxMillis, final int maxRetries) {
+	ChangePlan(final long maxMillis, final int maxRetries, final int previousVersion) {
 		this.created = Instant.now();
 		this.buildingDispatches = new HashMap<>(consistentEventsOrder.size());
 		this.builtDispatches = Collections.emptyList();
@@ -113,6 +114,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		this.maxRetries = maxRetries;
 		// to avoid id retraction at leader reelection causing wrong journal order
 		this.id = System.currentTimeMillis();
+		this.version = previousVersion;
 	}
 
 	public long getId() {
@@ -209,6 +211,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	 * @return whether or not there're dispatches to distribute. */
 	boolean build() {
 		this.started= Instant.now();
+		this.version++;
 		int order = 0;
 		for (final EntityEvent event: consistentEventsOrder) {
 			if (buildingDispatches.containsKey(event)) {
@@ -474,6 +477,7 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		return this.builtDispatches;
 	}
 
+	
 	@JsonProperty("created")
 	private String getCreation_() {
 		return created.toString();
@@ -500,13 +504,19 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		final CollectionUtils.SlidingSortedSet<ChangePlan> set = CollectionUtils.sliding(5);
 		for (int i = 0; i < 10; i++) {
 			System.out.println(new DateTime(DateTimeZone.UTC));
-			set.add(new ChangePlan(1, 1));
+			set.add(new ChangePlan(1, 1, 0));
 			Thread.sleep(200);
 		}
 		System.out.println("----------");
 		for (ChangePlan p : set.values()) {
 			assert (p.getId() >= 5);
 		}
+	}
+
+	@JsonProperty("version")
+	/** @return for reference logging only */
+	public int getVersion() {
+		return version;
 	}
 
 }
