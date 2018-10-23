@@ -33,7 +33,6 @@ import io.tilt.minka.api.Duty;
 import io.tilt.minka.api.Entity;
 import io.tilt.minka.api.EntityPayload;
 import io.tilt.minka.api.Pallet;
-import io.tilt.minka.core.leader.distributor.ChangePlan;
 import io.tilt.minka.shard.Shard;
 /**
  * Representation of a {@linkplain Duty} selected for an action in a {@linkplain Shard}  

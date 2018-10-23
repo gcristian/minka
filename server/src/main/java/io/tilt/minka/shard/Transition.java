@@ -59,7 +59,6 @@ public class Transition implements Comparator<Transition>, Comparable<Transition
 		return new StringBuilder()
 				.append(getTimestamp()).append(' ')
 				.append(state).append(' ')
-				.append(transitionCause)
 				.toString();
 	}
 }

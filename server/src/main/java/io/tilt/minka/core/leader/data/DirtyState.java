@@ -323,11 +323,10 @@ public class DirtyState {
 			logger.warn("{}: {} Dangling duties: [ {}]", getClass().getSimpleName(), dutyDangling.size(),
 					ShardEntity.toDutyStringIds(dutyDangling.keySet()));
 		}
-		if (commitRequests.isEmpty()) {
+		if (getSize()==0) {
 			logger.info("{}: no CRUD duties", getClass().getSimpleName());
 		} else {
-			logger.info("{}: with {} CRUD duties: [ {}]", getClass().getSimpleName(), getSize(),
-					ShardEntity.toStringIds(getDutiesCrud()));
+			logger.info("{}: with {} CRUD duties", getClass().getSimpleName(), getSize());
 		}
 	}
 

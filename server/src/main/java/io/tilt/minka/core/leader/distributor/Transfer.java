@@ -72,11 +72,11 @@ class Transfer {
 		}
 		
 		if (Migrator.log.isInfoEnabled()) {
-			Migrator.log.info("{}: Shipping from: {} to: {}, Duty: {}",
+			Migrator.log.info("{}: Shipping duty {} from: {} to: {}",
 				getClass().getSimpleName(),
+				entity.getDuty().getId(),
 				source != null ? source.getShardID() : "[new]",
-				target.getShardID(),
-				entity.toString());
+				target.getShardID());
 		}
 		return true;
 	}

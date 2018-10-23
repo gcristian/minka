@@ -164,7 +164,14 @@ public class ShardedPartition {
 		return (System.currentTimeMillis() - lastUpdateTimestamp) < recentUpdateThreshold;
 	}
 	private void updateLastChange() {
-		this.lastUpdateTimestamp = System.currentTimeMillis();
+		updateLastChange(true);
+	}
+	private boolean updateLastChange(final boolean done) {
+		if (done) {
+			this.lastUpdateTimestamp = System.currentTimeMillis();
+			return true;
+		}
+		return false;
 	}
 	
 	//////////////////////////////////////////////////////////////////////////////////
@@ -174,18 +181,19 @@ public class ShardedPartition {
 	}
 	// add to domain duties: not attached
 	public boolean stock(final ShardEntity entity) {
-		return replicas.add(entity);
+		return updateLastChange(replicas.add(entity));
 	}
 	public boolean stockAll(final Collection<ShardEntity> entities) {
-		return replicas.addAll(entities);
+		return updateLastChange(replicas.addAll(entities));
 	}
 	public boolean drop(final ShardEntity entity) {
-		return replicas.remove(entity);
+		return updateLastChange(replicas.remove(entity));
 	}
 	public boolean dropAll(final Collection<ShardEntity> entities) {
-		return replicas.removeAll(entities);
+		return updateLastChange(replicas.removeAll(entities));
 	}
 	public void dropAll() {
+		updateLastChange();
 		replicas.clear();
 	}
 

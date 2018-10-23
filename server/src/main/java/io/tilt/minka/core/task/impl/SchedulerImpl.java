@@ -181,7 +181,7 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 	@SuppressWarnings("unchecked")
 	private <R> R runSynchronized(final Synchronized sync) {
 		try {
-			sync.enqueued();
+			sync.flagEnqueued();
 			Validate.notNull(sync);
 			if (sync.getPriority() == PriorityLock.HIGH_ISOLATED) {
 				call(sync, false);

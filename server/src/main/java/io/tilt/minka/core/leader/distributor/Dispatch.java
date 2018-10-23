@@ -132,7 +132,7 @@ public class Dispatch {
 	}
 	
 	/* recalculates state: DONE when all duties COMMITED */
-	public void calculateState(final Consumer<String> c) {
+	public void calculateState(final Consumer<String> msg) {
 		if (step == Step.ENQUEUED) {
 			if (duties.isEmpty()) {
 				throw new IllegalStateException("delivery without duties cannot go to pending !");
@@ -147,8 +147,8 @@ public class Dispatch {
 				final Log found = duty.getCommitTree().findOne(getPlanId(), shard.getShardID(), getEvent());
 				if (found != null && found.getLastState() != EntityState.COMMITED) {
 					noneLeft = false;
-					if (c!=null) {
-						c.accept(String.format("%s: waiting Shard %s for %s still %s for %s",
+					if (msg!=null) {
+						msg.accept(String.format("%s: waiting Shard %s for %s still %s for %s",
 								getClass().getSimpleName(),
 								found.getTargetId(),
 								duty.getEntity().getId(),

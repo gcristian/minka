@@ -162,7 +162,7 @@ public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactor
 	}
 	
 	@Override
-	public void enqueued() {
+	public void flagEnqueued() {
 		lastEnqueued = System.currentTimeMillis();
 	}
 
