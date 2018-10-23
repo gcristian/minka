@@ -191,7 +191,7 @@ public class FollowerBootstrap implements Service {
 		int breath = 1;
 		final Instant leaderChanged = leaderAware.getLastLeaderChange();
 		if (leaderChanged!=null && leaderChanged.isAfter(Instant.now().minusMillis(2000l))) {
-			breath = 2;
+			breath = 4;
 		}
 		return breath;
 	}
