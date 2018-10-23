@@ -385,9 +385,8 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		boolean detaching = false;
 		boolean attaching = false;
 		for(Dispatch d: builtDispatches) {
-			for (ShardEntity s: d.getDuties()) {
-				if (s.getDuty().getId().equals(duty.getId()) 
-						&& s.getDuty().getPalletId().equals(duty.getPalletId())) {
+			for (ShardEntity e: d.getDuties()) {
+				if (ShardEntity.qualifiedId(duty).equals(e.getQualifiedId())) {
 					detaching |=d.getEvent()==EntityEvent.DETACH;
 					attaching |=d.getEvent()==EntityEvent.ATTACH;
 					break;

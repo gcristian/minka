@@ -28,6 +28,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.tilt.minka.api.Duty;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityEvent;
@@ -55,7 +56,7 @@ class StateUnexpected {
 			boolean found = false;
 			EntityState foundWrongState = null;
 			for (EntityRecord reported : reportedDuties) {
-				if (committed.getEntity().getId().equals(reported.getId())) {
+				if (committed.getQualifiedId().equals(reported.getQualifiedId())) { 
 					found = true;
 					foundWrongState = lookupWrongState(shard, committed, reported);
 					break;
@@ -139,7 +140,7 @@ class StateUnexpected {
 
 	/** only log */
 	private void checkAttachExistance(final Shard sourceShard, final EntityRecord e) {
-		final Shard should = scheme.getCommitedState().findDutyLocation(e.getId());
+		final Shard should = scheme.getCommitedState().findDutyLocation(e.getQualifiedId());
 		if (should==null) {
 			logger.error("{}: Non-attached duty: {} reported by shard {} ", classname, e.toString(), sourceShard);
 		} else if (!should.equals(sourceShard)) {
@@ -156,7 +157,7 @@ class StateUnexpected {
 			found = replicas.contains(e.getEntity());
 		} else {
 			for (ShardEntity r: replicas) {
-				if (found|=r.getDuty().getId().equals(e.getId())) {
+				if (found|=r.getQualifiedId().equals(e.getQualifiedId())) {
 					break;
 				}
 			}

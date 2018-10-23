@@ -212,7 +212,7 @@ public class LearningState {
 			boolean found = false;
 			for (EntityRecord r: e.getValue()) {
 				for (ShardEntity d: duties) {
-					if (d.getDuty().getId().equals(r.getId())) {
+					if (d.getQualifiedId().equals(r.getQualifiedId())) {
 						found = true;
 						d.replaceTree(r.getCommitTree());
 						bc.accept(e.getKey(), d);

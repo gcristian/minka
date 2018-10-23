@@ -133,6 +133,9 @@ public class Reply {
 	public int hashCode() {
 		final int prime = 31;
 		int res = 1;
+		if (entity instanceof Duty) {
+			res *= prime + ((Duty)entity).getPalletId().hashCode();
+		}
 		res *= prime + (entity==null ? 1 : entity.getId().hashCode());
 		res *= prime + value.hashCode();
 		return res;
@@ -145,8 +148,10 @@ public class Reply {
 			return true;
 		} else {
 			final Reply r = (Reply)obj;
-			if (r.getEntity()!=null && entity!=null) {
-				return r.getEntity().getId().equals(entity.getId())
+			if (r.getEntity()!=null && entity!=null && entity instanceof Duty) {
+				Duty d = (Duty)r.getEntity();
+				return (d.getPalletId()+d.getId()).equals(
+						((Duty)entity).getPalletId() + ((Duty)entity).getId())
 						&& r.getValue().equals(value);
 			} else {
 				return false;

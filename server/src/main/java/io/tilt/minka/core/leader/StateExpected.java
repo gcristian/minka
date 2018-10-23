@@ -126,7 +126,7 @@ public class StateExpected {
 		boolean found = false;
 		for (final EntityRecord beated : beatedDuties) {
 			for (ShardEntity delivered : deliveryDuties) {
-				if (delivered.getEntity().getId().equals(beated.getId())) {
+				if (delivered.getQualifiedId().equals(beated.getQualifiedId())) {
 					for (EntityEvent ee: events) {
 						final Log expected = findConfirmationPair(beated, delivered, shardid, pid, ee);
 						if (expected != null) {
@@ -216,10 +216,11 @@ public class StateExpected {
 		boolean found = false;
 		for (ShardEntity prescripted : deliveryDuties) {
 			if (!beatedDuties.stream()
-				.filter(r->r.getId().equals(prescripted.getEntity().getId()))
+				.filter(r->r.getQualifiedId().equals(prescripted.getQualifiedId()))
 				.findFirst().isPresent()) {
 				for (final Log changelog : prescripted.getCommitTree().findAll(pid, shardid, DETACH, REMOVE, DROP)) {
-					if (changelog.getLastState()==PENDING || changelog.getLastState()==MISSING) {
+					if (changelog.getLastState()==PENDING || changelog.getLastState()==MISSING
+							|| changelog.getLastState()==ACK) {
 						found = true;
 						logging(log, prescripted, changelog);
 						c.accept(changelog, prescripted);

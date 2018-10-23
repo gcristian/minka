@@ -267,10 +267,10 @@ public class CommittedState {
 		}
 		return null;
 	}
-	public Shard findDutyLocation(final String dutyId) {
+	public Shard findDutyLocation(final String qid) {
 		for (final Shard shard : partitionsByShard.keySet()) {
 			for (ShardEntity st : partitionsByShard.get(shard).getDuties()) {
-				if (st.getEntity().getId().equals(dutyId)) {
+				if (st.getQualifiedId().equals(qid)) {
 					return shard;
 				}
 			}

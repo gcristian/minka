@@ -125,6 +125,10 @@ public class EntityRecord implements Comparable<EntityRecord>, Comparator<Entity
 		return this.commitTree;
 	}
 
+	public String getQualifiedId() {
+		return palletId + "-" + id;
+	}
+
 	/*
 	 * @JsonProperty("commitTree") private List<String> getJournal_() { return
 	 * this.journal.getStringHistory(); }
@@ -133,8 +137,8 @@ public class EntityRecord implements Comparable<EntityRecord>, Comparator<Entity
 		final int prime = 31;
 		int res = 1;
 		res *= prime + ((type == null) ? 0 : type.hashCode());
-		res *= prime + ((id == null) ? 0 : id.hashCode());
 		res *= prime + ((palletId == null) ? 0 : palletId.hashCode());
+		res *= prime + ((id == null) ? 0 : id.hashCode());
 		return res;
 	}
 
@@ -148,7 +152,7 @@ public class EntityRecord implements Comparable<EntityRecord>, Comparator<Entity
 			final EntityRecord o = (EntityRecord) obj;
 			return getType() == o.getType()
 					&& getPalletId()!=null && o.getPalletId()!=null 
-					&& getPalletId().equals(o.getPalletId())
+						&& getPalletId().equals(o.getPalletId())
 					&& getId().equals(o.getId());
 		}
 	}
