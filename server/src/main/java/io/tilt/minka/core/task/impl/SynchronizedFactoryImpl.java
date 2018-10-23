@@ -19,6 +19,8 @@ package io.tilt.minka.core.task.impl;
 import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
@@ -27,11 +29,14 @@ import io.tilt.minka.core.task.Scheduler.SynchronizedFactory;
 import io.tilt.minka.core.task.Semaphore.Action;
 
 public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactory {
+
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
 	private final Action action;
 	private final PriorityLock priority;
 	private final Runnable task;
 	
+	private long creationTimestamp;
 	private long lastTimestamp;
 	private long lastSuccessfulTimestamp;
 	private long lastSuccessfulDuration;
@@ -58,6 +63,7 @@ public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactor
 		this.action = action;
 		this.priority = priority;
 		this.task = task;
+		this.creationTimestamp = System.currentTimeMillis();
 	}
 
 	public Synchronized build(final Action action, final PriorityLock priority, final Runnable task) {
@@ -66,16 +72,34 @@ public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactor
 
 	@Override
 	public void execute() {
-		final long start = lastTimestamp = System.currentTimeMillis();
+		final long start = System.currentTimeMillis();
 		lastQueueWait = (int)(start - lastEnqueued);
 		accumulatedWait+=lastQueueWait;
+		long waitedBorn = start - creationTimestamp;
 		try {
 			counter++;
 			task.run();
 			lastSuccessfulTimestamp = start;
 			lastSuccessfulDuration = System.currentTimeMillis() - start;
+			
+			if (logger.isInfoEnabled()) {
+				boolean frequent = false;
+				if (this.getClass().equals(SynchronizedAgentFactoryImpl.class)) {
+					SynchronizedAgentFactoryImpl x = (SynchronizedAgentFactoryImpl)this;
+					frequent = x.getFrequency()==Scheduler.Frequency.PERIODIC;
+				}
+				
+				String name = task.toString();
+				name = name.substring(name.lastIndexOf('.'));
+				final long lastRunDiff = start - lastTimestamp;
+				logger.info("Task: took: {}ms {} -acc.w: {}ms -lq.w: {}ms [#{}] {} {}", 
+						lastSuccessfulDuration,
+						frequent ? "-lrd: " + lastRunDiff + "ms" : "-w.b: " + waitedBorn + "ms" , 
+						accumulatedWait, lastQueueWait, counter, action.name(), name);
+			}
+			
 		} catch (Exception e) {
-			Scheduler.logger.error("Untrapped exception running synchronized action", e);
+			Scheduler.logger.error("Untrapped exception on Task: {}", action.name(), e);
 			this.lastException = e;
 		} finally {
 			this.lastTimestamp = start;

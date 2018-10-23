@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import javax.inject.Singleton;
+import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
@@ -97,6 +98,7 @@ public class AdminEndpoint {
 		ret.put("/beats", "show heartbeats from follower");
 		ret.put("/shards", "show cluster members");
 		ret.put("/scheme", "show available and stage duties");
+		ret.put("/threads", "show thread schedule current shard");
 		ret.put("/partition", "show duty partition on current shard");
 		ret.put("/plans", "show distribution change plans");
 		ret.put("/log/text", "capture logging on demand");
@@ -196,7 +198,7 @@ public class AdminEndpoint {
 	}
 
 	@GET
-	@Path("/scheduler")
+	@Path("/threads")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response schedule(@QueryParam("detail") final boolean detail) throws JsonProcessingException {
 		try {
@@ -292,6 +294,7 @@ public class AdminEndpoint {
 	@PUT
 	@Path(PATH_CREATE_DUTY)
 	@Produces(MediaType.APPLICATION_JSON)
+	@Consumes(MediaType.APPLICATION_JSON)
 	public Response createDuty(
 			@PathParam("palletid") final String palletId,
 			@PathParam("id") final String dutyId,

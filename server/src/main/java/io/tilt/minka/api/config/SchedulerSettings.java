@@ -3,13 +3,13 @@ package io.tilt.minka.api.config;
 public class SchedulerSettings {
 
 	public static String PNAME = "MK";
-	public static String THREAD_NAME_SCHEDULER = PNAME + "Scheduler";
-	public static String THREAD_NAME_BROKER_SERVER_GROUP = PNAME + "BrokerServerGroup";
-	public static String THREAD_NAME_BROKER_SERVER_WORKER = PNAME + "BrokerServerWorker";
-	public static String THREAD_NANE_TCP_BROKER_CLIENT = PNAME + "BrokerClient";
+	public static String THREAD_NAME_SCHEDULER = PNAME + "Sch";
+	public static String THREAD_NAME_BROKER_SERVER_GROUP = PNAME + "BrkSG";
+	public static String THREAD_NAME_BROKER_SERVER_WORKER = PNAME + "BrkSW";
+	public static String THREAD_NANE_TCP_BROKER_CLIENT = PNAME + "BC";
 	
-	public static String THREAD_NAME_WEBSERVER_WORKER = PNAME + "-grizzly-ws-workers";
-	public static String THREAD_NAME_WEBSERVER_KERNEL = PNAME + "-grizzly-ws-kernel";
+	public static String THREAD_NAME_WEBSERVER_WORKER = PNAME + "WebW";
+	public static String THREAD_NAME_WEBSERVER_KERNEL = PNAME + "WebK";
 
 	// only 1 thread for all other continuous scheduled tasks is enough
 	// in case of bigger transportation payloads this can increase
