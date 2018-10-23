@@ -6,7 +6,6 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -258,15 +257,16 @@ public class DirtyState {
 		final Map<Duty, CommitRequest> map = commitRequests.get(slot);
 		CommitRequest request = map.get(entity.getDuty());
 		if (request!=null) {
+			final CommitState prev = request.getState();
 			final CommitState next = arg!=null ? arg : request.getState().next(event);
 			if (next!=null) {
 				request.setState(next);
 				if (next.isEnded()) {
 					map.remove(entity.getDuty());
 				}
-				logger.info("{}: {} {}: {} ({})", getClass().getSimpleName(), 
-					next.isEnded() ? "Removing" : "Moving", 
-					CommitRequest.class.getSimpleName(), request.getEntity().getDuty().getId(), next);
+				logger.info("{}: flowing {} -> {}: {} ({})", getClass().getSimpleName(),
+					prev, next, CommitRequest.class.getSimpleName(), 
+					request.getEntity().getDuty().getId(), next.isEnded() ? "discarding":"");
 			}
 		}		
 		return request;

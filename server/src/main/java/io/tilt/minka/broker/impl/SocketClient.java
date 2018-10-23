@@ -164,9 +164,6 @@ public class SocketClient {
 			antiflapper.set(false);
 		}
 		sentCounter++;
-		if (logger.isDebugEnabled()) {
-		    logger.debug("{}: ({}) Sending: {}", classname, loggingName, msg.getPayloadType().getSimpleName());
-		}
 		
 		if (queueSize>maxQueueThreshold) {
 			logger.error("{}: ({}) LAG of {}, threshold {}, increase broker's connection handler threads (enqueuing: {})", 
@@ -314,8 +311,9 @@ public class SocketClient {
 				while (!Thread.interrupted()) {
 					msg = queue.take();
 					if (msg != null) {
-						if (logger.isDebugEnabled()) {
-							logger.debug("{}: ({}) Writing: {}", classname, loggingName, msg.getPayloadType());
+						if (logger.isInfoEnabled()) {
+							logger.info("{}: ({}) Writing: {} ({})", classname, loggingName, 
+								msg.getPayloadType(), msg.getPayload().hashCode());
 						}
 						ctx.writeAndFlush(msg);
 					} else {

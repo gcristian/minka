@@ -96,7 +96,7 @@ public class FollowerBootstrap implements Service {
 				.create(Action.HEARTBEAT_REPORT, 
 						PriorityLock.MEDIUM_BLOCKING, 
 						Frequency.PERIODIC,
-						() -> follow())
+						this::follow)
 				.delayed(config.beatToMs(config.getFollower().getHeartbeatStartDelay()))
 				.every(config.beatToMs(config.getFollower().getHeartbeatFrequency()))
 				.build();

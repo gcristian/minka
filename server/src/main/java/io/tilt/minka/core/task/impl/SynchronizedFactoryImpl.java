@@ -16,6 +16,7 @@
  */
 package io.tilt.minka.core.task.impl;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
@@ -73,31 +74,17 @@ public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactor
 	@Override
 	public void execute() {
 		final long start = System.currentTimeMillis();
-		lastQueueWait = (int)(start - lastEnqueued);
-		accumulatedWait+=lastQueueWait;
-		long waitedBorn = start - creationTimestamp;
+		lastQueueWait = (int) (start - lastEnqueued);
+		accumulatedWait += lastQueueWait;
 		try {
 			counter++;
 			task.run();
 			lastSuccessfulTimestamp = start;
 			lastSuccessfulDuration = System.currentTimeMillis() - start;
-			
+
 			if (logger.isInfoEnabled()) {
-				boolean frequent = false;
-				if (this.getClass().equals(SynchronizedAgentFactoryImpl.class)) {
-					SynchronizedAgentFactoryImpl x = (SynchronizedAgentFactoryImpl)this;
-					frequent = x.getFrequency()==Scheduler.Frequency.PERIODIC;
-				}
-				
-				String name = task.toString();
-				name = name.substring(name.lastIndexOf('.'));
-				final long lastRunDiff = start - lastTimestamp;
-				logger.info("Task: took: {}ms {} -acc.w: {}ms -lq.w: {}ms [#{}] {} {}", 
-						lastSuccessfulDuration,
-						frequent ? "-lrd: " + lastRunDiff + "ms" : "-w.b: " + waitedBorn + "ms" , 
-						accumulatedWait, lastQueueWait, counter, action.name(), name);
+				log(start);
 			}
-			
 		} catch (Exception e) {
 			Scheduler.logger.error("Untrapped exception on Task: {}", action.name(), e);
 			this.lastException = e;
@@ -106,7 +93,24 @@ public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactor
 			accumulatedDuration += lastSuccessfulDuration;
 		}
 	}
-	
+
+	private void log(final long start) {
+		boolean frequent = false;
+		if (this.getClass().equals(SynchronizedAgentFactoryImpl.class)) {
+			SynchronizedAgentFactoryImpl x = (SynchronizedAgentFactoryImpl) this;
+			frequent = x.getFrequency() == Scheduler.Frequency.PERIODIC;
+		}
+		long waitedBorn = start - creationTimestamp;
+		String name = task.toString();
+		name = name.substring(name.lastIndexOf('.'));
+		final long lastRunDiff = start - lastTimestamp;
+		logger.info("Task: t: {} {} acc.w: {} lq.w: {} [#{}] {} {}", lastSuccessfulDuration, 
+				frequent ? "lrd: " + lastRunDiff : "w.b: " + waitedBorn, 
+				accumulatedWait, lastQueueWait, counter,
+				StringUtils.substring(action.name(), 0, 15),
+				name);
+	}
+
 	@Override
 	public Action getAction() {
 		return action;
@@ -137,28 +141,34 @@ public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactor
 		String cname = getTask().getClass().getSimpleName();
 		final int p = cname.indexOf('$');
 		cname = p > 0 ? cname.substring(p) : cname;
-		StringBuilder sb = new StringBuilder().append("Ag:").append(getAction())
-				.append(",").append("T:").append(cname);
+		StringBuilder sb = new StringBuilder().append("Ag:")
+				.append(getAction())
+				.append(",")
+				.append("T:")
+				.append(cname);
 		return sb.toString();
-	}	
-	
+	}
+
 	@Override
 	public int getLastQueueWait() {
 		return lastQueueWait;
 	}
+
 	@Override
 	public int getAccumulatedWait() {
 		return accumulatedWait;
 	}
+
 	@Override
 	public long getAccumulatedDuration() {
 		return accumulatedDuration;
 	}
+
 	@Override
 	public long getCounter() {
 		return counter;
 	}
-	
+
 	@Override
 	public long getLastSuccessfulTimestamp() {
 		return lastSuccessfulTimestamp;
@@ -184,15 +194,15 @@ public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactor
 		// TODO Auto-generated method stub
 		return task;
 	}
-	
+
 	@Override
 	public void flagEnqueued() {
 		lastEnqueued = System.currentTimeMillis();
 	}
 
 	/*
-	 * @Override public void cancel() { if (task!=null) { task.run(); }
-	 * else if (callable!=null) { this.result = callable.call(); } }
+	 * @Override public void cancel() { if (task!=null) { task.run(); } else if
+	 * (callable!=null) { this.result = callable.call(); } }
 	 */
 
 }

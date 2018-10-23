@@ -59,13 +59,12 @@ public abstract class AbstractBroker implements Service, EventBroker, Consumer<M
 	public NetworkShardIdentifier getShardId() {
 		return this.shardId;
 	}
-
 	
 	@Override
 	public void accept(final MessageMetadata meta) {
-		if (logger.isDebugEnabled()) {
-			logger.debug("{}: ({}) Receiving {} from {}", classname, shardId, meta.getPayloadType().getSimpleName(),
-					meta.getOriginConnectAddress());
+		if (logger.isInfoEnabled()) {
+			logger.info("{}: ({}) Receiving {} from {} ({})", classname, shardId, meta.getPayloadType().getSimpleName(),
+					meta.getOriginConnectAddress(), meta.getPayload().hashCode());
 		}
 		String key = meta.getInbox() + meta.getPayloadType().getSimpleName();
 		if (logger.isDebugEnabled()) {

@@ -89,7 +89,6 @@ public class StateWriter {
 				final CommitRequest req = scheme.getDirty().updateCommitRequest(changelog.getEvent(), entity);				
 				if (req!=null) {
 					requestConsumer.accept(req);
-					logger.info("{} CommitRequest updated: {} (state:{})", classname, entity.toBrief(), req.getState());
 				} else {
 					logger.warn("{} CommitRequest not found: {}", classname, entity.toBrief());
 				}
