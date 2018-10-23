@@ -35,10 +35,6 @@ import io.tilt.minka.shard.ShardIdentifier;
  * All ops. are forwarded thru the network broker to the leaderBootstrap, and then routed to its final target shard.<br>  
  * Updates and Transfers are executed without a distributor's balance calculation.<br>
  * In case the leaderBootstrap runs within the same follower's shard, no network communication is needed.<br>
- *<br><br>
- * Remember no CRUD survives leaderBootstrap-reelection (by now), and all ops must be ACID with the<br> 
- * client's supplier callback of duties. (see  {@linkplain Server.onLoad(..))}  <br>
- * As long as Minka lacks of a CAP storage facility.<br>
  * <br><br>
  * @author Cristian Gonzalez
  * @since Nov 7, 2015

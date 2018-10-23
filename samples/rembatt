@@ -1,5 +1,18 @@
 #!/bin/bash
-[ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] && echo "Usage: ./rembatt {pallet-id} {duty-initial-id} {duty-final-id}" && exit 1
-for i in $(seq $2 $3); do 
-	./remduty $1 $1$i 99$i | grep message & sleep 0.2; 
+[ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] && \
+	echo "Usage: ./rembatt {pallet-id} {duty-initial-id} {duty-final-id} [consistency-level]" && exit 1
+
+PID="$1"
+ID="$2"
+CL="$3"
+
+leader=$(./leader)
+CONTEXT="/minka/admin"
+DUTIES="$CONTEXT/crud/duty"
+curl=$(which curl)
+x=""
+for did in $(seq $2 $3); do 
+	x="$x $curl -XDELETE -s $leader$DUTIES/$PID/$PID$did?cl=$CL | jq . &"
 done
+echo "Requesting..."
+eval $x
