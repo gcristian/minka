@@ -19,6 +19,7 @@ package io.tilt.minka.core.follower;
 import static java.util.Objects.requireNonNull;
 
 import java.time.Instant;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -55,6 +56,9 @@ public class FollowerBootstrap implements Service {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
+
+	private final static int AID_START = 3;
+	private final AtomicInteger aid = new AtomicInteger(AID_START);	
 	
 	private boolean alive;
 
@@ -157,37 +161,55 @@ public class FollowerBootstrap implements Service {
 	private boolean checkClearanceOrDrop() {
 		boolean lost = false;
 		final Clearance clear = leaderEventsHandler.getLastClearance();
-		long delta = 0;
-		final long hbdelay = config.beatToMs(config.getFollower().getHeartbeatFrequency());
-		int maxAbsenceMs = (int)hbdelay * config.getProctor().getMinAbsentHeartbeatsBeforeShardGone();
-		maxAbsenceMs*=eventualMultiplier();
-		final int minToJoinMs = (int)hbdelay * (int)config.beatToMs(config.getProctor().getMaxShardJoiningState());
-		
-		final DateTime now = new DateTime(DateTimeZone.UTC);
+		//final int minToJoinMs = (int)hbdelay * (int)config.beatToMs(config.getProctor().getMaxShardJoiningState());		
 		// it's OK if there's no clearance because just entering.. 
 		if (clear != null) {
-			final DateTime lastClearanceDate = clear.getCreation();
-			lost = lastClearanceDate.plusMillis(maxAbsenceMs).isBefore(now);
-			delta = now.getMillis() - lastClearanceDate.getMillis();
+			lost = isLost(clear);			
 			if (lost && !partition.getDuties().isEmpty()) {
-				log(clear, delta, maxAbsenceMs);
+				System.exit(128);
 				leaderEventsHandler.getPartitionManager().releaseAllOnPolicies();
-			} else if (!lost && logger.isDebugEnabled()) {
-				logger.debug("{}: ({}) Clearence certified #{} from LeaderBootstrap: {}", classname,
+			} else if (!lost) { 
+				if (logger.isDebugEnabled()) {
+					logger.debug("{}: ({}) Clearence certified #{} from LeaderBootstrap: {}", classname,
 						config.getLoggingShardId(), clear.getSequenceId(), clear.getLeaderShardId());
+				}
 			}
 		}
 		return !lost;
 	}
-
-	private void log(final Clearance clear, long delta, int maxAbsenceMs) {
-		logger.error("{}: ({}) Executing Clearance policy, last: {} too old (Max: {}, Past: {} msecs)",
-			getClass().getSimpleName(), config.getLoggingShardId(),
-			clear != null ? clear.getCreation() : "null", maxAbsenceMs, delta);
+	
+	public boolean isLost(final Clearance clear) {
+		final long now = System.currentTimeMillis();
+		final long hbdelay = config.beatToMs(config.getFollower().getHeartbeatFrequency());		
+		final int delayedMs = (int)hbdelay * config.getProctor().getMaxSickHeartbeatsBeforeShardDelayed();
+		
+		boolean lost = clear.getCreation().plusMillis(delayedMs * breathOnNewLeader()).isBefore(now);
+		if (lost) {
+			if (aid.get()>0) {
+				lost = clear.getCreation().plusMillis(delayedMs * aid.getAndDecrement()).isBefore(now);
+				long delta = now - clear.getCreation().getMillis();
+				if (!lost) {
+					logger.warn("{}: ({}) Delayed Clearance!, last: {} (Max: {}, Past: {} msecs: ({}), backoff:{})",
+						getClass().getSimpleName(), config.getLoggingShardId(),
+						clear != null ? clear.getCreation() : "null", delayedMs, delta, clear.hashCode(), aid.get());
+				}
+			}
+		} else {
+			if (aid.get()!=AID_START) {
+				aid.set(AID_START);
+			}
+		}
+		if (lost) { 
+			long delta = now - clear.getCreation().getMillis();
+			logger.error("{}: ({}) Executing Clearance policy, last: {} too old (Max: {}, Past: {} msecs: ({}))",
+					getClass().getSimpleName(), config.getLoggingShardId(),
+					clear != null ? clear.getCreation() : "null", delayedMs, delta, clear.hashCode());
+		}
+		return lost;
 	}
 
 	/** @return give an aditional breath when leader has recently changed */
-	private int eventualMultiplier() {
+	private int breathOnNewLeader() {
 		int breath = 1;
 		final Instant leaderChanged = leaderAware.getLastLeaderChange();
 		if (leaderChanged!=null && leaderChanged.isAfter(Instant.now().minusMillis(2000l))) {

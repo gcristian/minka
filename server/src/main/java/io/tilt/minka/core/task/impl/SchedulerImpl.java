@@ -65,24 +65,33 @@ public class SchedulerImpl extends SemaphoreImpl implements Scheduler {
 		super(config, supplier, shardId.toString());
 		this.logName = shardId.toString();
 		this.agentFactory = agentFactory;
-		this.syncFactory = syncFactory;
-		this.executor = new ScheduledThreadPoolExecutor(
-				config.getScheduler().getMaxConcurrency(),
-				new ThreadFactoryBuilder()
-					.setNameFormat(SchedulerSettings.THREAD_NAME_SCHEDULER + "-%d")
-					.build());
-		executor.setRemoveOnCancelPolicy(true);
-		executor.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
-		executor.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
-		executor.allowCoreThreadTimeOut(false);
-		executor.prestartAllCoreThreads();
-
+		this.syncFactory = syncFactory;		
+		this.executor = buildExecutor(config); 
 		this.futuresBySynchro = new HashMap<>();
 		this.runnablesBySynchro = new HashMap<>();
 		this.callablesBySynchro = new HashMap<>();
 		this.agentsByAction = new HashMap<>();
 	}
 	
+	public ScheduledThreadPoolExecutor buildExecutor(final Config config) {
+		final ScheduledThreadPoolExecutor exec = new ScheduledThreadPoolExecutor(
+				config.getScheduler().getMaxConcurrency(),
+				new ThreadFactoryBuilder()
+					.setNameFormat(SchedulerSettings.THREAD_NAME_SCHEDULER + "-%d")
+					.build(), 
+				(r, x) -> logger.error("{}: ({}) Rejecting task {} (no capacity)", 
+						getName(), logName, r.toString()))  ;
+		
+		exec.setRemoveOnCancelPolicy(true);
+		exec.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
+		exec.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
+		
+		exec.allowCoreThreadTimeOut(false);
+		exec.prestartAllCoreThreads();
+		
+		return exec;
+		
+	}
 	@Override
 	public Map<Synchronized, ScheduledFuture<?>> getFutures() {
 		return futuresBySynchro;

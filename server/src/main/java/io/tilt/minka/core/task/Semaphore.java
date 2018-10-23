@@ -225,12 +225,16 @@ public interface Semaphore extends Service {
 		// At LeaderBootstrap's
 		rules.add(builder(LEADERSHIP)
 				.add(CHILD, asList(Action.BOOTSTRAP)));
+		
 		rules.add(builder(PROCTOR)
-				.add(SIBLING, asList(DISTRIBUTOR, PARTITION_TABLE_UPDATE)));
+				//.add(SIBLING, asList(DISTRIBUTOR, PARTITION_TABLE_UPDATE)));
+				.add(SIBLING, asList(PARTITION_TABLE_UPDATE)));
 		rules.add(builder(DISTRIBUTOR)
-				.add(SIBLING, asList(PROCTOR, PARTITION_TABLE_UPDATE)));
+				//.add(SIBLING, asList(PROCTOR, PARTITION_TABLE_UPDATE)));
+				.add(SIBLING, asList(PARTITION_TABLE_UPDATE)));
 		rules.add(builder(PARTITION_TABLE_UPDATE)
-				.add(SIBLING, asList(PROCTOR, DISTRIBUTOR)));
+				//.add(SIBLING, asList(PROCTOR, DISTRIBUTOR)));
+				.add(SIBLING, asList(DISTRIBUTOR)));
 
 		// At FollowerBootstrap's
 		rules.add(builder(INSTRUCT_DELEGATE)

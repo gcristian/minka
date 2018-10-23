@@ -14,7 +14,7 @@ public class SchedulerSettings {
 	// only 1 thread for all other continuous scheduled tasks is enough
 	// in case of bigger transportation payloads this can increase
 	// as the Scheduler will handle permissions thru Semaphore 
-	public static int MAX_CONCURRENCY = 2;
+	public static int MAX_CONCURRENCY = 1;
 	private int maxConcurrency; 
 	public int getMaxConcurrency() {
 		return this.maxConcurrency;

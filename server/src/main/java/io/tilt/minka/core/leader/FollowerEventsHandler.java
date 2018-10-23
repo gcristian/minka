@@ -74,7 +74,7 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 		this.scheduler = requireNonNull(scheduler);
 		this.shardId = requireNonNull(shardId);		
 	}
-
+	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public void start() {
@@ -108,7 +108,8 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 
 		scheduler.run(scheduler.getFactory().build(
 			Scheduler.Action.PARTITION_TABLE_UPDATE, 
-			PriorityLock.MEDIUM_BLOCKING, ()-> hbConsumer.accept(hb, getOrRegisterShard(hb))));
+			PriorityLock.MEDIUM_BLOCKING, 
+			()-> hbConsumer.accept(hb, getOrRegisterShard(hb))));
 	}
 
     private Shard getOrRegisterShard(final Heartbeat hb) {

@@ -8,7 +8,7 @@ public class ProctorSettings {
 	protected final static long START_DELAY = 1;
 	private long startDelay;
 	
-	protected final static long PHASE_FREQUENCY = 3; // i jhad it on 2000
+	protected final static long PHASE_FREQUENCY = 2; // i jhad it on 2000
 	private long phaseFrequency;
 	protected static final int MAX_SHARD_JOINING_STATE = 15;
 	private int maxShardJoiningState;

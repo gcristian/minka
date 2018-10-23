@@ -32,18 +32,17 @@ import io.tilt.minka.core.task.Semaphore.Action;
 public class SynchronizedFactoryImpl implements Synchronized, SynchronizedFactory {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
-	
+
 	private final Action action;
 	private final PriorityLock priority;
 	private final Runnable task;
-	
+
 	private long creationTimestamp;
 	private long lastTimestamp;
 	private long lastSuccessfulTimestamp;
 	private long lastSuccessfulDuration;
 	private long accumulatedDuration;
-	
-	
+
 	private int accumulatedWait;
 	private int lastQueueWait;
 	private long lastEnqueued;

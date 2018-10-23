@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -99,7 +100,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 			detectUnexpected(shard, beat.getCaptured());
 		}
 		if (reqs!=null) {
-			notifyUser(reqs);
+			CompletableFuture.runAsync(()-> notifyUser(reqs));
 		}	
 		
 		beat.clear();

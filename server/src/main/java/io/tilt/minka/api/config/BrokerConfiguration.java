@@ -9,7 +9,7 @@ public class BrokerConfiguration {
 	// tested with a cluster of 10 nodes: 1 thread was enough
 	// either case Heartbeats from followers will compete for leader's atention at most
 	// and broker's messages range 8-30k bytes: which means a fast netty channel switch and no starvation   
-	protected final static int CONNECTION_HANDLER_THREADS = 1;
+	protected final static int CONNECTION_HANDLER_THREADS = 10;
 	private int connectionHandlerThreads;
 	protected final static int MAX_RETRIES = 3;
 	private int maxRetries;
