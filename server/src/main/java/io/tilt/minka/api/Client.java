@@ -52,7 +52,7 @@ public class Client {
 	private final ShardedPartition partition;
 	
 	private EventMapper eventMapper;
-	private long futureMaxWaitMs = ParkingThreads.NO_EXPIRATION;
+	private long futureMaxWaitMs = RequestLatches.NO_EXPIRATION;
 	
 	protected Client(
 			final CrudExecutor crudExec,
@@ -77,13 +77,13 @@ public class Client {
 
 	/**
 	 * <p>
-	 * A list of duties currently captured by the server shard, 
-	 * Contents will differ since the call of this method, if new distributions occurr,
-	 * i.e. calling this method twice may not return the same contents.
+	 * A list of duties currently captured by the server shard. 
+	 * Calling this method twice may not return the same contents.
 	 * Although difference may not exist if:
 	 * 	1) no CRUD operations occurr
-	 *  2) no shard falls down
-	 * 
+	 *  2) no shard falls down or changes health state
+	 *  3) no balancer's migrations occurr
+	 *  
 	 * @return			a list of captured duties
 	 */
 	public List<Duty> captured() {

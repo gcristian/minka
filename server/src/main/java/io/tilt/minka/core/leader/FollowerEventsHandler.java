@@ -19,6 +19,7 @@ package io.tilt.minka.core.leader;
 import static java.util.Objects.requireNonNull;
 
 import java.time.Instant;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 

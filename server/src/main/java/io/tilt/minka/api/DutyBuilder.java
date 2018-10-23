@@ -8,6 +8,8 @@ import org.apache.commons.lang.Validate;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import io.tilt.minka.domain.ShardEntity;
+
 /**
  * Note this builder does not support large binary payloads as duties are loaded into memory and transported
  * 

@@ -50,12 +50,12 @@ import io.tilt.minka.spectator.MessageMetadata;
 /**
  * Async TCP socket broker based on Netty framework
  * Every shard's broker runs a client listener server using {@linkplain SocketServer} 
- * while outbound messages from it are created on demand using a {@linkplain SocketClient}
+ * while outbound messages from it are created (on follower's demand) using a {@linkplain SocketClient}
  * 
  * Although brokers are directly connected: they dont talk, 
  * i.e. clients dont wait for an answer, servers dont produce it, 
  * they both serve the {@linkplain EventBroker} contract, staying functionally asynchronous 
- * for fluid though slow-paced orchestration, leveraging damage contention 
+ * for fluid though slow-paced orchestration, leveraging network related problems
  * 
  * @author Cristian Gonzalez
  * @since Jan 31, 2016

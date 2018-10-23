@@ -39,9 +39,9 @@ class Transitioner {
 	private final int minToBeGone;
 	private final int maxSickToGoQuarantine;
 	
-	private final ShardBeatsHealth cardio;
+	private final HealthCheck cardio;
 	
-	Transitioner(Config config, final ShardBeatsHealth cardio) {
+	Transitioner(Config config, final HealthCheck cardio) {
 		super();
 		this.config = config;
 		this.normalDelay = config.beatToMs(config.getFollower().getHeartbeatFrequency());

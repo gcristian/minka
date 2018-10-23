@@ -17,12 +17,12 @@ import io.tilt.minka.shard.NetworkShardIdentifier;
 /**
  * Diagnose a health state transition for a Shard given its heartbeats, current state and last changes
  */
-class ShardBeatsHealth {
+class HealthCheck {
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final Config config;
 
-	ShardBeatsHealth(Config config) {
+	HealthCheck(Config config) {
 		super();
 		this.config = config;
 	}

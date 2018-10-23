@@ -18,9 +18,9 @@ import io.tilt.minka.core.leader.data.CommitState;
  * Two types of Futures: Replies for CRUD ops. and CommitState for valid replied CRUDs   
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })	
-public class ParkingThreads {
+public class RequestLatches {
 
-	private static final Logger logger = LoggerFactory.getLogger(ParkingThreads.class);
+	private static final Logger logger = LoggerFactory.getLogger(RequestLatches.class);
 
 	public static final long NO_EXPIRATION = -1;
 	

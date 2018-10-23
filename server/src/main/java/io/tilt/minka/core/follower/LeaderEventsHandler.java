@@ -32,7 +32,7 @@ import io.tilt.minka.api.CommitBatch;
 import io.tilt.minka.api.CommitBatch.CommitBatchResponse;
 import io.tilt.minka.api.Config;
 import io.tilt.minka.api.EntityPayload;
-import io.tilt.minka.api.ParkingThreads;
+import io.tilt.minka.api.RequestLatches;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.BrokerChannel;
 import io.tilt.minka.broker.EventBroker.Channel;
@@ -70,7 +70,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 	private final EventBroker eventBroker;
 	private final Scheduler scheduler;
 	private final LeaderAware leaderContainer;
-	private final ParkingThreads parkingThreads;
+	private final RequestLatches requestLatches;
 	
 	private Clearance lastClearance;
 	private BrokerChannel channel;
@@ -92,7 +92,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 			final EventBroker eventBroker,
 			final Scheduler scheduler, 
 			final LeaderAware leaderContainer,
-			final ParkingThreads parkingThreads) {
+			final RequestLatches requestLatches) {
 
 		super();
 		this.config = config;
@@ -102,7 +102,7 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 		this.eventBroker = eventBroker;
 		this.scheduler = scheduler;
 		this.leaderContainer = leaderContainer;
-		this.parkingThreads = parkingThreads;
+		this.requestLatches = requestLatches;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -147,12 +147,12 @@ public class LeaderEventsHandler implements Service, Consumer<Serializable> {
 				onCollection(al);				
 			} else if (any instanceof CommitRequest) {
 				for (final CommitRequest sr: (List<CommitRequest>)event) {
-					parkingThreads.resolve(sr.getEntity().getDuty(), sr.getState());
+					requestLatches.resolve(sr.getEntity().getDuty(), sr.getState());
 				}
 			}
 		} else if (event instanceof CommitBatchResponse) {
 			final CommitBatchResponse cr = (CommitBatchResponse)event;
-			parkingThreads.resolve(cr.getId(), cr);
+			requestLatches.resolve(cr.getId(), cr);
 		} else if (event instanceof Clearance) {
 			onClearance((Clearance) event);
 		} else {

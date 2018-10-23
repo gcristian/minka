@@ -88,7 +88,7 @@
         <constructor-arg ref="heartbeatFactory" />
     </bean>
     
-    <bean id="parkingThreads" class="io.tilt.minka.api.ParkingThreads"/>
+    <bean id="parkingThreads" class="io.tilt.minka.api.RequestLatches"/>
     
     <!-- Maneja la particion a traves del delegado -->
     <bean id="leaderEventsHandler" class="io.tilt.minka.core.follower.LeaderEventsHandler">

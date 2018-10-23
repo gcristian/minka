@@ -53,19 +53,19 @@ class StateUnexpected {
 		Map<EntityState, Collection<ShardEntity>> lost = null;
 		for (final ShardEntity committed : scheme.getCommitedState().getDutiesByShard(shard)) {
 			boolean found = false;
-			EntityState wrongState = null;
+			EntityState foundWrongState = null;
 			for (EntityRecord reported : reportedDuties) {
 				if (committed.getEntity().getId().equals(reported.getId())) {
 					found = true;
-					wrongState = lookupWrongState(shard, committed, reported);
+					foundWrongState = lookupWrongState(shard, committed, reported);
 					break;
 				}
 			}
-			if (!found || wrongState!=null) {
+			if ((!found && !isExpectedRemoved(committed.getDuty())) || foundWrongState!=null) {
 				if (lost == null) {
 					lost = new HashMap<>();
 				}
-				final EntityState k = !found? MISSING : wrongState;
+				final EntityState k = !found? MISSING : foundWrongState;
 				Collection<ShardEntity> list = lost.get(k);
 				if (list==null) {
 					lost.put(k, list = new LinkedList<>());
@@ -79,6 +79,17 @@ class StateUnexpected {
 				ShardEntity.toStringIds(lost.get(MISSING)));
 		}			
 		return lost !=null ? lost : emptyMap();
+	}
+
+	/**
+	 * if there's a crud remove dont consider it lost when out of beat
+	 * 1st drops 2nd detaches: both signs are being off the beat and will shortly look lost
+	 * @return TRUE when REMOVE is part of the current plan
+	 */
+	private boolean isExpectedRemoved(final Duty duty) {
+		return scheme.getDirty().existCommitRequest(duty)==EntityEvent.REMOVE
+				&& scheme.getCurrentPlan()!=null
+				&& scheme.getCurrentPlan().hasDispatch(duty, EntityEvent.DROP);
 	}
 
 	/** @return NULL for Correct state or NO Match */

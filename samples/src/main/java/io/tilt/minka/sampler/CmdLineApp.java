@@ -71,7 +71,7 @@ public class CmdLineApp {
 	private Map<Quest, String> readParameters(final Scanner scan) {
 		
 		final Map<Quest, String> suggest = new HashMap<>();
-		suggest.put(Quest.namespace, "demo1");
+		suggest.put(Quest.namespace, "demo");
 		final String ms = String.valueOf(System.currentTimeMillis());
 		suggest.put(Quest.tag, System.getProperty("user.name") + "-" + ms.substring(ms.length()-3));
 		suggest.put(Quest.zk, "localhost:2181");

@@ -69,7 +69,7 @@ class CrudExecutor {
 	private final ClientEventsHandler clientHandler;
 	private final ShardIdentifier shardId;
 	private final LeaderAware leaderAware;
-	private final ParkingThreads parkingThreads;
+	private final RequestLatches requestLatches;
 	
 	private final ExecutorService executor = Executors.newCachedThreadPool(
 			new ThreadFactoryBuilder()
@@ -83,14 +83,14 @@ class CrudExecutor {
 			final ClientEventsHandler mediator, 
 			final ShardIdentifier shardId, 
 			final LeaderAware leaderAware,
-			final ParkingThreads parkingThreads) {
+			final RequestLatches requestLatches) {
 		this.config = config;
 		this.leaderBootstrap = leaderBootstrap;
 		this.eventBroker = eventBroker;
 		this.clientHandler = mediator;
 		this.shardId = shardId;
 		this.leaderAware = leaderAware;
-		this.parkingThreads = parkingThreads;
+		this.requestLatches = requestLatches;
 	}
 
 	/** flags the request so the leader knows it must not respond a reply or state back */
@@ -183,7 +183,7 @@ class CrudExecutor {
 		final CommitBatchRequest request = new CommitBatchRequest(entities, true);
 		if (sendWithRetries(request)) {
 			final long sent = System.currentTimeMillis();
-			final CommitBatchResponse response = parkingThreads.wait(request.getId(), futureMaxWaitMs);
+			final CommitBatchResponse response = requestLatches.wait(request.getId(), futureMaxWaitMs);
 			if (response!=null) {
 				for (Reply r: response.getReplies()) {
 					r.withTiming(Reply.Timing.CLIENT_CREATED_TS, start);
@@ -216,10 +216,10 @@ class CrudExecutor {
 				try {
 					reply.setFuture((Future)executor.submit(
 						new FutureTask<CommitState>(()-> { 
-							final CommitState dcs = parkingThreads.wait(reply.getEntity(), maxWaitMs);
+							final CommitState dcs = requestLatches.wait(reply.getEntity(), maxWaitMs);
 							reply.withTiming(Reply.Timing.CLIENT_RECEIVED_STATE_TS, System.currentTimeMillis());
 							logger.info("{}: Client op done: {}: for: {} ({} ms)", 
-									getClass().getSimpleName(), reply.getState(), reply.getEntity().getId(),
+									getClass().getSimpleName(), dcs, reply.getEntity().getId(),
 									reply.getTimeElapsedSoFar());
 							return dcs;
 						})));
