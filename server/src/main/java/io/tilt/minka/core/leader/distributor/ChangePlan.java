@@ -19,9 +19,12 @@ package io.tilt.minka.core.leader.distributor;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -39,6 +42,8 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
@@ -47,10 +52,10 @@ import io.tilt.minka.core.leader.balancer.Balancer;
 import io.tilt.minka.core.leader.data.CommittedState;
 import io.tilt.minka.domain.CommitTree;
 import io.tilt.minka.domain.CommitTree.Log;
-import io.tilt.minka.model.Duty;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.model.Duty;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardState;
 import io.tilt.minka.utils.CollectionUtils;
@@ -78,6 +83,7 @@ import io.tilt.minka.utils.LogUtils;
  */
 @JsonAutoDetect
 @JsonPropertyOrder({"id", "created", "started", "elapsed", "ended", ChangePlan.FIELD_DISPATCHES, "pending"})
+@JsonInclude(Include.NON_EMPTY)
 public class ChangePlan implements Comparable<ChangePlan> {
 
 	protected static final Logger logger = LoggerFactory.getLogger(ChangePlan.class);
@@ -98,7 +104,11 @@ public class ChangePlan implements Comparable<ChangePlan> {
 	private Instant ended;
 	private ChangePlanState changePlanState = ChangePlanState.RUNNING;
 	private int retryCounter;
+	
+	// only traceability
 	private int version;
+	private Set<ChangeFeature> changeFeature;
+	private Map<String, ChangeFeature> clusterFeatures;
 	
 	private static List<EntityEvent> consistentEventsOrder = Arrays.asList(
 			EntityEvent.DROP,
@@ -115,8 +125,8 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		// to avoid id retraction at leader reelection causing wrong journal order
 		this.id = System.currentTimeMillis();
 		this.version = previousVersion;
-	}
-
+	}	
+	
 	public long getId() {
 		return this.id;
 	}
@@ -519,4 +529,16 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		return version;
 	}
 
+	public void addFeature(final ChangeFeature feature) {
+		if (changeFeature == null) {
+			changeFeature = new HashSet<>();
+		}
+		changeFeature.add(feature);
+	}
+
+	@JsonProperty("features")
+	public Set<ChangeFeature> getFeatures() {
+		return changeFeature;
+	}
+	
 }

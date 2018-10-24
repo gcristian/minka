@@ -16,6 +16,7 @@
  */
 package io.tilt.minka.core.follower;
 
+import io.tilt.minka.core.leader.distributor.ChangeFeature;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.shard.DomainInfo;
 
@@ -32,7 +33,7 @@ public interface HeartbeatFactory {
 	 * @param forceFullReport	force factory to build a complete detail even when not obliged to.  
 	 * @return	a beat with duties taken, differences, consistency details.
 	 */
-	Heartbeat create(boolean forceFullReport);
+	Heartbeat create(boolean forceFullReport, final ChangeFeature f);
 	
 	/**
 	 * Helps the factory to add more information about the shard.

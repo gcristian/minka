@@ -35,6 +35,7 @@ import io.tilt.minka.core.leader.data.CommitState;
 import io.tilt.minka.core.leader.data.CommittedState;
 import io.tilt.minka.core.leader.data.DirtyState;
 import io.tilt.minka.core.leader.data.Scheme;
+import io.tilt.minka.core.leader.distributor.ChangeFeature;
 import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityRecord;
@@ -183,6 +184,7 @@ public class StateWriter {
 			}
 		}
 		scheme.getCommitedState().removeShard(shard);
+		scheme.getDirty().addFeature(ChangeFeature.CLUSTER_SHRINK);
 		scheme.getVault().addGoneShard(shard);
 
 	}

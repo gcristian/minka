@@ -22,10 +22,8 @@ import static java.util.Objects.requireNonNull;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -34,16 +32,16 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.core.follower.HeartbeatFactory;
+import io.tilt.minka.core.leader.distributor.ChangeFeature;
 import io.tilt.minka.core.task.LeaderAware;
+import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.DependencyPlaceholder;
 import io.tilt.minka.domain.EntityEvent;
-import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardEntity.Builder;
-import io.tilt.minka.model.Pallet;
 import io.tilt.minka.domain.ShardedPartition;
 import io.tilt.minka.shard.DomainInfo;
 import io.tilt.minka.shard.NetworkShardIdentifier;
@@ -87,7 +85,7 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 	}
 
 	@Override
-	public Heartbeat create(final boolean forceFullReport) {
+	public Heartbeat create(final boolean forceFullReport, final ChangeFeature f) {
 		final long now = System.currentTimeMillis();
 		
 		boolean newLeader = theresNewLeader(now);
@@ -95,6 +93,7 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 		
 		// this's used only if there's nothing important to report (differences, absences, etc)
 		final Heartbeat.Builder builder = Heartbeat.builder(sequence.getAndIncrement(), partition.getId());
+		builder.feature(f);
 		// add reported: as confirmed if previously assigned, dangling otherwise.
 		final List<EntityRecord> tmp = new ArrayList<>(partition.getDuties().size()); 
 		boolean issues = detectChangesOnReport(builder, tmp::add, newLeader);

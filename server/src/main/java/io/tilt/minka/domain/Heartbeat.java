@@ -35,6 +35,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.tilt.minka.core.follower.FollowerBootstrap;
 import io.tilt.minka.core.leader.LeaderBootstrap;
+import io.tilt.minka.core.leader.distributor.ChangeFeature;
 import io.tilt.minka.model.Pallet;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.ShardCapacity;
@@ -66,7 +67,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	
 	/* only set when change is owned by follower */
 	private Transition stateChange;
-
+	private ChangeFeature feature;
 	
 
 	public static Builder builder(final long sequenceId, final NetworkShardIdentifier shardId) {
@@ -83,7 +84,8 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 		private final DateTime creation;
 		private final NetworkShardIdentifier shardId;
 		private final Map<Pallet, ShardCapacity> shardCapacities = new HashMap<>();
-
+		private ChangeFeature feature;
+		
 		private Builder(final long sequenceId, final NetworkShardIdentifier shardId) {
 			this.shardId = shardId;
 			this.sequenceId = sequenceId;
@@ -101,6 +103,10 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 			this.captured = true;
 			return this;
 		}
+		public Builder feature(final ChangeFeature f) {
+			this.feature = f;
+			return this;
+		}
 		public Builder addCapacity(final Pallet pallet, final ShardCapacity shardCapacity) {
 			Validate.notNull(pallet);
 			Validate.notNull(shardCapacity);
@@ -115,12 +121,6 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 			return new Heartbeat(entities, warning, shardId, sequenceId, shardCapacities, 
 					captured, this.creation);
 		}
-	}
-
-	public enum AbsenseType {
-		REPORTED_UNKNOWN,
-		SHARDED_UNREPORTED
-		;
 	}
 	
 	private Heartbeat(
@@ -213,6 +213,9 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
         }
     }
 
+	public ChangeFeature getFeature() {
+		return feature;
+	}
 	@JsonProperty(index=4, value="has-warning")
 	public boolean hasWarning() {
 		return warning;
@@ -222,7 +225,7 @@ public class Heartbeat implements Serializable, Comparable<Heartbeat> {
 	public long getSequenceId() {
 		return this.sequenceId;
 	}
-
+	
 	public int hashCode() {
 		final int prime = 31;
 		int res = 1;

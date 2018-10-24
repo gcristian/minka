@@ -32,6 +32,7 @@ import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.leader.data.Scheme;
+import io.tilt.minka.core.leader.distributor.ChangeFeature;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.PriorityLock;
 import io.tilt.minka.core.task.Service;
@@ -120,6 +121,7 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 			scheme.getCommitedState().addShard(shard = new Shard(
 					eventBroker.buildToTarget(config, Channel.LEADTOFOLL, hb.getShardId()),
 					hb.getShardId()));
+			scheme.getDirty().addFeature(ChangeFeature.CLUSTER_EXPAND);
 		}
 		return shard;
 	}

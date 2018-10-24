@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
+import io.tilt.minka.core.leader.distributor.ChangeFeature;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.Scheduler;
 import io.tilt.minka.core.task.Scheduler.Agent;
@@ -126,7 +127,7 @@ public class FollowerBootstrap implements Service {
 		}
 			
 		if (inService()) {
-			final Heartbeat bye = heartbeatFactory.create(true);
+			final Heartbeat bye = heartbeatFactory.create(true, null);
 			bye.setShardChange(new Transition(TransitionCause.FOLLOWER_BREAKUP, ShardState.QUITTED));
 			if (!heartpump.emit(bye)) {
 				logger.error("{}: ({}) Unable to send quitting heartbeat", classname, config.getLoggingShardId());
@@ -147,11 +148,12 @@ public class FollowerBootstrap implements Service {
 	}
 	
 	private void follow() {
-		checkClearanceOrDrop();		
-		//checkBeatsOrDrop(); // avoid release twice
-		
+		final boolean cleared = checkClearanceOrDrop();		
+		final boolean zombie = checkBeatsOrDrop(); // avoid release twice
+		final ChangeFeature f = !cleared ? ChangeFeature.CLEARANCE_EXPIRED : 
+			zombie ? ChangeFeature.HEARTATTACK : null; 
 		// prevent factory of a non full detail heartbeat
-		lastSuccess = heartpump.emit(heartbeatFactory.create(!lastSuccess));		
+		lastSuccess = heartpump.emit(heartbeatFactory.create(!lastSuccess, f));		
 	}
 
 	/** 

@@ -117,7 +117,7 @@ public class AdminEndpoint {
 		try {
 			return Response.accepted(config.toJson()).build();	
 		} catch (Exception e) {
-			logger.error("while /config", e);
+			logger.error("while /config", e.getMessage());
 			return Response.serverError().build();
 		}
 	}
@@ -130,7 +130,7 @@ public class AdminEndpoint {
 		try {
 			return Response.accepted(distro.distributionToJson()).build();
 		} catch (Exception e) {
-			logger.error("while /distro", e);
+			logger.error("while /distro", e.getMessage());
 			return Response.serverError().build();
 		}
 	}
@@ -154,7 +154,7 @@ public class AdminEndpoint {
 		try {
 			return Response.accepted(distro.palletsToJson()).build();	
 		} catch (Exception e) {
-			logger.error("while /pallets", e);
+			logger.error("while /pallets", e.getMessage());
 			return Response.serverError().build();
 		}
 	}
@@ -166,7 +166,7 @@ public class AdminEndpoint {
 		try {
 			return Response.accepted(distro.shardsToJson()).build();
 		} catch (Exception e) {
-			logger.error("while /shards", e);
+			logger.error("while /shards", e.getMessage());
 			return Response.serverError().build();
 		}
 	}
@@ -178,7 +178,7 @@ public class AdminEndpoint {
 		try {
 			return Response.accepted(schemeJSONBuilder.schemeToJson(detail)).build();
 		} catch (Exception e) {
-			logger.error("while /scheme", e);
+			logger.error("while /scheme", e.getMessage());
 			return Response.serverError().build();
 		}
 	}
@@ -191,7 +191,7 @@ public class AdminEndpoint {
 		try {
 			return Response.accepted(follower.partitionToJson(detail)).build();
 		} catch (Exception e) {
-			logger.error("while /partition", e);
+			logger.error("while /partition", e.getMessage());
 			return Response.serverError().build();
 		}
 	}
@@ -203,7 +203,7 @@ public class AdminEndpoint {
 		try {
 			return Response.accepted(global.scheduleToJson(detail)).build();
 		} catch (Exception e) {
-			logger.error("while /scheduler", e);
+			logger.error("while /scheduler", e.getMessage());
 			return Response.serverError().build();
 		}
 	}
@@ -215,7 +215,7 @@ public class AdminEndpoint {
 		try {
 	        return Response.accepted(follower.beatsToJson()).build();
 		} catch (Exception e) {
-			logger.error("while /beats", e);
+			logger.error("while /beats", e.getMessage());
 			return Response.serverError().build();
 		}
 	}
@@ -226,7 +226,7 @@ public class AdminEndpoint {
 		try {
 	        return Response.accepted(distro.plansToJson(detail)).build();
 		} catch (Exception e) {
-			logger.error("while /plans", e);
+			logger.error("while /plans", e.getMessage());
 			return Response.serverError().build();
 		}
 	}
@@ -262,7 +262,7 @@ public class AdminEndpoint {
 			client.add(p);
 			return Response.accepted("").build();
 		} catch (Exception e) {
-			logger.error("while " + PATH_CREATE_PALLET, e);
+			logger.error("while " + PATH_CREATE_PALLET, e.getMessage());
 			return Response.serverError().build();
 		}
 	}
@@ -284,7 +284,7 @@ public class AdminEndpoint {
 			client.getEventMapper().setCapacity(p, cap);
 			return Response.accepted().build();
 		} catch (Exception e) {
-			logger.error("while " + PATH_SHARD_CAPACITY, e);
+			logger.error("while " + PATH_SHARD_CAPACITY, e.getMessage());
 			return Response.serverError().build();
 		}
 	}

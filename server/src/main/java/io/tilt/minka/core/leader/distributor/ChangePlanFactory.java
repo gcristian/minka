@@ -37,6 +37,7 @@ import io.tilt.minka.core.leader.data.DirtyState;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.model.Duty;
 import io.tilt.minka.model.Pallet;
@@ -78,6 +79,7 @@ class ChangePlanFactory {
 		if (scheme.getCurrentPlan() == null && previous == null) {
 			scheme.setFirstPlanId(plan.getId());
 		}
+		final boolean any = detectApplyFeatures(previous, plan, snapshot, scheme.getCommitedState());
 
 		final DirtyCompiler compiler = new DirtyCompiler(scheme.getCommitedState(), previous, plan, snapshot);
 		final Set<ShardEntity> ents = new HashSet<>();
@@ -92,12 +94,57 @@ class ChangePlanFactory {
 		} else {
 			if (!build(scheme, plan, compiler, schemeByPallets)) {
 				plan = null;
+			} else if (!any) {
+				plan.addFeature(ChangeFeature.REBALANCE);
 			}
 		}
 		scheme.getDirty().dropSnapshot();
 		logger.info("Factory: {}", System.currentTimeMillis() - now);
 		return plan;
 	}
+	
+	/** for monitoring only - has no impact */
+	private boolean detectApplyFeatures(
+			final ChangePlan prev, 
+			final ChangePlan plan, 
+			final DirtyState snapshot, 
+			final CommittedState state) {
+		
+		boolean[] any = {false};
+		if (snapshot.commitRequestsSize()>0) {
+			any[0] = true;
+			plan.addFeature(ChangeFeature.COMMIT_REQUEST);
+		}
+		if (snapshot.isLimitedPromotion()) {
+			any[0] = true;
+			plan.addFeature(ChangeFeature.LIMITED_PROMOTION);
+		}
+		// care only features appeared on HBs out of last plan
+		if (prev!=null) {
+			final long since = prev.getCreation().toEpochMilli();
+			state.findShards(null, shard-> {
+				for (final Heartbeat hb: shard.getHeartbeats().values()) {
+					if (hb.getReception().isAfter(since) && hb.getFeature()!=null) {
+						any[0] = true;
+						plan.addFeature(hb.getFeature());
+					}
+				}
+			});
+		}
+		for (ChangeFeature f: snapshot.getFeatures()) {
+			plan.addFeature(f);
+			any[0] |= true;
+		}
+
+		if (!snapshot.getDutiesDangling().isEmpty()) {
+			plan.addFeature(ChangeFeature.FIXES_DANGLING);
+		}
+		if (!snapshot.getDutiesMissing().isEmpty()) {
+			plan.addFeature(ChangeFeature.FIXES_MISSING);
+		}
+		return any[0];
+	}
+
 	
 	private boolean build(
 			final Scheme scheme, final ChangePlan changePlan,
@@ -112,8 +159,11 @@ class ChangePlanFactory {
 				logStatus(scheme, compiler.getCreations(), compiler.getDeletions(), e.getValue(), pallet, balancer);
 				if (balancer != null) {
 					final Migrator migra = balance(scheme, pallet, balancer, compiler.getCreations(), compiler.getDeletions());
-					changes |= migra.write(changePlan);
-					changes |= replicator.write(changePlan, compiler, pallet);
+					changes |=migra.write(changePlan);
+					if (replicator.write(changePlan, compiler, pallet)) {
+						changes = true;
+						changePlan.addFeature(ChangeFeature.REPLICATION_EVENTS);
+					}
 				} else {
 					logger.warn("{}: Balancer not found ! {} set on Pallet: {} (curr size:{}) ", name,
 						pallet.getMetadata().getBalancer(), pallet, Balancer.Directory.getAll().size());

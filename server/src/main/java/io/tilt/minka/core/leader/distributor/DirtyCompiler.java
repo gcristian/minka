@@ -76,7 +76,7 @@ class DirtyCompiler {
 		this.state = state;
 		this.previousChange = previous;
 		this.changePlan = current;
-		this.snapshot = snapshot;
+		this.snapshot = snapshot;		
 		this.creations = compileCreations();
 		this.deletions = compileRemovals(creations);
 	}
@@ -140,6 +140,7 @@ class DirtyCompiler {
 			int rescued = previous.findAllNonConfirmedFromAllDeliveries(d->{
 				if (p.test(d)) {
 					c.accept(d);
+					changePlan.addFeature(ChangeFeature.FIXES_UNFINISHED);
 				}
 			});
 			if (rescued ==0 && logger.isInfoEnabled()) {
@@ -176,7 +177,7 @@ class DirtyCompiler {
 		snapshot.findDutiesCrud(CREATE, null, dutyCreations::add);
 		// add danglings as creations prior to migrations
 		for (ShardEntity d: snapshot.getDutiesDangling()) {
-			dutyCreations.add(ShardEntity.Builder.builderFrom(d).build());
+			dutyCreations.add(ShardEntity.Builder.builderFrom(d).build());			
 		}
 		
 		// add previous fallen and never confirmed migrations

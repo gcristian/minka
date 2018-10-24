@@ -6,10 +6,10 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.tilt.minka.core.leader.StateSentry;
+import io.tilt.minka.core.leader.distributor.ChangeFeature;
 import io.tilt.minka.domain.CommitTree.Log;
 import io.tilt.minka.domain.EntityEvent;
 import io.tilt.minka.domain.EntityState;
@@ -45,12 +46,13 @@ public class DirtyState {
 		put(EntityEvent.CREATE, synchronizedMap(new HashMap<>()));
 		put(EntityEvent.REMOVE, synchronizedMap(new HashMap<>()));
 	}});
+	
 	// creations and removes willing to be attached or detached to/from shards.
-	private final Map<Pallet, ShardEntity> palletCrud;
+	private final Map<Pallet, ShardEntity> palletCrud = synchronizedMap(new HashMap<>());
 	// absences in shards's reports
-	private Map<Duty, ShardEntity> dutyMissings;
+	private Map<Duty, ShardEntity> dutyMissings = synchronizedMap(new HashMap<>());
 	// fallen shards's duties
-	private Map<Duty, ShardEntity> dutyDangling;
+	private Map<Duty, ShardEntity> dutyDangling = synchronizedMap(new HashMap<>());
 	private Instant snaptake;
 	
 	// read-only snapshot for ChangePlanBuilder thread (not to be modified, stage remains MASTER)
@@ -59,41 +61,50 @@ public class DirtyState {
 	private boolean snap = false;
 	private Instant lastStealthChange;
 	
-	public DirtyState() {
-		this.palletCrud = synchronizedMap(new HashMap<>());
-		this.dutyMissings = synchronizedMap(new HashMap<>());
-		this.dutyDangling = synchronizedMap(new HashMap<>());
-	}
-
+	/* only for featuring traceability*/
+	private boolean limitedPromotion;
+	private Set<ChangeFeature> clusterFeatures = new HashSet<>(2); 
+	
 	/** @return a frozen state of stage, so message-events threads 
 	 * (threadpool-size independently) can still modify the instance for further change plans */
 	public synchronized DirtyState snapshot() {
 		checkNotOnSnap();
 		if (snapshot==null) {
-			final DirtyState tmp = new DirtyState();
+			final DirtyState snap = new DirtyState();
 			// copy CRs to a new limited structure
 			for (Map.Entry<EntityEvent, Map<Duty, CommitRequest>> e: commitRequests.entrySet()) {
-				final Map<Duty, CommitRequest> eelimited = e.getValue().entrySet().stream()
-						.limit(MAX_CR_PROMOTION_SIZE)
-						.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, 
-								(x,y)->x, LinkedHashMap::new));
-						
-				if (e.getValue().size() > MAX_CR_PROMOTION_SIZE) {
-					// remove current from next plan
-					e.getValue().keySet().removeAll(eelimited.keySet());
-					logger.warn("{}: Limiting CommitRequests promotion ({} left to next plan)",
-							getClass().getSimpleName(), e.getValue().size());
-				}
-				tmp.commitRequests.put(e.getKey(), eelimited);
+				snap.commitRequests.put(e.getKey(), limit(snap, e));				
 			}
-			tmp.dutyDangling.putAll(this.dutyDangling);
-			tmp.dutyMissings.putAll(this.dutyMissings);
-			tmp.palletCrud.putAll(this.palletCrud);
-			tmp.snaptake = Instant.now();
-			tmp.snap = true;
-			this.snapshot = tmp;
+			snap.clusterFeatures.addAll(clusterFeatures);
+			clusterFeatures.clear();
+			snap.dutyDangling.putAll(this.dutyDangling);
+			snap.dutyMissings.putAll(this.dutyMissings);
+			snap.palletCrud.putAll(this.palletCrud);
+			snap.snaptake = Instant.now();
+			snap.snap = true;
+			this.snapshot = snap;
 		}
 		return snapshot;
+	}
+
+	/** 
+	 * @return new battery of CRs limitted to max after 
+	 * removing them from current version for next read 
+	 */
+	private Map<Duty, CommitRequest> limit(final DirtyState tmp, final Map.Entry<EntityEvent, Map<Duty, CommitRequest>> e) {
+		final Map<Duty, CommitRequest> eelimited = e.getValue().entrySet().stream()
+				.limit(MAX_CR_PROMOTION_SIZE)
+				.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, 
+						(x,y)->x, LinkedHashMap::new));
+				
+		if (e.getValue().size() > MAX_CR_PROMOTION_SIZE) {
+			tmp.limitedPromotion = true;
+			// remove current from next plan
+			e.getValue().keySet().removeAll(eelimited.keySet());
+			logger.warn("{}: Limiting CommitRequests promotion ({} left to next plan)",
+					getClass().getSimpleName(), e.getValue().size());
+		}
+		return eelimited;
 	}
 	
 	private void checkNotOnSnap() {
@@ -140,6 +151,9 @@ public class DirtyState {
 		return this.stealthChange;
 	}	
 	
+	public boolean isLimitedPromotion() {
+		return limitedPromotion;
+	}
 	private void turnOnStealth(final boolean value) {
 		if (value) {
 			stealthChange = true;
@@ -222,8 +236,10 @@ public class DirtyState {
 	
 	// ====================================================================================================
 	
-	public int accountCrudDuties() {
-		return this.commitRequests.size();
+	public int commitRequestsSize() {
+		return this.commitRequests.get(EntityEvent.CREATE).size()
+				+ this.commitRequests.get(EntityEvent.REMOVE).size()
+				+ this.commitRequests.get(EntityEvent.ATTACH).size();
 	}
 
 	/* add it for the next Distribution cycle consideration */
@@ -353,6 +369,13 @@ public class DirtyState {
 		return commitRequests.get(EntityEvent.ATTACH).size()
 			+ commitRequests.get(EntityEvent.CREATE).size()
 			+ commitRequests.get(EntityEvent.REMOVE).size();
+	}
+	
+	public synchronized void addFeature(final ChangeFeature f) {
+		clusterFeatures.add(f);
+	}
+	public Set<ChangeFeature> getFeatures() {
+		return clusterFeatures;
 	}
 	
 }
