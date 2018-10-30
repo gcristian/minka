@@ -16,9 +16,6 @@
  */
 package io.tilt.minka.broker;
 
-import static java.util.Collections.synchronizedMap;
-
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -31,9 +28,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandler.Sharable;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
@@ -60,31 +54,31 @@ import io.tilt.minka.spectator.MessageMetadata;
  * @since Mar 9, 2016
  *
  */
-public class SocketServer {
+class NettyServer {
 
-	private final Logger logger = LoggerFactory.getLogger(getClass());
+	final Logger logger = LoggerFactory.getLogger(getClass());
 
 	/* for server */
-	private SocketServerHandler serverHandler;
+	private NettyReceiver receiver;
 	private EventLoopGroup serverWorkerGroup;
-	private final Consumer<MessageMetadata> consumer;
+	final Consumer<MessageMetadata> consumer;
 
 	private final int connectionHandlerThreads;
 	private final int serverPort;
 	private final String serverAddress;
 	private final String networkInterfase;
-	private final Scheduler scheduler;
+	final Scheduler scheduler;
 	private final Agent agent;
 	
 	private int retry;
 	private final AtomicLong count;
-	private final String loggingName;
-	private final String classname = getClass().getSimpleName();
+	final String loggingName;
+	final String classname = getClass().getSimpleName();
 	
 	private ChannelFuture channelFuture;
 	
 
-	protected SocketServer(
+	NettyServer(
 			final Consumer<MessageMetadata> consumer, 
 			final int connectionHandlerThreads, 
 			final int serverPort,
@@ -98,7 +92,15 @@ public class SocketServer {
 		Validate.notNull(consumer);
 		Validate.notNull(scheduler);
 		
-		this.serverHandler = new SocketServerHandler();
+		this.receiver = new NettyReceiver(loggingName, (meta)-> {
+			scheduler.schedule(scheduler.getAgentFactory()
+					.create(
+						Action.BROKER_INCOMING_MESSAGE, 
+						PriorityLock.HIGH_ISOLATED, 
+						Frequency.ONCE, 
+						() -> consumer.accept(meta))
+					.build());
+		});
 		this.consumer = consumer;
 		this.connectionHandlerThreads = connectionHandlerThreads;
 		this.serverPort = serverPort;
@@ -178,7 +180,7 @@ public class SocketServer {
 						ch.pipeline()
 						    .addLast("encoder", new ObjectEncoder())
 						    .addLast("decoder", new ObjectDecoder(ClassResolvers.weakCachingResolver(null)))
-						    .addLast("handler", serverHandler)
+						    .addLast("handler", receiver)
 						    .addLast(new ExceptionHandler())
 						    ;
 					}
@@ -210,67 +212,8 @@ public class SocketServer {
 		}
 	}
 
-	@Sharable
-	/**
-	 * Sharable makes it able to use the same handler for concurrent clients
-	 */
-	protected class SocketServerHandler extends ChannelInboundHandlerAdapter {
-
-		public final Map<String, Map<String, Integer>> countByTypeAndHost = synchronizedMap(new LinkedHashMap<>());
-		
-		@Override
-		public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-			super.channelUnregistered(ctx);
-		}
-
-		@Override
-		public void channelRead(ChannelHandlerContext ctx, Object msg) {
-			try {
-				if (msg == null) {
-					logger.error("({}) SocketServerHandler: incoming message came NULL", loggingName);
-					return;
-				}
-				MessageMetadata meta = (MessageMetadata) msg;
-				if (logger.isDebugEnabled()) {
-				    logger.debug("{}: ({}) Reading: {}", classname, loggingName, meta.getPayloadType());
-				}
-
-				scheduler.schedule(scheduler.getAgentFactory()
-						.create(
-							Action.BROKER_INCOMING_MESSAGE, 
-							PriorityLock.HIGH_ISOLATED, 
-							Frequency.ONCE, 
-							() -> consumer.accept(meta))
-						.build());
-				addMetric(meta);
-			} catch (Exception e) {
-				logger.error("({}) SocketServerHandler: Unexpected while reading incoming message", loggingName, e);
-			}
-		}
-
-		private void addMetric(MessageMetadata meta) {
-			final String origin = meta.getOriginConnectAddress();
-			Map<String, Integer> typesByHost = countByTypeAndHost.get(origin);
-			if (typesByHost==null) {
-				countByTypeAndHost.put(origin, typesByHost = new LinkedHashMap<>());
-			}
-			final String type = meta.getPayloadType().getSimpleName();
-			final Integer c = typesByHost.get(type);
-			typesByHost.put(type, c==null ? new Integer(1) : new Integer(c+1));
-		}
-		
-		@Override
-		public void exceptionCaught(final ChannelHandlerContext ctx, final Throwable e) {
-			if (logger.isDebugEnabled()) {
-				logger.debug("({}) ChannelInboundHandlerAdapter: Unexpected while consuming (who else's using broker port ??)", 
-					loggingName, e.getMessage());
-			}
-			ctx.close();
-		}
-	}
-	
 	public Map<String, Map<String, Integer>> getCountByTypeAndHost() {
-		return this.serverHandler.countByTypeAndHost;
+		return this.receiver.countByTypeAndHost;
 	}
 	
 	public AtomicLong getCount() {

@@ -49,7 +49,7 @@
     </bean>
 
     <!-- Subscripcion, envio y recepcion de eventos (integracion leader-follower)  -->
-    <bean id="eventBroker" class="io.tilt.minka.broker.SocketBroker">
+    <bean id="eventBroker" class="io.tilt.minka.broker.NettyBroker">
         <constructor-arg ref="config" />
         <constructor-arg ref="shardId" />
         <constructor-arg ref="leaderAware" />

@@ -169,9 +169,8 @@ public class ShardedPartition {
 	private boolean updateLastChange(final boolean done) {
 		if (done) {
 			this.lastUpdateTimestamp = System.currentTimeMillis();
-			return true;
 		}
-		return false;
+		return done;
 	}
 	
 	//////////////////////////////////////////////////////////////////////////////////

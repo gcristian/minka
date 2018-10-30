@@ -18,8 +18,6 @@ package io.tilt.minka.broker;
 
 import static java.util.Objects.requireNonNull;
 
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -31,9 +29,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.ChannelHandler.Sharable;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -59,9 +54,9 @@ import io.tilt.minka.spectator.MessageMetadata;
  * @author Cristian Gonzalez
  * @since Mar 9, 2016
  */
-public class SocketClient {
+public class NettyClient {
 
-	final Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String classname = getClass().getSimpleName();
 	
 	/* for client */
@@ -78,15 +73,14 @@ public class SocketClient {
 	private transient final Agent connector;
 	
 	private transient EventLoopGroup clientGroup;
-	private transient SocketClientHandler clientHandler;
+	private transient NettySender sender;
 	
-	@JsonProperty("log-name")
-	private String loggingName;
+	@JsonProperty("log-name") String loggingName;
 	private long creation;
 	private long lastUsage;
 	private long sentCounter;
 
-	protected SocketClient(
+	protected NettyClient(
 			final BrokerChannel channel, 
 			final Scheduler scheduler, 
 			final int retryDelay,
@@ -98,9 +92,10 @@ public class SocketClient {
 		this.config = config;
 		this.scheduler = requireNonNull(scheduler);
 
-		this.clientHandler = new SocketClientHandler(
+		this.sender = new NettySender(
 				config.beatToMs(config.getBroker().getMaxLagBeforeDiscardingClientQueue()), 
-				config.getBroker().getMaxClientQueueSize());
+				config.getBroker().getMaxClientQueueSize(),
+				loggingName);
 		this.antiflapper = new AtomicBoolean(true);
 		this.alive = new AtomicBoolean();
 		this.retry  = new AtomicInteger();
@@ -126,7 +121,7 @@ public class SocketClient {
 
 	@JsonProperty("queue-size")
 	public int getQueueSize() {
-		return this.clientHandler.queue.size();
+		return this.sender.getQueueSize();
 	}
 	@JsonProperty("expired")
 	protected boolean hasExpired() {
@@ -147,11 +142,11 @@ public class SocketClient {
 	protected boolean send(final MessageMetadata msg) {
 		logging(msg);
 		this.lastUsage = System.currentTimeMillis();
-		return this.clientHandler.send(msg);
+		return this.sender.send(msg);
 	}
 
 	private void logging(final MessageMetadata msg) {
-		int queueSize = this.clientHandler.size();
+		int queueSize = this.sender.getQueueSize();
 		if (!alive.get()) {
 			if (!antiflapper.get() || sentCounter ==0) {
 				logger.warn("{}: ({}) UNABLE to send SocketChannel Not Ready (enqueuing: {}), {}", classname, 
@@ -228,7 +223,7 @@ public class SocketClient {
 					ch.pipeline()
 						.addLast("encoder", new ObjectEncoder())
 						.addLast("decoder", new ObjectDecoder(ClassResolvers.weakCachingResolver(null)))
-						.addLast("handler", clientHandler)
+						.addLast("handler", sender)
 						.addLast(new ExceptionHandler());
 				}
 			});
@@ -256,101 +251,11 @@ public class SocketClient {
 		return wrongDisconnection;
 	}
 
-	@Sharable
-	protected class SocketClientHandler extends ChannelInboundHandlerAdapter {
-		private final BlockingQueue<MessageMetadata> queue;
-		private final long maxLagBeforeDiscardingClientQueueBeats;
-		private final int maxClientQueueSize;
-		
-		public SocketClientHandler(
-				final long maxLagBeforeDiscardingClientQueueBeats,
-				final int maxClientQueueSize) {
-			this.queue = new ArrayBlockingQueue<>(maxClientQueueSize, true);
-			this.maxLagBeforeDiscardingClientQueueBeats = maxLagBeforeDiscardingClientQueueBeats;
-			this.maxClientQueueSize = maxClientQueueSize;
-		}
-
-		protected boolean send(final MessageMetadata msg) {
-			boolean sent = queue.offer(msg);
-			if (!sent && isLagTooHigh()) {
-			    queue.clear();
-			    sent = queue.offer(msg);
-			}
-			return sent;
-		}
-
-		private boolean isLagTooHigh() {
-			final MessageMetadata eldest = queue.peek();
-			if ((System.currentTimeMillis() - eldest.getCreatedAt()) > maxLagBeforeDiscardingClientQueueBeats 
-					|| queue.size() == maxClientQueueSize) {
-				logger.error("{}: ({}) Clearing queue for LAG reached LIMIT - increment client connector threads size", 
-						getClass().getSimpleName(), loggingName);
-				return true;
-			} else {
-				return false;
-			}
-		}
-
-		protected int size() {
-			return queue.size();
-		}
-		@Override
-		public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-			logger.warn("{}: ({}) channel inactivated", classname, loggingName);
-			super.channelInactive(ctx);
-		}
-		@Override
-		public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-			logger.warn("{}: ({}) channel unregistered", classname, loggingName);
-			super.channelUnregistered(ctx);
-		}
-		@Override
-		public void channelActive(final ChannelHandlerContext ctx) {
-			MessageMetadata msg = null;
-			try {
-				while (!Thread.interrupted()) {
-					msg = queue.take();
-					if (msg != null) {
-						if (logger.isInfoEnabled()) {
-							logger.info("{}: ({}) Writing: {} ({})", classname, loggingName, 
-								msg.getPayloadType(), msg.getPayload().hashCode());
-						}
-						ctx.writeAndFlush(msg);
-					} else {
-						logger.error("{}: ({}) Waiting for messages to be enqueued: {}", classname,
-								loggingName);
-					}
-				}
-			} catch (InterruptedException e) {
-				logger.error("{}: ({}) interrupted while waiting for Socketclient blocking queue gets offered",
-						classname, loggingName, e);
-			}
-		}
-		
-		@Override
-		public void channelRead(ChannelHandlerContext ctx, Object msg) {
-			ctx.write(msg);
-		}
-
-		@Override
-		public void channelReadComplete(ChannelHandlerContext ctx) {
-			ctx.flush();
-		}
-
-		@Override
-		public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-			logger.error("{}: ({}) ChannelInboundHandlerAdapter: Unexpected ", 
-					classname, loggingName, cause);
-			ctx.close();
-		}
-
-	}
-
 	public void close() {
 		if (clientGroup != null && !clientGroup.isShuttingDown()) {
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: ({}) Closing connection to server (total sent: {}, unsent msgs: {})", 
-					classname, loggingName, sentCounter, clientHandler.size());
+					classname, loggingName, sentCounter, sender.getQueueSize());
 			}
 			this.alive.set(false);
 			clientGroup.shutdownGracefully(
@@ -363,13 +268,13 @@ public class SocketClient {
 		}
 	}
 
-	public long getClientExpiration() {
+	long getClientExpiration() {
 		return clientExpiration;
 	}
 	public AtomicBoolean getAlive() {
 		return alive;
 	}
-	public long getLastUsage() {
+	long getLastUsage() {
 		return lastUsage;
 	}
 	public AtomicInteger getRetry() {

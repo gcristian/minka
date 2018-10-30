@@ -71,16 +71,16 @@ public class DirtyState {
 		checkNotOnSnap();
 		if (snapshot==null) {
 			final DirtyState snap = new DirtyState();
+			snap.snaptake = Instant.now();
 			// copy CRs to a new limited structure
 			for (Map.Entry<EntityEvent, Map<Duty, CommitRequest>> e: commitRequests.entrySet()) {
-				snap.commitRequests.put(e.getKey(), limit(snap, e));				
+				snap.commitRequests.put(e.getKey(), limited(snap, e.getValue()));				
 			}
 			snap.clusterFeatures.addAll(clusterFeatures);
 			clusterFeatures.clear();
 			snap.dutyDangling.putAll(this.dutyDangling);
 			snap.dutyMissings.putAll(this.dutyMissings);
-			snap.palletCrud.putAll(this.palletCrud);
-			snap.snaptake = Instant.now();
+			snap.palletCrud.putAll(this.palletCrud);			
 			snap.snap = true;
 			this.snapshot = snap;
 		}
@@ -91,20 +91,21 @@ public class DirtyState {
 	 * @return new battery of CRs limitted to max after 
 	 * removing them from current version for next read 
 	 */
-	private Map<Duty, CommitRequest> limit(final DirtyState tmp, final Map.Entry<EntityEvent, Map<Duty, CommitRequest>> e) {
-		final Map<Duty, CommitRequest> eelimited = e.getValue().entrySet().stream()
+	private Map<Duty, CommitRequest> limited(final DirtyState tmp, final Map<Duty, CommitRequest> value) {
+		if (value.size() > MAX_CR_PROMOTION_SIZE) {
+			final Map<Duty, CommitRequest> newversion = value.entrySet().stream()
 				.limit(MAX_CR_PROMOTION_SIZE)
 				.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, 
 						(x,y)->x, LinkedHashMap::new));
-				
-		if (e.getValue().size() > MAX_CR_PROMOTION_SIZE) {
 			tmp.limitedPromotion = true;
 			// remove current from next plan
-			e.getValue().keySet().removeAll(eelimited.keySet());
+			value.keySet().removeAll(newversion.keySet());
 			logger.warn("{}: Limiting CommitRequests promotion ({} left to next plan)",
-					getClass().getSimpleName(), e.getValue().size());
+					getClass().getSimpleName(), value.size());
+			return newversion;
+		} else {
+			return value;
 		}
-		return eelimited;
 	}
 	
 	private void checkNotOnSnap() {
@@ -282,6 +283,18 @@ public class DirtyState {
 	
 	/** @return a CR matching {event & entity} if any, and step state to next according event */
 	public CommitRequest updateCommitRequest(final EntityEvent event, final ShardEntity entity) {
+		
+		/**
+		 * EL BUG ES ASI:
+		 * 
+		 * antes de LIMIT, los CRs no tenian Snapshot.
+		 * Entonces no se eliminaban, solo se  clearaba y listo...
+		 * entonces luego el sTateSentry los encontraba
+		 * ..ahora se borran... al limitarse..
+		 * entonces no se encuentran...
+		 * 
+		 * 
+		 */
 		return updateCommitRequest(event, entity, null);
 	}
 	

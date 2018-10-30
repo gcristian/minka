@@ -117,7 +117,7 @@ public class Distributor implements Service {
 		this.scheduler.stop(distributor);
 	}
 	
-	private void distribute() {
+	private synchronized void distribute() {
 		try {
 			if (permission.authorize() && loader.loadDutiesOnClusterStable()) {
 				counterForDistro++;

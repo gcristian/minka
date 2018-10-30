@@ -20,7 +20,7 @@ import org.junit.Test;
 
 import io.tilt.minka.api.Config;
 import io.tilt.minka.broker.EventBroker;
-import io.tilt.minka.broker.SocketBroker;
+import io.tilt.minka.broker.NettyBroker;
 import io.tilt.minka.broker.EventBroker.Channel;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.core.task.impl.SchedulerImpl;
@@ -165,7 +165,7 @@ public class BrokerTester {
 			final Config config, 
 			final NetworkShardIdentifier shard) {
 
-		final EventBroker broker = new SocketBroker(
+		final EventBroker broker = new NettyBroker(
 				config, 
 				shard, 
 				container,
