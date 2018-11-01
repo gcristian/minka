@@ -22,7 +22,7 @@ import static io.tilt.minka.core.task.Semaphore.Action.DISTRIBUTOR;
 import static io.tilt.minka.core.task.Semaphore.Action.HEARTBEAT_REPORT;
 import static io.tilt.minka.core.task.Semaphore.Action.INSTRUCT_DELEGATE;
 import static io.tilt.minka.core.task.Semaphore.Action.LEADERSHIP;
-import static io.tilt.minka.core.task.Semaphore.Action.PARTITION_TABLE_UPDATE;
+import static io.tilt.minka.core.task.Semaphore.Action.COMMITTED_STATE_UPDATE;
 import static io.tilt.minka.core.task.Semaphore.Action.PROCTOR;
 import static io.tilt.minka.core.task.Semaphore.Action.SHUTDOWN;
 import static io.tilt.minka.core.task.Semaphore.Hierarchy.CHILD;
@@ -136,7 +136,7 @@ public interface Semaphore extends Service {
 		 */
 		HEARTBEAT_REPORT(Scope.LOCAL),
 		/* this event occurs as HBs come by without scheduling */
-		PARTITION_TABLE_UPDATE(Scope.LOCAL),
+		COMMITTED_STATE_UPDATE(Scope.LOCAL),
 
 		CLUSTER_COMPLETE_SHUTDOWN(Scope.GLOBAL), CLUSTER_COMPLETE_REBALANCE(Scope.GLOBAL),
 
@@ -227,14 +227,14 @@ public interface Semaphore extends Service {
 				.add(CHILD, asList(Action.BOOTSTRAP)));
 		
 		rules.add(builder(PROCTOR)
-				//.add(SIBLING, asList(DISTRIBUTOR, PARTITION_TABLE_UPDATE)));
-				.add(SIBLING, asList(PARTITION_TABLE_UPDATE)));
+				.add(SIBLING, asList(DISTRIBUTOR, COMMITTED_STATE_UPDATE)));
+				//.add(SIBLING, asList(COMMITTED_STATE_UPDATE)));
 		rules.add(builder(DISTRIBUTOR)
-				//.add(SIBLING, asList(PROCTOR, PARTITION_TABLE_UPDATE)));
-				.add(SIBLING, asList(PARTITION_TABLE_UPDATE)));
-		rules.add(builder(PARTITION_TABLE_UPDATE)
-				//.add(SIBLING, asList(PROCTOR, DISTRIBUTOR)));
-				.add(SIBLING, asList(DISTRIBUTOR)));
+				.add(SIBLING, asList(PROCTOR, COMMITTED_STATE_UPDATE)));
+				//.add(SIBLING, asList(COMMITTED_STATE_UPDATE)));
+		rules.add(builder(COMMITTED_STATE_UPDATE)
+				.add(SIBLING, asList(PROCTOR, DISTRIBUTOR)));
+				//.add(SIBLING, asList(DISTRIBUTOR)));
 
 		// At FollowerBootstrap's
 		rules.add(builder(INSTRUCT_DELEGATE)

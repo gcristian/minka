@@ -38,7 +38,7 @@ import io.tilt.minka.model.Pallet;
 public class DirtyState {
 
 	/** split volume in different plans: dont promote more than NN CommitRequests to the next ChangePlan */
-	private static final int MAX_CR_PROMOTION_SIZE = 200;
+	private static final int MAX_CR_PROMOTION_SIZE = 1000;
 	
 	private static final Logger logger = LoggerFactory.getLogger(DirtyState.class);
 

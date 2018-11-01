@@ -106,12 +106,15 @@ public class FollowerEventsHandler implements Service, Consumer<Heartbeat> {
 			logger.debug("{}: Receiving Heartbeat: {} ({}ms) from {}", getName(), hb.toString(),
 					hb.getReceptionDelay(), hb.getShardId());
 		}
+		
+		hbConsumer.accept(hb, getOrRegisterShard(hb));
 
+		
 		scheduler.run(scheduler.getFactory().build(
-			Scheduler.Action.PARTITION_TABLE_UPDATE, 
+			Scheduler.Action.COMMITTED_STATE_UPDATE, 
 			PriorityLock.MEDIUM_BLOCKING, 
 			()-> hbConsumer.accept(hb, getOrRegisterShard(hb))));
-	}
+			}
 
     private Shard getOrRegisterShard(final Heartbeat hb) {
 		// when a shutdownlock acquired then keep receving HB to evaluate all Slaves are down!

@@ -108,6 +108,10 @@ class HeartbeatFactoryImpl implements HeartbeatFactory {
 		addReportedCapacities(builder);
 		final Heartbeat hb = builder.build();
 		logging(hb);
+		final long end = System.currentTimeMillis();
+		if (end - now > 100) {
+			log.info("Time:HeartbeatFactoryImpl: {}", end);
+		}
 		return hb;
 	}
 

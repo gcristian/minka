@@ -168,7 +168,7 @@ public class CrudRepository {
 			}
 		}, respondState);
 		if (sb.length()>0) {
-			logger.info("{}: Added New Duties: (chp:...{}) {}", classname, scheme.getCurrentPlan()!=null ?
+			logger.info("{}: Added New Duties: (V:{}) {}", classname, scheme.getCurrentPlan()!=null ?
 					scheme.getCurrentPlan().getVersion() : "0", sb.toString());
 		}
 	}

@@ -69,7 +69,7 @@ class ChangePlanFactory {
 
 	/** @return a plan if there're changes to apply or NULL if not */
 	ChangePlan create(final Scheme scheme, final ChangePlan previous) {
-		final long now = System.currentTimeMillis();
+		
 		final DirtyState snapshot = scheme.getDirty().snapshot();
 		ChangePlan plan = new ChangePlan(
 				config.beatToMs(config.getDistributor().getPlanExpiration()), 
@@ -88,6 +88,7 @@ class ChangePlanFactory {
 		ents.addAll(compiler.getCreations());
 		final Map<String, List<ShardEntity>> schemeByPallets = ents.stream()
 				.collect(Collectors.groupingBy(e -> e.getDuty().getPalletId()));
+		
 		if (schemeByPallets.isEmpty()) {
 			logger.warn("{}: CommittedState and DirtyState are empty. Nothing to balance (C:{}, R:{})", 
 					name, compiler.getCreations().size(), compiler.getDeletions().size());
@@ -100,7 +101,7 @@ class ChangePlanFactory {
 			}
 		}
 		scheme.getDirty().dropSnapshotToRunning();
-		logger.info("Factory: {}", System.currentTimeMillis() - now);
+		
 		return plan;
 	}
 	
@@ -212,7 +213,9 @@ class ChangePlanFactory {
 		final Map<EntityEvent, Set<Duty>> stage = new HashMap<>(2);
 		stage.put(CREATE, refs(adds));
 		stage.put(REMOVE, refs(removes));
+		final long now = System.currentTimeMillis();
 		balancer.balance(pallet, scheme, stage, migrator);
+		logger.info("Balance: {}", System.currentTimeMillis() - now);
 		return migrator;
 	}
 

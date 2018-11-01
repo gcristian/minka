@@ -125,7 +125,7 @@ public class CrudExecutor {
 			replyPool = new ThreadPoolExecutor(0, MAX_THREADS, 30, TimeUnit.SECONDS, 
 					replyQueue = new ArrayBlockingQueue<Runnable>(MAX_CONCURRENT), 
 					new ThreadFactoryBuilder()
-						.setNameFormat(SchedulerSettings.PNAME + "CLRP")
+						.setNameFormat(SchedulerSettings.PNAME + "clrp-%d")
 						.build(), 
 				new ThreadPoolExecutor.AbortPolicy());
 		}
@@ -136,7 +136,7 @@ public class CrudExecutor {
 			statePool = new ThreadPoolExecutor(0, MAX_THREADS, 30, TimeUnit.SECONDS, 
 					stateQueue = new ArrayBlockingQueue<>(MAX_CONCURRENT), 
 					new ThreadFactoryBuilder()
-						.setNameFormat(SchedulerSettings.PNAME + "CLRP")
+						.setNameFormat(SchedulerSettings.PNAME + "clsp-%d")
 						.build(), 
 				new ThreadPoolExecutor.AbortPolicy());
 			linkage = new CommitLinkage(latchHandler, leaderAware, partition, statePool, maxWaitMs);

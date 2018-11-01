@@ -24,7 +24,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.builder.HashCodeBuilder;
@@ -121,7 +120,7 @@ public class Shard implements Comparator<Shard>, Comparable<Shard> {
 		}
 		return ret;
 	}
-
+		
 	public void enterHeartbeat(final Heartbeat hb) {
 		final Map<Pallet, ShardCapacity> cap = hb.getCapacities();
 		if (cap!=null) {

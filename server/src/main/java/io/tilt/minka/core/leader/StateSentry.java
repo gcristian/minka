@@ -42,6 +42,7 @@ import io.tilt.minka.domain.EntityRecord;
 import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardEntity;
+import io.tilt.minka.shard.Locker;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.shard.ShardState;
 /**
@@ -66,14 +67,22 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 	private final StateUnexpected unexpected;
 	private final StateWriter writer;
 	private final EventBroker broker; 
+	private final Locker locker;
 	
-	StateSentry(final Scheme scheme, final Scheduler scheduler, final StateWriter writer, final EventBroker broker) {
+	StateSentry(
+			final Scheme scheme, 
+			final Scheduler scheduler, 
+			final StateWriter writer, 
+			final EventBroker broker,
+			final Locker locker) {
 		this.scheme = scheme;
 		this.expected = new StateExpected(scheme);
 		this.unexpected = new StateUnexpected(scheme);
 		this.writer = writer;
 		this.broker = broker;
+		this.locker = locker;
 	}
+	
 
 	/**
 	 * Mission: watch FollowerBootstrap's heartbeats for changes.
@@ -86,9 +95,10 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 			if (beat.getShardChange().getState() == ShardState.QUITTED) {
 				return;
 			}
-		}	
+		}
+		
 		// proctor will need it
-		shard.enterHeartbeat(beat);
+		locker.write(Locker.LockId.SHARD_BEATS, ()-> shard.enterHeartbeat(beat));
 		
 		// contrast current change-plan deliveries and discover new answers
 		final Collection<CommitRequest> reqs = detectExpectedChanges(shard, beat);
@@ -97,17 +107,17 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		if ((beat.reportsDuties()) 
 				&& shard.getState().isAlive() 
 				&& scheme.getLearningState().isEmpty()) {
-			detectUnexpected(shard, beat.getCaptured());
+			//detectUnexpected(shard, beat.getCaptured());
 		}
 		if (reqs!=null) {
 			CompletableFuture.runAsync(()-> notifyUser(reqs));
 		}	
-		
 		beat.clear();
 	}
 	
 	/* this checks partition table looking for missing duties (not declared dangling, that's diff) */
 	private void detectUnexpected(final Shard shard, final Collection<EntityRecord> reportedDuties) {
+		final long start = System.currentTimeMillis();
 		for (Map.Entry<EntityState, Collection<ShardEntity>> e: 
 			unexpected.findLost(shard, reportedDuties).entrySet()) {
 			writer.recover(shard, e);
@@ -115,6 +125,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		if (scheme.getCurrentPlan()!=null) {
 			unexpected.detectInvalidSpots(shard, reportedDuties);
 		}
+		logger.info("StateSentry: UNexpected{}", System.currentTimeMillis() - start);
 	}
 	
 	private Collection<CommitRequest> detectExpectedChanges(final Shard shard, final Heartbeat beat) {
@@ -124,12 +135,14 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 			if (dispatch!=null && dispatch.getStep()==Dispatch.Step.PENDING) {
 				final Map<EntityEvent, StringBuilder> logg = new HashMap<>(EntityEvent.values().length);
 				final List<CommitRequest> requests = new ArrayList<>(beat.getCaptured().size());
+				
 				if (expected.detect(
 						dispatch, 
 						changePlan.getId(), 
 						beat, 
 						shard.getShardID(), 
-						(log, del)-> writer.commit(shard, log, del, requests::add, logg),
+						(log, del) -> locker.write(Locker.LockId.COMMITTED_STATE, () ->  
+								writer.commit(shard, log, del, requests::add, logg)),
 						EntityEvent.ATTACH, EntityEvent.STOCK)) {
 					dispatch.calculateState(logger::info);
 				}

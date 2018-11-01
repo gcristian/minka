@@ -132,7 +132,7 @@ public class Dispatch {
 	}
 	
 	/* recalculates state: DONE when all duties COMMITED */
-	public void calculateState(final Consumer<String> msg) {
+	public synchronized void calculateState(final Consumer<String> msg) {
 		if (step == Step.ENQUEUED) {
 			if (duties.isEmpty()) {
 				throw new IllegalStateException("delivery without duties cannot go to pending !");

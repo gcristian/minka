@@ -151,7 +151,7 @@ public class CommittedState {
 	 * @param callback	called when writting is possible
 	 * @return if there was a CommittedState change after the action 
 	 */
-	public boolean commit(final ShardEntity duty, final Shard where, final EntityEvent event) {
+	public synchronized boolean commit(final ShardEntity duty, final Shard where, final EntityEvent event) {
 		final boolean add = event.is(EntityEvent.ATTACH);// || event.is(EntityEvent.CREATE);
 		final boolean del = !add && (event.is(EntityEvent.DETACH) || event.is(EntityEvent.REMOVE));
 		final ShardedPartition part = getPartition(where);
