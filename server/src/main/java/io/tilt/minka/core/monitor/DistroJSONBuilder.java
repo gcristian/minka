@@ -271,8 +271,8 @@ public class DistroJSONBuilder {
 		map.put("size-pallets", extractor.getPallets().size());
 		map.put("size-scheme", extractor.getSizeTotal());
 		map.put("size-crud", table.getDirty().getDutiesCrud().size());
-		map.put("size-missings", table.getDirty().getDutiesMissing().size());
-		map.put("size-dangling", table.getDirty().getDutiesDangling().size());
+		map.put("size-missings", table.getDirty().getDisturbance(EntityState.MISSING).size());
+		map.put("size-dangling", table.getDirty().getDisturbance(EntityState.DANGLING).size());
 		map.put("uncommited-change", table.getDirty().isStealthChange());
 		map.put("commited-change", table.getCommitedState().isStealthChange());
 		return map;

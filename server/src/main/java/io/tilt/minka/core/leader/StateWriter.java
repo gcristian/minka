@@ -87,7 +87,8 @@ public class StateWriter {
 						&& changelog.getEvent().is(EntityEvent.DROP)) {
 					scheme.getVault().add(shard.getShardID().getId(), EntityRecord.fromEntity(entity, false));
 				}
-				final CommitRequest req = scheme.getDirty().updateCommitRequest(changelog.getEvent(), entity);				
+				final CommitRequest req = scheme.getDirty().getRunning()
+						.updateCommitRequest(changelog.getEvent(), entity);				
 				if (req!=null) {
 					requestConsumer.accept(req);
 				} else {
@@ -175,7 +176,7 @@ public class StateWriter {
 				dangling.size(), ShardEntity.toStringIds(dangling));
 		}
 		for (ShardEntity e: dangling) {
-			if (scheme.getDirty().addDangling(e)) {
+			if (scheme.getDirty().addDisturbance(EntityState.DANGLING, e)) {
 				e.getCommitTree().addEvent(
 						DETACH, 
 						COMMITED, 
@@ -192,14 +193,7 @@ public class StateWriter {
 	void recover(final Shard shard, final Entry<EntityState, Collection<ShardEntity>> e) {
 		final StringBuilder log = new StringBuilder();
 		boolean uncommitted = false;
-		if (e.getKey()==DANGLING) {
-			uncommitted = scheme.getDirty().addDangling(e.getValue());
-		} else if (e.getKey()==MISSING) {
-			uncommitted = scheme.getDirty().addMissing(e.getValue());
-		} else {
-			logger.warn("{} From ({}) comes Unexpected state {} for duty {}", getClass().getSimpleName(), 
-					shard, e.getKey(), ShardEntity.toStringBrief(e.getValue()));
-		}
+		uncommitted = scheme.getDirty().addDisturbance( e.getKey(), e.getValue());
 		
 		// copy the event so it's marked for later consideration
 		if (uncommitted) {

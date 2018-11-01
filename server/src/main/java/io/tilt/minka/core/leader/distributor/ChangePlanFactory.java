@@ -37,6 +37,7 @@ import io.tilt.minka.core.leader.data.DirtyState;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.core.task.LeaderAware;
 import io.tilt.minka.domain.EntityEvent;
+import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.Heartbeat;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.model.Duty;
@@ -98,7 +99,7 @@ class ChangePlanFactory {
 				plan.addFeature(ChangeFeature.REBALANCE);
 			}
 		}
-		scheme.getDirty().dropSnapshot();
+		scheme.getDirty().dropSnapshotToRunning();
 		logger.info("Factory: {}", System.currentTimeMillis() - now);
 		return plan;
 	}
@@ -112,12 +113,10 @@ class ChangePlanFactory {
 		
 		boolean[] any = {false};
 		if (snapshot.commitRequestsSize()>0) {
-			any[0] = true;
-			plan.addFeature(ChangeFeature.COMMIT_REQUEST);
+			any[0] |= plan.addFeature(ChangeFeature.COMMIT_REQUEST);
 		}
 		if (snapshot.isLimitedPromotion()) {
-			any[0] = true;
-			plan.addFeature(ChangeFeature.LIMITED_PROMOTION);
+			any[0] |= plan.addFeature(ChangeFeature.LIMITED_PROMOTION);
 		}
 		// care only features appeared on HBs out of last plan
 		if (prev!=null) {
@@ -125,22 +124,19 @@ class ChangePlanFactory {
 			state.findShards(null, shard-> {
 				for (final Heartbeat hb: shard.getHeartbeats().values()) {
 					if (hb.getReception().isAfter(since) && hb.getFeature()!=null) {
-						any[0] = true;
-						plan.addFeature(hb.getFeature());
+						any[0] |= plan.addFeature(hb.getFeature());
 					}
 				}
 			});
 		}
 		for (ChangeFeature f: snapshot.getFeatures()) {
-			plan.addFeature(f);
-			any[0] |= true;
+			any[0] |= plan.addFeature(f);
 		}
-
-		if (!snapshot.getDutiesDangling().isEmpty()) {
-			plan.addFeature(ChangeFeature.FIXES_DANGLING);
+		if (!snapshot.getDisturbance(EntityState.DANGLING).isEmpty()) {
+			any[0] |= plan.addFeature(ChangeFeature.FIXES_DANGLING);
 		}
-		if (!snapshot.getDutiesMissing().isEmpty()) {
-			plan.addFeature(ChangeFeature.FIXES_MISSING);
+		if (!snapshot.getDisturbance(EntityState.MISSING).isEmpty()) {
+			any[0] |= plan.addFeature(ChangeFeature.FIXES_MISSING);
 		}
 		return any[0];
 	}
@@ -171,8 +167,8 @@ class ChangePlanFactory {
 			}
 			
 			// only when everything went well otherwise'd be lost
-			scheme.getDirty().clearAllocatedMissing(null);
-			scheme.getDirty().cleanAllocatedDanglings(null);
+			scheme.getDirty().cleanAllocatedDisturbance(EntityState.DANGLING, null);
+			scheme.getDirty().cleanAllocatedDisturbance(EntityState.MISSING, null);
 			if (!changes && compiler.getDeletions().isEmpty()) {
 				return false;
 			}

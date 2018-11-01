@@ -174,7 +174,6 @@ public class Distributor implements Service {
 			scheme.setPlan(changePlan);
 			this.scheme.setDistributionHealth(ClusterHealth.UNSTABLE);			
 			changePlan.build();
-			scheme.getDirty().dropSnapshot();
 			if (logger.isInfoEnabled()) {
 				logger.info("{}: Balancer generated issues on ChangePlan: {}", getName(), changePlan.getId());
 			}

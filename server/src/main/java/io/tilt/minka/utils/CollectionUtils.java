@@ -18,6 +18,7 @@ package io.tilt.minka.utils;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -113,7 +114,7 @@ public class CollectionUtils {
 		}
 		
 		public Set<E> values() {
-			return this.set;
+			return Collections.synchronizedSet(this.set);
 		}
 		public Iterator<E> descend() {
 			return set.descendingIterator();

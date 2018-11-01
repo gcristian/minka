@@ -14,6 +14,7 @@ import io.tilt.minka.api.crud.Reply;
 import io.tilt.minka.core.leader.data.CrudRepository;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.domain.DependencyPlaceholder;
+import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.model.Duty;
 import io.tilt.minka.model.Pallet;
@@ -159,7 +160,7 @@ public class PhaseLoader {
 			if (!sorted.isEmpty()) {
 				logger.error("{}: Consistency check: Absent duties going as Missing [ {}]", getClass().getSimpleName(),
 						ShardEntity.toStringIds(sorted));
-				scheme.getDirty().addMissing(sorted);
+				scheme.getDirty().addDisturbance(EntityState.MISSING, sorted);
 			}
 		}
 	}

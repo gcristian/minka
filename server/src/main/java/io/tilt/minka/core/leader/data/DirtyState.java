@@ -3,6 +3,7 @@ package io.tilt.minka.core.leader.data;
 import static java.util.Collections.synchronizedMap;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -47,24 +48,30 @@ public class DirtyState {
 		put(EntityEvent.REMOVE, synchronizedMap(new HashMap<>()));
 	}});
 	
+	private final Map<EntityState, Map<Duty, ShardEntity>> problems = synchronizedMap(new HashMap() {{
+		// fallen shards's duties
+		put(EntityState.DANGLING, synchronizedMap(new HashMap<>()));
+		// absences in shards's reports
+		put(EntityState.MISSING, synchronizedMap(new HashMap<>()));
+		put(EntityState.STUCK, synchronizedMap(new HashMap<>()));
+	}});
+	
 	// creations and removes willing to be attached or detached to/from shards.
 	private final Map<Pallet, ShardEntity> palletCrud = synchronizedMap(new HashMap<>());
-	// absences in shards's reports
-	private Map<Duty, ShardEntity> dutyMissings = synchronizedMap(new HashMap<>());
-	// fallen shards's duties
-	private Map<Duty, ShardEntity> dutyDangling = synchronizedMap(new HashMap<>());
-	private Instant snaptake;
-	
+		
 	// read-only snapshot for ChangePlanBuilder thread (not to be modified, stage remains MASTER)
 	private DirtyState snapshot;
-	private boolean stealthChange;
+	private DirtyState running;
+	private Instant snaptake;
 	private boolean snap = false;
+	
 	private Instant lastStealthChange;
+	private boolean stealthChange;
 	
 	/* only for featuring traceability*/
 	private boolean limitedPromotion;
 	private Set<ChangeFeature> clusterFeatures = new HashSet<>(2); 
-	
+		
 	/** @return a frozen state of stage, so message-events threads 
 	 * (threadpool-size independently) can still modify the instance for further change plans */
 	public synchronized DirtyState snapshot() {
@@ -78,8 +85,8 @@ public class DirtyState {
 			}
 			snap.clusterFeatures.addAll(clusterFeatures);
 			clusterFeatures.clear();
-			snap.dutyDangling.putAll(this.dutyDangling);
-			snap.dutyMissings.putAll(this.dutyMissings);
+			snap.problems.put(EntityState.DANGLING, problems.get(EntityState.DANGLING));
+			snap.problems.put(EntityState.MISSING, problems.get(EntityState.MISSING));
 			snap.palletCrud.putAll(this.palletCrud);			
 			snap.snap = true;
 			this.snapshot = snap;
@@ -113,9 +120,13 @@ public class DirtyState {
 			throw new IllegalStateException("already a snapshot - bad usage !");
 		}
 	}
-	
-	public void dropSnapshot() {
+	/** 
+	 * move snapshot ref. to running version until new change plan and clean snapshot reference
+	 * required when activates limited promotions, so they have CR states to be found & notified  
+	 */
+	public void dropSnapshotToRunning() {
 		checkNotOnSnap();
+		this.running = this.snapshot;
 		this.snapshot = null;
 	}
 	
@@ -174,30 +185,30 @@ public class DirtyState {
 	
 	
 	/** @return read only set */
-	public Collection<ShardEntity> getDutiesDangling() {
-		return Collections.unmodifiableCollection(this.dutyDangling.values());
+	public Collection<ShardEntity> getDisturbance(final EntityState es) {
+		return Collections.unmodifiableCollection(this.problems.get(es).values());
 	}
 
 	/** @return true if added for the first time else is being replaced */
-	public boolean addDangling(final Collection<ShardEntity> dangling) {
+	public boolean addDisturbance(final EntityState type, final Collection<ShardEntity> problems) {
 		boolean added = false; 
-		for (ShardEntity d: dangling) {
-			added |= this.dutyDangling.put(d.getDuty(), d) == null;
+		for (ShardEntity d: problems) {
+			added |= this.problems.get(type).put(d.getDuty(), d) == null;
 		}
 		turnOnStealth(added);
 		return added;
 	}
 	
-	public boolean addDangling(final ShardEntity dangling) {
-		final boolean added = this.dutyDangling.put(dangling.getDuty(), dangling) == null;
+	public boolean addDisturbance(final EntityState type, final ShardEntity problem) {
+		final boolean added = this.problems.get(type).put(problem.getDuty(), problem) == null;
 		turnOnStealth(added);
 		return added;
 
 	}
-	public void cleanAllocatedDanglings(final Predicate<ShardEntity> test) {
+	public void cleanAllocatedDisturbance(final EntityState type, final Predicate<ShardEntity> test) {
 		checkNotOnSnap();
-		if (snapshot!=null && !dutyDangling.isEmpty()) {
-			remove(snapshot.dutyDangling, dutyDangling, s->s.getLastState() != EntityState.STUCK 
+		if (snapshot!=null && !problems.get(type).isEmpty()) {
+			remove(snapshot.problems.get(type), problems.get(type), s->s.getLastState() != EntityState.STUCK 
 					&& test==null || (test!=null && test.test(s)));
 		}
 	}
@@ -212,29 +223,6 @@ public class DirtyState {
 		}
 	}
 
-	/** @return read only set */
-	public Collection<ShardEntity> getDutiesMissing() {
-		return Collections.unmodifiableCollection(this.dutyMissings.values());
-	}
-	
-	public void clearAllocatedMissing(final Predicate<ShardEntity> test) {
-		checkNotOnSnap();
-		if (snapshot!=null && !dutyMissings.isEmpty()) {
-			remove(snapshot.dutyMissings, dutyMissings, s->s.getLastState() != EntityState.STUCK 
-					&& test==null || (test!=null && test.test(s)));
-		}
-	}
-	
-	public boolean addMissing(final Collection<ShardEntity> duties) {
-		checkNotOnSnap();
-		boolean added = false;
-		for (ShardEntity d: duties) {
-			added |= dutyMissings.put(d.getDuty(), d) == null;
-		}
-		turnOnStealth(added);
-		return true;
-	}
-	
 	// ====================================================================================================
 	
 	public int commitRequestsSize() {
@@ -283,18 +271,6 @@ public class DirtyState {
 	
 	/** @return a CR matching {event & entity} if any, and step state to next according event */
 	public CommitRequest updateCommitRequest(final EntityEvent event, final ShardEntity entity) {
-		
-		/**
-		 * EL BUG ES ASI:
-		 * 
-		 * antes de LIMIT, los CRs no tenian Snapshot.
-		 * Entonces no se eliminaban, solo se  clearaba y listo...
-		 * entonces luego el sTateSentry los encontraba
-		 * ..ahora se borran... al limitarse..
-		 * entonces no se encuentran...
-		 * 
-		 * 
-		 */
 		return updateCommitRequest(event, entity, null);
 	}
 	
@@ -363,13 +339,11 @@ public class DirtyState {
 	}
 
 	public void logStatus() {
-		if (!dutyMissings.isEmpty()) {
-			logger.warn("{}: {} Missing duties: [ {}]", getClass().getSimpleName(), dutyMissings.size(),
-					ShardEntity.toDutyStringIds(dutyMissings.keySet()));
-		}
-		if (!dutyDangling.isEmpty()) {
-			logger.warn("{}: {} Dangling duties: [ {}]", getClass().getSimpleName(), dutyDangling.size(),
-					ShardEntity.toDutyStringIds(dutyDangling.keySet()));
+		for (EntityState type: Arrays.asList(EntityState.DANGLING, EntityState.MISSING)) {
+			if (!problems.get(type).isEmpty()) {
+				logger.warn("{}: {} {} duties: [ {}]", getClass().getSimpleName(), problems.get(type).size(),
+					type, ShardEntity.toDutyStringIds(problems.get(type).keySet()));
+			}
 		}
 		if (getSize()==0) {
 			logger.info("{}: no CRUD duties", getClass().getSimpleName());
@@ -389,6 +363,9 @@ public class DirtyState {
 	}
 	public Set<ChangeFeature> getFeatures() {
 		return clusterFeatures;
+	}
+	public DirtyState getRunning() {
+		return running;
 	}
 	
 }

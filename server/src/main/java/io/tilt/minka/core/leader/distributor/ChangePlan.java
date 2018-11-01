@@ -529,11 +529,11 @@ public class ChangePlan implements Comparable<ChangePlan> {
 		return version;
 	}
 
-	public void addFeature(final ChangeFeature feature) {
+	public boolean addFeature(final ChangeFeature feature) {
 		if (changeFeature == null) {
 			changeFeature = new HashSet<>();
 		}
-		changeFeature.add(feature);
+		return changeFeature.add(feature);
 	}
 
 	@JsonProperty("features")

@@ -176,7 +176,7 @@ class DirtyCompiler {
 		final Set<ShardEntity> dutyCreations = new HashSet<>();
 		snapshot.findDutiesCrud(CREATE, null, dutyCreations::add);
 		// add danglings as creations prior to migrations
-		for (ShardEntity d: snapshot.getDutiesDangling()) {
+		for (ShardEntity d: snapshot.getDisturbance(EntityState.DANGLING)) {
 			dutyCreations.add(ShardEntity.Builder.builderFrom(d).build());			
 		}
 		
@@ -187,7 +187,7 @@ class DirtyCompiler {
 	}
 	
 	private void addMissingAsCrud() {
-	    final Collection<ShardEntity> missing = snapshot.getDutiesMissing();
+	    final Collection<ShardEntity> missing = snapshot.getDisturbance(EntityState.MISSING);
 		for (final ShardEntity missed : missing) {
 			final Shard lazy = state.findDutyLocation(missed);
 			if (logger.isDebugEnabled()) {

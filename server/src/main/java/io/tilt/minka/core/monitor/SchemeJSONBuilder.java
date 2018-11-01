@@ -30,6 +30,7 @@ import org.json.JSONObject;
 import io.tilt.minka.core.leader.data.DirtyState;
 import io.tilt.minka.core.leader.data.Scheme;
 import io.tilt.minka.domain.EntityRecord;
+import io.tilt.minka.domain.EntityState;
 import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.domain.ShardedPartition;
 
@@ -92,8 +93,8 @@ public class SchemeJSONBuilder {
 	private Map<String, Object> buildDirtyState(final boolean detail, final DirtyState dirtyState) {
 		final Map<String, Object> ret = new LinkedHashMap<>(3);		
 		ret.put("crud", dutyBrief(dirtyState.getDutiesCrud(), detail));
-		ret.put("dangling", dutyBrief(dirtyState.getDutiesDangling(), detail));
-		ret.put("missing", dutyBrief(dirtyState.getDutiesMissing(), detail));
+		ret.put("dangling", dutyBrief(dirtyState.getDisturbance(EntityState.DANGLING), detail));
+		ret.put("missing", dutyBrief(dirtyState.getDisturbance(EntityState.MISSING), detail));
 		return ret;
 	}
 	

@@ -159,7 +159,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 					for (CommitRequest req: stageRequestsGroup) {
 						req.markSent();
 						// clear for good out of DirtyState							
-						scheme.getDirty().updateCommitRequest(
+						scheme.getDirty().getRunning().updateCommitRequest(
 								req.getEntity().getLastEvent(), 
 								req.getEntity(), 
 								CommitState.FINISHED);
@@ -176,7 +176,7 @@ public class StateSentry implements BiConsumer<Heartbeat, Shard> {
 		requests.stream()
 			.filter(r-> !r.isRespondState())
 			.forEach(r-> {
-				scheme.getDirty().updateCommitRequest(
+				scheme.getDirty().getRunning().updateCommitRequest(
 						r.getEntity().getLastEvent(), 
 						r.getEntity());
 			});
