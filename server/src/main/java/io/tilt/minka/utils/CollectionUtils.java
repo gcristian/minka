@@ -23,11 +23,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Supplier;
 
 import org.apache.commons.lang.Validate;
 import org.joda.time.DateTime;
@@ -53,6 +54,10 @@ public class CollectionUtils {
 	
 	public static <E>SlidingSortedSet<E> sliding(int maxSize) {
 		return new SlidingSortedSet<>(maxSize);
+	}
+
+	public static <K, V>SlidingMap<K, V> slidingMap(int maxSize) {
+		return new SlidingMap<>(maxSize);
 	}
 
 	public static class CircularCollection<T> {
@@ -124,6 +129,39 @@ public class CollectionUtils {
 			final StringBuilder sb = new StringBuilder();
 			set.forEach(e->sb.append(e).append(','));
 			return sb.toString();
+		}
+	}
+	
+	public static class SlidingMap<K, V> {
+
+		private final SortedMap<K, V> map;
+		private final int maxSize;
+
+		private SlidingMap(int maxSize) {
+			super();
+			Validate.isTrue(maxSize > 0);
+			this.maxSize = maxSize;
+			this.map = new TreeMap<>();
+		}
+
+		public SortedMap<K, V> map() {
+			return this.map;
+		}
+		public K put(final K k, final V v) {
+			Validate.notNull(k);
+			Validate.notNull(v);
+			map.put(k, v);
+			if (map.size() > maxSize) {
+				final K ok = map.firstKey();
+				map.remove(ok);
+				return ok;
+			}
+			return null;
+		}
+		
+		@Override
+		public String toString() {
+			return map.toString();
 		}
 	}
 	

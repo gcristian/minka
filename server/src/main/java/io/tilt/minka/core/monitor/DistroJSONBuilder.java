@@ -44,6 +44,7 @@ import io.tilt.minka.domain.ShardEntity;
 import io.tilt.minka.shard.NetworkShardIdentifier;
 import io.tilt.minka.shard.Shard;
 import io.tilt.minka.utils.CollectionUtils;
+import io.tilt.minka.utils.CollectionUtils.SlidingMap;
 import io.tilt.minka.utils.CollectionUtils.SlidingSortedSet;
 
 /**
@@ -62,7 +63,7 @@ public class DistroJSONBuilder {
 	
 	private final ChangePlan[] lastPlan = {null};
 	private final SlidingSortedSet<String> changePlanHistory;
-	private final SlidingSortedSet<Long> planids;
+	private final SlidingMap<Integer, Long> planids;
 	private long planAccum;
 
 	public DistroJSONBuilder(
@@ -76,14 +77,14 @@ public class DistroJSONBuilder {
 		this.scheme = requireNonNull(scheme);
 		
 		this.changePlanHistory = CollectionUtils.sliding(20);
-		this.planids = CollectionUtils.sliding(10);
+		this.planids = CollectionUtils.slidingMap(10);
 		
 		scheme.addChangeObserver(()-> {
 			try {
 				if (lastPlan[0]!=null) {
 					if (!lastPlan[0].equals(scheme.getCurrentPlan())) {
 						changePlanHistory.add(SystemStateMonitor.toJson(lastPlan[0]));
-						planids.add(lastPlan[0].getId());
+						planids.put(lastPlan[0].getVersion(), lastPlan[0].getId());
 						planAccum++;
 					}
 				}
@@ -142,7 +143,7 @@ public class DistroJSONBuilder {
 		try {
 			js.put("total", planAccum);
 			js.put("retention", changePlanHistory.size() + (lastPlan[0]!=null ? 1 : 0));
-			js.put("ids", this.planids.values());
+			js.put("vids", this.planids.map());
 			if (lastPlan[0]!=null) {
 				js.put("last", new JSONObject(SystemStateMonitor.toJson(lastPlan[0])));
 			}
