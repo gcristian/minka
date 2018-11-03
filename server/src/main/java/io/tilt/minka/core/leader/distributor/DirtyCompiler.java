@@ -140,7 +140,7 @@ class DirtyCompiler {
 			int rescued = previous.findAllNonConfirmedFromAllDeliveries(d->{
 				if (p.test(d)) {
 					c.accept(d);
-					changePlan.addFeature(ChangeFeature.FIXES_UNFINISHED);
+					changePlan.addFeature(ChangeFeature.RESTORE_UNFINISHED);
 				}
 			});
 			if (rescued ==0 && logger.isInfoEnabled()) {

@@ -133,10 +133,10 @@ class ChangePlanFactory {
 			any[0] |= plan.addFeature(f);
 		}
 		if (!snapshot.getDisturbance(EntityState.DANGLING).isEmpty()) {
-			any[0] |= plan.addFeature(ChangeFeature.FIXES_DANGLING);
+			any[0] |= plan.addFeature(ChangeFeature.RESTORE_DANGLING);
 		}
 		if (!snapshot.getDisturbance(EntityState.MISSING).isEmpty()) {
-			any[0] |= plan.addFeature(ChangeFeature.FIXES_MISSING);
+			any[0] |= plan.addFeature(ChangeFeature.RESTORE_MISSING);
 		}
 		return any[0];
 	}

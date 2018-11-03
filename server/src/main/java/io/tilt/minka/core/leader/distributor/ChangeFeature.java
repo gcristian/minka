@@ -3,11 +3,11 @@ package io.tilt.minka.core.leader.distributor;
 /** reasons for {@linkplain ChangePlan} will be built */
 public enum ChangeFeature {
 	/** fallen shard saved duties */
-	FIXES_DANGLING,
+	RESTORE_DANGLING,
 	/** existing shard dropped duties */
-	FIXES_MISSING,
+	RESTORE_MISSING,
 	/** restoring previous plan pending never confirmed duties */
-	FIXES_UNFINISHED,
+	RESTORE_UNFINISHED,
 	/** a change in the shards registered in the cluster*/
 	CLUSTER_EXPAND,
 	CLUSTER_SHRINK,
