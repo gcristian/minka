@@ -114,7 +114,7 @@ public class CmdLineApp {
 		ownConfig.getBootstrap().setZookeeperHostPort(quest.get(Quest.zk));
 		
 		ownConfig.getBroker().setEnablePortFallback(true);
-		ownConfig.getBootstrap().setBeatUnitMs(100);
+		ownConfig.getBootstrap().setBeatUnitMs(200);
 		ownConfig.getBootstrap().setDropVMLimit(true);
 		ownConfig.getBootstrap().setEnableCoreDump(debug);
 		ownConfig.getBootstrap().setCoreDumpFilepath("/tmp/");

@@ -26,7 +26,7 @@ public class LatchHandler {
 
 	public static final int NO_EXPIRATION = -1;
 	public static final int MAX_STALE_SIZE = Short.MAX_VALUE;
-	public static final int MAX_STALE_DURATION_MS = 1000 * 60;
+	public static final int MAX_STALE_DURATION_MS = 1_000 * 60;
 	
 	// 1 - Lot for CRUD parking futures (reply from Leader about consistency of a creation/deletion )
 	private Map<String, Transfer> replies = Collections.synchronizedMap(new HashMap<>(1024));

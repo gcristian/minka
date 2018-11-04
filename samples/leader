@@ -18,7 +18,7 @@ fi
 
 PATH='/minka/admin/shards'
 
-for PID in `$jps -mlv | $grep io.tilt | $cut -d' ' -f1`; do
+for PID in `$jps -mlv | $grep -e io.tilt -e minka | $cut -d' ' -f1`; do
 	LOCAL_ADDRESS=$($lsof -iTCP -sTCP:LISTEN -n -P 2>/dev/null | $grep $PID | $awk '{print $9}');
 	for HOSTPORT in ${LOCAL_ADDRESS[@]}; do
 		LEADER="$curl -sn $HOSTPORT$PATH -XGET"

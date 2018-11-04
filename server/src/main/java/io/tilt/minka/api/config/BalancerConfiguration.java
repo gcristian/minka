@@ -17,7 +17,7 @@ public class BalancerConfiguration {
 	
 	public static final MaxUnit SPILL_OVER_MAX_UNIT = MaxUnit.USE_CAPACITY;
 	private MaxUnit spillOverMaxUnit;
-	public static final double SPILL_OVER_MAX_VALUE = 99999999999d;
+	public static final double SPILL_OVER_MAX_VALUE = 99_999_999_999d;
 	private double spillOverMaxValue;
 	
 	public static final Dispersion FAIR_WEIGHT_DISPERSION = Dispersion.EVEN;
