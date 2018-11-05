@@ -22,7 +22,7 @@ import io.tilt.minka.shard.TCPShardIdentifier;
 
 public class CmdLineApp {
 
-	public static boolean useDefaults = Boolean.parseBoolean(System.getProperty("useDefaults", "true"));
+	public static boolean useDefaults = Boolean.parseBoolean(System.getProperty("useDefaults", "false"));
 	
 	public static void main(String[] args) {
 		boolean debug = false;

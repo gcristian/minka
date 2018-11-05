@@ -49,9 +49,7 @@ public class DirtyState {
 	}});
 	
 	private final Map<EntityState, Map<Duty, ShardEntity>> problems = synchronizedMap(new HashMap() {{
-		// fallen shards's duties
 		put(EntityState.DANGLING, synchronizedMap(new HashMap<>()));
-		// absences in shards's reports
 		put(EntityState.MISSING, synchronizedMap(new HashMap<>()));
 		put(EntityState.STUCK, synchronizedMap(new HashMap<>()));
 	}});
@@ -85,9 +83,9 @@ public class DirtyState {
 			}
 			snap.clusterFeatures.addAll(clusterFeatures);
 			clusterFeatures.clear();
-			snap.problems.put(EntityState.DANGLING, problems.get(EntityState.DANGLING));
-			snap.problems.put(EntityState.MISSING, problems.get(EntityState.MISSING));
-			snap.palletCrud.putAll(this.palletCrud);			
+			snap.problems.put(EntityState.DANGLING, new HashMap<>(problems.get(EntityState.DANGLING)));
+			snap.problems.put(EntityState.MISSING, new HashMap<>(problems.get(EntityState.MISSING)));
+			snap.palletCrud.putAll(this.palletCrud);
 			snap.snap = true;
 			this.snapshot = snap;
 		}
@@ -208,8 +206,10 @@ public class DirtyState {
 	public void cleanAllocatedDisturbance(final EntityState type, final Predicate<ShardEntity> test) {
 		checkNotOnSnap();
 		if (snapshot!=null && !problems.get(type).isEmpty()) {
-			remove(snapshot.problems.get(type), problems.get(type), s->s.getLastState() != EntityState.STUCK 
-					&& test==null || (test!=null && test.test(s)));
+			final Map<Duty, ShardEntity> deletes = snapshot.problems.get(type);
+			final Predicate<ShardEntity> p = s->s.getLastState() != EntityState.STUCK 
+					&& test==null || (test!=null && test.test(s));
+			remove(deletes, problems.get(type), p);
 		}
 	}
 	private void remove(
